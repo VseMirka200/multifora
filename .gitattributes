@@ -1,0 +1,39 @@
+# Управление окончаниями строк
+*.py text eol=lf
+*.pyw text eol=lf
+*.txt text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.ini text eol=lf
+*.cfg text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+.json text eol=lf
+
+# Бинарные файлы
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.zip binary
+*.tar.gz binary
+*.7z binary
+*.rar binary
+
+# Исполняемые скрипты
+*.sh text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Игнорировать изменения прав доступа
+* -text

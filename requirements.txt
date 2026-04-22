@@ -1,0 +1,11 @@
+docx2pdf
+pywin32
+pdf2docx
+pdf2image
+PyMuPDF
+Pillow
+pandas
+odfpy
+python-docx
+PyQt6
+PyInstaller
