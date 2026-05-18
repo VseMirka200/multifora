@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QPushButton,
     QScrollArea,
@@ -243,8 +244,73 @@ class OperationsTabLayoutMixin:
         convert_card_layout.addWidget(convert_content)
 
         self._add_operations_page(self._wrap_operations_page(convert_card, "convert_page"), "Конвертация")
-        
-        # Секция 3: Сжатие файлов (карточка)
+
+        # Секция 3: Объединение документов (карточка)
+        merge_card = QFrame()
+        merge_card.setObjectName("card")
+        merge_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        merge_card_layout = QVBoxLayout(merge_card)
+        merge_card_layout.setContentsMargins(8, 6, 8, 6)
+        merge_card_layout.setSpacing(4)
+
+        merge_content = QWidget()
+        merge_layout = QVBoxLayout(merge_content)
+        merge_layout.setSpacing(4)
+        merge_layout.setContentsMargins(0, 0, 0, 0)
+
+        merge_format_label = QLabel("Формат результата:")
+        merge_format_label.setStyleSheet("font-size: 13px;")
+        merge_format_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        merge_format_label.setWordWrap(True)
+        merge_layout.addWidget(merge_format_label)
+
+        self.combo_merge_format = MenuLikeComboBox()
+        self.combo_merge_format.addItem("PDF (Word и PDF)", "pdf")
+        self.combo_merge_format.addItem("DOCX (только DOCX)", "docx")
+        self.combo_merge_format.addItem("Авто", "auto")
+        setup_standard_dropdown(self.combo_merge_format)
+        self.combo_merge_format.currentIndexChanged.connect(self.on_merge_format_changed)
+        merge_layout.addWidget(self.combo_merge_format)
+
+        merge_output_label = QLabel("Сохранить как:")
+        merge_output_label.setStyleSheet("font-size: 13px;")
+        merge_output_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        merge_output_label.setWordWrap(True)
+        merge_layout.addWidget(merge_output_label)
+
+        merge_output_row = QWidget()
+        merge_output_row_layout = QHBoxLayout(merge_output_row)
+        merge_output_row_layout.setContentsMargins(0, 0, 0, 0)
+        merge_output_row_layout.setSpacing(4)
+
+        self.input_merge_output_path = QLineEdit()
+        self.input_merge_output_path.setReadOnly(True)
+        self.input_merge_output_path.setPlaceholderText("Выберите файл сохранения")
+        merge_output_row_layout.addWidget(self.input_merge_output_path, 1)
+
+        self.btn_merge_output_path = QPushButton("...")
+        self.btn_merge_output_path.setFixedWidth(34)
+        setup_standard_action_button(self.btn_merge_output_path, height=28)
+        self.btn_merge_output_path.clicked.connect(self.select_merge_output_path)
+        merge_output_row_layout.addWidget(self.btn_merge_output_path)
+        merge_layout.addWidget(merge_output_row)
+
+        self.btn_merge = QPushButton("Объединить")
+        setup_standard_primary_button(self.btn_merge, height=28)
+        self.btn_merge.clicked.connect(self.merge_files)
+        merge_layout.addSpacing(4)
+        merge_layout.addWidget(self.btn_merge)
+
+        self.merge_info_label = QLabel("Порядок берется из списка файлов. Если ничего не выделено, объединяются все файлы.")
+        self.merge_info_label.setStyleSheet("font-size: 13px; color: #90caf9; margin-top: 3px;")
+        self.merge_info_label.setWordWrap(True)
+        merge_layout.addWidget(self.merge_info_label)
+
+        merge_card_layout.addWidget(merge_content)
+
+        self._add_operations_page(self._wrap_operations_page(merge_card, "merge_page"), "Объединение")
+
+        # Секция 4: Сжатие файлов (карточка)
         compress_card = QFrame()
         compress_card.setObjectName("card")
         compress_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
@@ -510,4 +576,3 @@ class OperationsTabLayoutMixin:
         layout.setColumnStretch(0, 1)
         layout.setHorizontalSpacing(4)
         layout.setVerticalSpacing(0)
-

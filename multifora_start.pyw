@@ -24,7 +24,7 @@ def main():
         if icon_path:
             app.setWindowIcon(QIcon(icon_path))
     except Exception as exc:
-        _debug_log(f"РћС€РёР±РєР° РёРєРѕРЅРєРё РїСЂРёР»РѕР¶РµРЅРёСЏ: {exc}")
+        _debug_log(f"\u041e\u0448\u0438\u0431\u043a\u0430 \u0438\u043a\u043e\u043d\u043a\u0438 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f: {exc}")
 
     startup_files = collect_startup_files()
     first = is_first_instance()
@@ -32,11 +32,11 @@ def main():
     if not first:
         sent = send_files_to_running_instance(startup_files)
         if startup_files and not sent:
-            _debug_log("РќРµ СѓРґР°Р»РѕСЃСЊ РїРµСЂРµРґР°С‚СЊ СЃС‚Р°СЂС‚РѕРІС‹Рµ С„Р°Р№Р»С‹ СѓР¶Рµ Р·Р°РїСѓС‰РµРЅРЅРѕРјСѓ СЌРєР·РµРјРїР»СЏСЂСѓ")
+            _debug_log("\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u0435\u0440\u0435\u0434\u0430\u0442\u044c \u0441\u0442\u0430\u0440\u0442\u043e\u0432\u044b\u0435 \u0444\u0430\u0439\u043b\u044b \u0443\u0436\u0435 \u0437\u0430\u043f\u0443\u0449\u0435\u043d\u043d\u043e\u043c\u0443 \u044d\u043a\u0437\u0435\u043c\u043f\u043b\u044f\u0440\u0443")
             QMessageBox.warning(
                 None,
                 "Multifora",
-                "РќРµ СѓРґР°Р»РѕСЃСЊ РїРµСЂРµРґР°С‚СЊ С„Р°Р№Р»С‹ РІ СѓР¶Рµ Р·Р°РїСѓС‰РµРЅРЅС‹Р№ СЌРєР·РµРјРїР»СЏСЂ РїСЂРёР»РѕР¶РµРЅРёСЏ.",
+                "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u0435\u0440\u0435\u0434\u0430\u0442\u044c \u0444\u0430\u0439\u043b\u044b \u0432 \u0443\u0436\u0435 \u0437\u0430\u043f\u0443\u0449\u0435\u043d\u043d\u044b\u0439 \u044d\u043a\u0437\u0435\u043c\u043f\u043b\u044f\u0440 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f.",
             )
         sys.exit(0)
 

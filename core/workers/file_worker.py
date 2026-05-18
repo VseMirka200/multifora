@@ -2,10 +2,11 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 from .compression import CompressionMixin
 from .conversion import ConversionMixin
+from .merge import MergeMixin
 from .operations import FileOpsMixin
 
 
-class FileWorker(FileOpsMixin, ConversionMixin, CompressionMixin, QThread):
+class FileWorker(FileOpsMixin, ConversionMixin, CompressionMixin, MergeMixin, QThread):
     progress = pyqtSignal(int)
     status = pyqtSignal(str)
     finished = pyqtSignal(object)
@@ -24,6 +25,8 @@ class FileWorker(FileOpsMixin, ConversionMixin, CompressionMixin, QThread):
         self.pdf_method = "auto"
         self.replace_pdf = False
         self.replace_image = False
+        self.merge_output_format = "pdf"
+        self.merge_output_path = ""
         self._last_pdf_error = ""
         self._cancel_requested = False
         self.errors = []
@@ -84,6 +87,14 @@ class FileWorker(FileOpsMixin, ConversionMixin, CompressionMixin, QThread):
         self._cancel_requested = False
         self.errors = []
 
+    def set_merge(self, files: list, output_format: str = "pdf", output_path: str = ""):
+        self.operation = "merge"
+        self.files = files
+        self.merge_output_format = output_format
+        self.merge_output_path = output_path
+        self._cancel_requested = False
+        self.errors = []
+
     def run(self):
         try:
             if self.operation == "copy":
@@ -99,6 +110,8 @@ class FileWorker(FileOpsMixin, ConversionMixin, CompressionMixin, QThread):
                     self._compress_pdf_files()
                 else:
                     self._compress_image_files_with_replace_support()
+            elif self.operation == "merge":
+                self._merge_files()
         except Exception as e:
             self._record_error(None, str(e))
             self.error.emit(str(e))

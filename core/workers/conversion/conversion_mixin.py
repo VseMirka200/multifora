@@ -374,7 +374,14 @@ class ConversionMixin:
                                 raise Exception("Конвертация отменена пользователем")
                             return pdf_path
                     except Exception as com_error:
-                        raise Exception(f"Скрытая COM-конвертация недоступна: {com_error}")
+                        _debug_log(f"Скрытая COM-конвертация недоступна: {com_error}")
+
+                    word_to_pdf(file.path, pdf_path)
+                    if self._should_cancel():
+                        raise Exception("Конвертация отменена пользователем")
+                    if os.path.exists(pdf_path):
+                        return pdf_path
+                    raise Exception("docx2pdf не создал выходной PDF-файл")
                 except Exception as e:
                     err_text = str(e)
                     if ("NoneType" in err_text and "write" in err_text) or ("could not start Microsoft Word" in err_text):

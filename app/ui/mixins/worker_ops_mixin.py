@@ -1,11 +1,84 @@
-﻿from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import QMessageBox
+﻿import os
+
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtWidgets import QFileDialog, QMessageBox
 
 from app.core.app_utils import _debug_log
 from app.core.models import FileItem
 
 
 class WorkerOpsMixin:
+    def _get_selected_or_all_file_items(self) -> list[FileItem]:
+        selected_items = self.list_files.selectedItems()
+        if selected_items:
+            files = []
+            for item in selected_items:
+                file_item = item.data(Qt.ItemDataRole.UserRole)
+                if file_item and file_item.is_file:
+                    files.append(file_item)
+            return files
+        return [file_item for file_item in self.files if getattr(file_item, "is_file", False)]
+
+    def _resolve_merge_output_format(self, files: list[FileItem], selected_format: str) -> str:
+        if selected_format == "auto":
+            if all(file.path.lower().endswith(".docx") for file in files):
+                return "docx"
+            return "pdf"
+        return selected_format or "pdf"
+
+    def _select_merge_output_path_for_format(self, output_format: str, files: list[FileItem]) -> str:
+        extension = "docx" if output_format == "docx" else "pdf"
+        filter_text = "Word Document (*.docx)" if extension == "docx" else "PDF Document (*.pdf)"
+        start_folder = os.path.dirname(files[0].path) if files else ""
+        default_path = os.path.join(start_folder, f"Объединенный_документ.{extension}")
+
+        current_path = ""
+        if hasattr(self, "input_merge_output_path") and self.input_merge_output_path is not None:
+            current_path = self.input_merge_output_path.text().strip()
+        if current_path:
+            default_path = current_path
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Куда сохранить объединенный документ",
+            default_path,
+            f"{filter_text};;Все файлы (*.*)",
+        )
+        if not file_path:
+            return ""
+
+        base, ext = os.path.splitext(file_path)
+        if ext.lower() != f".{extension}":
+            file_path = f"{base}.{extension}" if base else f"{file_path}.{extension}"
+        if hasattr(self, "input_merge_output_path") and self.input_merge_output_path is not None:
+            self.input_merge_output_path.setText(file_path)
+        return file_path
+
+    def select_merge_output_path(self):
+        files = self._get_selected_or_all_file_items()
+        selected_format = "pdf"
+        if hasattr(self, "combo_merge_format") and self.combo_merge_format is not None:
+            selected_format = str(self.combo_merge_format.currentData() or "pdf")
+        output_format = self._resolve_merge_output_format(files, selected_format)
+        self._select_merge_output_path_for_format(output_format, files)
+
+    def on_merge_format_changed(self):
+        if not hasattr(self, "input_merge_output_path") or self.input_merge_output_path is None:
+            return
+        current_path = self.input_merge_output_path.text().strip()
+        if not current_path:
+            return
+        selected_format = "pdf"
+        if hasattr(self, "combo_merge_format") and self.combo_merge_format is not None:
+            selected_format = str(self.combo_merge_format.currentData() or "pdf")
+        if selected_format == "auto":
+            self.input_merge_output_path.clear()
+            return
+        extension = ".docx" if selected_format == "docx" else ".pdf"
+        base, _ext = os.path.splitext(current_path)
+        if base:
+            self.input_merge_output_path.setText(f"{base}{extension}")
+
     def convert_files(self, conversion_type: str, target_format: str = ""):
         """Конвертация файлов."""
         selected_items = self.list_files.selectedItems()
@@ -161,6 +234,64 @@ class WorkerOpsMixin:
         if callable(getattr(self, "_update_compress_button", None)):
             self._update_compress_button()
         self.status_bar.showMessage(f"Сжатие {len(files)} файлов...")
+
+    def merge_files(self):
+        """Объединение Word/PDF документов в один файл."""
+        files = self._get_selected_or_all_file_items()
+        if len(files) < 2:
+            QMessageBox.warning(self, "Ошибка", "Добавьте или выберите минимум два документа для объединения!")
+            return
+
+        selected_format = "pdf"
+        if hasattr(self, "combo_merge_format") and self.combo_merge_format is not None:
+            selected_data = self.combo_merge_format.currentData()
+            if selected_data:
+                selected_format = str(selected_data)
+        output_format = self._resolve_merge_output_format(files, selected_format)
+
+        if output_format == "docx":
+            if not all(file.path.lower().endswith(".docx") for file in files):
+                QMessageBox.warning(self, "Ошибка", "Для результата DOCX выберите только файлы DOCX.")
+                return
+            format_label = "DOCX"
+        else:
+            if not all(file.path.lower().endswith((".doc", ".docx", ".pdf")) for file in files):
+                QMessageBox.warning(self, "Ошибка", "Для объединения выберите документы Word или PDF.")
+                return
+            format_label = "PDF"
+
+        output_path = ""
+        if hasattr(self, "input_merge_output_path") and self.input_merge_output_path is not None:
+            output_path = self.input_merge_output_path.text().strip()
+        if not output_path:
+            output_path = self._select_merge_output_path_for_format(output_format, files)
+            if not output_path:
+                return
+
+        reply = self.show_russian_message_box(
+            "Подтверждение",
+            f"Объединить {len(files)} документов в один {format_label}?\n\nСохранить:\n{output_path}",
+            QMessageBox.Icon.Question,
+            True,
+        )
+        if not reply:
+            return
+
+        if not self.create_file_worker():
+            return
+
+        self.file_worker.set_merge(files, output_format, output_path)
+        self._last_operation = {
+            "op": "merge",
+            "output_format": output_format,
+            "output_path": output_path,
+            "file_paths": [f.path for f in files],
+        }
+        self.file_worker.start()
+        self.log_event(f"Объединение: {len(files)} документов в {format_label}")
+        if callable(getattr(self, "_show_progress_dialog", None)):
+            self._show_progress_dialog(f"Объединение {len(files)} документов...")
+        self.status_bar.showMessage(f"Объединение {len(files)} документов...")
 
     def _check_file_compatibility(self, file_item: FileItem, conversion_type: str) -> bool:
         if conversion_type == "word_to_pdf":
