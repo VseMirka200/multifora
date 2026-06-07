@@ -13,6 +13,8 @@ class FileListPreviewMixin:
     def _refresh_list_preview(self):
         if hasattr(self, "list_files") and self.list_files is not None:
             self.list_files.refresh()
+        if callable(getattr(self, "refresh_preview_panel", None)):
+            self.refresh_preview_panel()
 
     def _active_operations_tab_label(self) -> str:
         tab_bar = getattr(self, "operations_tab_bar", None)

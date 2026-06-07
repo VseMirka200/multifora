@@ -53,43 +53,53 @@ class OperationsTabLayoutMixin:
 
         self.operations_tab_bar = QTabBar()
         self.operations_tab_bar.setObjectName("operations_tab_bar")
+        self.operations_tab_bar.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+        self.operations_tab_bar.setContentsMargins(0, 0, 0, 0)
         self.operations_tab_bar.setExpanding(False)
         self.operations_tab_bar.setDrawBase(False)
         self.operations_tab_bar.setElideMode(Qt.TextElideMode.ElideNone)
         self.operations_tab_bar.setUsesScrollButtons(False)
         self.operations_tab_bar.setDocumentMode(False)
+        self.operations_tab_bar.setFixedHeight(36)
+        self.operations_tab_bar.setStyleSheet(self.operations_tab_bar.styleSheet() + "QTabBar { margin-bottom: 0px; }")
         self.operations_tab_bar.setStyleSheet(
             """
             QTabBar#operations_tab_bar {
                 background-color: transparent;
+                margin: 0px;
+                padding: 0px;
+                border: none;
             }
             QTabBar#operations_tab_bar::tab {
-                margin: 2px 0px 0px 0px;
-                padding: 3px 10px;
+                margin: 0px;
+                padding: 0px 10px;
                 min-width: 24px;
-                min-height: 22px;
+                min-height: 36px;
+                max-height: 36px;
                 font-weight: 700;
                 color: #ffffff;
-                background-color: #4d82bd;
-                border: 1px solid #3f6f9f;
-                border-bottom: none;
-                border-top-left-radius: 8px;
-                border-top-right-radius: 8px;
+                background-color: transparent;
+                border: none;
+                border-bottom: 2px solid transparent;
+                border-top-left-radius: 0px;
+                border-top-right-radius: 0px;
             }
             QTabBar#operations_tab_bar::tab:selected {
-                background-color: #2f79c6;
+                background-color: transparent;
                 color: #ffffff;
+                border-bottom: 2px solid #2f79c6;
             }
             QTabBar#operations_tab_bar::tab:!selected {
-                background-color: #4d82bd;
+                background-color: transparent;
                 color: #ffffff;
             }
             QTabBar#operations_tab_bar::tab:hover {
-                background-color: #3c8ad8;
+                background-color: rgba(255, 255, 255, 0.06);
             }
             """
         )
         self.operations_stack = QStackedWidget()
+        self.operations_stack.setStyleSheet("QStackedWidget { margin: 0px 4px 0 0; }")
         self.operations_stack.setObjectName("operations_stack")
         self._settings_tab_index = -1
         self._current_operations_tab_index = 0
@@ -146,36 +156,6 @@ class OperationsTabLayoutMixin:
 
         rename_layout.addWidget(rename_buttons_widget)
 
-        history_separator = QFrame()
-        history_separator.setFrameShape(QFrame.Shape.HLine)
-        history_separator.setFrameShadow(QFrame.Shadow.Plain)
-        history_separator.setStyleSheet("color: rgba(120, 130, 140, 0.35);")
-        rename_layout.addWidget(history_separator)
-
-        history_block = QWidget()
-        history_block_layout = QVBoxLayout(history_block)
-        history_block_layout.setContentsMargins(0, 0, 0, 0)
-        history_block_layout.setSpacing(4)
-
-        history_label = QLabel("История переименований")
-        history_label.setStyleSheet("font-size: 13px;")
-        history_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        history_block_layout.addWidget(history_label)
-
-        self.rename_history_list = QListWidget()
-        self.rename_history_list.setFixedHeight(86)
-        self.rename_history_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        history_block_layout.addWidget(self.rename_history_list)
-        self.rename_history_list.currentRowChanged.connect(self.on_history_row_changed)
-        rename_layout.addWidget(history_block)
-
-        self.btn_history_undo = QPushButton("Откатить")
-        self.btn_history_undo.clicked.connect(self.undo_last_rename)
-        self.btn_history_undo.setEnabled(False)
-
-        history_buttons_widget, _history_buttons = self._build_rename_action_row([self.btn_history_undo])
-
-        rename_layout.addWidget(history_buttons_widget)
         rename_card_layout.addWidget(rename_content)
 
         self._add_operations_page(self._wrap_operations_page(rename_card, "rename_page"), "Переименование")
@@ -300,11 +280,6 @@ class OperationsTabLayoutMixin:
         self.btn_merge.clicked.connect(self.merge_files)
         merge_layout.addSpacing(4)
         merge_layout.addWidget(self.btn_merge)
-
-        self.merge_info_label = QLabel("Порядок берется из списка файлов. Если ничего не выделено, объединяются все файлы.")
-        self.merge_info_label.setStyleSheet("font-size: 13px; color: #90caf9; margin-top: 3px;")
-        self.merge_info_label.setWordWrap(True)
-        merge_layout.addWidget(self.merge_info_label)
 
         merge_card_layout.addWidget(merge_content)
 
@@ -517,12 +492,15 @@ class OperationsTabLayoutMixin:
         return self._build_rename_action_row(buttons)
 
     def _on_operations_tab_changed(self, index: int):
-        settings_index = getattr(self, "_settings_tab_index", 0)
-        if index == settings_index:
-            QTimer.singleShot(0, self.show_settings_modal)
-            previous_index = getattr(self, "_current_operations_tab_index", 0)
-            QTimer.singleShot(0, lambda: self.operations_tab_bar.setCurrentIndex(previous_index))
+        if index == getattr(self, "_settings_tab_index", -1):
+            if callable(getattr(self, "show_settings_modal", None)):
+                self.show_settings_modal()
+            if callable(getattr(self, "_schedule_settings_save", None)):
+                self._schedule_settings_save()
             return
+
+        if callable(getattr(self, "hide_settings_panel", None)):
+            self.hide_settings_panel()
 
         stack_index = index
         if 0 <= stack_index < self.operations_stack.count():

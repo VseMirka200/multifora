@@ -508,8 +508,14 @@ QPushButton#cancel_operation_btn:disabled {
                 background-color: #363636;
             }
             /* Single grid lines between adjacent controls (no doubled borders). */
+            QToolButton#header_cell_tl {
+                border-right: 0px;
+            }
             QToolButton#header_cell_tr {
                 border-left: 0px;
+            }
+            QToolButton#header_cell_bl {
+                border-right: 0px;
             }
             QToolButton#header_cell_bl {
                 border-top: 0px;
@@ -1149,7 +1155,11 @@ QPushButton#cancel_operation_btn:disabled {
             QToolButton#header_cell_tr {
                 border-left: 0px;
             }
+            QToolButton#header_cell_tl {
+                border-right: 0px;
+            }
             QToolButton#header_cell_bl {
+                border-right: 0px;
                 border-top: 0px;
                 border-bottom: 0px;
             }

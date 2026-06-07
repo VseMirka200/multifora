@@ -14,7 +14,7 @@ from PyQt6.QtCore import (
     Qt,
     pyqtSignal,
 )
-from PyQt6.QtGui import QAction, QColor, QFont, QFontMetrics, QIcon, QPainter, QPalette, QPixmap, QPolygonF
+from PyQt6.QtGui import QAction, QColor, QFont, QFontMetrics, QIcon, QPainter, QPalette, QPen, QPixmap, QPolygonF
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -314,6 +314,46 @@ def setup_standard_link_button(widget, *, height: int = 22):
 def setup_standard_section_button(widget, *, height: int = 34):
     widget.setCursor(Qt.CursorShape.PointingHandCursor)
     return setup_standard_action_button(widget, height=height, variant="section")
+
+
+def build_bookmark_icon(*, size: int = 16, theme: str = "dark") -> QIcon:
+    """Creates a compact bookmark icon for saved items."""
+    dark_theme = str(theme).lower() != "light"
+    fill_color = QColor("#f1c44d" if dark_theme else "#d99a00")
+    outline_color = QColor("#f8e7ad" if dark_theme else "#8a5f00")
+    notch_color = QColor("#ffffff" if dark_theme else "#f8fbff")
+
+    pix = QPixmap(size, size)
+    pix.fill(Qt.GlobalColor.transparent)
+
+    painter = QPainter(pix)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+    painter.setPen(QPen(outline_color, 1.2))
+    painter.setBrush(fill_color)
+
+    left = 3.0
+    top = 2.0
+    right = float(size - 3)
+    bottom = float(size - 2)
+    notch_x = float(size / 2)
+    notch_y = float(size - 5)
+    bookmark_shape = QPolygonF(
+        [
+            QPointF(left, top),
+            QPointF(right, top),
+            QPointF(right, bottom),
+            QPointF(notch_x, notch_y),
+            QPointF(left, bottom),
+        ]
+    )
+    painter.drawPolygon(bookmark_shape)
+
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(notch_color)
+    notch_width = max(2.0, size * 0.14)
+    painter.drawRect(int(notch_x - notch_width / 2), int(notch_y), int(notch_width), int(size - notch_y))
+    painter.end()
+    return QIcon(pix)
 
 
 def setup_standard_form_label(widget, *, align: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignLeft):
@@ -751,7 +791,7 @@ class MenuLikeComboBox(QToolButton):
         painter = QStylePainter(self)
         painter.drawComplexControl(QStyle.ComplexControl.CC_ToolButton, option)
 
-        text_rect = self.rect().adjusted(8, 0, -22, 0)
+        text_rect = self.rect().adjusted(0, 0, -18, 0)
         painter.drawItemText(
             text_rect,
             int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
@@ -1016,6 +1056,10 @@ class FileListModel(QAbstractListModel):
 
 
 class FileListItemDelegate(QStyledItemDelegate):
+    def __init__(self, parent=None, right_padding: int = 6):
+        super().__init__(parent)
+        self._right_padding = max(0, int(right_padding))
+
     def sizeHint(self, option, index):
         hint = super().sizeHint(option, index)
         file_item = index.data(Qt.ItemDataRole.UserRole)
@@ -1078,7 +1122,7 @@ class FileListItemDelegate(QStyledItemDelegate):
 
             metrics = painter.fontMetrics()
             left_padding = 6
-            right_padding = 6
+            right_padding = self._right_padding
             spacing = 8
             arrow_text = "->"
             icon_text = f"{file_item.get_icon()} "
@@ -1125,7 +1169,7 @@ class FileListItemDelegate(QStyledItemDelegate):
         if view_option.state & QStyle.StateFlag.State_Selected:
             painter.save()
             painter.fillRect(view_option.rect, QColor("#9fc5f8"))
-            text_rect = view_option.rect.adjusted(6, 0, -6, 0)
+            text_rect = view_option.rect.adjusted(6, 0, -self._right_padding, 0)
             painter.setPen(QColor("#1f2328"))
             painter.setFont(view_option.font)
             painter.drawText(

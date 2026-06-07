@@ -297,9 +297,11 @@ class FileListActionsMixin:
         """Обновление информации о файлах"""
         total_files = len(self.files)
         total_size = sum(f.size for f in self.files) / (1024*1024)
+        item_size = self.files[0].size / (1024*1024) if self.files else 0.0
         
         self.label_count.setText(f"Файлов: {total_files}")
-        self.label_size.setText(f"Размер: {total_size:.2f} MB")
+        self.label_item_size.setText(f"Размер: {item_size:.2f} MB")
+        self.label_total_size.setText(f"Общий объем: {total_size:.2f} MB")
     def on_sort_changed(self):
         mode = self._get_sort_mode()
         if self._get_sort_mode_index() == 0:

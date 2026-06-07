@@ -1,5 +1,6 @@
 import os
 import json
+import time
 from PyQt6.QtCore import QObject, Qt
 
 from app.core.app_utils import _debug_log
@@ -91,6 +92,96 @@ def _collect_template_session_state(window) -> dict:
         except Exception:
             pass
     return {"selected_template": "", "template_data": {}}
+
+
+def _normalize_rename_history_entry(entry, *, fallback_timestamp: float | None = None) -> dict | None:
+    if not isinstance(entry, dict):
+        return None
+
+    normalized = dict(entry)
+    pairs = normalized.get("pairs", [])
+    if not isinstance(pairs, list):
+        if isinstance(pairs, tuple):
+            pairs = list(pairs)
+        else:
+            return None
+
+    clean_pairs = []
+    for pair in pairs:
+        if not isinstance(pair, (list, tuple)) or len(pair) != 2:
+            continue
+        left, right = pair
+        clean_pairs.append([str(left), str(right)])
+
+    normalized["pairs"] = clean_pairs
+    if not clean_pairs:
+        return None
+
+    try:
+        normalized["timestamp"] = float(normalized.get("timestamp", fallback_timestamp or time.time()))
+    except Exception:
+        normalized["timestamp"] = float(fallback_timestamp or time.time())
+
+    try:
+        normalized["count"] = int(normalized.get("count", len(clean_pairs)))
+    except Exception:
+        normalized["count"] = len(clean_pairs)
+
+    if "label" in normalized and normalized["label"] is not None:
+        normalized["label"] = str(normalized["label"])
+
+    return normalized
+
+
+def _collect_rename_history_state(window) -> dict:
+    history = []
+    redo_history = []
+    max_items = int(getattr(window, "_max_rename_history", 20) or 20)
+
+    raw_history = getattr(window, "_rename_history", [])
+    if isinstance(raw_history, list):
+        for entry in raw_history[-max_items:]:
+            normalized = _normalize_rename_history_entry(entry)
+            if normalized is not None:
+                history.append(normalized)
+
+    raw_redo_history = getattr(window, "_rename_redo_history", [])
+    if isinstance(raw_redo_history, list):
+        for entry in raw_redo_history[-max_items:]:
+            normalized = _normalize_rename_history_entry(entry)
+            if normalized is not None:
+                redo_history.append(normalized)
+
+    return {
+        "history": history,
+        "redo_history": redo_history,
+    }
+
+
+def _restore_rename_history_state(window, state: dict) -> None:
+    if not isinstance(state, dict):
+        return
+
+    max_items = int(getattr(window, "_max_rename_history", 20) or 20)
+    restored_history = []
+    restored_redo_history = []
+
+    history = state.get("history", [])
+    if isinstance(history, list):
+        for entry in history[-max_items:]:
+            normalized = _normalize_rename_history_entry(entry)
+            if normalized is not None:
+                restored_history.append(normalized)
+
+    redo_history = state.get("redo_history", [])
+    if isinstance(redo_history, list):
+        for entry in redo_history[-max_items:]:
+            normalized = _normalize_rename_history_entry(entry)
+            if normalized is not None:
+                restored_redo_history.append(normalized)
+
+    window._rename_history = restored_history
+    window._rename_redo_history = restored_redo_history
 
 
 def _restore_file_list_view_state(window, state: dict) -> None:
@@ -188,22 +279,18 @@ def load_settings(window) -> None:
     window.windows_context_menu_enabled = False
     window.desktop_shortcut_enabled = False
     window.start_menu_shortcut_enabled = False
-    window.menu_lock_enabled = False
-    window.window_size_lock_enabled = False
-    window.menu_side = "left"
     window.disable_warning_dialogs = False
     window.auto_update_check_enabled = True
     window.theme_mode = "system"
     window._pending_template_session_state = None
     window._pending_settings_dialog_geometry = None
     window._pending_settings_nav_row = 0
+    window._rename_history = []
+    window._rename_redo_history = []
     _set_checkbox_state(getattr(window, "auto_clear_checkbox", None), False)
     _set_checkbox_state(getattr(window, "context_menu_checkbox", None), False)
     _set_checkbox_state(getattr(window, "desktop_shortcut_checkbox", None), False)
     _set_checkbox_state(getattr(window, "start_menu_shortcut_checkbox", None), False)
-    _set_checkbox_state(getattr(window, "lock_menu_checkbox", None), False)
-    _set_checkbox_state(getattr(window, "lock_window_size_checkbox", None), False)
-    _set_combo_current_data(getattr(window, "menu_side_combo", None), "left")
 
     _set_checkbox_state(getattr(window, "disable_warning_dialogs_checkbox", None), False)
     _set_checkbox_state(getattr(window, "auto_update_check_checkbox", None), True)
@@ -216,6 +303,12 @@ def load_settings(window) -> None:
 
             if "custom_templates" in data:
                 window.custom_templates = data["custom_templates"]
+
+            if "rename_history" in data:
+                try:
+                    _restore_rename_history_state(window, data.get("rename_history"))
+                except Exception:
+                    pass
 
             if "auto_clear" in data:
                 _set_checkbox_state(getattr(window, "auto_clear_checkbox", None), data["auto_clear"])
@@ -247,35 +340,6 @@ def load_settings(window) -> None:
                     getattr(window, "start_menu_shortcut_checkbox", None),
                     window.start_menu_shortcut_enabled,
                 )
-
-            if "menu_side" in data:
-                side = str(data.get("menu_side") or "left").strip().lower()
-                if side not in ("left", "right"):
-                    side = "left"
-                window.menu_side = side
-                _set_combo_current_data(getattr(window, "menu_side_combo", None), side)
-                try:
-                    window.apply_menu_side_settings()
-                except Exception:
-                    pass
-
-            if "splitter_sizes" in data and hasattr(window, "main_splitter"):
-                try:
-                    sizes = data.get("splitter_sizes")
-                    if isinstance(sizes, list) and len(sizes) == 2:
-                        window._pending_splitter_sizes = list(sizes)
-                        window.main_splitter.setSizes(sizes)
-                        window._locked_splitter_sizes = sizes
-                except Exception:
-                    pass
-
-            if "menu_panel_width" in data:
-                try:
-                    menu_panel_width = int(data.get("menu_panel_width"))
-                    if menu_panel_width > 0:
-                        window._pending_menu_panel_width = menu_panel_width
-                except Exception:
-                    pass
 
             if "current_tab_index" in data and hasattr(window, "tabs"):
                 try:
@@ -343,20 +407,6 @@ def load_settings(window) -> None:
                 except Exception:
                     pass
 
-            if "menu_lock" in data:
-                window.menu_lock_enabled = data["menu_lock"]
-                _set_checkbox_state(
-                    getattr(window, "lock_menu_checkbox", None),
-                    window.menu_lock_enabled,
-                )
-
-            if "window_size_lock" in data:
-                window.window_size_lock_enabled = data["window_size_lock"]
-                _set_checkbox_state(
-                    getattr(window, "lock_window_size_checkbox", None),
-                    window.window_size_lock_enabled,
-                )
-
             if "auto_check_updates" in data:
                 window.auto_update_check_enabled = bool(data["auto_check_updates"])
                 _set_checkbox_state(
@@ -386,9 +436,6 @@ def load_settings(window) -> None:
 
     try:
         window.apply_theme_mode(getattr(window, "theme_mode", "system"))
-        window.apply_menu_side_settings()
-        window.apply_menu_lock_settings()
-        window.apply_window_size_lock_settings()
     except Exception:
         pass
 
@@ -406,9 +453,6 @@ def save_settings(window) -> None:
             "ghostscript_path": window.ghostscript_path_override,
             "desktop_shortcut": window.desktop_shortcut_enabled,
             "start_menu_shortcut": window.start_menu_shortcut_enabled,
-            "menu_lock": window.menu_lock_enabled,
-            "window_size_lock": window.window_size_lock_enabled,
-            "menu_side": getattr(window, "menu_side", "left"),
             "disable_warning_dialogs": getattr(window, "disable_warning_dialogs", False),
             "auto_check_updates": (
                 window.auto_update_check_checkbox.isChecked()
@@ -416,12 +460,6 @@ def save_settings(window) -> None:
                 else True
             ),
             "theme_mode": getattr(window, "theme_mode", "system"),
-            "splitter_sizes": window.main_splitter.sizes() if hasattr(window, "main_splitter") else None,
-            "menu_panel_width": (
-                window._left_panel.width()
-                if hasattr(window, "_left_panel") and window._left_panel is not None
-                else None
-            ),
             "current_tab_index": window.tabs.currentIndex() if hasattr(window, "tabs") else 0,
             "settings_nav_current_row": (
                 window.settings_nav.currentRow()
@@ -439,6 +477,7 @@ def save_settings(window) -> None:
                 else None
             ),
             "template_session": _collect_template_session_state(window),
+            "rename_history": _collect_rename_history_state(window),
             "file_list_view_state": {
                 "sort_mode": (
                     window.get_sort_mode()
