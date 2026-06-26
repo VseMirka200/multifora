@@ -67,7 +67,7 @@ _MENU_STYLE_LIGHT = """
 
 _MENU_STYLE_DARK = """
     QMenu {
-        background-color: #343840;
+        background-color: #3a3a3a;
         color: #f0f0f0;
         border: 1px solid rgba(255, 255, 255, 0.55);
         margin: 0px;
@@ -202,7 +202,7 @@ def setup_standard_dropdown(widget, *, fixed_width: int | None = None):
         else:
             popup_style = """
                 QListView {
-                    background-color: #343840;
+                    background-color: #3a3a3a;
                     color: #f0f0f0;
                     border: 1px solid rgba(255, 255, 255, 0.55);
                     border-radius: 0px;
@@ -791,7 +791,7 @@ class MenuLikeComboBox(QToolButton):
         painter = QStylePainter(self)
         painter.drawComplexControl(QStyle.ComplexControl.CC_ToolButton, option)
 
-        text_rect = self.rect().adjusted(0, 0, -18, 0)
+        text_rect = self.rect().adjusted(10, 0, -10, 0)
         painter.drawItemText(
             text_rect,
             int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),

@@ -63,6 +63,13 @@ from app.core.deps import (
     ensure_ghostscript_detected,
 )
 from app.core.models import FileItem
+from app.core.conversion_formats import (
+    CONVERSION_CATEGORIES,
+    build_file_dialog_filter,
+    category_for_file_type,
+    format_for_path,
+    formats_for_category,
+)
 from core.workers import FileWorker
 from core.workers.conversion.conversion_mixin import prewarm_word_background
 import app.core.settings as app_settings
@@ -109,22 +116,20 @@ class DropActionTile(QFrame):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(0)
-        layout.addStretch()
+        layout.setSpacing(6)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         icon_label = QLabel()
-        icon_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom)
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         icon_label.setPixmap(icon.pixmap(QSize(48, 48)))
         icon_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        layout.addWidget(icon_label)
+        layout.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignHCenter)
 
         self.text_label = QLabel(text)
-        self.text_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+        self.text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.text_label.setStyleSheet('font-family: "Segoe UI"; font-size: 12px; font-weight: 600;')
         self.text_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        layout.addWidget(self.text_label)
-
-        layout.addStretch()
+        layout.addWidget(self.text_label, 0, Qt.AlignmentFlag.AlignHCenter)
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -846,6 +851,8 @@ class MultiforaMainWindow(
         for label, value in [
             ("Документы", "document"),
             ("Изображения", "image"),
+            ("Видео", "video"),
+            ("Аудио", "audio"),
             ("Архивы", "archive"),
             ("Папки", "folder"),
             ("Другое", "other"),
@@ -996,13 +1003,14 @@ class MultiforaMainWindow(
         drop_zone_layout = QVBoxLayout(self.drop_zone_controls)
         drop_zone_layout.setContentsMargins(0, 8, 0, 8)
         drop_zone_layout.setSpacing(10)
+        drop_zone_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
         drop_zone_layout.addStretch()
 
         drop_buttons_row = QGridLayout()
         drop_buttons_row.setContentsMargins(0, 0, 0, 0)
         drop_buttons_row.setHorizontalSpacing(10)
         drop_buttons_row.setVerticalSpacing(0)
-        drop_buttons_row.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        drop_buttons_row.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         self.btn_add_files = DropActionTile(
             self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton),
@@ -1023,7 +1031,7 @@ class MultiforaMainWindow(
         drop_zone_layout.addLayout(drop_buttons_row, 0)
 
         self.drop_zone_hint_label = QLabel("Или перетащите сюда файлы/папки")
-        self.drop_zone_hint_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.drop_zone_hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.drop_zone_hint_label.setStyleSheet("color: rgba(220,220,220,180); font-size: 13px;")
         drop_zone_layout.addWidget(self.drop_zone_hint_label, 0, Qt.AlignmentFlag.AlignHCenter)
         drop_zone_layout.addStretch()
@@ -1428,59 +1436,91 @@ class MultiforaMainWindow(
         super().moveEvent(event)
         self._schedule_settings_save()
         
-    def get_file_extension_type(self, file_path):
-        """Определяет тип файла по расширению"""
-        ext = os.path.splitext(file_path)[1].lower()
-        
-        # Группировка форматов
-        doc_formats = ['.doc', '.docx']
-        pdf_formats = ['.pdf']
-        odt_formats = ['.odt']
-        image_formats = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.gif', '.webp']
-        
-        if ext in doc_formats:
-            return "DOC/DOCX"
-        elif ext in pdf_formats:
-            return "PDF"
-        elif ext in odt_formats:
-            return "ODT (OpenDocument)"
-        elif ext in image_formats:
-            return "Изображения (JPG/PNG)"
-        else:
-            return None
-    
     def update_converter_from_format(self):
-        """Обновляет поле 'Из:' на основе выбранных файлов"""
+        """Обновляет поля конвертации на основе выбранных файлов и категории."""
         selected_items = self.list_files.selectedItems()
-        if not selected_items:
-            self.from_convert_combo.setCurrentIndex(0)
-            self.to_convert_combo.setEnabled(False)
-            self.btn_convert.setEnabled(False)
-            return
-        
-        # Определяем форматы всех выбранных файлов
-        formats = set()
+        category_combo = getattr(self, "convert_file_type_combo", None)
+
+        category_label = ""
+        if category_combo is not None:
+            try:
+                category_label = str(category_combo.currentText() or "").strip()
+            except Exception:
+                category_label = ""
+
+        categories = set()
+        source_formats = set()
         for item in selected_items:
             file_item = item.data(Qt.ItemDataRole.UserRole)
-            if file_item and file_item.is_file:
-                file_type = self.get_file_extension_type(file_item.path)
-                if file_type:
-                    formats.add(file_type)
-        
-        if len(formats) == 1:
-            # Все файлы одного типа
-            file_type = formats.pop()
-            # Ищем соответствующий индекс в комбобоксе
-            index = self.from_convert_combo.findText(file_type)
-            if index >= 0:
-                self.from_convert_combo.setCurrentIndex(index)
-                self.update_to_combo_based_on_from()
-        else:
-            # Разные типы файлов - сброс
-            self.from_convert_combo.setCurrentIndex(0)
-            self.to_convert_combo.setCurrentIndex(0)
+            if not file_item or not file_item.is_file:
+                continue
+            file_category = category_for_file_type(file_item.file_type)
+            if file_category:
+                categories.add(file_category)
+            source_format = format_for_path(file_item.path)
+            if source_format:
+                source_formats.add(source_format)
+
+        if category_label not in CONVERSION_CATEGORIES:
+            category_label = ""
+        if not category_label and len(categories) == 1:
+            category_label = categories.pop()
+            if category_combo is not None:
+                index = category_combo.findText(category_label)
+                if index >= 0:
+                    category_combo.blockSignals(True)
+                    category_combo.setCurrentIndex(index)
+                    category_combo.blockSignals(False)
+        elif category_combo is not None and category_label:
+            index = category_combo.findText(category_label)
+            if index >= 0 and category_combo.currentIndex() != index:
+                category_combo.blockSignals(True)
+                category_combo.setCurrentIndex(index)
+                category_combo.blockSignals(False)
+
+        if not category_label:
+            self.from_convert_combo.blockSignals(True)
+            self.from_convert_combo.clear()
+            self.from_convert_combo.addItem("Выберите исходный формат:")
+            self.from_convert_combo.blockSignals(False)
+            self.to_convert_combo.blockSignals(True)
+            self.to_convert_combo.clear()
+            self.to_convert_combo.addItem("Выберите целевой формат:")
             self.to_convert_combo.setEnabled(False)
+            self.to_convert_combo.blockSignals(False)
             self.btn_convert.setEnabled(False)
+            return
+
+        available_formats = formats_for_category(category_label)
+        self.from_convert_combo.blockSignals(True)
+        self.from_convert_combo.clear()
+        self.from_convert_combo.addItem("Выберите исходный формат:")
+        for fmt in available_formats:
+            self.from_convert_combo.addItem(fmt)
+        self.from_convert_combo.blockSignals(False)
+
+        selected_source = ""
+        if len(source_formats) == 1:
+            selected_source = source_formats.pop()
+        elif selected_items:
+            current_source = str(self.from_convert_combo.currentText() or "").strip()
+            if current_source in available_formats:
+                selected_source = current_source
+
+        if selected_source in available_formats:
+            index = self.from_convert_combo.findText(selected_source)
+            if index >= 0:
+                self.from_convert_combo.blockSignals(True)
+                self.from_convert_combo.setCurrentIndex(index)
+                self.from_convert_combo.blockSignals(False)
+        else:
+            self.from_convert_combo.blockSignals(True)
+            self.from_convert_combo.setCurrentIndex(0)
+            self.from_convert_combo.blockSignals(False)
+
+        self.update_to_combo_based_on_from()
+        if callable(getattr(self, "update_convert_button_state", None)):
+            self.update_convert_button_state()
     
     def on_file_selection_changed(self):
         """Обработчик изменения выбора файлов"""
@@ -1501,7 +1541,7 @@ class MultiforaMainWindow(
             self, 
             "Выберите файлы", 
             "", 
-            "Все файлы (*.*);;Документы (*.doc *.docx *.pdf);;Изображения (*.jpg *.jpeg *.png *.bmp)",
+            build_file_dialog_filter(),
             options=options
         )
         

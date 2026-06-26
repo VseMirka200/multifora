@@ -137,7 +137,7 @@ class TemplateCrudMixin:
         return """
             QTableWidget {
                 background-color: #3a3a3a;
-                alternate-background-color: #343840;
+                alternate-background-color: #3a3a3a;
                 border: 1px solid #4a4a4a;
                 color: #f0f0f0;
                 selection-background-color: #2f79c6;

@@ -17,10 +17,12 @@ text = None
 teletype = None
 load = None
 OpenDocumentText = None
+get_ffmpeg_exe = None
 
 HAS_WORD_TO_PDF = False
 HAS_PDF_TO_WORD = False
 HAS_PDF_TO_IMAGE = False
+HAS_FFMPEG = False
 HAS_PANDAS = False
 HAS_PYMUPDF = False
 HAS_ODF_PYTHON = False
@@ -210,6 +212,13 @@ try:
     HAS_ODF_PYTHON = True
 except ImportError:
     _debug_log("python-odf не найден")
+
+try:
+    from imageio_ffmpeg import get_ffmpeg_exe
+    HAS_FFMPEG = True
+    _debug_log("imageio-ffmpeg найден")
+except ImportError:
+    _debug_log("imageio-ffmpeg не найден. Установите: pip install imageio-ffmpeg")
 
 
 

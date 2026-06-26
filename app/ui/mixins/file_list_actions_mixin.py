@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.core.models import FileItem
+from app.core.conversion_formats import KNOWN_FILE_EXTENSIONS, build_file_dialog_filter
 from app.core.app_utils import _debug_log
 from app.ui.ui_components import (
     setup_standard_dialog,
@@ -23,6 +24,8 @@ from app.ui.ui_components import (
 
 
 class FileListActionsMixin:
+    _FILTERABLE_FILE_TYPES = frozenset(("document", "image", "video", "audio", "archive", "folder", "other"))
+
     def _manual_sort_mode_text(self) -> str:
         return "Без сортировки (ручной порядок)"
 
@@ -64,7 +67,7 @@ class FileListActionsMixin:
 
     def _selected_type_filter(self) -> set[str]:
         if not hasattr(self, "_type_filter_actions") or not self._type_filter_actions:
-            return {"document", "image", "archive", "folder", "other"}
+            return set(self._FILTERABLE_FILE_TYPES)
         selected = {k for k, a in self._type_filter_actions.items() if a.isChecked()}
         return selected
     def _current_search_query(self) -> str:
@@ -76,7 +79,7 @@ class FileListActionsMixin:
         return bool(self._current_search_query())
 
     def _is_type_filter_active(self) -> bool:
-        all_types = {"document", "image", "archive", "folder", "other"}
+        all_types = self._FILTERABLE_FILE_TYPES
         return self._selected_type_filter() != all_types
 
     def _is_any_filter_active(self) -> bool:
@@ -102,11 +105,6 @@ class FileListActionsMixin:
             return list(self.files)
 
         result = []
-        known_ext = {
-            ".doc", ".docx", ".pdf", ".txt", ".rtf", ".odt",
-            ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp", ".svg", ".ico",
-            ".zip", ".rar", ".7z", ".tar", ".gz",
-        }
         for file_item in self.files:
             ftype = str(getattr(file_item, "file_type", "other")).lower()
             if type_filter and ftype not in type_filter:
@@ -118,7 +116,7 @@ class FileListActionsMixin:
                 ext_key = "__folder__"
             elif not ext:
                 ext_key = "__noext__"
-            elif ext not in known_ext:
+            elif ext not in KNOWN_FILE_EXTENSIONS:
                 ext_key = "__otherext__"
 
             if self._is_extension_filter_active() and ext_key not in ext_filter:
@@ -150,7 +148,12 @@ class FileListActionsMixin:
 
     def add_files_dialog(self):
         """Открытие диалога для добавления файлов"""
-        files, _ = QFileDialog.getOpenFileNames(self, "Выберите файлы", "", "Все файлы (*.*)")
+        files, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Выберите файлы",
+            "",
+            build_file_dialog_filter(),
+        )
         if files:
             self.add_files(files)
     def _ask_folder_add_mode(self):

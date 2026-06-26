@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from app.core.app_utils import _debug_log
 from app.core.deps import (
+    HAS_FFMPEG,
     HAS_ODF_PYTHON,
     HAS_PDF_TO_IMAGE,
     HAS_PDF_TO_WORD,
@@ -22,9 +23,11 @@ from app.core.deps import (
     pdf2docx,
     teletype,
     text,
+    get_ffmpeg_exe,
     word_to_pdf,
 )
 from app.core.models import FileItem
+from app.core.conversion_formats import suffix_for_format
 
 _WORD_WARMUP_LOCK = threading.Lock()
 _WORD_WARMUP_DONE = False
@@ -111,6 +114,88 @@ class ConversionMixin:
                 return exe
         return None
 
+    def _convert_image_to_image(self, file: FileItem, target_format: str) -> str:
+        source_ext = os.path.splitext(file.path)[1].lower()
+        target_ext = suffix_for_format(target_format)
+        if source_ext not in (".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".gif", ".webp"):
+            raise Exception("Поддерживаются только изображения")
+        if not target_ext:
+            raise Exception(f"Неизвестный формат изображения: {target_format}")
+        if source_ext == target_ext:
+            return file.path
+        if not HAS_PIL:
+            raise Exception("Установите Pillow для конвертации изображений")
+
+        output_path = self._get_unique_path(file.path.rsplit(".", 1)[0] + target_ext)
+        with Image.open(file.path) as img:
+            if img.mode in ("RGBA", "LA", "P") and target_ext in (".jpg", ".jpeg", ".bmp"):
+                rgb_img = Image.new("RGB", img.size, (255, 255, 255))
+                rgb_img.paste(img, mask=img.split()[-1] if img.mode == "RGBA" else None)
+                img = rgb_img
+            if target_ext in (".jpg", ".jpeg"):
+                img.save(output_path, "JPEG", quality=92)
+            elif target_ext == ".png":
+                img.save(output_path, "PNG")
+            elif target_ext == ".bmp":
+                img.save(output_path, "BMP")
+            elif target_ext == ".tiff":
+                img.save(output_path, "TIFF")
+            elif target_ext == ".gif":
+                img.save(output_path, "GIF")
+            elif target_ext == ".webp":
+                img.save(output_path, "WEBP", quality=92)
+            else:
+                raise Exception(f"Неизвестный формат изображения: {target_format}")
+        return output_path
+
+    def _resolve_ffmpeg_executable(self) -> str | None:
+        if HAS_FFMPEG:
+            try:
+                exe = get_ffmpeg_exe()
+                if exe and os.path.exists(exe):
+                    return exe
+            except Exception:
+                pass
+        return shutil.which("ffmpeg")
+
+    def _convert_media_to_media(self, file: FileItem, target_format: str) -> str:
+        source_ext = os.path.splitext(file.path)[1].lower()
+        target_ext = suffix_for_format(target_format)
+        if not target_ext:
+            raise Exception(f"Неизвестный формат: {target_format}")
+        if source_ext == target_ext:
+            return file.path
+
+        ffmpeg_exe = self._resolve_ffmpeg_executable()
+        if not ffmpeg_exe or not os.path.exists(ffmpeg_exe):
+            raise Exception("Для видео и звука нужен ffmpeg. Установите imageio-ffmpeg.")
+
+        output_path = self._get_unique_path(file.path.rsplit(".", 1)[0] + target_ext)
+        cmd = [
+            ffmpeg_exe,
+            "-y",
+            "-i",
+            file.path,
+            output_path,
+        ]
+        try:
+            process = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+                text=True,
+            )
+        except Exception as e:
+            raise Exception(f"Не удалось запустить ffmpeg: {e}")
+
+        if process.returncode != 0 or not os.path.exists(output_path):
+            stderr = (process.stderr or "").strip()
+            if len(stderr) > 500:
+                stderr = stderr[-500:]
+            raise Exception(f"ffmpeg не смог выполнить конвертацию: {stderr or 'неизвестная ошибка'}")
+        return output_path
+
     def _convert_files(self):
         total = len(self.files)
         results = []
@@ -152,6 +237,10 @@ class ConversionMixin:
                     converted_path = self._convert_pdf_to_image(file)
                 elif self.conversion_type == "image_to_pdf":
                     converted_path = self._convert_image_to_pdf(file)
+                elif self.conversion_type == "image_to_image":
+                    converted_path = self._convert_image_to_image(file, self.conversion_format)
+                elif self.conversion_type == "media_to_media":
+                    converted_path = self._convert_media_to_media(file, self.conversion_format)
 
                 if converted_path and os.path.exists(converted_path):
                     results.append(FileItem(converted_path))

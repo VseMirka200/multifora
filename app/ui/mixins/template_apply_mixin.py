@@ -129,14 +129,14 @@ class TemplateApplyMixin:
 
             elif self.current_template == "Нумерация с датой":
                 date_format_name = getattr(self, 'template_date_format', QComboBox()).currentText()
-                date_str = datetime.now().strftime(self.get_date_format(date_format_name))
+                date_str = datetime.now().strftime(rt.get_date_format(date_format_name))
                 num_str = f"{current_num:0{num_digits}d}"
                 new_name = f"{date_str}_{num_str}{ext}"
                 current_num += step
 
             elif self.current_template == "Дата в начале названия":
                 date_format_name = getattr(self, 'template_original_date_format', QComboBox()).currentText()
-                date_str = datetime.now().strftime(self.get_date_format(date_format_name))
+                date_str = datetime.now().strftime(rt.get_date_format(date_format_name))
                 new_name = f"{date_str}{old_name}"
 
             elif self.current_template == "Пользовательский шаблон":
@@ -195,7 +195,3 @@ class TemplateApplyMixin:
                 setup_standard_dropdown(combo)
             except Exception:
                 pass
-
-    def get_date_format(self, format_name):
-        """Преобразует название формата в строку формата для strftime"""
-        return rt.get_date_format(format_name)

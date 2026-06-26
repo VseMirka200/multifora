@@ -29,6 +29,7 @@ from app.ui.ui_components import (
 class TemplateParamsNumberingMixin:
     def _create_labeled_spin_block(self, label_text: str, spinbox: QSpinBox, *, label: QLabel | None = None):
         container = QWidget()
+        container.setStyleSheet("background-color: transparent;")
         layout = QVBoxLayout(container)
         layout.setSpacing(3)
         layout.setContentsMargins(0, 2, 0, 2)
@@ -47,6 +48,7 @@ class TemplateParamsNumberingMixin:
 
     def _create_param_block(self, label_text: str, field: QWidget):
         container = QWidget()
+        container.setStyleSheet("background-color: transparent;")
         layout = QVBoxLayout(container)
         layout.setSpacing(3)
         layout.setContentsMargins(0, 2, 0, 2)
@@ -60,6 +62,7 @@ class TemplateParamsNumberingMixin:
     def create_numbering_params(self):
         """Создает параметры для нумерации"""
         container = QWidget()
+        container.setStyleSheet("background-color: transparent;")
         layout = QVBoxLayout(container)
         layout.setSpacing(3)
         layout.setContentsMargins(0, 2, 0, 2)
@@ -99,6 +102,7 @@ class TemplateParamsNumberingMixin:
     def create_numbering_prefix_params(self):
         """Создает параметры для нумерации с префиксом"""
         container = QWidget()
+        container.setStyleSheet("background-color: transparent;")
         layout = QVBoxLayout(container)
         layout.setSpacing(3)
         layout.setContentsMargins(0, 2, 0, 2)
@@ -129,6 +133,7 @@ class TemplateParamsNumberingMixin:
     def create_numbering_date_params(self):
         """Создает параметры для нумерации с датой"""
         container = QWidget()
+        container.setStyleSheet("background-color: transparent;")
         layout = QVBoxLayout(container)
         layout.setSpacing(3)
         layout.setContentsMargins(0, 2, 0, 2)
@@ -163,6 +168,7 @@ class TemplateParamsNumberingMixin:
     def create_date_original_params(self):
         """Создает параметры для даты + оригинальное название"""
         container = QWidget()
+        container.setStyleSheet("background-color: transparent;")
         layout = QVBoxLayout(container)
         layout.setSpacing(3)
         layout.setContentsMargins(0, 2, 0, 2)
@@ -189,11 +195,13 @@ class TemplateParamsNumberingMixin:
     def create_custom_template_params(self):
         """Создает параметры для пользовательского шаблона"""
         container = QWidget()
+        container.setStyleSheet("background-color: transparent;")
         layout = QVBoxLayout(container)
         layout.setSpacing(4)
         layout.setContentsMargins(0, 0, 0, 0)
         
         input_container = QWidget()
+        input_container.setStyleSheet("background-color: transparent;")
         input_layout = QHBoxLayout(input_container)
         input_layout.setContentsMargins(0, 0, 0, 0)
         input_layout.setSpacing(4)
@@ -203,12 +211,14 @@ class TemplateParamsNumberingMixin:
         self.template_custom.setPlaceholderText("например: фото_{num:03d}_{date}_{name}")
         self.template_custom.setText("фото_{num:03d}_{date}_{name}")
         setup_standard_line_input(self.template_custom)
+        self.template_custom.setStyleSheet("padding: 3px 12px;")
         input_layout.addWidget(self.template_custom)
         
         layout.addWidget(input_container)
         layout.addSpacing(4)
 
         numbering_toggle_container = QWidget()
+        numbering_toggle_container.setStyleSheet("background-color: transparent;")
         numbering_toggle_container.setFixedHeight(24)
         numbering_toggle_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         numbering_toggle_layout = QHBoxLayout(numbering_toggle_container)

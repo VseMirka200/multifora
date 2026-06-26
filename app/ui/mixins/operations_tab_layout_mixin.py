@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.ui.ui_components import MenuLikeComboBox, setup_standard_action_button, setup_standard_dropdown, setup_standard_primary_button
+from app.core.conversion_formats import CONVERSION_CATEGORIES
 
 
 class OperationsTabLayoutMixin:
@@ -138,14 +139,16 @@ class OperationsTabLayoutMixin:
         
         # Виджет для параметров шаблона
         self.template_params_widget = QWidget()
+        self.template_params_widget.setObjectName("template_params_widget")
         self.template_params_widget.setVisible(False)
+        self.template_params_widget.setStyleSheet("background-color: transparent;")
         self.template_params_layout = QVBoxLayout(self.template_params_widget)
         self.template_params_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.template_params_layout.setContentsMargins(0, 0, 0, 0)
         self.template_params_layout.setSpacing(2)
         rename_layout.addWidget(self.template_params_widget)
         
-        self.btn_apply_rename = QPushButton("Применить")
+        self.btn_apply_rename = QPushButton("Начать действие")
         self.btn_apply_rename.clicked.connect(self.apply_rename)
         self.btn_apply_rename.setEnabled(False)
 
@@ -172,6 +175,24 @@ class OperationsTabLayoutMixin:
         convert_layout = QVBoxLayout(convert_content)
         convert_layout.setSpacing(4)
         convert_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Поле: Тип конвертируемых файлов
+        file_type_container = QVBoxLayout()
+        file_type_container.setContentsMargins(0, 0, 0, 0)
+        file_type_container.setSpacing(4)
+        file_type_label = QLabel("Тип файла:")
+        file_type_label.setStyleSheet("font-size: 13px;")
+        file_type_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        file_type_label.setWordWrap(True)
+        file_type_container.addWidget(file_type_label)
+
+        self.convert_file_type_combo = MenuLikeComboBox()
+        self.convert_file_type_combo.addItems(["Выберите тип файла:", *CONVERSION_CATEGORIES])
+        setup_standard_dropdown(self.convert_file_type_combo)
+        self.convert_file_type_combo.currentIndexChanged.connect(self.update_converter_from_format)
+        self.convert_file_type_combo.currentIndexChanged.connect(self.update_convert_button_state)
+        file_type_container.addWidget(self.convert_file_type_combo)
+        convert_layout.addLayout(file_type_container)
         
         # Первое поле: Что конвертировать
         from_container = QVBoxLayout()
@@ -184,13 +205,7 @@ class OperationsTabLayoutMixin:
         from_container.addWidget(from_label)
         
         self.from_convert_combo = MenuLikeComboBox()
-        self.from_convert_combo.addItems([
-            "Выберите исходный формат:",
-            "DOC/DOCX",
-            "PDF",
-            "ODT (OpenDocument)",
-            "Изображения (JPG/PNG)"
-        ])
+        self.from_convert_combo.addItem("Выберите исходный формат:")
         setup_standard_dropdown(self.from_convert_combo)
         self.from_convert_combo.currentIndexChanged.connect(self.update_to_combo_based_on_from)
         from_container.addWidget(self.from_convert_combo)

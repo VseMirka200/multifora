@@ -134,6 +134,8 @@ class WorkerOpsMixin:
             "odt_to_pdf": "PDF",
             "pdf_to_odt": "ODT",
             "pdf_to_image": "изображения",
+            "image_to_image": "изображения",
+            "media_to_media": "медиафайлы",
         }
         return names.get(conversion_type, conversion_type)
 
