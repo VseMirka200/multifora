@@ -5,6 +5,12 @@ import multifora_start as startup
 
 
 class _DummyApp:
+    def setApplicationName(self, _name):
+        return None
+
+    def setApplicationDisplayName(self, _name):
+        return None
+
     def setStyle(self, _style):
         return None
 
@@ -68,7 +74,7 @@ class StartupDispatchTests(unittest.TestCase):
         debug_log_mock.assert_called_once_with("Не удалось передать стартовые файлы уже запущенному экземпляру")
         warn_mock.assert_called_once_with(
             None,
-            "Multifora",
+            "Мультифора",
             "Не удалось передать файлы в уже запущенный экземпляр приложения.",
         )
         exit_mock.assert_called_once_with(0)

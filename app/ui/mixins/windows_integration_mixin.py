@@ -8,6 +8,7 @@ import ctypes
 from PyQt6.QtCore import Qt, QStandardPaths
 from PyQt6.QtWidgets import QMessageBox
 
+from app.core.app_identity import APP_DISPLAY_NAME
 from app.core.app_utils import _debug_log
 from app.core.app_icons import _get_shortcut_icon_path
 
@@ -225,7 +226,7 @@ class WindowsIntegrationMixin:
                 desktop_dir = os.path.join(os.path.expanduser("~"), "Desktop")
         except Exception:
             desktop_dir = os.path.join(os.path.expanduser("~"), "Desktop")
-        return os.path.join(desktop_dir, "Мультифора.lnk")
+        return os.path.join(desktop_dir, f"{APP_DISPLAY_NAME}.lnk")
 
     def get_start_menu_shortcut_path(self):
         """Возвращает путь ярлыка в меню Пуск."""
@@ -251,7 +252,7 @@ class WindowsIntegrationMixin:
                 "Start Menu",
                 "Programs",
             )
-        return os.path.join(start_dir, "Мультифора.lnk")
+        return os.path.join(start_dir, f"{APP_DISPLAY_NAME}.lnk")
 
     def _escape_ps(self, value: str) -> str:
         return value.replace("'", "''")

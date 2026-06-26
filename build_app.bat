@@ -2,6 +2,7 @@
 setlocal enabledelayedexpansion
 
 set "PROJECT=%~dp0"
+set "APP_BUILD_NAME=Multifora"
 cd /d "%PROJECT%"
 
 if not exist ".venv" (
@@ -16,22 +17,22 @@ python -m pip install pyinstaller
 if errorlevel 1 goto :error
 
 if exist "build" rmdir /s /q "build"
-if exist "dist\Multifora" rmdir /s /q "dist\Multifora"
+if exist "dist\%APP_BUILD_NAME%" rmdir /s /q "dist\%APP_BUILD_NAME%"
 
-python -m PyInstaller --noconfirm --clean --windowed --name Multifora --icon "icons\icon.ico" multifora_start.pyw
+python -m PyInstaller --noconfirm --clean --windowed --name "%APP_BUILD_NAME%" --icon "icons\icon.ico" multifora_start.pyw
 if errorlevel 1 goto :error
 
 if exist "icons" (
-    robocopy "icons" "dist\Multifora\icons" /E /NFL /NDL /NJH /NJS /NP >nul
+    robocopy "icons" "dist\%APP_BUILD_NAME%\icons" /E /NFL /NDL /NJH /NJS /NP >nul
 )
 if exist "materials" (
-    robocopy "materials" "dist\Multifora\materials" /E /NFL /NDL /NJH /NJS /NP >nul
+    robocopy "materials" "dist\%APP_BUILD_NAME%\materials" /E /NFL /NDL /NJH /NJS /NP >nul
 )
 if exist "bin" (
-    robocopy "bin" "dist\Multifora\bin" /E /NFL /NDL /NJH /NJS /NP >nul
+    robocopy "bin" "dist\%APP_BUILD_NAME%\bin" /E /NFL /NDL /NJH /NJS /NP >nul
 )
 
-echo Build complete. Output: dist\Multifora
+echo Build complete. Output: dist\%APP_BUILD_NAME%
 pause
 exit /b 0
 

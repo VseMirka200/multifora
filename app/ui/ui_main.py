@@ -41,6 +41,7 @@ from PyQt6.QtGui import QAction, QActionGroup, QColor, QIcon, QPalette, QPixmap
 from functools import partial
 from PyQt6.QtNetwork import QLocalServer
 
+from app.core.app_identity import APP_WINDOW_TITLE
 from app.core.app_utils import _debug_log
 from app.core.app_ipc import (
     _drain_queued_files,
@@ -683,7 +684,7 @@ class MultiforaMainWindow(
             self.compress_info_label.setText("\n".join(new_lines))
 
     def init_ui(self):
-        self.setWindowTitle("Мультифора 1.0.0")
+        self.setWindowTitle(APP_WINDOW_TITLE)
         self.setGeometry(100, 100, 1200, 700)
         
         # Центральный виджет

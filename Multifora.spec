@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+APP_BUILD_NAME = 'Multifora'
 
 a = Analysis(
     ['multifora_start.pyw'],
@@ -21,7 +22,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='Multifora',
+    name=APP_BUILD_NAME,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -41,5 +42,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='Multifora',
+    name=APP_BUILD_NAME,
 )
