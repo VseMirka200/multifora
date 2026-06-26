@@ -96,8 +96,8 @@ class AppearanceMixin:
                 background-color: #3a3a3a;
             }
             QFrame#card {
-                background-color: #343840;
-                border: 1px solid #343840;
+                background-color: #3a3a3a;
+                border: 1px solid #3a3a3a;
                 border-top: none;
                 border-top-left-radius: 0px;
                 border-top-right-radius: 0px;
@@ -114,10 +114,13 @@ class AppearanceMixin:
             QFrame#settings_card QWidget {
                 background-color: transparent;
             }
+            QWidget#template_params_widget {
+                background-color: transparent;
+            }
             QFrame#card QPushButton {
                 background-color: #3d74b3;
                 color: #ffffff;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 4px;
             }
             QFrame#card QPushButton:hover {
@@ -133,21 +136,21 @@ QFrame#card QPushButton:disabled {
             QFrame#card QPushButton#convert_btn,
             QFrame#card QPushButton[text="Конвертировать"],
             QFrame#card QPushButton[text="Сжать файлы"],
-            QFrame#card QPushButton[text="Применить"],
+            QFrame#card QPushButton[text="Начать действие"],
             QFrame#card QPushButton[text="Откатить"] {
                 background-color: #2c8f73;
             }
             QFrame#card QPushButton#convert_btn:hover,
             QFrame#card QPushButton[text="Конвертировать"]:hover,
             QFrame#card QPushButton[text="Сжать файлы"]:hover,
-            QFrame#card QPushButton[text="Применить"]:hover,
+            QFrame#card QPushButton[text="Начать действие"]:hover,
             QFrame#card QPushButton[text="Откатить"]:hover {
                 background-color: #36a083;
             }
             QFrame#card QPushButton#convert_btn:pressed,
             QFrame#card QPushButton[text="Конвертировать"]:pressed,
             QFrame#card QPushButton[text="Сжать файлы"]:pressed,
-            QFrame#card QPushButton[text="Применить"]:pressed,
+            QFrame#card QPushButton[text="Начать действие"]:pressed,
             QFrame#card QPushButton[text="Откатить"]:pressed {
                 background-color: #287f67;
             }
@@ -167,7 +170,7 @@ QFrame#card QPushButton:disabled {
                 font-weight: normal;
                 color: #fff;
                 background-color: #3d74b3;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 4px;
                 text-align: center;
                 min-height: 26px;
@@ -189,7 +192,7 @@ QPushButton:disabled {
                 max-height: 20px;
                 color: #7bdc8a;
                 background-color: transparent;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 0px;
                 text-align: center;
             }
@@ -207,7 +210,7 @@ QPushButton:disabled {
                 max-height: 22px;
                 color: #e7e7e7;
                 background-color: transparent;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 0px;
             }
             QPushButton#top_menu_link_btn:hover {
@@ -235,7 +238,7 @@ QPushButton#convert_btn:disabled {
             QPushButton#cancel_operation_btn {
                 background-color: #c84b4b;
                 color: #ffffff;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 4px;
                 min-width: 84px;
             }
@@ -265,13 +268,13 @@ QPushButton#cancel_operation_btn:disabled {
                 background-color: #9a464b;
             }
 
-            QPushButton[text="Применить"] {
+            QPushButton[text="Начать действие"] {
                 background-color: #5fbf7a;
             }
-            QPushButton[text="Применить"]:hover {
+            QPushButton[text="Начать действие"]:hover {
                 background-color: #4fa66a;
             }
-            QPushButton[text="Применить"]:pressed {
+            QPushButton[text="Начать действие"]:pressed {
                 background-color: #46955f;
             }
 
@@ -312,7 +315,7 @@ QPushButton#cancel_operation_btn:disabled {
                 font-weight: bold;
                 color: #ffffff;
                 background-color: #3f78b5;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 0px;
                 min-height: 34px;
                 max-height: 34px;
@@ -323,7 +326,7 @@ QPushButton#cancel_operation_btn:disabled {
             }
             QPushButton[buttonVariant="section"]:checked {
                 background-color: #356da8;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 color: #ffffff;
                 border-bottom-left-radius: 0px;
                 border-bottom-right-radius: 0px;
@@ -394,7 +397,7 @@ QPushButton#cancel_operation_btn:disabled {
                 border: 1px solid rgba(255, 255, 255, 0.55);
                 border-radius: 0px;
                 text-align: left;
-                padding-left: 8px;
+                padding-left: 12px;
             }
             QToolButton#menu_like_combo::menu-indicator {
                 subcontrol-origin: padding;
@@ -508,8 +511,14 @@ QPushButton#cancel_operation_btn:disabled {
                 background-color: #363636;
             }
             /* Single grid lines between adjacent controls (no doubled borders). */
+            QToolButton#header_cell_tl {
+                border-right: 0px;
+            }
             QToolButton#header_cell_tr {
                 border-left: 0px;
+            }
+            QToolButton#header_cell_bl {
+                border-right: 0px;
             }
             QToolButton#header_cell_bl {
                 border-top: 0px;
@@ -595,7 +604,7 @@ QPushButton#cancel_operation_btn:disabled {
             QListView#files_list,
             QListWidget#files_list {
                 background-color: #3a3a3a;
-                alternate-background-color: #343840;
+                alternate-background-color: #3a3a3a;
                 color: #f0f0f0;
                 selection-color: #1f2328;
                 selection-background-color: #9fc5f8;
@@ -608,7 +617,7 @@ QPushButton#cancel_operation_btn:disabled {
             }
             QListView#files_list::item:alternate,
             QListWidget#files_list::item:alternate {
-                background-color: #343840;
+                background-color: #3a3a3a;
                 color: #f0f0f0;
             }
             QListView#files_list::item:selected,
@@ -822,7 +831,7 @@ QPushButton#cancel_operation_btn:disabled {
             QPushButton[buttonVariant="secondary"] {
                 background-color: #3f78b5;
                 color: #ffffff;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 4px;
             }
             QPushButton[buttonVariant="secondary"]:hover {
@@ -838,7 +847,7 @@ QPushButton#cancel_operation_btn:disabled {
             QPushButton[buttonVariant="primary"] {
                 background-color: #2f9a72;
                 color: #ffffff;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 4px;
             }
             QPushButton[buttonVariant="primary"]:hover {
@@ -854,7 +863,7 @@ QPushButton#cancel_operation_btn:disabled {
             QPushButton[buttonVariant="danger"] {
                 background-color: #cf5656;
                 color: #ffffff;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 4px;
             }
             QPushButton[buttonVariant="danger"]:hover {
@@ -870,7 +879,7 @@ QPushButton#cancel_operation_btn:disabled {
             QPushButton[buttonVariant="link"] {
                 background-color: transparent;
                 color: #dce8f6;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 0px;
                 padding: 2px 8px;
                 min-height: 0px;
@@ -927,6 +936,9 @@ QPushButton#cancel_operation_btn:disabled {
             QFrame#settings_card QWidget {
                 background-color: transparent;
             }
+            QWidget#template_params_widget {
+                background-color: transparent;
+            }
             QGroupBox {
                 font-weight: bold;
                 font-size: 14px;
@@ -958,7 +970,7 @@ QPushButton#cancel_operation_btn:disabled {
                 font-weight: normal;
                 color: #ffffff;
                 background-color: #3d74b3;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 4px;
                 text-align: center;
                 min-height: 26px;
@@ -980,7 +992,7 @@ QPushButton#cancel_operation_btn:disabled {
                 max-height: 20px;
                 color: #7bdc8a;
                 background-color: transparent;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 0px;
                 text-align: center;
             }
@@ -998,7 +1010,7 @@ QPushButton#cancel_operation_btn:disabled {
                 max-height: 22px;
                 color: #000000;
                 background-color: transparent;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 0px;
             }
             QPushButton#top_menu_link_btn:hover {
@@ -1025,7 +1037,7 @@ QPushButton#cancel_operation_btn:disabled {
             QPushButton#cancel_operation_btn {
                 background-color: #d65a5a;
                 color: #ffffff;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 4px;
                 min-width: 84px;
             }
@@ -1048,13 +1060,13 @@ QPushButton#cancel_operation_btn:disabled {
             QPushButton[text="Очистить"]:pressed {
                 background-color: #9a464b;
             }
-            QPushButton[text="Применить"] {
+            QPushButton[text="Начать действие"] {
                 background-color: #5fbf7a;
             }
-            QPushButton[text="Применить"]:hover {
+            QPushButton[text="Начать действие"]:hover {
                 background-color: #4fa66a;
             }
-            QPushButton[text="Применить"]:pressed {
+            QPushButton[text="Начать действие"]:pressed {
                 background-color: #46955f;
             }
             QPushButton[buttonVariant="section"] {
@@ -1064,7 +1076,7 @@ QPushButton#cancel_operation_btn:disabled {
                 font-weight: bold;
                 color: #ffffff;
                 background-color: #467fbd;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 0px;
                 min-height: 34px;
                 max-height: 34px;
@@ -1075,7 +1087,7 @@ QPushButton#cancel_operation_btn:disabled {
             }
             QPushButton[buttonVariant="section"]:checked {
                 background-color: #3b70a8;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 color: #ffffff;
                 border-bottom-left-radius: 0px;
                 border-bottom-right-radius: 0px;
@@ -1106,7 +1118,7 @@ QPushButton#cancel_operation_btn:disabled {
                 border: 1px solid #c7cfda;
                 border-radius: 0px;
                 text-align: left;
-                padding-left: 8px;
+                padding-left: 12px;
             }
             QToolButton#menu_like_combo::menu-indicator {
                 subcontrol-origin: padding;
@@ -1149,7 +1161,11 @@ QPushButton#cancel_operation_btn:disabled {
             QToolButton#header_cell_tr {
                 border-left: 0px;
             }
+            QToolButton#header_cell_tl {
+                border-right: 0px;
+            }
             QToolButton#header_cell_bl {
+                border-right: 0px;
                 border-top: 0px;
                 border-bottom: 0px;
             }
@@ -1396,7 +1412,7 @@ QPushButton#cancel_operation_btn:disabled {
             QFrame#card QPushButton {
                 color: #ffffff;
                 background-color: #3d74b3;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
             }
             QPushButton:hover,
             QFrame#card QPushButton:hover {
@@ -1417,8 +1433,8 @@ QPushButton#cancel_operation_btn:disabled {
             QFrame#card QPushButton[text="Конвертировать"],
             QPushButton[text="Сжать файлы"],
             QFrame#card QPushButton[text="Сжать файлы"],
-            QPushButton[text="Применить"],
-            QFrame#card QPushButton[text="Применить"],
+            QPushButton[text="Начать действие"],
+            QFrame#card QPushButton[text="Начать действие"],
             QPushButton[text="Откатить"],
             QFrame#card QPushButton[text="Откатить"] {
                 background-color: #2c8f73;
@@ -1430,8 +1446,8 @@ QPushButton#cancel_operation_btn:disabled {
             QFrame#card QPushButton[text="Конвертировать"]:hover,
             QPushButton[text="Сжать файлы"]:hover,
             QFrame#card QPushButton[text="Сжать файлы"]:hover,
-            QPushButton[text="Применить"]:hover,
-            QFrame#card QPushButton[text="Применить"]:hover,
+            QPushButton[text="Начать действие"]:hover,
+            QFrame#card QPushButton[text="Начать действие"]:hover,
             QPushButton[text="Откатить"]:hover,
             QFrame#card QPushButton[text="Откатить"]:hover {
                 background-color: #36a083;
@@ -1443,8 +1459,8 @@ QPushButton#cancel_operation_btn:disabled {
             QFrame#card QPushButton[text="Конвертировать"]:pressed,
             QPushButton[text="Сжать файлы"]:pressed,
             QFrame#card QPushButton[text="Сжать файлы"]:pressed,
-            QPushButton[text="Применить"]:pressed,
-            QFrame#card QPushButton[text="Применить"]:pressed,
+            QPushButton[text="Начать действие"]:pressed,
+            QFrame#card QPushButton[text="Начать действие"]:pressed,
             QPushButton[text="Откатить"]:pressed,
             QFrame#card QPushButton[text="Откатить"]:pressed {
                 background-color: #287f67;
@@ -1477,12 +1493,12 @@ QPushButton#cancel_operation_btn:disabled {
             QPushButton#about_program_btn,
             QPushButton#top_menu_link_btn {
                 background-color: transparent;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
             }
             QPushButton[buttonVariant="secondary"] {
                 background-color: #467fbd;
                 color: #ffffff;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 4px;
             }
             QPushButton[buttonVariant="secondary"]:hover {
@@ -1498,7 +1514,7 @@ QPushButton#cancel_operation_btn:disabled {
             QPushButton[buttonVariant="primary"] {
                 background-color: #3aa277;
                 color: #ffffff;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 4px;
             }
             QPushButton[buttonVariant="primary"]:hover {
@@ -1514,7 +1530,7 @@ QPushButton#cancel_operation_btn:disabled {
             QPushButton[buttonVariant="danger"] {
                 background-color: #d85f5f;
                 color: #ffffff;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 4px;
             }
             QPushButton[buttonVariant="danger"]:hover {
@@ -1530,7 +1546,7 @@ QPushButton#cancel_operation_btn:disabled {
             QPushButton[buttonVariant="link"] {
                 background-color: transparent;
                 color: #2f5f99;
-                border: none;
+                border: 1px solid rgba(255, 255, 255, 0.35);
                 border-radius: 0px;
                 padding: 2px 8px;
                 min-height: 0px;

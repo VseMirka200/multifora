@@ -2,7 +2,7 @@
 import os
 from datetime import datetime
 
-from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtCore import QTimer, Qt, QSize
 from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
 
 import app.core.settings as app_settings
 from app.ui.ui_components import (
+    build_bookmark_icon,
     apply_standard_menu_style,
     get_russian_text_input,
     setup_standard_dialog,
@@ -136,7 +137,7 @@ class TemplateCrudMixin:
         return """
             QTableWidget {
                 background-color: #3a3a3a;
-                alternate-background-color: #343840;
+                alternate-background-color: #3a3a3a;
                 border: 1px solid #4a4a4a;
                 color: #f0f0f0;
                 selection-background-color: #2f79c6;
@@ -446,6 +447,7 @@ class TemplateCrudMixin:
 
                 name_item = QTableWidgetItem(name)
                 name_item.setData(Qt.ItemDataRole.UserRole, name)
+                name_item.setIcon(build_bookmark_icon(theme=self._get_effective_theme_mode_for_templates()))
                 self.templates_table.setItem(row, 1, name_item)
                 row += 1
                 
@@ -531,6 +533,7 @@ class TemplateCrudMixin:
         self.templates_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.templates_table.setAlternatingRowColors(True)
         self.templates_table.setShowGrid(False)
+        self.templates_table.setIconSize(QSize(16, 16))
         self.templates_table.verticalHeader().setVisible(False)
         self.templates_table.horizontalHeader().setVisible(False)
         self.templates_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)

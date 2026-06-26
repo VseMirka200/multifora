@@ -7,8 +7,6 @@ import json
 import tempfile
 import time
 import re
-import urllib.parse
-import webbrowser
 import winreg
 import ctypes
 from ctypes import wintypes
@@ -16,6 +14,7 @@ import secrets
 import hashlib
 from datetime import datetime
 from PyQt6.QtWidgets import (
+    QAbstractItemView,
     QComboBox,
     QDialog,
     QFrame,
@@ -37,8 +36,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from PyQt6.QtCore import QEvent, QTimer, Qt, QUrl, QSize, pyqtSignal
-from PyQt6.QtGui import QAction, QActionGroup, QColor, QDesktopServices, QIcon, QPalette, QPixmap
+from PyQt6.QtCore import QEvent, QSortFilterProxyModel, QTimer, Qt, QSize, pyqtSignal
+from PyQt6.QtGui import QAction, QActionGroup, QColor, QIcon, QPalette, QPixmap
 from functools import partial
 from PyQt6.QtNetwork import QLocalServer
 
@@ -64,6 +63,13 @@ from app.core.deps import (
     ensure_ghostscript_detected,
 )
 from app.core.models import FileItem
+from app.core.conversion_formats import (
+    CONVERSION_CATEGORIES,
+    build_file_dialog_filter,
+    category_for_file_type,
+    format_for_path,
+    formats_for_category,
+)
 from core.workers import FileWorker
 from core.workers.conversion.conversion_mixin import prewarm_word_background
 import app.core.settings as app_settings
@@ -74,12 +80,12 @@ from app.ui.ui_components import (
     ClickableLabel,
     ExpandableGroupBox,
     FileListWidget,
+    FileListItemDelegate,
     LeftAlignedToolButton,
     LoggingStatusBar,
     setup_standard_dialog,
     setup_standard_danger_button,
     setup_standard_header_dropdown,
-    setup_standard_link_button,
     setup_standard_line_input,
     sync_standard_menu_width,
 )
@@ -92,7 +98,7 @@ from app.ui.mixins import (
     TemplateUiMixin,
     FileListUiMixin,
     AppearanceMixin,
-    SupportSettingsMixin,
+    SettingsPanelMixin,
     OperationsTabMixin,
 )
 
@@ -104,28 +110,26 @@ class DropActionTile(QFrame):
         super().__init__(parent)
         self.setObjectName("drop_action_tile")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFixedSize(168, 154)
+        self.setFixedSize(144, 132)
         self._theme = "dark"
         self._apply_theme_style()
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(2)
-        layout.addStretch()
+        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setSpacing(6)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         icon_label = QLabel()
-        icon_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom)
-        icon_label.setPixmap(icon.pixmap(QSize(58, 58)))
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_label.setPixmap(icon.pixmap(QSize(48, 48)))
         icon_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        layout.addWidget(icon_label)
+        layout.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignHCenter)
 
         self.text_label = QLabel(text)
-        self.text_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
-        self.text_label.setStyleSheet('font-family: "Segoe UI"; font-size: 13px; font-weight: 600;')
+        self.text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.text_label.setStyleSheet('font-family: "Segoe UI"; font-size: 12px; font-weight: 600;')
         self.text_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        layout.addWidget(self.text_label)
-
-        layout.addStretch()
+        layout.addWidget(self.text_label, 0, Qt.AlignmentFlag.AlignHCenter)
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -144,7 +148,7 @@ class DropActionTile(QFrame):
                 "QFrame#drop_action_tile {"
                 "background-color: transparent;"
                 "border: 2px dashed rgba(90, 100, 110, 170);"
-                "border-radius: 14px;"
+                "border-radius: 12px;"
                 "}"
                 "QFrame#drop_action_tile:hover {"
                 "border-color: rgba(61,116,179,220);"
@@ -153,14 +157,14 @@ class DropActionTile(QFrame):
             )
             if hasattr(self, "text_label"):
                 self.text_label.setStyleSheet(
-                    'font-family: "Segoe UI"; font-size: 13px; font-weight: 600; color: #1f2328;'
+                    'font-family: "Segoe UI"; font-size: 12px; font-weight: 600; color: #1f2328;'
                 )
         else:
             self.setStyleSheet(
                 "QFrame#drop_action_tile {"
                 "background-color: transparent;"
                 "border: 2px dashed rgba(255,255,255,120);"
-                "border-radius: 14px;"
+                "border-radius: 12px;"
                 "}"
                 "QFrame#drop_action_tile:hover {"
                 "border-color: rgba(255,255,255,210);"
@@ -169,8 +173,23 @@ class DropActionTile(QFrame):
             )
             if hasattr(self, "text_label"):
                 self.text_label.setStyleSheet(
-                    'font-family: "Segoe UI"; font-size: 13px; font-weight: 600; color: #f0f0f0;'
+                    'font-family: "Segoe UI"; font-size: 12px; font-weight: 600; color: #f0f0f0;'
                 )
+
+
+class PreviewSelectionProxyModel(QSortFilterProxyModel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._visible_rows = set()
+
+    def set_visible_rows(self, rows):
+        self._visible_rows = {int(row) for row in rows if row is not None and int(row) >= 0}
+        self.invalidateFilter()
+
+    def filterAcceptsRow(self, source_row, source_parent):
+        if not self._visible_rows:
+            return True
+        return source_row in self._visible_rows
 
 
 class MultiforaMainWindow(
@@ -182,7 +201,7 @@ class MultiforaMainWindow(
     TemplateUiMixin,
     FileListUiMixin,
     AppearanceMixin,
-    SupportSettingsMixin,
+    SettingsPanelMixin,
     OperationsTabMixin,
     QMainWindow,
 ):
@@ -203,9 +222,6 @@ class MultiforaMainWindow(
         self.windows_context_menu_enabled = False
         self.desktop_shortcut_enabled = False
         self.start_menu_shortcut_enabled = False
-        self.menu_lock_enabled = False
-        self.window_size_lock_enabled = False
-        self.menu_side = "left"
         self.disable_warning_dialogs = False
         self.theme_mode = "system"
         self.ghostscript_path_override = None
@@ -227,9 +243,6 @@ class MultiforaMainWindow(
         self._left_panel = None
         self._right_panel = None
         self._header_compact_mode = None
-        self._pending_splitter_sizes = None
-        self._pending_menu_panel_width = None
-        self._startup_splitter_restore_done = False
         self.init_logging()
         install_warning_suppression_hook()
         
@@ -547,15 +560,6 @@ class MultiforaMainWindow(
             _debug_log(f"Ошибка проверки прав администратора: {e}")
             return False
 
-    def open_link(self, url):
-        """Открывает ссылку в браузере по умолчанию"""
-        try:
-            QDesktopServices.openUrl(QUrl(url))
-            self.log_event(f"Открыта ссылка: {url}")
-        except Exception as e:
-            QMessageBox.warning(self, "Ошибка", f"Не удалось открыть ссылку: {str(e)}")
-            self.log_event(f"Ошибка открытия ссылки: {str(e)}", "ERROR")
-
     def style_link(self, label: QLabel):
         """Стилизует QLabel как ссылку"""
         label.setStyleSheet("""
@@ -583,6 +587,74 @@ class MultiforaMainWindow(
         layout.addWidget(value_widget)
         layout.addStretch()
         return container
+
+    def _create_preview_panel(self):
+        panel = QFrame()
+        panel.setObjectName("drop_zone_overlay")
+        self.preview_panel = panel
+        panel_layout = QVBoxLayout(panel)
+        panel_layout.setContentsMargins(0, 0, 0, 0)
+        panel_layout.setSpacing(0)
+
+        self.preview_list = FileListWidget()
+        self.preview_list.setObjectName("files_list")
+        self.preview_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self.preview_list.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.preview_list.setDragDropMode(QAbstractItemView.DragDropMode.NoDragDrop)
+        self.preview_list.setAcceptDrops(False)
+        self.preview_list.setDragEnabled(False)
+        self.preview_list.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+        self.preview_list.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.preview_list.setFrameShape(QFrame.Shape.NoFrame)
+        self.preview_list.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.preview_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        try:
+            self.preview_list.doubleClicked.disconnect()
+        except Exception:
+            pass
+        self.preview_proxy_model = PreviewSelectionProxyModel(self.preview_list)
+        self.preview_list.setModel(self.preview_proxy_model)
+        self.preview_list.setItemDelegate(FileListItemDelegate(self.preview_list, right_padding=0))
+        panel_layout.addWidget(self.preview_list, 1)
+
+        return panel
+
+    def refresh_preview_panel(self):
+        if not hasattr(self, "preview_list") or self.preview_list is None:
+            return
+
+        if not hasattr(self, "preview_proxy_model") or self.preview_proxy_model is None:
+            return
+
+        source_model = None
+        try:
+            source_model = self.list_files.model()
+        except Exception:
+            source_model = None
+
+        if source_model is not None and self.preview_proxy_model.sourceModel() is not source_model:
+            self.preview_proxy_model.setSourceModel(source_model)
+
+        visible_rows = []
+        try:
+            selected_rows = {
+                index.row()
+                for index in self.list_files.selectedIndexes()
+                if index.isValid() and index.column() == 0
+            }
+            visible_rows = sorted(selected_rows)
+        except Exception:
+            visible_rows = []
+
+        if not visible_rows:
+            try:
+                if source_model is not None and source_model.rowCount() > 0:
+                    visible_rows = [0]
+            except Exception:
+                visible_rows = []
+
+        self.preview_proxy_model.set_visible_rows(visible_rows)
+        self.preview_list.viewport().update()
 
     def update_ghostscript_status(self):
         """Обновляет информацию о наличии Ghostscript"""
@@ -630,39 +702,27 @@ class MultiforaMainWindow(
         top_menu_layout.setSpacing(4)
         top_menu_layout.addStretch(1)
 
-        self.help_menu_button = QPushButton("Справка")
-        setup_standard_link_button(self.help_menu_button)
-        self._help_menu = QMenu(self.help_menu_button)
-        self._help_menu._effective_theme_mode = getattr(self, "_effective_theme_mode", "dark")
-        apply_standard_menu_style(self._help_menu)
-
-        action_about = QAction("О программе", self._help_menu)
-        action_about.triggered.connect(self.show_detailed_info)
-        self._help_menu.addAction(action_about)
-
-        action_help = QAction("Помощь", self._help_menu)
-        action_help.triggered.connect(self.show_help_modal)
-        self._help_menu.addAction(action_help)
-        self._help_menu.addSeparator()
-
-        action_telegram = QAction("Telegram-канал", self._help_menu)
-        action_telegram.triggered.connect(lambda: self.open_link("https://t.me/isip22"))
-        self._help_menu.addAction(action_telegram)
-        action_donate = QAction("Поддержать проект", self._help_menu)
-        action_donate.triggered.connect(lambda: self.open_link("https://pay.cloudtips.ru/p/1fa22ea5"))
-        self._help_menu.addAction(action_donate)
-
-        self._help_menu.aboutToShow.connect(lambda: apply_standard_menu_style(self._help_menu))
-        self.help_menu_button.setMenu(self._help_menu)
-        top_menu_layout.addWidget(self.help_menu_button)
-
         main_layout.addWidget(self.top_menu_bar)
 
-        # Основный сплиттер (занимает всю высоту)
+        self.settings_panel_host = QFrame()
+        self.settings_panel_host.setObjectName("settings_panel_host")
+        self.settings_panel_host.setVisible(False)
+        self.settings_panel_host.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.settings_panel_host.setStyleSheet("background-color: transparent;")
+        self.settings_panel_host_layout = QVBoxLayout(self.settings_panel_host)
+        self.settings_panel_host_layout.setContentsMargins(0, 0, 0, 0)
+        self.settings_panel_host_layout.setSpacing(0)
+
+        # Основной сплиттер (занимает всю высоту)
+        if hasattr(self, "top_menu_bar") and self.top_menu_bar is not None:
+            try:
+                self.top_menu_bar.setVisible(False)
+            except Exception:
+                pass
+
         splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter = splitter
-        self._splitter_handle_width = 10
-        splitter.setHandleWidth(self._splitter_handle_width)
+        splitter.setHandleWidth(0)
         splitter.setStyleSheet(
             """
             QSplitter::handle:horizontal {
@@ -674,12 +734,12 @@ class MultiforaMainWindow(
             }
             """
         )
-        
+
         # Левая панель - управление (занимает всю высоту)
         left_widget = QWidget()
         self._left_panel = left_widget
-        self._left_panel_min_width = 260
-        left_widget.setMinimumWidth(self._left_panel_min_width)
+        self._left_panel_min_width = 0
+        left_widget.setMinimumWidth(0)
         left_layout = QVBoxLayout(left_widget)
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(0)
@@ -703,10 +763,15 @@ class MultiforaMainWindow(
         if hasattr(self, "operations_tab_bar"):
             main_layout.addWidget(self.operations_tab_bar)
         self.tabs.addTab(operations_tab, "Операции с файлами")
+        if not hasattr(self, "settings_panel_widget") or self.settings_panel_widget is None:
+            self.settings_panel_widget = self.create_settings_tab()
+        if self.settings_panel_widget.parent() is not self.settings_panel_host:
+            self.settings_panel_widget.setParent(None)
+            self.settings_panel_host_layout.addWidget(self.settings_panel_widget)
+        if callable(getattr(self, "_ensure_rename_history_settings_page", None)):
+            self._ensure_rename_history_settings_page()
         self.tabs.tabBar().hide()
-        
-        # Панель настроек (открывается как модальное окно)
-        self.settings_panel_widget = self.create_settings_tab()
+        main_layout.addWidget(self.settings_panel_host)
         
         left_layout.addWidget(self.tabs)
 
@@ -720,9 +785,10 @@ class MultiforaMainWindow(
         # Заголовок и кнопки управления списком
         list_header = QGridLayout()
         self._list_header_layout = list_header
-        list_header.setContentsMargins(0, 0, 0, 0)
-        list_header.setHorizontalSpacing(0)
-        list_header.setVerticalSpacing(0)
+        list_header.setContentsMargins(0, 0, 0, 2)
+        list_header.setHorizontalSpacing(2)
+        list_header.setVerticalSpacing(2)
+
         self._list_header_ext_label = QLabel("Расширения:")
         self._list_header_ext_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self._list_header_ext_label.setFixedWidth(90)
@@ -785,6 +851,8 @@ class MultiforaMainWindow(
         for label, value in [
             ("Документы", "document"),
             ("Изображения", "image"),
+            ("Видео", "video"),
+            ("Аудио", "audio"),
             ("Архивы", "archive"),
             ("Папки", "folder"),
             ("Другое", "other"),
@@ -847,18 +915,65 @@ class MultiforaMainWindow(
         self.input_search.setObjectName("header_cell_br")
         self.input_search.setPlaceholderText("Введите имя файла...")
         setup_standard_line_input(self.input_search)
-        self.input_search.setMinimumWidth(160)
+        self.input_search.setMinimumWidth(0)
         self.input_search.textChanged.connect(self.on_search_text_changed)
-        list_header.addWidget(self.input_search, 1, 1)
 
+        header_border_style = (
+            "QToolButton#header_cell_tl, QToolButton#header_cell_tr, "
+            "QToolButton#header_cell_bl, QLineEdit#header_cell_br {"
+            "border: none;"
+            "border-radius: 0px;"
+            "margin: 0px;"
+            "padding: 2px 10px;"
+            "}"
+            "QToolButton#header_cell_tl:hover, QToolButton#header_cell_tr:hover, "
+            "QToolButton#header_cell_bl:hover, QLineEdit#header_cell_br:hover {"
+            "background-color: transparent;"
+            "border: none;"
+            "}"
+        )
+        self.btn_ext_filter.setStyleSheet(self.btn_ext_filter.styleSheet() + header_border_style)
+        self.btn_type_filter.setStyleSheet(self.btn_type_filter.styleSheet() + header_border_style)
+        self.combo_sort.setStyleSheet(self.combo_sort.styleSheet() + header_border_style)
+        self.input_search.setStyleSheet(self.input_search.styleSheet() + header_border_style)
+        for widget in (self.btn_ext_filter, self.btn_type_filter, self.combo_sort, self.input_search):
+            try:
+                widget.setMinimumHeight(28)
+            except Exception:
+                pass
+        self.combo_sort.setStyleSheet(
+            self.combo_sort.styleSheet()
+            + "QComboBox#combo_sort { padding: 2px 10px; margin: 0px; border: none; }"
+            + "QComboBox#combo_sort::drop-down { width: 18px; border: none; }"
+            + "QComboBox#combo_sort::down-arrow { width: 8px; height: 8px; }"
+        )
+        list_header.addWidget(self.input_search, 1, 1)
         list_header.setColumnStretch(0, 1)
         list_header.setColumnStretch(1, 1)
-        
+
         right_layout.addLayout(list_header)
-        
-        # Список файлов с drag-and-drop
+        # Список файлов с drag-and-drop + панель предпросмотра
+        files_preview_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.files_preview_splitter = files_preview_splitter
+        files_preview_splitter.setHandleWidth(0)
+        files_preview_splitter.setChildrenCollapsible(False)
+        files_preview_splitter.setCollapsible(0, False)
+        files_preview_splitter.setCollapsible(1, False)
+
+        files_panel = QWidget()
+        files_panel_layout = QVBoxLayout(files_panel)
+        files_panel_layout.setContentsMargins(0, 0, 0, 0)
+        files_panel_layout.setSpacing(0)
+
         self.list_files = FileListWidget()
         self.list_files.setObjectName("files_list")
+        try:
+            self.list_files.setWordWrap(True)
+            self.list_files.setTextElideMode(Qt.TextElideMode.ElideNone)
+            self.list_files.setUniformItemSizes(False)
+            self.list_files.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        except Exception:
+            pass
         list_palette = self.list_files.palette()
         list_palette.setColor(QPalette.ColorRole.Highlight, QColor("#9fc5f8"))
         list_palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#1f2328"))
@@ -869,13 +984,8 @@ class MultiforaMainWindow(
         self.list_files.orderChanged.connect(self.on_list_order_changed)
         self.list_files.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.list_files.customContextMenuRequested.connect(self.show_file_context_menu)
-        
-        right_layout.addWidget(self.list_files)
+        files_panel_layout.addWidget(self.list_files, 1)
 
-        # Прогресс бар + кнопка отмены (под правым списком)
-        self._create_progress_dialog()
-        
-        # Кнопки добавления внутри пустой зоны дропа
         self.drop_zone_controls = QWidget(self.list_files.viewport())
         self.drop_zone_controls.setObjectName("drop_zone_overlay")
         self.drop_zone_controls.setStyleSheet(
@@ -891,12 +1001,15 @@ class MultiforaMainWindow(
             """
         )
         drop_zone_layout = QVBoxLayout(self.drop_zone_controls)
-        drop_zone_layout.setContentsMargins(8, 8, 8, 8)
+        drop_zone_layout.setContentsMargins(0, 8, 0, 8)
         drop_zone_layout.setSpacing(10)
+        drop_zone_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
         drop_zone_layout.addStretch()
 
-        drop_buttons_row = QHBoxLayout()
-        drop_buttons_row.setSpacing(10)
+        drop_buttons_row = QGridLayout()
+        drop_buttons_row.setContentsMargins(0, 0, 0, 0)
+        drop_buttons_row.setHorizontalSpacing(10)
+        drop_buttons_row.setVerticalSpacing(0)
         drop_buttons_row.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         self.btn_add_files = DropActionTile(
@@ -904,23 +1017,25 @@ class MultiforaMainWindow(
             "Добавить\nфайлы",
         )
         self.btn_add_files.clicked.connect(self.select_files)
-        drop_buttons_row.addWidget(self.btn_add_files)
+        drop_buttons_row.addWidget(self.btn_add_files, 0, 0)
 
         self.btn_add_folder = DropActionTile(
             self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogNewFolder),
             "Добавить\nпапки",
         )
         self.btn_add_folder.clicked.connect(self.select_folder)
-        drop_buttons_row.addWidget(self.btn_add_folder)
+        drop_buttons_row.addWidget(self.btn_add_folder, 0, 1)
+        drop_buttons_row.setColumnStretch(0, 1)
+        drop_buttons_row.setColumnStretch(1, 1)
 
         drop_zone_layout.addLayout(drop_buttons_row, 0)
 
         self.drop_zone_hint_label = QLabel("Или перетащите сюда файлы/папки")
-        self.drop_zone_hint_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+        self.drop_zone_hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.drop_zone_hint_label.setStyleSheet("color: rgba(220,220,220,180); font-size: 13px;")
         drop_zone_layout.addWidget(self.drop_zone_hint_label, 0, Qt.AlignmentFlag.AlignHCenter)
         drop_zone_layout.addStretch()
-        
+
         try:
             model = self.list_files.model()
             model.rowsInserted.connect(lambda *_args: self._update_drop_zone_controls())
@@ -935,20 +1050,55 @@ class MultiforaMainWindow(
             pass
         self._update_drop_zone_controls()
         QTimer.singleShot(0, self._update_drop_zone_controls)
+
+        preview_panel = self._create_preview_panel()
+        files_preview_splitter.addWidget(files_panel)
+        files_preview_splitter.addWidget(preview_panel)
+        files_preview_splitter.setSizes([1, 1])
+        files_preview_splitter.setStretchFactor(0, 1)
+        files_preview_splitter.setStretchFactor(1, 1)
+        preview_handle = files_preview_splitter.handle(1)
+        if preview_handle is not None:
+            preview_handle.setEnabled(False)
+        QTimer.singleShot(0, self._sync_files_preview_splitter)
+
+        right_layout.addWidget(files_preview_splitter, 1)
+
+        # Прогресс бар + кнопка отмены (под правым списком)
+        self._create_progress_dialog()
         self.on_sort_changed()
-        
+
         # Информация о файлах
         info_layout = QHBoxLayout()
         self.label_count = QLabel("Файлов: 0")
         self.label_count.setStyleSheet("font-weight: bold; font-size: 13px;")
         info_layout.addWidget(self.label_count)
-        
-        self.label_size = QLabel("Размер: 0 MB")
-        self.label_size.setStyleSheet("font-weight: bold; font-size: 13px;")
-        info_layout.addWidget(self.label_size)
-        
+
+        count_size_sep = QFrame()
+        count_size_sep.setFrameShape(QFrame.Shape.VLine)
+        count_size_sep.setFrameShadow(QFrame.Shadow.Plain)
+        count_size_sep.setStyleSheet("background-color: #4a4a4a; border: none;")
+        count_size_sep.setFixedWidth(2)
+        info_layout.addWidget(count_size_sep)
+
+        self.label_item_size = QLabel("Размер: 0 MB")
+        self.label_item_size.setStyleSheet("font-weight: bold; font-size: 13px;")
+        info_layout.addWidget(self.label_item_size)
+
+        size_total_sep = QFrame()
+        size_total_sep.setFrameShape(QFrame.Shape.VLine)
+        size_total_sep.setFrameShadow(QFrame.Shadow.Plain)
+        size_total_sep.setStyleSheet("background-color: #4a4a4a; border: none;")
+        size_total_sep.setFixedWidth(2)
+        info_layout.addWidget(size_total_sep)
+
+        self.label_total_size = QLabel("Общий объем: 0 MB")
+        self.label_total_size.setStyleSheet("font-weight: bold; font-size: 13px;")
+        info_layout.addWidget(self.label_total_size)
+
         info_layout.addStretch()
-        
+        right_layout.addLayout(info_layout)
+
         # Оставляем метки для внутренней логики, но не занимаем нижнюю область панели.
         splitter.addWidget(left_widget)
         splitter.addWidget(right_widget)
@@ -972,10 +1122,13 @@ class MultiforaMainWindow(
         splitter.setChildrenCollapsible(False)
         splitter.setCollapsible(0, False)
         splitter.setCollapsible(1, False)
-        splitter.setSizes([400, 800])
-        splitter.setStretchFactor(0, 2)
-        splitter.setStretchFactor(1, 3)
-        
+        splitter.setSizes([1, 5])
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 5)
+        handle = splitter.handle(1)
+        if handle is not None:
+            handle.setEnabled(False)
+
         main_layout.addWidget(splitter, 1)
         
         # Статус бар
@@ -991,7 +1144,7 @@ class MultiforaMainWindow(
         # Устанавливаем минимальные размеры для окна
         self.setMinimumSize(900, 550)
         self._default_min_size = self.minimumSize()
-        self.tabs.setMinimumWidth(getattr(self, "_left_panel_min_width", 340))
+        self.tabs.setMinimumWidth(0)
 
         # Применяем тему (по умолчанию: как в системе)
         self.apply_theme_mode(self.theme_mode)
@@ -1056,38 +1209,6 @@ class MultiforaMainWindow(
                         self._safe_polish_widget(menu)
                 except Exception:
                     pass
-        help_menu = getattr(self, "_help_menu", None)
-        if help_menu is not None:
-            try:
-                help_menu._effective_theme_mode = mode
-            except Exception:
-                pass
-            apply_standard_menu_style(help_menu)
-        if hasattr(self, "main_splitter") and self.main_splitter is not None:
-            if mode == "light":
-                self.main_splitter.setStyleSheet(
-                    """
-                    QSplitter::handle:horizontal {
-                        background-color: #cfd4db;
-                        margin: 0px;
-                    }
-                    QSplitter::handle:horizontal:hover {
-                        background-color: #bcc4ce;
-                    }
-                    """
-                )
-            else:
-                self.main_splitter.setStyleSheet(
-                    """
-                    QSplitter::handle:horizontal {
-                        background-color: #4a4a4a;
-                        margin: 0px;
-                    }
-                    QSplitter::handle:horizontal:hover {
-                        background-color: #4a4a4a;
-                    }
-                    """
-                )
         if hasattr(self, "_splitter_grip_label") and self._splitter_grip_label is not None:
             if mode == "light":
                 self._splitter_grip_label.setStyleSheet(
@@ -1130,6 +1251,35 @@ class MultiforaMainWindow(
                 )
                 if hasattr(self, "drop_zone_hint_label"):
                     self.drop_zone_hint_label.setStyleSheet("color: rgba(220,220,220,180); font-size: 13px;")
+        if hasattr(self, "preview_panel") and self.preview_panel is not None:
+            if mode == "light":
+                self.preview_panel.setStyleSheet(
+                    """
+                    QWidget#drop_zone_overlay {
+                        background-color: #f3f3f3;
+                        border: none;
+                        border-radius: 0px;
+                    }
+                    QWidget#drop_zone_overlay QLabel {
+                        background-color: transparent;
+                        color: #5b6470;
+                    }
+                    """
+                )
+            else:
+                self.preview_panel.setStyleSheet(
+                    """
+                    QWidget#drop_zone_overlay {
+                        background-color: #3a3a3a;
+                        border: none;
+                        border-radius: 0px;
+                    }
+                    QWidget#drop_zone_overlay QLabel {
+                        background-color: transparent;
+                        color: rgba(220,220,220,180);
+                    }
+                    """
+                )
         for tile_name in ("btn_add_files", "btn_add_folder"):
             tile = getattr(self, tile_name, None)
             if tile is not None and callable(getattr(tile, "set_theme_mode", None)):
@@ -1201,11 +1351,6 @@ class MultiforaMainWindow(
             return
         self._header_compact_mode = compact
 
-        if hasattr(self, "_list_header_layout"):
-            layout = self._list_header_layout
-            while layout.count():
-                layout.takeAt(0)
-
         if hasattr(self, "_list_header_sort_label"):
             self._list_header_sort_label.setVisible(False)
         if hasattr(self, "_list_header_type_label"):
@@ -1216,32 +1361,11 @@ class MultiforaMainWindow(
             self._list_header_search_label.setVisible(False)
         if hasattr(self, "_list_header_layout"):
             layout = self._list_header_layout
-            if compact:
-                layout.addWidget(self.btn_ext_filter, 0, 0)
-                layout.addWidget(self.btn_type_filter, 0, 1)
-                layout.addWidget(self.combo_sort, 1, 0)
-                layout.addWidget(self.input_search, 1, 1)
+            try:
                 layout.setColumnStretch(0, 1)
                 layout.setColumnStretch(1, 1)
-                layout.setColumnStretch(2, 0)
-                layout.setColumnStretch(3, 0)
-                layout.setColumnStretch(4, 0)
-                layout.setColumnStretch(5, 0)
-                layout.setColumnStretch(6, 0)
-                layout.setColumnStretch(7, 0)
-            else:
-                layout.addWidget(self.btn_ext_filter, 0, 0)
-                layout.addWidget(self.btn_type_filter, 0, 1)
-                layout.addWidget(self.combo_sort, 1, 0)
-                layout.addWidget(self.input_search, 1, 1)
-                layout.setColumnStretch(0, 1)
-                layout.setColumnStretch(1, 1)
-                layout.setColumnStretch(2, 0)
-                layout.setColumnStretch(3, 0)
-                layout.setColumnStretch(4, 0)
-                layout.setColumnStretch(5, 0)
-                layout.setColumnStretch(6, 0)
-                layout.setColumnStretch(7, 0)
+            except Exception:
+                pass
 
     def _update_drop_zone_controls(self):
         if not hasattr(self, "list_files") or not hasattr(self, "drop_zone_controls"):
@@ -1278,105 +1402,133 @@ class MultiforaMainWindow(
                 self._update_operations_narrow_layout()
         except Exception:
             pass
+        try:
+            self._sync_files_preview_splitter()
+        except Exception:
+            pass
         self._update_drop_zone_controls()
         self._schedule_settings_save()
 
+    def _sync_files_preview_splitter(self):
+        splitter = getattr(self, "files_preview_splitter", None)
+        if splitter is None:
+            return
+        total_width = splitter.width()
+        if total_width <= 0:
+            return
+        handle_width = splitter.handleWidth() if hasattr(splitter, "handleWidth") else 0
+        available = max(0, total_width - handle_width)
+        left = available // 2
+        right = available - left
+        splitter.setSizes([left, right])
+        header_layout = getattr(self, "_list_header_layout", None)
+        if header_layout is not None:
+            try:
+                header_layout.setColumnStretch(0, 1)
+                header_layout.setColumnStretch(1, 1)
+            except Exception:
+                pass
+
     def showEvent(self, event):
         super().showEvent(event)
-        if not self._startup_splitter_restore_done:
-            self._startup_splitter_restore_done = True
-            QTimer.singleShot(0, self._restore_pending_splitter_sizes)
-
-    def _restore_pending_splitter_sizes(self):
-        sizes = getattr(self, "_pending_splitter_sizes", None)
-        if not hasattr(self, "main_splitter") or self.main_splitter is None:
-            return
-        try:
-            menu_width = getattr(self, "_pending_menu_panel_width", None)
-            if menu_width:
-                current_sizes = self.main_splitter.sizes()
-                total_width = sum(current_sizes) if current_sizes else self.width()
-                if total_width <= 0:
-                    total_width = self.width() or 1200
-                min_menu_width = getattr(self, "_left_panel_min_width", 260)
-                menu_width = max(min_menu_width, int(menu_width))
-                if total_width <= menu_width:
-                    total_width = menu_width + 200
-                content_width = max(200, total_width - menu_width)
-                if getattr(self, "menu_side", "left") == "right":
-                    self.main_splitter.setSizes([content_width, menu_width])
-                else:
-                    self.main_splitter.setSizes([menu_width, content_width])
-            elif sizes:
-                self.main_splitter.setSizes(list(sizes))
-            if getattr(self, "menu_lock_enabled", False):
-                self._locked_splitter_sizes = self.main_splitter.sizes()
-        except Exception as e:
-            _debug_log(f"Ошибка восстановления ширины панелей: {e}")
 
     def moveEvent(self, event):
         super().moveEvent(event)
         self._schedule_settings_save()
         
-    def get_file_extension_type(self, file_path):
-        """Определяет тип файла по расширению"""
-        ext = os.path.splitext(file_path)[1].lower()
-        
-        # Группировка форматов
-        doc_formats = ['.doc', '.docx']
-        pdf_formats = ['.pdf']
-        odt_formats = ['.odt']
-        image_formats = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.gif', '.webp']
-        
-        if ext in doc_formats:
-            return "DOC/DOCX"
-        elif ext in pdf_formats:
-            return "PDF"
-        elif ext in odt_formats:
-            return "ODT (OpenDocument)"
-        elif ext in image_formats:
-            return "Изображения (JPG/PNG)"
-        else:
-            return None
-    
     def update_converter_from_format(self):
-        """Обновляет поле 'Из:' на основе выбранных файлов"""
+        """Обновляет поля конвертации на основе выбранных файлов и категории."""
         selected_items = self.list_files.selectedItems()
-        if not selected_items:
-            self.from_convert_combo.setCurrentIndex(0)
-            self.to_convert_combo.setEnabled(False)
-            self.btn_convert.setEnabled(False)
-            return
-        
-        # Определяем форматы всех выбранных файлов
-        formats = set()
+        category_combo = getattr(self, "convert_file_type_combo", None)
+
+        category_label = ""
+        if category_combo is not None:
+            try:
+                category_label = str(category_combo.currentText() or "").strip()
+            except Exception:
+                category_label = ""
+
+        categories = set()
+        source_formats = set()
         for item in selected_items:
             file_item = item.data(Qt.ItemDataRole.UserRole)
-            if file_item and file_item.is_file:
-                file_type = self.get_file_extension_type(file_item.path)
-                if file_type:
-                    formats.add(file_type)
-        
-        if len(formats) == 1:
-            # Все файлы одного типа
-            file_type = formats.pop()
-            # Ищем соответствующий индекс в комбобоксе
-            index = self.from_convert_combo.findText(file_type)
-            if index >= 0:
-                self.from_convert_combo.setCurrentIndex(index)
-                self.update_to_combo_based_on_from()
-        else:
-            # Разные типы файлов - сброс
-            self.from_convert_combo.setCurrentIndex(0)
-            self.to_convert_combo.setCurrentIndex(0)
+            if not file_item or not file_item.is_file:
+                continue
+            file_category = category_for_file_type(file_item.file_type)
+            if file_category:
+                categories.add(file_category)
+            source_format = format_for_path(file_item.path)
+            if source_format:
+                source_formats.add(source_format)
+
+        if category_label not in CONVERSION_CATEGORIES:
+            category_label = ""
+        if not category_label and len(categories) == 1:
+            category_label = categories.pop()
+            if category_combo is not None:
+                index = category_combo.findText(category_label)
+                if index >= 0:
+                    category_combo.blockSignals(True)
+                    category_combo.setCurrentIndex(index)
+                    category_combo.blockSignals(False)
+        elif category_combo is not None and category_label:
+            index = category_combo.findText(category_label)
+            if index >= 0 and category_combo.currentIndex() != index:
+                category_combo.blockSignals(True)
+                category_combo.setCurrentIndex(index)
+                category_combo.blockSignals(False)
+
+        if not category_label:
+            self.from_convert_combo.blockSignals(True)
+            self.from_convert_combo.clear()
+            self.from_convert_combo.addItem("Выберите исходный формат:")
+            self.from_convert_combo.blockSignals(False)
+            self.to_convert_combo.blockSignals(True)
+            self.to_convert_combo.clear()
+            self.to_convert_combo.addItem("Выберите целевой формат:")
             self.to_convert_combo.setEnabled(False)
+            self.to_convert_combo.blockSignals(False)
             self.btn_convert.setEnabled(False)
+            return
+
+        available_formats = formats_for_category(category_label)
+        self.from_convert_combo.blockSignals(True)
+        self.from_convert_combo.clear()
+        self.from_convert_combo.addItem("Выберите исходный формат:")
+        for fmt in available_formats:
+            self.from_convert_combo.addItem(fmt)
+        self.from_convert_combo.blockSignals(False)
+
+        selected_source = ""
+        if len(source_formats) == 1:
+            selected_source = source_formats.pop()
+        elif selected_items:
+            current_source = str(self.from_convert_combo.currentText() or "").strip()
+            if current_source in available_formats:
+                selected_source = current_source
+
+        if selected_source in available_formats:
+            index = self.from_convert_combo.findText(selected_source)
+            if index >= 0:
+                self.from_convert_combo.blockSignals(True)
+                self.from_convert_combo.setCurrentIndex(index)
+                self.from_convert_combo.blockSignals(False)
+        else:
+            self.from_convert_combo.blockSignals(True)
+            self.from_convert_combo.setCurrentIndex(0)
+            self.from_convert_combo.blockSignals(False)
+
+        self.update_to_combo_based_on_from()
+        if callable(getattr(self, "update_convert_button_state", None)):
+            self.update_convert_button_state()
     
     def on_file_selection_changed(self):
         """Обработчик изменения выбора файлов"""
         self.update_converter_from_format()
         if callable(getattr(self, "refresh_active_file_preview", None)):
             self.refresh_active_file_preview()
+        if callable(getattr(self, "refresh_preview_panel", None)):
+            self.refresh_preview_panel()
         if callable(getattr(self, "_auto_select_compress_type", None)):
             self._auto_select_compress_type()
         if callable(getattr(self, "_update_compress_button", None)):
@@ -1389,7 +1541,7 @@ class MultiforaMainWindow(
             self, 
             "Выберите файлы", 
             "", 
-            "Все файлы (*.*);;Документы (*.doc *.docx *.pdf);;Изображения (*.jpg *.jpeg *.png *.bmp)",
+            build_file_dialog_filter(),
             options=options
         )
         

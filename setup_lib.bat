@@ -18,6 +18,9 @@ if errorlevel 1 goto :error
 python -m pip install -r requirements.txt
 if errorlevel 1 goto :error
 
+python -m pip install imageio-ffmpeg
+if errorlevel 1 goto :error
+
 python -m pip install PyQt6
 if errorlevel 1 goto :error
 

@@ -9,3 +9,4 @@ odfpy
 python-docx
 PyQt6
 PyInstaller
+imageio-ffmpeg

@@ -1,5 +1,7 @@
 import os
 
+from app.core.conversion_formats import FILE_TYPE_EXTENSIONS, format_for_path
+
 class FileItem:
     """Класс для хранения информации о файле"""
     def __init__(self, path: str):
@@ -20,31 +22,27 @@ class FileItem:
         
         ext = os.path.splitext(self.name)[1].lower()
         
-        if ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp', '.svg', '.ico']:
-            return "image"
-        elif ext in ['.doc', '.docx', '.pdf', '.txt', '.rtf', '.odt']:
-            return "document"
-        elif ext in ['.zip', '.rar', '.7z', '.tar', '.gz']:
-            return "archive"
-        else:
-            return "other"
+        for file_type, extensions in FILE_TYPE_EXTENSIONS.items():
+            if ext in extensions:
+                return file_type
+        return "other"
         
     def get_icon(self) -> str:
         """Возвращает иконку для типа файла"""
         if not self.is_file:
             return "📁"
-        
-        ext = os.path.splitext(self.name)[1].lower()
-        icon_map = {
-            # Документы
-            '.doc': '📝', '.docx': '📝', '.pdf': '📄', '.txt': '📄', '.rtf': '📄',
-            # Изображения
-            '.jpg': '🖼️', '.jpeg': '🖼️', '.png': '🖼️', '.gif': '🖼️', '.bmp': '🖼️',
-            '.tiff': '🖼️', '.webp': '🖼️', '.svg': '🖼️', '.ico': '🖼️',
-            # Архивы
-            '.zip': '📦', '.rar': '📦', '.7z': '📦', '.tar': '📦', '.gz': '📦',
-        }
-        return icon_map.get(ext, '📄')
+
+        if self.file_type == "image":
+            return "🖼️"
+        if self.file_type == "video":
+            return "🎞️"
+        if self.file_type == "audio":
+            return "🔊"
+        if self.file_type == "archive":
+            return "📦"
+        if format_for_path(self.path) == "DOCX":
+            return "📝"
+        return "📄"
     
     def update_info(self):
         """Обновляет информацию о файле"""

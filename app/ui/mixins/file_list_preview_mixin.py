@@ -4,6 +4,8 @@ import webbrowser
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QMessageBox
 
+from app.core.conversion_formats import CATEGORY_FILE_TYPES, suffix_for_format
+
 
 class FileListPreviewMixin:
     def _set_preview_names_to_original(self):
@@ -13,6 +15,8 @@ class FileListPreviewMixin:
     def _refresh_list_preview(self):
         if hasattr(self, "list_files") and self.list_files is not None:
             self.list_files.refresh()
+        if callable(getattr(self, "refresh_preview_panel", None)):
+            self.refresh_preview_panel()
 
     def _active_operations_tab_label(self) -> str:
         tab_bar = getattr(self, "operations_tab_bar", None)
@@ -78,13 +82,7 @@ class FileListPreviewMixin:
 
     @staticmethod
     def _conversion_target_suffix(to_format: str) -> str:
-        mapping = {
-            "PDF": ".pdf",
-            "DOC/DOCX": ".docx",
-            "ODT (OpenDocument)": ".odt",
-            "Изображения (JPG/PNG)": ".jpg",
-        }
-        return mapping.get(str(to_format or "").strip(), "")
+        return suffix_for_format(to_format)
 
     def _build_conversion_preview_name(self, file_name: str, to_format: str) -> str:
         suffix = self._conversion_target_suffix(to_format)
@@ -104,6 +102,7 @@ class FileListPreviewMixin:
 
         from_combo = getattr(self, "from_convert_combo", None)
         to_combo = getattr(self, "to_convert_combo", None)
+        type_combo = getattr(self, "convert_file_type_combo", None)
         if from_combo is None or to_combo is None:
             self._set_preview_names_to_original()
             self._refresh_list_preview()
@@ -111,10 +110,17 @@ class FileListPreviewMixin:
 
         from_format = from_combo.currentText()
         to_format = to_combo.currentText()
+        category_label = ""
+        if type_combo is not None:
+            try:
+                category_label = str(type_combo.currentText() or "").strip()
+            except Exception:
+                category_label = ""
         from_idx = from_combo.currentIndex() if hasattr(from_combo, "currentIndex") else 0
         to_idx = to_combo.currentIndex() if hasattr(to_combo, "currentIndex") else 0
+        type_idx = type_combo.currentIndex() if hasattr(type_combo, "currentIndex") else 0 if type_combo is not None else 0
 
-        if from_idx <= 0 or to_idx <= 0:
+        if from_idx <= 0 or to_idx <= 0 or (type_combo is not None and type_idx <= 0):
             self._set_preview_names_to_original()
             self._refresh_list_preview()
             return
@@ -123,6 +129,11 @@ class FileListPreviewMixin:
             file_item.preview_name = file_item.name
             if not getattr(file_item, "is_file", False):
                 continue
+            if category_label:
+                file_type = str(getattr(file_item, "file_type", "")).lower()
+                expected = CATEGORY_FILE_TYPES.get(category_label, "")
+                if expected and file_type != expected:
+                    continue
             if callable(getattr(self, "_check_file_compatibility_dual", None)):
                 if self._check_file_compatibility_dual(file_item, from_format):
                     file_item.preview_name = self._build_conversion_preview_name(file_item.name, to_format)

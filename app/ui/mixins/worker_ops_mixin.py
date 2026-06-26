@@ -134,6 +134,8 @@ class WorkerOpsMixin:
             "odt_to_pdf": "PDF",
             "pdf_to_odt": "ODT",
             "pdf_to_image": "изображения",
+            "image_to_image": "изображения",
+            "media_to_media": "медиафайлы",
         }
         return names.get(conversion_type, conversion_type)
 
@@ -414,6 +416,10 @@ class WorkerOpsMixin:
                 self.status_bar.showMessage(
                     f"Операция завершена. Создано {self._ru_files_label(len(new_files))}."
                 )
+
+        persist_history = getattr(self, "_persist_rename_history_state", None)
+        if callable(persist_history):
+            persist_history()
 
         if self._pending_close and not (self.file_worker and self.file_worker.isRunning()):
             self._pending_close = False

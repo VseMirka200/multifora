@@ -99,43 +99,46 @@ class SettingsPanelMixin:
         layout.addStretch()
         return row
 
-    def show_settings_modal(self):
-        """Открывает настройки в модальном окне."""
+    def _ensure_settings_panel_widget(self):
         if not hasattr(self, "settings_panel_widget") or self.settings_panel_widget is None:
             self.settings_panel_widget = self.create_settings_tab()
 
-        if not hasattr(self, "_settings_dialog") or self._settings_dialog is None:
-            dialog = QDialog(self)
-            setup_standard_dialog(
-                dialog,
-                title="Настройки",
-                min_width=560,
-                min_height=360,
-                width=900,
-                height=640,
-                size_grip=True,
-                allow_minmax=True,
-            )
+        host = getattr(self, "settings_panel_host", None)
+        if host is not None:
+            host_layout = host.layout()
+            if host_layout is not None and host_layout.indexOf(self.settings_panel_widget) < 0:
+                self.settings_panel_widget.setParent(None)
+                host_layout.addWidget(self.settings_panel_widget)
+        return self.settings_panel_widget
 
-            layout = QVBoxLayout(dialog)
-            layout.setContentsMargins(0, 0, 0, 0)
-            layout.setSpacing(0)
-            layout.addWidget(self.settings_panel_widget)
+    def show_settings_modal(self):
+        """Показывает панель настроек поверх рабочей области."""
+        settings_widget = self._ensure_settings_panel_widget()
+        if callable(getattr(self, "_ensure_rename_history_settings_page", None)):
+            self._ensure_rename_history_settings_page()
 
-            pending_geometry = getattr(self, "_pending_settings_dialog_geometry", None)
-            if isinstance(pending_geometry, str) and pending_geometry:
-                try:
-                    dialog.restoreGeometry(bytes.fromhex(pending_geometry))
-                except Exception:
-                    pass
+        host = getattr(self, "settings_panel_host", None)
+        settings_index = getattr(self, "_settings_tab_index", -1)
+        tab_bar = getattr(self, "operations_tab_bar", None)
+        if tab_bar is not None and settings_index >= 0 and tab_bar.currentIndex() != settings_index:
+            tab_bar.blockSignals(True)
+            try:
+                tab_bar.setCurrentIndex(settings_index)
+            finally:
+                tab_bar.blockSignals(False)
 
-            dialog.finished.connect(lambda _result: self._schedule_settings_save())
-            self._settings_dialog = dialog
+        if host is not None:
+            host.setVisible(True)
+            host.adjustSize()
+            host.updateGeometry()
+        splitter = getattr(self, "main_splitter", None)
+        if splitter is not None:
+            splitter.setVisible(False)
 
         if callable(getattr(self, "attach_action_logging", None)):
-            self.attach_action_logging(self.settings_panel_widget)
+            self.attach_action_logging(settings_widget)
 
-        self.log_event("Открыто окно настроек")
+        self.log_event("Открыта панель настроек")
         try:
             self.load_logs_into_view()
         except Exception:
@@ -145,7 +148,65 @@ class SettingsPanelMixin:
             if not isinstance(target_row, int) or target_row < 0 or target_row >= self.settings_nav.count():
                 target_row = 0
             self.settings_nav.setCurrentRow(target_row)
-        self._settings_dialog.exec()
+
+    def hide_settings_panel(self):
+        host = getattr(self, "settings_panel_host", None)
+        if host is not None:
+            host.setVisible(False)
+        splitter = getattr(self, "main_splitter", None)
+        if splitter is not None:
+            splitter.setVisible(True)
+
+    def _ensure_rename_history_settings_page(self):
+        page = getattr(self, "rename_history_settings_page", None)
+        if page is None:
+            page = QWidget()
+            page.setObjectName("rename_history_settings_page")
+            page_layout = QVBoxLayout(page)
+            page_layout.setContentsMargins(0, 0, 0, 0)
+            page_layout.setSpacing(4)
+            page_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+            content = QWidget()
+            content.setObjectName("rename_history_settings_content")
+            content.setMaximumWidth(310)
+            content_layout = QVBoxLayout(content)
+            content_layout.setContentsMargins(0, 0, 0, 0)
+            content_layout.setSpacing(4)
+            content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+            history_label = QLabel("История переименований")
+            history_label.setStyleSheet("font-size: 13px;")
+            history_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            content_layout.addWidget(history_label)
+
+            self.rename_history_list = QListWidget()
+            self.rename_history_list.setObjectName("rename_history_list")
+            self.rename_history_list.setFixedHeight(86)
+            self.rename_history_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+            self.rename_history_list.currentRowChanged.connect(self.on_history_row_changed)
+            content_layout.addWidget(self.rename_history_list)
+
+            self.btn_history_undo = QPushButton("Откатить")
+            self.btn_history_undo.clicked.connect(self.undo_last_rename)
+            self.btn_history_undo.setEnabled(False)
+            history_buttons_widget, _ = self._build_rename_action_row([self.btn_history_undo])
+            content_layout.addWidget(history_buttons_widget)
+
+            page_layout.addWidget(content, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            page_layout.addStretch(1)
+
+            self.rename_history_settings_page = page
+
+        settings_stack = getattr(self, "settings_stack", None)
+        if settings_stack is not None and settings_stack.indexOf(page) < 0:
+            settings_stack.addWidget(page)
+
+        settings_nav = getattr(self, "settings_nav", None)
+        if settings_nav is not None and settings_nav.findItems("История переименований", Qt.MatchFlag.MatchExactly) == []:
+            settings_nav.addItem("История переименований")
+
+        return page
 
     def create_settings_tab(self):
         """Создает панель настроек с категориями слева и содержимым справа."""
@@ -220,30 +281,6 @@ class SettingsPanelMixin:
         self.theme_mode_combo.currentIndexChanged.connect(self._on_theme_mode_changed)
         theme_row = self._create_settings_select_row("Тема:", self.theme_mode_combo)
         appearance_card_layout.addWidget(theme_row)
-
-        self.menu_side_combo = MenuLikeComboBox()
-        setup_standard_dropdown(self.menu_side_combo, fixed_width=200)
-        self.menu_side_combo.addItem("Слева", "left")
-        self.menu_side_combo.addItem("Справа", "right")
-        self.menu_side_combo.currentIndexChanged.connect(self._on_menu_side_changed)
-        menu_side_row = self._create_settings_select_row("Панель:", self.menu_side_combo)
-        appearance_card_layout.addWidget(menu_side_row)
-
-        lock_menu_row, self.lock_menu_checkbox = self._create_settings_checkbox_row(
-            "Фиксировать ширину меню",
-            "Запрещает изменение ширины левой и правой панелей.",
-        )
-        self.lock_menu_checkbox.stateChanged.connect(self.toggle_menu_lock)
-        self.lock_menu_checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
-        appearance_card_layout.addWidget(lock_menu_row)
-
-        lock_window_row, self.lock_window_size_checkbox = self._create_settings_checkbox_row(
-            "Фиксировать размер окна",
-            "Запрещает изменение размера окна.",
-        )
-        self.lock_window_size_checkbox.stateChanged.connect(self.toggle_window_size_lock)
-        self.lock_window_size_checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
-        appearance_card_layout.addWidget(lock_window_row)
 
         appearance_card_layout.addStretch()
         appearance_content_layout.addWidget(appearance_card)
@@ -623,16 +660,6 @@ class SettingsPanelMixin:
     def _on_disable_warning_dialogs_changed(self, state):
         self.disable_warning_dialogs = state == Qt.CheckState.Checked.value
 
-    def _on_menu_side_changed(self, _index=0):
-        if not hasattr(self, "menu_side_combo") or self.menu_side_combo is None:
-            return
-        side = self.menu_side_combo.currentData() or "left"
-        self.menu_side = "right" if side == "right" else "left"
-        if not getattr(self, "initial_load_complete", False):
-            return
-        self.apply_menu_side_settings()
-        self.save_settings()
-
     def _poll_update_future(self):
         if not getattr(self, "_update_future", None):
             return
@@ -667,87 +694,3 @@ class SettingsPanelMixin:
             self.update_status_label.setText(text_msg)
             if not getattr(self, "_update_silent", False):
                 QMessageBox.warning(self, "Проверка обновлений", text_msg)
-
-    def toggle_menu_lock(self, state):
-        if not getattr(self, "initial_load_complete", False):
-            return
-        self.menu_lock_enabled = state == Qt.CheckState.Checked.value
-        if self.menu_lock_enabled and hasattr(self, "main_splitter"):
-            self._locked_splitter_sizes = self.main_splitter.sizes()
-        self.apply_menu_lock_settings()
-        self.save_settings()
-
-    def toggle_window_size_lock(self, state):
-        if not getattr(self, "initial_load_complete", False):
-            return
-        self.window_size_lock_enabled = state == Qt.CheckState.Checked.value
-        self.apply_window_size_lock_settings()
-        self.save_settings()
-
-    def apply_menu_lock_settings(self):
-        if not hasattr(self, "main_splitter") or not self.main_splitter:
-            return
-        handle = self.main_splitter.handle(1)
-        if self.menu_lock_enabled:
-            if not hasattr(self, "_locked_splitter_sizes"):
-                self._locked_splitter_sizes = self.main_splitter.sizes()
-            self.main_splitter.setSizes(self._locked_splitter_sizes)
-            if handle:
-                handle.setEnabled(False)
-            self.main_splitter.setHandleWidth(1)
-        else:
-            if handle:
-                handle.setEnabled(True)
-            if hasattr(self, "_splitter_handle_width"):
-                self.main_splitter.setHandleWidth(self._splitter_handle_width)
-            else:
-                self.main_splitter.setHandleWidth(6)
-
-    def apply_menu_side_settings(self):
-        if not hasattr(self, "main_splitter") or self.main_splitter is None:
-            return
-        if not hasattr(self, "_left_panel") or self._left_panel is None:
-            return
-        if not hasattr(self, "_right_panel") or self._right_panel is None:
-            return
-
-        splitter = self.main_splitter
-        menu_widget = self._left_panel
-        content_widget = self._right_panel
-        menu_index = splitter.indexOf(menu_widget)
-        content_index = splitter.indexOf(content_widget)
-        if menu_index < 0 or content_index < 0:
-            return
-
-        sizes = splitter.sizes()
-        if len(sizes) < 2:
-            sizes = [menu_widget.width() or 400, content_widget.width() or 800]
-        menu_width = sizes[menu_index] if menu_index < len(sizes) else (menu_widget.width() or 400)
-        content_width = sizes[content_index] if content_index < len(sizes) else (content_widget.width() or 800)
-
-        target_menu_index = 0 if getattr(self, "menu_side", "left") != "right" else 1
-        if menu_index != target_menu_index:
-            splitter.insertWidget(target_menu_index, menu_widget)
-            splitter.insertWidget(1 - target_menu_index, content_widget)
-
-        new_sizes = [0, 0]
-        new_sizes[target_menu_index] = menu_width
-        new_sizes[1 - target_menu_index] = content_width
-        splitter.setSizes(new_sizes)
-        if self.menu_lock_enabled:
-            self._locked_splitter_sizes = splitter.sizes()
-        try:
-            self._update_drop_zone_controls()
-        except Exception:
-            pass
-
-    def apply_window_size_lock_settings(self):
-        if self.window_size_lock_enabled:
-            self._locked_window_size = self.size()
-            self.setFixedSize(self._locked_window_size)
-        else:
-            if hasattr(self, "_default_min_size"):
-                self.setMinimumSize(self._default_min_size)
-            else:
-                self.setMinimumSize(900, 550)
-            self.setMaximumSize(16777215, 16777215)
