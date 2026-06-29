@@ -1,8 +1,6 @@
 ﻿# -*- coding: utf-8 -*-
 
 from datetime import datetime
-from pathlib import Path
-
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -17,6 +15,7 @@ from PyQt6.QtWidgets import (
 )
 from app.ui.ui_components import (
     MenuLikeComboBox,
+    setup_compact_checkbox,
     setup_standard_action_button,
     setup_standard_dropdown,
     setup_standard_form_label,
@@ -24,15 +23,23 @@ from app.ui.ui_components import (
     setup_standard_primary_button,
     setup_standard_spin_input,
 )
+from app.ui.ui_spacing import (
+    CHECKBOX_SIZE,
+    CONTROL_HEIGHT,
+    MARGINS_NONE,
+    SPACE_NONE,
+    SPACE_SM,
+)
 
 
 class TemplateParamsNumberingMixin:
     def _create_labeled_spin_block(self, label_text: str, spinbox: QSpinBox, *, label: QLabel | None = None):
+        spinbox.setProperty("renameTemplateField", True)
+
         container = QWidget()
-        container.setStyleSheet("background-color: transparent;")
         layout = QVBoxLayout(container)
-        layout.setSpacing(3)
-        layout.setContentsMargins(0, 2, 0, 2)
+        layout.setSpacing(SPACE_NONE)
+        layout.setContentsMargins(*MARGINS_NONE)
 
         if label is None:
             label = QLabel(label_text)
@@ -41,17 +48,16 @@ class TemplateParamsNumberingMixin:
 
         field_container = QWidget()
         field_layout = QHBoxLayout(field_container)
-        field_layout.setContentsMargins(0, 0, 0, 0)
+        field_layout.setContentsMargins(*MARGINS_NONE)
         field_layout.addWidget(spinbox)
         layout.addWidget(field_container)
         return container
 
     def _create_param_block(self, label_text: str, field: QWidget):
         container = QWidget()
-        container.setStyleSheet("background-color: transparent;")
         layout = QVBoxLayout(container)
-        layout.setSpacing(3)
-        layout.setContentsMargins(0, 2, 0, 2)
+        layout.setSpacing(SPACE_NONE)
+        layout.setContentsMargins(*MARGINS_NONE)
 
         label = QLabel(label_text)
         setup_standard_form_label(label)
@@ -62,10 +68,9 @@ class TemplateParamsNumberingMixin:
     def create_numbering_params(self):
         """Создает параметры для нумерации"""
         container = QWidget()
-        container.setStyleSheet("background-color: transparent;")
         layout = QVBoxLayout(container)
-        layout.setSpacing(3)
-        layout.setContentsMargins(0, 2, 0, 2)
+        layout.setSpacing(SPACE_NONE)
+        layout.setContentsMargins(*MARGINS_NONE)
         
         self.template_num_start = QSpinBox()
         self.template_num_start.setMinimum(1)
@@ -95,6 +100,7 @@ class TemplateParamsNumberingMixin:
         self.template_num_sep = QLineEdit()
         self.template_num_sep.setText("_")
         self.template_num_sep.setMaxLength(5)
+        self.template_num_sep.setProperty("renameTemplateField", True)
         setup_standard_line_input(self.template_num_sep)
         layout.addWidget(self.template_num_sep)
         
@@ -102,12 +108,12 @@ class TemplateParamsNumberingMixin:
     def create_numbering_prefix_params(self):
         """Создает параметры для нумерации с префиксом"""
         container = QWidget()
-        container.setStyleSheet("background-color: transparent;")
         layout = QVBoxLayout(container)
-        layout.setSpacing(3)
-        layout.setContentsMargins(0, 2, 0, 2)
+        layout.setSpacing(SPACE_NONE)
+        layout.setContentsMargins(*MARGINS_NONE)
         
         self.template_prefix_text = QLineEdit("фото_")
+        self.template_prefix_text.setProperty("renameTemplateField", True)
         setup_standard_line_input(self.template_prefix_text)
         layout.addWidget(self._create_param_block("Префикс:", self.template_prefix_text))
         
@@ -133,10 +139,9 @@ class TemplateParamsNumberingMixin:
     def create_numbering_date_params(self):
         """Создает параметры для нумерации с датой"""
         container = QWidget()
-        container.setStyleSheet("background-color: transparent;")
         layout = QVBoxLayout(container)
-        layout.setSpacing(3)
-        layout.setContentsMargins(0, 2, 0, 2)
+        layout.setSpacing(SPACE_NONE)
+        layout.setContentsMargins(*MARGINS_NONE)
         
         self.template_date_format = MenuLikeComboBox()
         self.template_date_format.addItems([
@@ -168,10 +173,9 @@ class TemplateParamsNumberingMixin:
     def create_date_original_params(self):
         """Создает параметры для даты + оригинальное название"""
         container = QWidget()
-        container.setStyleSheet("background-color: transparent;")
         layout = QVBoxLayout(container)
-        layout.setSpacing(3)
-        layout.setContentsMargins(0, 2, 0, 2)
+        layout.setSpacing(SPACE_NONE)
+        layout.setContentsMargins(*MARGINS_NONE)
         
         self.template_original_date_format = MenuLikeComboBox()
         self.template_original_date_format.addItems([
@@ -195,64 +199,39 @@ class TemplateParamsNumberingMixin:
     def create_custom_template_params(self):
         """Создает параметры для пользовательского шаблона"""
         container = QWidget()
-        container.setStyleSheet("background-color: transparent;")
         layout = QVBoxLayout(container)
-        layout.setSpacing(4)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(SPACE_NONE)
+        layout.setContentsMargins(*MARGINS_NONE)
         
         input_container = QWidget()
-        input_container.setStyleSheet("background-color: transparent;")
         input_layout = QHBoxLayout(input_container)
-        input_layout.setContentsMargins(0, 0, 0, 0)
-        input_layout.setSpacing(4)
+        input_layout.setContentsMargins(*MARGINS_NONE)
+        input_layout.setSpacing(SPACE_NONE)
         input_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         
         self.template_custom = QLineEdit()
         self.template_custom.setPlaceholderText("например: фото_{num:03d}_{date}_{name}")
         self.template_custom.setText("фото_{num:03d}_{date}_{name}")
+        self.template_custom.setProperty("renameTemplateField", True)
         setup_standard_line_input(self.template_custom)
-        self.template_custom.setStyleSheet("padding: 3px 12px;")
         input_layout.addWidget(self.template_custom)
         
         layout.addWidget(input_container)
-        layout.addSpacing(4)
+        layout.addSpacing(SPACE_SM)
 
         numbering_toggle_container = QWidget()
-        numbering_toggle_container.setStyleSheet("background-color: transparent;")
-        numbering_toggle_container.setFixedHeight(24)
+        numbering_toggle_container.setFixedHeight(CONTROL_HEIGHT)
         numbering_toggle_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         numbering_toggle_layout = QHBoxLayout(numbering_toggle_container)
-        numbering_toggle_layout.setContentsMargins(0, 0, 0, 0)
-        numbering_toggle_layout.setSpacing(6)
+        numbering_toggle_layout.setContentsMargins(*MARGINS_NONE)
+        numbering_toggle_layout.setSpacing(SPACE_NONE)
         numbering_toggle_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
         self.template_custom_use_numbering = QCheckBox()
         self.template_custom_use_numbering.setChecked(True)
-        self.template_custom_use_numbering.setFixedSize(16, 16)
+        self.template_custom_use_numbering.setFixedSize(CHECKBOX_SIZE, CHECKBOX_SIZE)
         self.template_custom_use_numbering.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        checkbox_dir = Path(__file__).resolve().parents[1]
-        checkbox_unchecked_url = (checkbox_dir / "checkbox_unchecked.svg").resolve().as_posix()
-        checkbox_checked_url = (checkbox_dir / "checkbox_checked.svg").resolve().as_posix()
-        self.template_custom_use_numbering.setStyleSheet(
-            f"""
-            QCheckBox {{
-                margin-top: 2px;
-            }}
-            QCheckBox::indicator {{
-                width: 16px;
-                height: 16px;
-                margin: 0px;
-                border: none;
-                background: transparent;
-                border-image: url("{checkbox_unchecked_url}") 0 0 0 0 stretch stretch;
-            }}
-            QCheckBox::indicator:checked {{
-                border: none;
-                background: transparent;
-                border-image: url("{checkbox_checked_url}") 0 0 0 0 stretch stretch;
-            }}
-            """
-        )
+        setup_compact_checkbox(self.template_custom_use_numbering)
         self.template_custom_use_numbering.stateChanged.connect(self.on_custom_numbering_toggled)
         numbering_toggle_layout.addWidget(
             self.template_custom_use_numbering,
@@ -260,8 +239,9 @@ class TemplateParamsNumberingMixin:
         )
         numbering_toggle_layout.setStretch(0, 0)
         numbering_toggle_label = QLabel("Включить нумерацию")
-        numbering_toggle_label.setStyleSheet("font-size: 13px;")
-        numbering_toggle_label.setFixedHeight(24)
+        numbering_toggle_label.setObjectName("settings_page_title")
+        setup_standard_form_label(numbering_toggle_label)
+        numbering_toggle_label.setFixedHeight(CONTROL_HEIGHT)
         numbering_toggle_layout.addWidget(numbering_toggle_label, alignment=Qt.AlignmentFlag.AlignVCenter)
         numbering_toggle_layout.addStretch()
         layout.addWidget(numbering_toggle_container)
@@ -291,7 +271,6 @@ class TemplateParamsNumberingMixin:
                 label=self.template_custom_step_label,
             )
         )
-        layout.addSpacing(4)
 
         self.btn_save_template = QPushButton("Сохранить")
         self.btn_save_template.setToolTip("Сохранить шаблон")
@@ -311,6 +290,7 @@ class TemplateParamsNumberingMixin:
         self.on_custom_numbering_toggled(self.template_custom_use_numbering.checkState())
         
         self.template_params_layout.addWidget(container)
+
 
 
 

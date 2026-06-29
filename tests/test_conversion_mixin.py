@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from app.core.models import FileItem
 from core.workers.conversion.conversion_mixin import ConversionMixin
+from core.workers.result import OperationResult
 import core.workers.conversion.conversion_mixin as conv_module
 
 
@@ -34,6 +35,9 @@ class _DummyConversionWorker(ConversionMixin):
     def _record_error(self, file_item, message):
         self.errors.append({"file": file_item, "message": message})
 
+    def _emit_finished(self, new_files=None, updated_files=None):
+        self.finished.emit(OperationResult(new_files or [], updated_files or [], list(self.errors)))
+
     def _get_unique_path(self, path):
         return path
 
@@ -59,6 +63,23 @@ class ConversionMixinTests(unittest.TestCase):
         result = worker.finished.emitted[0]
         self.assertIn("new_files", result)
         self.assertEqual(len(result["new_files"]), 1)
+
+    def test_convert_files_emits_result_when_cancelled(self):
+        worker = _DummyConversionWorker()
+
+        class _SimpleFile:
+            is_file = True
+            name = "input.pdf"
+            path = r"C:\temp\input.pdf"
+
+        worker.files = [_SimpleFile()]
+        worker.conversion_type = "pdf_to_images"
+        worker._cancel_requested = True
+
+        worker._convert_files()
+
+        self.assertEqual(len(worker.finished.emitted), 1)
+        self.assertEqual(worker.finished.emitted[0].get("new_files"), [])
 
     def test_word_to_pdf_fallback_without_python_executable(self):
         worker = _DummyConversionWorker()
@@ -86,4 +107,3 @@ class ConversionMixinTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import os
 import sys
 import shutil
@@ -57,7 +57,6 @@ from app.core.deps import (
     HAS_WORD_TO_PDF,
     HAS_PDF_TO_WORD,
     HAS_PDF_TO_IMAGE,
-    HAS_PANDAS,
     HAS_PYMUPDF,
     HAS_ODF_PYTHON,
     HAS_PIL,
@@ -78,6 +77,7 @@ import app.core.rename_templates as rt
 
 from app.ui.ui_components import (
     apply_standard_menu_style,
+    apply_standard_field_style,
     ClickableLabel,
     ExpandableGroupBox,
     FileListWidget,
@@ -89,6 +89,25 @@ from app.ui.ui_components import (
     setup_standard_header_dropdown,
     setup_standard_line_input,
     sync_standard_menu_width,
+    refresh_standard_field_styles,
+    refresh_standard_surface_styles,
+)
+from app.ui.ui_spacing import (
+    APP_MARGINS,
+    DIALOG_MARGINS,
+    DROP_ZONE_MARGINS,
+    HEADER_FIELD_HEIGHT,
+    MARGINS_NONE,
+    PROGRESS_HEIGHT,
+    SETTINGS_PANEL_FILES_GAP,
+    SPACE_NONE,
+    SPACE_XXS,
+    SPACE_SM,
+    SPACE_MD,
+    SPACE_XS,
+    SPACE_LG,
+    SPACE_XL,
+    TOP_MENU_MARGINS,
 )
 from app.ui.mixins import (
     LifecycleMixin,
@@ -116,8 +135,8 @@ class DropActionTile(QFrame):
         self._apply_theme_style()
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(6)
+        layout.setContentsMargins(SPACE_XS, SPACE_XS, SPACE_XS, SPACE_XS)
+        layout.setSpacing(SPACE_MD)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         icon_label = QLabel()
@@ -455,8 +474,8 @@ class MultiforaMainWindow(
         dialog.setWindowFlag(Qt.WindowType.WindowCloseButtonHint, False)
 
         layout = QVBoxLayout(dialog)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(8)
+        layout.setContentsMargins(*DIALOG_MARGINS)
+        layout.setSpacing(SPACE_LG)
 
         self.progress_status_label = QLabel("Выполняется операция...")
         self.progress_status_label.setWordWrap(True)
@@ -466,7 +485,7 @@ class MultiforaMainWindow(
         self.progress_bar.setTextVisible(True)
         self.progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.progress_bar.setFormat("%p%")
-        self.progress_bar.setFixedHeight(22)
+        self.progress_bar.setFixedHeight(PROGRESS_HEIGHT)
         self.progress_bar.setValue(0)
         layout.addWidget(self.progress_bar)
 
@@ -566,11 +585,11 @@ class MultiforaMainWindow(
         label.setStyleSheet("""
             QLabel {
                 font-size: 13px;
-                color: #1976d2;
+                color: #3d74b3;
                 text-decoration: underline;
             }
             QLabel:hover {
-                color: #0d47a1;
+                color: #3d74b3;
             }
         """)
 
@@ -578,8 +597,8 @@ class MultiforaMainWindow(
         """Создает строку информации с меткой и значением"""
         container = QWidget()
         layout = QHBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(5)
+        layout.setContentsMargins(*MARGINS_NONE)
+        layout.setSpacing(SPACE_SM)
 
         label = QLabel(label_text)
         label.setStyleSheet("font-size: 13px; font-weight: bold;")
@@ -592,10 +611,12 @@ class MultiforaMainWindow(
     def _create_preview_panel(self):
         panel = QFrame()
         panel.setObjectName("drop_zone_overlay")
+        panel.setFrameShape(QFrame.Shape.NoFrame)
+        panel.setFrameShadow(QFrame.Shadow.Plain)
         self.preview_panel = panel
         panel_layout = QVBoxLayout(panel)
-        panel_layout.setContentsMargins(0, 0, 0, 0)
-        panel_layout.setSpacing(0)
+        panel_layout.setContentsMargins(*MARGINS_NONE)
+        panel_layout.setSpacing(SPACE_NONE)
 
         self.preview_list = FileListWidget()
         self.preview_list.setObjectName("files_list")
@@ -609,6 +630,15 @@ class MultiforaMainWindow(
         self.preview_list.setFrameShape(QFrame.Shape.NoFrame)
         self.preview_list.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.preview_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.preview_list.setStyleSheet(
+            "QListWidget#files_list, QListView#files_list {"
+            "border: none;"
+            "border-radius: 4px;"
+            "margin: 0px;"
+            "padding: 0px;"
+            "}"
+        )
+        apply_standard_field_style(self.preview_list)
         try:
             self.preview_list.doubleClicked.disconnect()
         except Exception:
@@ -691,16 +721,16 @@ class MultiforaMainWindow(
         central = QWidget()
         self.setCentralWidget(central)
         main_layout = QVBoxLayout(central)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(*APP_MARGINS)
+        main_layout.setSpacing(SPACE_NONE)
 
         self.top_menu_bar = QWidget()
         self.top_menu_bar.setObjectName("bottom_links_bar")
         self.top_menu_bar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.top_menu_bar.setStyleSheet("background-color: transparent;")
         top_menu_layout = QHBoxLayout(self.top_menu_bar)
-        top_menu_layout.setContentsMargins(4, 2, 4, 2)
-        top_menu_layout.setSpacing(4)
+        top_menu_layout.setContentsMargins(*TOP_MENU_MARGINS)
+        top_menu_layout.setSpacing(SPACE_SM)
         top_menu_layout.addStretch(1)
 
         main_layout.addWidget(self.top_menu_bar)
@@ -711,8 +741,8 @@ class MultiforaMainWindow(
         self.settings_panel_host.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.settings_panel_host.setStyleSheet("background-color: transparent;")
         self.settings_panel_host_layout = QVBoxLayout(self.settings_panel_host)
-        self.settings_panel_host_layout.setContentsMargins(0, 0, 0, 0)
-        self.settings_panel_host_layout.setSpacing(0)
+        self.settings_panel_host_layout.setContentsMargins(*MARGINS_NONE)
+        self.settings_panel_host_layout.setSpacing(SPACE_NONE)
 
         # Основной сплиттер (занимает всю высоту)
         if hasattr(self, "top_menu_bar") and self.top_menu_bar is not None:
@@ -723,15 +753,16 @@ class MultiforaMainWindow(
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter = splitter
-        splitter.setHandleWidth(0)
+        splitter.setHandleWidth(SPACE_LG)
         splitter.setStyleSheet(
             """
             QSplitter::handle:horizontal {
-                background-color: #4a4a4a;
+                background-color: #2c2c2c;
+                border: none;
                 margin: 0px;
             }
             QSplitter::handle:horizontal:hover {
-                background-color: #4a4a4a;
+                background-color: #2c2c2c;
             }
             """
         )
@@ -742,8 +773,8 @@ class MultiforaMainWindow(
         self._left_panel_min_width = 0
         left_widget.setMinimumWidth(0)
         left_layout = QVBoxLayout(left_widget)
-        left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(0)
+        left_layout.setContentsMargins(*MARGINS_NONE)
+        left_layout.setSpacing(SPACE_NONE)
 
         self.tabs = QTabWidget()
         self.tabs.setObjectName("main_hidden_tabs")
@@ -773,6 +804,7 @@ class MultiforaMainWindow(
             self._ensure_rename_history_settings_page()
         self.tabs.tabBar().hide()
         main_layout.addWidget(self.settings_panel_host)
+        main_layout.addSpacing(SETTINGS_PANEL_FILES_GAP)
         
         left_layout.addWidget(self.tabs)
 
@@ -780,15 +812,13 @@ class MultiforaMainWindow(
         right_widget = QWidget()
         self._right_panel = right_widget
         right_layout = QVBoxLayout(right_widget)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(0)
 
         # Заголовок и кнопки управления списком
         list_header = QGridLayout()
         self._list_header_layout = list_header
-        list_header.setContentsMargins(0, 0, 0, 2)
-        list_header.setHorizontalSpacing(2)
-        list_header.setVerticalSpacing(2)
+        list_header.setContentsMargins(SPACE_NONE, SPACE_XS, SPACE_NONE, SPACE_NONE)
+        list_header.setHorizontalSpacing(SPACE_SM)
+        list_header.setVerticalSpacing(SPACE_SM)
 
         self._list_header_ext_label = QLabel("Расширения:")
         self._list_header_ext_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -919,55 +949,33 @@ class MultiforaMainWindow(
         self.input_search.setMinimumWidth(0)
         self.input_search.textChanged.connect(self.on_search_text_changed)
 
-        header_border_style = (
-            "QToolButton#header_cell_tl, QToolButton#header_cell_tr, "
-            "QToolButton#header_cell_bl, QLineEdit#header_cell_br {"
-            "border: none;"
-            "border-radius: 0px;"
-            "margin: 0px;"
-            "padding: 2px 10px;"
-            "}"
-            "QToolButton#header_cell_tl:hover, QToolButton#header_cell_tr:hover, "
-            "QToolButton#header_cell_bl:hover, QLineEdit#header_cell_br:hover {"
-            "background-color: transparent;"
-            "border: none;"
-            "}"
-        )
-        self.btn_ext_filter.setStyleSheet(self.btn_ext_filter.styleSheet() + header_border_style)
-        self.btn_type_filter.setStyleSheet(self.btn_type_filter.styleSheet() + header_border_style)
-        self.combo_sort.setStyleSheet(self.combo_sort.styleSheet() + header_border_style)
-        self.input_search.setStyleSheet(self.input_search.styleSheet() + header_border_style)
         for widget in (self.btn_ext_filter, self.btn_type_filter, self.combo_sort, self.input_search):
             try:
-                widget.setMinimumHeight(28)
+                widget.setMinimumHeight(HEADER_FIELD_HEIGHT)
             except Exception:
                 pass
-        self.combo_sort.setStyleSheet(
-            self.combo_sort.styleSheet()
-            + "QComboBox#combo_sort { padding: 2px 10px; margin: 0px; border: none; }"
-            + "QComboBox#combo_sort::drop-down { width: 18px; border: none; }"
-            + "QComboBox#combo_sort::down-arrow { width: 8px; height: 8px; }"
-        )
         list_header.addWidget(self.input_search, 1, 1)
         list_header.setColumnStretch(0, 1)
         list_header.setColumnStretch(1, 1)
 
         right_layout.addLayout(list_header)
         # Список файлов с drag-and-drop + панель предпросмотра
-        files_preview_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.files_preview_splitter = files_preview_splitter
-        files_preview_splitter.setHandleWidth(0)
-        files_preview_splitter.setChildrenCollapsible(False)
-        files_preview_splitter.setCollapsible(0, False)
-        files_preview_splitter.setCollapsible(1, False)
+        right_layout.addSpacing(SPACE_SM)
+        files_preview_row = QWidget()
+        self.files_preview_splitter = files_preview_row
+        files_preview_layout = QHBoxLayout(files_preview_row)
+        files_preview_layout.setContentsMargins(*MARGINS_NONE)
+        files_preview_layout.setSpacing(SPACE_SM)
 
         files_panel = QWidget()
+        files_panel.setStyleSheet("background-color: transparent; border: none;")
         files_panel_layout = QVBoxLayout(files_panel)
-        files_panel_layout.setContentsMargins(0, 0, 0, 0)
-        files_panel_layout.setSpacing(0)
+        files_panel_layout.setContentsMargins(*MARGINS_NONE)
+        files_panel_layout.setSpacing(SPACE_NONE)
 
         self.list_files = FileListWidget()
         self.list_files.setObjectName("files_list")
+        self.list_files.setFrameShape(QFrame.Shape.NoFrame)
         try:
             self.list_files.setWordWrap(True)
             self.list_files.setTextElideMode(Qt.TextElideMode.ElideNone)
@@ -976,9 +984,18 @@ class MultiforaMainWindow(
         except Exception:
             pass
         list_palette = self.list_files.palette()
-        list_palette.setColor(QPalette.ColorRole.Highlight, QColor("#9fc5f8"))
+        list_palette.setColor(QPalette.ColorRole.Highlight, QColor("#3d74b3"))
         list_palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#1f2328"))
         self.list_files.setPalette(list_palette)
+        self.list_files.setStyleSheet(
+            "QListWidget#files_list, QListView#files_list {"
+            "border: none;"
+            "border-radius: 4px;"
+            "margin: 0px;"
+            "padding: 0px;"
+            "}"
+        )
+        apply_standard_field_style(self.list_files)
         self.list_files.filesDropped.connect(self.add_files)
         self.list_files.itemDoubleClicked.connect(self.open_file)
         self.list_files.itemSelectionChanged.connect(self.on_file_selection_changed)
@@ -992,9 +1009,9 @@ class MultiforaMainWindow(
         self.drop_zone_controls.setStyleSheet(
             """
             QWidget#drop_zone_overlay {
-                background-color: #3a3a3a;
+                background-color: #383838;
                 border: none;
-                border-radius: 0px;
+                border-radius: 4px;
             }
             QWidget#drop_zone_overlay QLabel {
                 background-color: transparent;
@@ -1002,15 +1019,15 @@ class MultiforaMainWindow(
             """
         )
         drop_zone_layout = QVBoxLayout(self.drop_zone_controls)
-        drop_zone_layout.setContentsMargins(0, 8, 0, 8)
-        drop_zone_layout.setSpacing(10)
+        drop_zone_layout.setContentsMargins(*DROP_ZONE_MARGINS)
+        drop_zone_layout.setSpacing(SPACE_XL)
         drop_zone_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
         drop_zone_layout.addStretch()
 
         drop_buttons_row = QGridLayout()
-        drop_buttons_row.setContentsMargins(0, 0, 0, 0)
-        drop_buttons_row.setHorizontalSpacing(10)
-        drop_buttons_row.setVerticalSpacing(0)
+        drop_buttons_row.setContentsMargins(*MARGINS_NONE)
+        drop_buttons_row.setHorizontalSpacing(SPACE_NONE)
+        drop_buttons_row.setVerticalSpacing(SPACE_NONE)
         drop_buttons_row.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         self.btn_add_files = DropActionTile(
@@ -1053,17 +1070,11 @@ class MultiforaMainWindow(
         QTimer.singleShot(0, self._update_drop_zone_controls)
 
         preview_panel = self._create_preview_panel()
-        files_preview_splitter.addWidget(files_panel)
-        files_preview_splitter.addWidget(preview_panel)
-        files_preview_splitter.setSizes([1, 1])
-        files_preview_splitter.setStretchFactor(0, 1)
-        files_preview_splitter.setStretchFactor(1, 1)
-        preview_handle = files_preview_splitter.handle(1)
-        if preview_handle is not None:
-            preview_handle.setEnabled(False)
-        QTimer.singleShot(0, self._sync_files_preview_splitter)
+        files_preview_layout.addWidget(files_panel, 1)
+        files_preview_layout.addWidget(preview_panel, 1)
+        self._configure_right_panel_spacing(right_layout, list_header)
 
-        right_layout.addWidget(files_preview_splitter, 1)
+        right_layout.addWidget(files_preview_row, 1)
 
         # Прогресс бар + кнопка отмены (под правым списком)
         self._create_progress_dialog()
@@ -1078,7 +1089,7 @@ class MultiforaMainWindow(
         count_size_sep = QFrame()
         count_size_sep.setFrameShape(QFrame.Shape.VLine)
         count_size_sep.setFrameShadow(QFrame.Shadow.Plain)
-        count_size_sep.setStyleSheet("background-color: #4a4a4a; border: none;")
+        count_size_sep.setStyleSheet("background-color: #2c2c2c; border: none;")
         count_size_sep.setFixedWidth(2)
         info_layout.addWidget(count_size_sep)
 
@@ -1089,7 +1100,7 @@ class MultiforaMainWindow(
         size_total_sep = QFrame()
         size_total_sep.setFrameShape(QFrame.Shape.VLine)
         size_total_sep.setFrameShadow(QFrame.Shadow.Plain)
-        size_total_sep.setStyleSheet("background-color: #4a4a4a; border: none;")
+        size_total_sep.setStyleSheet("background-color: #2c2c2c; border: none;")
         size_total_sep.setFixedWidth(2)
         info_layout.addWidget(size_total_sep)
 
@@ -1103,21 +1114,6 @@ class MultiforaMainWindow(
         # Оставляем метки для внутренней логики, но не занимаем нижнюю область панели.
         splitter.addWidget(left_widget)
         splitter.addWidget(right_widget)
-        handle = splitter.handle(1)
-        if handle is not None:
-            handle.setCursor(Qt.CursorShape.SplitHCursor)
-            grip_layout = QVBoxLayout(handle)
-            grip_layout.setContentsMargins(0, 0, 0, 0)
-            grip_layout.setSpacing(0)
-            grip_layout.addStretch()
-            grip_label = QLabel("⋮", handle)
-            self._splitter_grip_label = grip_label
-            grip_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            grip_label.setStyleSheet(
-                "color: rgba(255, 255, 255, 0.68); background: transparent; font-size: 15px; font-weight: 600;"
-            )
-            grip_layout.addWidget(grip_label, 0, Qt.AlignmentFlag.AlignCenter)
-            grip_layout.addStretch()
 
         # Настройки сплиттера
         splitter.setChildrenCollapsible(False)
@@ -1138,7 +1134,7 @@ class MultiforaMainWindow(
         self.setStatusBar(self.status_bar)
         self.status_bar.setSizeGripEnabled(False)
         self.status_bar.setFixedHeight(0)
-        self.status_bar.setContentsMargins(0, 0, 0, 0)
+        self.status_bar.setContentsMargins(*MARGINS_NONE)
         self.status_bar.setVisible(False)
         self.status_bar.showMessage("Готово. Перетащите файлы/папки в список или используйте кнопки добавления.")
         
@@ -1177,6 +1173,15 @@ class MultiforaMainWindow(
         except Exception:
             pass
 
+    def _configure_right_panel_spacing(self, right_layout, list_header):
+        """Выравнивает единый шаг промежутков для правой панели."""
+        right_layout.setContentsMargins(*MARGINS_NONE)
+        right_layout.setSpacing(SPACE_NONE)
+
+        list_header.setContentsMargins(SPACE_NONE, SPACE_XS, SPACE_NONE, SPACE_NONE)
+        list_header.setHorizontalSpacing(SPACE_SM)
+        list_header.setVerticalSpacing(SPACE_SM)
+
     @staticmethod
     def _safe_connect_signal(signal, callback) -> None:
         try:
@@ -1196,6 +1201,11 @@ class MultiforaMainWindow(
 
     def _apply_theme_runtime_widgets(self):
         mode = getattr(self, "_effective_theme_mode", "dark")
+        try:
+            refresh_standard_field_styles(self)
+            refresh_standard_surface_styles(self)
+        except Exception:
+            pass
         for widget_name in ("btn_ext_filter", "btn_type_filter", "combo_sort"):
             widget = getattr(self, widget_name, None)
             if widget is not None:
@@ -1226,7 +1236,7 @@ class MultiforaMainWindow(
                     QWidget#drop_zone_overlay {
                         background-color: #f3f3f3;
                         border: none;
-                        border-radius: 0px;
+                        border-radius: 4px;
                     }
                     QWidget#drop_zone_overlay QLabel {
                         background-color: transparent;
@@ -1240,9 +1250,9 @@ class MultiforaMainWindow(
                 self.drop_zone_controls.setStyleSheet(
                     """
                     QWidget#drop_zone_overlay {
-                        background-color: #3a3a3a;
+                        background-color: #383838;
                         border: none;
-                        border-radius: 0px;
+                        border-radius: 4px;
                     }
                     QWidget#drop_zone_overlay QLabel {
                         background-color: transparent;
@@ -1259,7 +1269,7 @@ class MultiforaMainWindow(
                     QWidget#drop_zone_overlay {
                         background-color: #f3f3f3;
                         border: none;
-                        border-radius: 0px;
+                        border-radius: 4px;
                     }
                     QWidget#drop_zone_overlay QLabel {
                         background-color: transparent;
@@ -1271,9 +1281,9 @@ class MultiforaMainWindow(
                 self.preview_panel.setStyleSheet(
                     """
                     QWidget#drop_zone_overlay {
-                        background-color: #3a3a3a;
+                        background-color: #383838;
                         border: none;
-                        border-radius: 0px;
+                        border-radius: 4px;
                     }
                     QWidget#drop_zone_overlay QLabel {
                         background-color: transparent;
@@ -1403,32 +1413,8 @@ class MultiforaMainWindow(
                 self._update_operations_narrow_layout()
         except Exception:
             pass
-        try:
-            self._sync_files_preview_splitter()
-        except Exception:
-            pass
         self._update_drop_zone_controls()
         self._schedule_settings_save()
-
-    def _sync_files_preview_splitter(self):
-        splitter = getattr(self, "files_preview_splitter", None)
-        if splitter is None:
-            return
-        total_width = splitter.width()
-        if total_width <= 0:
-            return
-        handle_width = splitter.handleWidth() if hasattr(splitter, "handleWidth") else 0
-        available = max(0, total_width - handle_width)
-        left = available // 2
-        right = available - left
-        splitter.setSizes([left, right])
-        header_layout = getattr(self, "_list_header_layout", None)
-        if header_layout is not None:
-            try:
-                header_layout.setColumnStretch(0, 1)
-                header_layout.setColumnStretch(1, 1)
-            except Exception:
-                pass
 
     def showEvent(self, event):
         super().showEvent(event)

@@ -11,9 +11,6 @@ def _get_app_icon_path():
         base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
         candidates = [
             os.path.join(base_dir, "icons", "icon.png"),
-            os.path.join(base_dir, "materials", "icons", "icon.png"),
-            os.path.join(base_dir, "materials", "icons", "Логотип.png"),
-            os.path.join(base_dir, "materials", "icon", "icon.png"),
         ]
         for icon_path in candidates:
             if os.path.exists(icon_path):

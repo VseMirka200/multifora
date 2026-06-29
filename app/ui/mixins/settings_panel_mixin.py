@@ -35,30 +35,35 @@ from app.ui.ui_components import (
     setup_standard_dialog,
     setup_standard_dropdown,
     setup_standard_line_input,
+    setup_standard_form_label,
+    setup_compact_checkbox,
     sync_standard_menu_width,
+)
+from app.ui.ui_spacing import (
+    CHECKBOX_SIZE,
+    CONTROL_HEIGHT,
+    HEADER_FIELD_HEIGHT,
+    MARGINS_NONE,
+    SETTINGS_PANEL_MARGINS,
+    SETTINGS_PANEL_COLUMN_GAP,
+    SPACE_NONE,
 )
 
 
 class SettingsPanelMixin:
     @staticmethod
     def _setup_settings_checkbox(checkbox: QCheckBox):
-        checkbox.setStyleSheet(
-            """
-            QCheckBox::indicator {
-                margin-top: 1px;
-            }
-            """
-        )
+        setup_compact_checkbox(checkbox)
         return checkbox
 
     def _create_settings_checkbox_row(self, text: str, tooltip: str = ""):
         row = QWidget()
         layout = QHBoxLayout(row)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
+        layout.setContentsMargins(*MARGINS_NONE)
+        layout.setSpacing(SPACE_NONE)
 
         checkbox = QCheckBox()
-        checkbox.setFixedSize(16, 16)
+        checkbox.setFixedSize(CHECKBOX_SIZE, CHECKBOX_SIZE)
         checkbox.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._setup_settings_checkbox(checkbox)
         if tooltip:
@@ -88,8 +93,8 @@ class SettingsPanelMixin:
     ):
         row = QWidget()
         layout = QHBoxLayout(row)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(2)
+        layout.setContentsMargins(*MARGINS_NONE)
+        layout.setSpacing(SPACE_NONE)
 
         label = QLabel(label_text)
         label.setFixedWidth(label_width)
@@ -98,6 +103,45 @@ class SettingsPanelMixin:
         layout.addWidget(field, 0)
         layout.addStretch()
         return row
+
+    def _create_settings_page_card(self) -> tuple[QWidget, QVBoxLayout]:
+        page = QWidget()
+        page_layout = QVBoxLayout(page)
+        page_layout.setContentsMargins(*MARGINS_NONE)
+        page_layout.setSpacing(SPACE_NONE)
+
+        scroll = QScrollArea()
+        scroll.setObjectName("settings_page_scroll")
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        scroll.setContentsMargins(*MARGINS_NONE)
+        scroll.setViewportMargins(0, 0, 0, 0)
+        page_layout.addWidget(scroll)
+
+        content = QWidget()
+        content.setObjectName("settings_page_content")
+        content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(*MARGINS_NONE)
+        content_layout.setSpacing(SPACE_NONE)
+        content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        card = QFrame()
+        card.setObjectName("settings_card")
+        card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(*MARGINS_NONE)
+        card_layout.setSpacing(SPACE_NONE)
+
+        content_layout.addWidget(card)
+        scroll.setWidget(content)
+        return page, card_layout
+
+    def _add_settings_page(self) -> QVBoxLayout:
+        page, card_layout = self._create_settings_page_card()
+        self.settings_stack.addWidget(page)
+        return card_layout
 
     def _ensure_settings_panel_widget(self):
         if not hasattr(self, "settings_panel_widget") or self.settings_panel_widget is None:
@@ -163,20 +207,21 @@ class SettingsPanelMixin:
             page = QWidget()
             page.setObjectName("rename_history_settings_page")
             page_layout = QVBoxLayout(page)
-            page_layout.setContentsMargins(0, 0, 0, 0)
-            page_layout.setSpacing(4)
+            page_layout.setContentsMargins(*MARGINS_NONE)
+            page_layout.setSpacing(SPACE_NONE)
             page_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
             content = QWidget()
             content.setObjectName("rename_history_settings_content")
             content.setMaximumWidth(310)
             content_layout = QVBoxLayout(content)
-            content_layout.setContentsMargins(0, 0, 0, 0)
-            content_layout.setSpacing(4)
+            content_layout.setContentsMargins(*MARGINS_NONE)
+            content_layout.setSpacing(SPACE_NONE)
             content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
             history_label = QLabel("История переименований")
-            history_label.setStyleSheet("font-size: 13px;")
+            history_label.setObjectName("settings_page_title")
+            setup_standard_form_label(history_label)
             history_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             content_layout.addWidget(history_label)
 
@@ -216,8 +261,8 @@ class SettingsPanelMixin:
         settings_font.setPointSize(13)
         tab.setFont(settings_font)
         root_layout = QHBoxLayout(tab)
-        root_layout.setContentsMargins(0, 0, 0, 0)
-        root_layout.setSpacing(8)
+        root_layout.setContentsMargins(*SETTINGS_PANEL_MARGINS)
+        root_layout.setSpacing(SETTINGS_PANEL_COLUMN_GAP)
 
         self.settings_nav = QListWidget()
         self.settings_nav.setObjectName("settings_nav")
@@ -239,8 +284,8 @@ class SettingsPanelMixin:
         self.settings_nav.verticalScrollBar().rangeChanged.connect(lambda _min, _max: self._update_settings_nav_width())
         nav_container = QWidget()
         nav_layout = QVBoxLayout(nav_container)
-        nav_layout.setContentsMargins(0, 0, 0, 0)
-        nav_layout.setSpacing(6)
+        nav_layout.setContentsMargins(*MARGINS_NONE)
+        nav_layout.setSpacing(SPACE_NONE)
         nav_layout.addWidget(self.settings_nav, 1)
 
         root_layout.addWidget(nav_container, 0)
@@ -248,30 +293,7 @@ class SettingsPanelMixin:
         self.settings_stack = QStackedWidget()
         root_layout.addWidget(self.settings_stack, 1)
 
-        appearance_page = QWidget()
-        appearance_layout = QVBoxLayout(appearance_page)
-        appearance_layout.setContentsMargins(0, 0, 0, 0)
-        appearance_layout.setSpacing(0)
-
-        appearance_scroll = QScrollArea()
-        appearance_scroll.setWidgetResizable(True)
-        appearance_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        appearance_scroll.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        appearance_layout.addWidget(appearance_scroll)
-
-        appearance_content = QWidget()
-        appearance_content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        appearance_content_layout = QVBoxLayout(appearance_content)
-        appearance_content_layout.setContentsMargins(0, 4, 0, 0)
-        appearance_content_layout.setSpacing(0)
-        appearance_content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-        appearance_card = QFrame()
-        appearance_card.setObjectName("settings_card")
-        appearance_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        appearance_card_layout = QVBoxLayout(appearance_card)
-        appearance_card_layout.setContentsMargins(8, 6, 8, 6)
-        appearance_card_layout.setSpacing(4)
+        appearance_card_layout = self._add_settings_page()
 
         self.theme_mode_combo = MenuLikeComboBox()
         setup_standard_dropdown(self.theme_mode_combo, fixed_width=200)
@@ -283,34 +305,8 @@ class SettingsPanelMixin:
         appearance_card_layout.addWidget(theme_row)
 
         appearance_card_layout.addStretch()
-        appearance_content_layout.addWidget(appearance_card)
-        appearance_scroll.setWidget(appearance_content)
-        self.settings_stack.addWidget(appearance_page)
 
-        behavior_page = QWidget()
-        behavior_layout = QVBoxLayout(behavior_page)
-        behavior_layout.setContentsMargins(0, 0, 0, 0)
-        behavior_layout.setSpacing(0)
-
-        behavior_scroll = QScrollArea()
-        behavior_scroll.setWidgetResizable(True)
-        behavior_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        behavior_scroll.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        behavior_layout.addWidget(behavior_scroll)
-
-        behavior_content = QWidget()
-        behavior_content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        behavior_content_layout = QVBoxLayout(behavior_content)
-        behavior_content_layout.setContentsMargins(0, 4, 0, 0)
-        behavior_content_layout.setSpacing(0)
-        behavior_content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-        behavior_card = QFrame()
-        behavior_card.setObjectName("settings_card")
-        behavior_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        behavior_card_layout = QVBoxLayout(behavior_card)
-        behavior_card_layout.setContentsMargins(8, 6, 8, 6)
-        behavior_card_layout.setSpacing(4)
+        behavior_card_layout = self._add_settings_page()
 
         auto_clear_row, self.auto_clear_checkbox = self._create_settings_checkbox_row(
             "Автоматически очищать список после операций",
@@ -329,34 +325,7 @@ class SettingsPanelMixin:
 
         behavior_card_layout.addStretch()
 
-        behavior_content_layout.addWidget(behavior_card)
-        behavior_scroll.setWidget(behavior_content)
-        self.settings_stack.addWidget(behavior_page)
-
-        shortcuts_page = QWidget()
-        shortcuts_layout = QVBoxLayout(shortcuts_page)
-        shortcuts_layout.setContentsMargins(0, 0, 0, 0)
-        shortcuts_layout.setSpacing(0)
-
-        shortcuts_scroll = QScrollArea()
-        shortcuts_scroll.setWidgetResizable(True)
-        shortcuts_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        shortcuts_scroll.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        shortcuts_layout.addWidget(shortcuts_scroll)
-
-        shortcuts_content = QWidget()
-        shortcuts_content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        shortcuts_content_layout = QVBoxLayout(shortcuts_content)
-        shortcuts_content_layout.setContentsMargins(0, 4, 0, 0)
-        shortcuts_content_layout.setSpacing(0)
-        shortcuts_content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-        shortcuts_card = QFrame()
-        shortcuts_card.setObjectName("settings_card")
-        shortcuts_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        shortcuts_card_layout = QVBoxLayout(shortcuts_card)
-        shortcuts_card_layout.setContentsMargins(8, 6, 8, 6)
-        shortcuts_card_layout.setSpacing(4)
+        shortcuts_card_layout = self._add_settings_page()
 
         desktop_shortcut_row, self.desktop_shortcut_checkbox = self._create_settings_checkbox_row(
             "Добавить ярлык на рабочий стол",
@@ -383,34 +352,7 @@ class SettingsPanelMixin:
         shortcuts_card_layout.addWidget(context_menu_row)
         shortcuts_card_layout.addStretch()
 
-        shortcuts_content_layout.addWidget(shortcuts_card)
-        shortcuts_scroll.setWidget(shortcuts_content)
-        self.settings_stack.addWidget(shortcuts_page)
-
-        updates_page = QWidget()
-        updates_layout = QVBoxLayout(updates_page)
-        updates_layout.setContentsMargins(0, 0, 0, 0)
-        updates_layout.setSpacing(0)
-
-        updates_scroll = QScrollArea()
-        updates_scroll.setWidgetResizable(True)
-        updates_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        updates_scroll.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        updates_layout.addWidget(updates_scroll)
-
-        updates_content = QWidget()
-        updates_content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        updates_content_layout = QVBoxLayout(updates_content)
-        updates_content_layout.setContentsMargins(0, 4, 0, 0)
-        updates_content_layout.setSpacing(0)
-        updates_content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-        updates_card = QFrame()
-        updates_card.setObjectName("settings_card")
-        updates_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        updates_card_layout = QVBoxLayout(updates_card)
-        updates_card_layout.setContentsMargins(8, 6, 8, 6)
-        updates_card_layout.setSpacing(4)
+        updates_card_layout = self._add_settings_page()
 
         auto_update_row, self.auto_update_check_checkbox = self._create_settings_checkbox_row(
             "Проверять обновления при запуске",
@@ -432,8 +374,8 @@ class SettingsPanelMixin:
         updates_card_layout.addWidget(self.update_source_label)
 
         update_buttons_layout = QHBoxLayout()
-        update_buttons_layout.setContentsMargins(0, 0, 0, 0)
-        update_buttons_layout.setSpacing(4)
+        update_buttons_layout.setContentsMargins(*MARGINS_NONE)
+        update_buttons_layout.setSpacing(SPACE_NONE)
 
         self.btn_check_updates = QPushButton("Проверить обновления")
         setup_standard_action_button(self.btn_check_updates)
@@ -446,44 +388,18 @@ class SettingsPanelMixin:
         update_buttons_layout.addWidget(self.btn_open_repo)
 
         updates_card_layout.addLayout(update_buttons_layout)
-        updates_content_layout.addWidget(updates_card)
-        updates_scroll.setWidget(updates_content)
-        self.settings_stack.addWidget(updates_page)
 
-        logs_page = QWidget()
-        logs_layout = QVBoxLayout(logs_page)
-        logs_layout.setContentsMargins(0, 0, 0, 0)
-        logs_layout.setSpacing(0)
-
-        logs_scroll = QScrollArea()
-        logs_scroll.setWidgetResizable(True)
-        logs_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        logs_scroll.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        logs_layout.addWidget(logs_scroll)
-
-        logs_content = QWidget()
-        logs_content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        logs_content_layout = QVBoxLayout(logs_content)
-        logs_content_layout.setContentsMargins(0, 4, 0, 0)
-        logs_content_layout.setSpacing(0)
-        logs_content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-        logs_card = QFrame()
-        logs_card.setObjectName("settings_card")
-        logs_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        logs_card_layout = QVBoxLayout(logs_card)
-        logs_card_layout.setContentsMargins(8, 6, 8, 6)
-        logs_card_layout.setSpacing(4)
+        logs_card_layout = self._add_settings_page()
 
         logs_filters_row = QWidget()
         logs_filters_layout = QHBoxLayout(logs_filters_row)
-        logs_filters_layout.setContentsMargins(0, 0, 0, 0)
-        logs_filters_layout.setSpacing(4)
+        logs_filters_layout.setContentsMargins(*MARGINS_NONE)
+        logs_filters_layout.setSpacing(SPACE_NONE)
 
         self.logs_level_filter = LeftAlignedToolButton()
         self.logs_level_filter.setObjectName("header_cell_tl")
         self.logs_level_filter.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.logs_level_filter.setFixedHeight(24)
+        self.logs_level_filter.setFixedHeight(HEADER_FIELD_HEIGHT)
         self.logs_level_filter.setMinimumWidth(140)
         self.logs_level_filter.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.logs_level_filter.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
@@ -524,10 +440,6 @@ class SettingsPanelMixin:
         except Exception:
             pass
         logs_card_layout.addWidget(self.logs_view)
-
-        logs_content_layout.addWidget(logs_card)
-        logs_scroll.setWidget(logs_content)
-        self.settings_stack.addWidget(logs_page)
 
         self.load_logs_into_view()
         self.settings_nav.currentRowChanged.connect(self.settings_stack.setCurrentIndex)

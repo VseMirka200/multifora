@@ -15,7 +15,7 @@ class CompressionMixin:
         for i, file in enumerate(self.files):
             if self._should_cancel():
                 self.status.emit("Операция отменена пользователем")
-                self.finished.emit({"new_files": results, "updated_files": [], "errors": self.errors})
+                self._emit_finished(results, [])
                 return
             try:
                 if file.is_file and file.file_type == "image":
@@ -81,7 +81,7 @@ class CompressionMixin:
             self.progress.emit(int((i + 1) / total * 100))
             self.status.emit(f"Сжатие: {file.name}")
 
-        self.finished.emit({"new_files": results, "updated_files": [], "errors": self.errors})
+        self._emit_finished(results, [])
 
     def _compress_image_files_with_replace_support(self):
         total = len(self.files)
@@ -90,8 +90,8 @@ class CompressionMixin:
 
         for i, file in enumerate(self.files):
             if self._should_cancel():
-                self.status.emit("РћРїРµСЂР°С†РёСЏ РѕС‚РјРµРЅРµРЅР° РїРѕР»СЊР·РѕРІР°С‚РµР»РµРј")
-                self.finished.emit({"new_files": results, "updated_files": updated, "errors": self.errors})
+                self.status.emit("Операция отменена пользователем")
+                self._emit_finished(results, updated)
                 return
             try:
                 if file.is_file and file.file_type == "image":
@@ -173,7 +173,7 @@ class CompressionMixin:
             self.progress.emit(int((i + 1) / total * 100))
             self.status.emit(f"Сжатие: {file.name}")
 
-        self.finished.emit({"new_files": results, "updated_files": updated, "errors": self.errors})
+        self._emit_finished(results, updated)
 
     def _compress_pdf_files(self):
         deps.ensure_ghostscript_detected()
@@ -186,7 +186,7 @@ class CompressionMixin:
         for i, file in enumerate(self.files):
             if self._should_cancel():
                 self.status.emit("Операция отменена пользователем")
-                self.finished.emit({"new_files": results, "updated_files": updated, "errors": self.errors})
+                self._emit_finished(results, updated)
                 return
             try:
                 if not (file.is_file and file.path.lower().endswith(".pdf")):
@@ -210,7 +210,7 @@ class CompressionMixin:
                             os.remove(compressed_path)
                         except Exception:
                             pass
-                    self.finished.emit({"new_files": results, "updated_files": updated, "errors": self.errors})
+                    self._emit_finished(results, updated)
                     return
 
                 if not success and deps.HAS_PYMUPDF:
@@ -224,7 +224,7 @@ class CompressionMixin:
                             os.remove(compressed_path)
                         except Exception:
                             pass
-                    self.finished.emit({"new_files": results, "updated_files": updated, "errors": self.errors})
+                    self._emit_finished(results, updated)
                     return
 
                 if success and os.path.exists(compressed_path):
@@ -288,7 +288,7 @@ class CompressionMixin:
 
             self.progress.emit(int((i + 1) / total * 100))
 
-        self.finished.emit({"new_files": results, "updated_files": updated, "errors": self.errors})
+        self._emit_finished(results, updated)
 
     def _compress_pdf_with_ghostscript(self, input_path: str, output_path: str) -> tuple[bool, str, float]:
         if self._should_cancel():

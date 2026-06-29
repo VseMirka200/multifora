@@ -1,8 +1,12 @@
+import os
+import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
 import app.core.deps as deps
 from core.workers.compression.compression_mixin import CompressionMixin
+from core.workers.result import OperationResult
 
 
 class _SignalStub:
@@ -26,6 +30,9 @@ class _DummyCompressionWorker(CompressionMixin):
 
     def _should_cancel(self):
         return self._cancel_requested
+
+    def _emit_finished(self, new_files=None, updated_files=None):
+        self.finished.emit(OperationResult(new_files or [], updated_files or [], list(self.errors)))
 
 
 class GhostscriptDetectionTests(unittest.TestCase):
@@ -56,6 +63,39 @@ class GhostscriptDetectionTests(unittest.TestCase):
             worker._compress_pdf_files()
         self.assertEqual(ensure_mock.call_count, 1)
         self.assertEqual(len(worker.finished.emitted), 1)
+
+    def test_detect_ghostscript_prefers_bundled_x64(self):
+        original_has = deps.HAS_GHOSTSCRIPT
+        original_path = deps.GHOSTSCRIPT_PATH
+        original_argv0 = sys.argv[0]
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                bundled_dir = os.path.join(tmpdir, "bin", "gswin64")
+                os.makedirs(bundled_dir)
+                bundled_exe = os.path.join(bundled_dir, "gswin64c.exe")
+                with open(bundled_exe, "wb") as f:
+                    f.write(b"")
+
+                sys.argv[0] = os.path.join(tmpdir, "Multifora.exe")
+                with patch.dict(os.environ, {}, clear=True):
+                    with patch.object(deps, "_find_ghostscript_in_registry", return_value=None):
+                        with patch("app.core.deps.shutil.which", return_value=None):
+                            deps._detect_ghostscript()
+
+                self.assertTrue(deps.HAS_GHOSTSCRIPT)
+                self.assertEqual(os.path.normcase(deps.GHOSTSCRIPT_PATH), os.path.normcase(bundled_exe))
+        finally:
+            deps.HAS_GHOSTSCRIPT = original_has
+            deps.GHOSTSCRIPT_PATH = original_path
+            sys.argv[0] = original_argv0
+
+    def test_compression_emits_result_when_cancelled(self):
+        worker = _DummyCompressionWorker()
+        worker._cancel_requested = True
+        with patch("core.workers.compression.compression_mixin.deps.ensure_ghostscript_detected"):
+            worker._compress_pdf_files()
+        self.assertEqual(len(worker.finished.emitted), 1)
+        self.assertEqual(worker.finished.emitted[0].get("updated_files"), [])
 
 
 if __name__ == "__main__":

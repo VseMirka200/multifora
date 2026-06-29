@@ -21,6 +21,7 @@ from app.ui.ui_components import (
     setup_standard_dialog,
     setup_standard_secondary_button,
 )
+from app.ui.ui_spacing import DIALOG_MARGINS, MARGINS_NONE, SPACE_MD, SPACE_XL
 
 
 class FileListActionsMixin:
@@ -166,12 +167,12 @@ class FileListActionsMixin:
             pass
 
         layout = QVBoxLayout(dialog)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(10)
+        layout.setContentsMargins(*DIALOG_MARGINS)
+        layout.setSpacing(SPACE_XL)
 
         content_row = QHBoxLayout()
-        content_row.setContentsMargins(0, 0, 0, 0)
-        content_row.setSpacing(10)
+        content_row.setContentsMargins(*MARGINS_NONE)
+        content_row.setSpacing(SPACE_XL)
 
         icon_label = QLabel()
         icon_label.setFixedSize(32, 32)
@@ -190,8 +191,8 @@ class FileListActionsMixin:
         layout.addLayout(content_row)
 
         buttons_row = QHBoxLayout()
-        buttons_row.setContentsMargins(0, 0, 0, 0)
-        buttons_row.setSpacing(6)
+        buttons_row.setContentsMargins(*MARGINS_NONE)
+        buttons_row.setSpacing(SPACE_MD)
 
         btn_folder = QPushButton("Добавить папку")
         btn_contents = QPushButton("Добавить содержимое")

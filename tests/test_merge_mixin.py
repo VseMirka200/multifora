@@ -4,6 +4,7 @@ import unittest
 
 from app.core.models import FileItem
 from core.workers.merge.merge_mixin import MergeMixin
+from core.workers.result import OperationResult
 
 
 class _SignalStub:
@@ -31,6 +32,9 @@ class _DummyMergeWorker(MergeMixin):
 
     def _record_error(self, file_item, message):
         self.errors.append({"file": file_item, "message": message})
+
+    def _emit_finished(self, new_files=None, updated_files=None):
+        self.finished.emit(OperationResult(new_files or [], updated_files or [], list(self.errors)))
 
     def _get_unique_path(self, path):
         if not os.path.exists(path):

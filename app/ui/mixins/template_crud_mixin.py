@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import os
 from datetime import datetime
 
@@ -28,6 +28,7 @@ from app.ui.ui_components import (
     setup_standard_dialog,
     setup_standard_link_button,
 )
+from app.ui.ui_spacing import LINK_BUTTON_HEIGHT, MARGINS_NONE, SPACE_NONE, SPACE_XXS, SPACE_SM, SPACE_MD, SPACE_LG, SPACE_XL
 
 
 class TemplateCrudMixin:
@@ -97,10 +98,10 @@ class TemplateCrudMixin:
             return """
             QTableWidget {
                 background-color: #ffffff;
-                alternate-background-color: #4d82bd;
+                alternate-background-color: #3d74b3;
                 border: 1px solid #c7cfda;
                 color: #1f2328;
-                selection-background-color: #9fc5f8;
+                selection-background-color: #3d74b3;
                 selection-color: #1f2328;
             }
             QTableWidget::item {
@@ -109,15 +110,15 @@ class TemplateCrudMixin:
                 padding: 3px;
             }
             QTableWidget::item:alternate {
-                background-color: #4d82bd;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QTableWidget::item:selected {
-                background-color: #9fc5f8;
+                background-color: #3d74b3;
                 color: #1f2328;
             }
             QTableWidget::item:selected:!active {
-                background-color: #9fc5f8;
+                background-color: #3d74b3;
                 color: #1f2328;
             }
             QHeaderView::section {
@@ -140,7 +141,7 @@ class TemplateCrudMixin:
                 alternate-background-color: #3a3a3a;
                 border: 1px solid #4a4a4a;
                 color: #f0f0f0;
-                selection-background-color: #2f79c6;
+                selection-background-color: #3d74b3;
                 selection-color: #ffffff;
             }
             QTableWidget::item {
@@ -149,11 +150,11 @@ class TemplateCrudMixin:
                 padding: 3px;
             }
             QTableWidget::item:selected {
-                background-color: #2f79c6;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QTableWidget::item:selected:!active {
-                background-color: #2f79c6;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QHeaderView::section {
@@ -494,34 +495,34 @@ class TemplateCrudMixin:
             pass
         
         layout = QVBoxLayout(dialog)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        layout.setContentsMargins(*MARGINS_NONE)
+        layout.setSpacing(SPACE_NONE)
         
         card = QFrame()
         card.setObjectName("settings_card")
         card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(0, 6, 0, 6)
-        card_layout.setSpacing(4)
+        card_layout.setContentsMargins(0, SPACE_MD, 0, SPACE_MD)
+        card_layout.setSpacing(SPACE_SM)
 
         import_export_buttons = QHBoxLayout()
-        import_export_buttons.setContentsMargins(0, 1, 10, 1)
-        import_export_buttons.setSpacing(8)
+        import_export_buttons.setContentsMargins(0, SPACE_XXS, SPACE_XL, SPACE_XXS)
+        import_export_buttons.setSpacing(SPACE_LG)
         import_export_buttons.addStretch()
 
         self.btn_export_templates = QPushButton("Экспорт шаблонов")
-        setup_standard_link_button(self.btn_export_templates, height=24)
+        setup_standard_link_button(self.btn_export_templates, height=LINK_BUTTON_HEIGHT)
         self.btn_export_templates.clicked.connect(self.export_templates)
         import_export_buttons.addWidget(self.btn_export_templates)
 
         self.btn_import_templates = QPushButton("Импорт шаблонов")
-        setup_standard_link_button(self.btn_import_templates, height=24)
+        setup_standard_link_button(self.btn_import_templates, height=LINK_BUTTON_HEIGHT)
         self.btn_import_templates.clicked.connect(lambda: self.import_templates(dialog))
         import_export_buttons.addWidget(self.btn_import_templates)
 
         import_export_row = QWidget()
         import_export_row.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        import_export_row.setFixedHeight(22)
+        import_export_row.setFixedHeight(LINK_BUTTON_HEIGHT)
         import_export_row.setLayout(import_export_buttons)
         card_layout.addWidget(import_export_row)
         

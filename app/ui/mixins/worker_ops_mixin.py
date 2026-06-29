@@ -311,7 +311,7 @@ class WorkerOpsMixin:
     def on_operation_finished(self, result):
         """Завершение операции."""
         errors = []
-        if isinstance(result, dict):
+        if hasattr(result, "get"):
             new_files = result.get("new_files", [])
             updated_files = result.get("updated_files", [])
             errors = result.get("errors", [])

@@ -12,7 +12,6 @@ ImageOps = None
 word_to_pdf = None
 pdf2docx = None
 convert_from_path = None
-pd = None
 text = None
 teletype = None
 load = None
@@ -23,15 +22,12 @@ HAS_WORD_TO_PDF = False
 HAS_PDF_TO_WORD = False
 HAS_PDF_TO_IMAGE = False
 HAS_FFMPEG = False
-HAS_PANDAS = False
 HAS_PYMUPDF = False
 HAS_ODF_PYTHON = False
 HAS_PIL = False
 
-# Проверяем наличие GhostPCL и Ghostscript
-HAS_GHOSTPCL = False
+# Проверяем наличие Ghostscript
 HAS_GHOSTSCRIPT = False
-GHOSTPCL_PATH = None
 GHOSTSCRIPT_PATH = None
 
 # Проверяем наличие PyMuPDF
@@ -87,7 +83,6 @@ def _find_ghostscript_in_registry():
                                     cand = os.path.join(bin_dir, "gswin64c.exe")
                                     if os.path.exists(cand):
                                         return cand
-                                    cand = os.path.join(bin_dir, "gswin32c.exe")
                                     if os.path.exists(cand):
                                         return cand
                                 try:
@@ -100,7 +95,6 @@ def _find_ghostscript_in_registry():
                                     cand = os.path.join(bin_dir, "gswin64c.exe")
                                     if os.path.exists(cand):
                                         return cand
-                                    cand = os.path.join(bin_dir, "gswin32c.exe")
                                     if os.path.exists(cand):
                                         return cand
                         except OSError:
@@ -136,14 +130,11 @@ def _detect_ghostscript(custom_path=None):
     if base_dir:
         candidates.extend([
             os.path.join(base_dir, "bin", "gswin64", "gswin64c.exe"),
-            os.path.join(base_dir, "bin", "gswin32", "gswin32c.exe"),
         ])
 
     candidates.extend([
         r"C:\\Program Files\\gs\\gs*\\bin\\gswin64c.exe",
-        r"C:\\Program Files (x86)\\gs\\gs*\\bin\\gswin32c.exe",
         "gswin64c.exe",
-        "gswin32c.exe",
         "gs.exe",
     ])
 
@@ -199,12 +190,6 @@ try:
 except ImportError:
     _debug_log("pdf2image не найден")
 
-
-try:
-    import pandas as pd
-    HAS_PANDAS = True
-except ImportError:
-    _debug_log("pandas не найден")
 
 try:
     from odf import text, teletype

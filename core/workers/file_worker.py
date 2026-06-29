@@ -4,6 +4,7 @@ from .compression import CompressionMixin
 from .conversion import ConversionMixin
 from .merge import MergeMixin
 from .operations import FileOpsMixin
+from .result import OperationResult
 
 
 class FileWorker(FileOpsMixin, ConversionMixin, CompressionMixin, MergeMixin, QThread):
@@ -44,6 +45,15 @@ class FileWorker(FileOpsMixin, ConversionMixin, CompressionMixin, MergeMixin, QT
             entry["path"] = getattr(file_item, "path", None)
             entry["name"] = getattr(file_item, "name", None)
         self.errors.append(entry)
+
+    def _emit_finished(self, new_files=None, updated_files=None):
+        self.finished.emit(
+            OperationResult(
+                new_files=list(new_files or []),
+                updated_files=list(updated_files or []),
+                errors=list(self.errors),
+            )
+        )
 
     def set_copy_move(self, files: list, destination: str, move: bool = False):
         self.operation = "move" if move else "copy"

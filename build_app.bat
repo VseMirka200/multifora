@@ -25,9 +25,6 @@ if errorlevel 1 goto :error
 if exist "icons" (
     robocopy "icons" "dist\%APP_BUILD_NAME%\icons" /E /NFL /NDL /NJH /NJS /NP >nul
 )
-if exist "materials" (
-    robocopy "materials" "dist\%APP_BUILD_NAME%\materials" /E /NFL /NDL /NJH /NJS /NP >nul
-)
 if exist "bin" (
     robocopy "bin" "dist\%APP_BUILD_NAME%\bin" /E /NFL /NDL /NJH /NJS /NP >nul
 )

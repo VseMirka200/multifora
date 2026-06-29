@@ -2,14 +2,15 @@
 
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QSpinBox, QVBoxLayout, QWidget
 from app.ui.ui_components import setup_standard_form_label, setup_standard_line_input, setup_standard_spin_input
+from app.ui.ui_spacing import MARGINS_NONE, SPACE_NONE
 
 
 class TemplateParamsTextMixin:
-    def _create_param_block(self, label_text: str, field: QWidget, *, spacing: int = 2):
+    def _create_param_block(self, label_text: str, field: QWidget):
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setSpacing(spacing)
-        layout.setContentsMargins(0, 2, 0, 2)
+        layout.setSpacing(SPACE_NONE)
+        layout.setContentsMargins(*MARGINS_NONE)
 
         label = QLabel(label_text)
         setup_standard_form_label(label)
@@ -18,10 +19,12 @@ class TemplateParamsTextMixin:
         return container
 
     def _create_spin_param_block(self, label_text: str, spinbox: QSpinBox):
+        spinbox.setProperty("renameTemplateField", True)
+
         field_container = QWidget()
         field_layout = QHBoxLayout(field_container)
-        field_layout.setContentsMargins(0, 0, 0, 0)
-        field_layout.setSpacing(5)
+        field_layout.setContentsMargins(*MARGINS_NONE)
+        field_layout.setSpacing(SPACE_NONE)
         field_layout.addWidget(spinbox, 1)
         return self._create_param_block(label_text, field_container)
 
@@ -30,17 +33,21 @@ class TemplateParamsTextMixin:
         self.template_prefix = QLineEdit()
         self.template_prefix.setPlaceholderText("префикс_")
         self.template_prefix.setText("префикс_")
+        self.template_prefix.setProperty("renameTemplateField", True)
         setup_standard_line_input(self.template_prefix)
         container = self._create_param_block("Добавить в начало:", self.template_prefix)
         self.template_params_layout.addWidget(container)
+
     def create_add_suffix_params(self):
         """Создает параметры для добавления суффикса"""
         self.template_suffix = QLineEdit()
         self.template_suffix.setPlaceholderText("_суффикс")
         self.template_suffix.setText("_суффикс")
+        self.template_suffix.setProperty("renameTemplateField", True)
         setup_standard_line_input(self.template_suffix)
         container = self._create_param_block("Добавить в конец:", self.template_suffix)
         self.template_params_layout.addWidget(container)
+
     def create_remove_start_params(self):
         """Создает параметры для удаления первых N символов"""
         self.template_remove_start = QSpinBox()
@@ -50,6 +57,7 @@ class TemplateParamsTextMixin:
         setup_standard_spin_input(self.template_remove_start)
         container = self._create_spin_param_block("Удалить сначала:", self.template_remove_start)
         self.template_params_layout.addWidget(container)
+
     def create_remove_end_params(self):
         """Создает параметры для удаления последних N символов"""
         self.template_remove_end = QSpinBox()
@@ -59,19 +67,22 @@ class TemplateParamsTextMixin:
         setup_standard_spin_input(self.template_remove_end)
         container = self._create_spin_param_block("Удалить с конца:", self.template_remove_end)
         self.template_params_layout.addWidget(container)
+
     def create_remove_text_params(self):
         """Создает параметры для удаления текста"""
         self.template_remove_text = QLineEdit()
         self.template_remove_text.setPlaceholderText("Текст")
+        self.template_remove_text.setProperty("renameTemplateField", True)
         setup_standard_line_input(self.template_remove_text)
         container = self._create_param_block("Удалить текст:", self.template_remove_text)
         self.template_params_layout.addWidget(container)
+
     def create_replace_text_params(self):
         """Создает параметры для замены текста"""
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setSpacing(3)
-        layout.setContentsMargins(0, 2, 0, 2)
+        layout.setSpacing(SPACE_NONE)
+        layout.setContentsMargins(*MARGINS_NONE)
         
         find_label = QLabel("Что заменить:")
         setup_standard_form_label(find_label)
@@ -79,6 +90,7 @@ class TemplateParamsTextMixin:
         
         self.template_find = QLineEdit()
         self.template_find.setPlaceholderText("старый текст")
+        self.template_find.setProperty("renameTemplateField", True)
         setup_standard_line_input(self.template_find)
         layout.addWidget(self.template_find)
         
@@ -88,6 +100,7 @@ class TemplateParamsTextMixin:
         
         self.template_replace = QLineEdit()
         self.template_replace.setPlaceholderText("новый текст")
+        self.template_replace.setProperty("renameTemplateField", True)
         setup_standard_line_input(self.template_replace)
         layout.addWidget(self.template_replace)
         

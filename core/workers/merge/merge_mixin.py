@@ -14,11 +14,11 @@ class MergeMixin:
         except Exception as e:
             self._record_error(None, str(e))
             self.error.emit(str(e))
-            self.finished.emit({"new_files": [], "updated_files": [], "errors": self.errors})
+            self._emit_finished([], [])
             return
 
         new_files = [FileItem(result)] if result and os.path.exists(result) else []
-        self.finished.emit({"new_files": new_files, "updated_files": [], "errors": self.errors})
+        self._emit_finished(new_files, [])
 
     def _merge_files_to_target(self) -> str | None:
         files = [file for file in self.files if getattr(file, "is_file", False)]

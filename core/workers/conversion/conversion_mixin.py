@@ -81,6 +81,20 @@ def prewarm_word_background(status_callback=None, log_callback=None) -> bool:
 
 
 class ConversionMixin:
+    def _get_conversion_handler(self):
+        handlers = {
+            "word_to_odt": self._convert_word_to_odt,
+            "odt_to_word": self._convert_odt_to_word,
+            "odt_to_pdf": self._convert_odt_to_pdf,
+            "pdf_to_odt": self._convert_pdf_to_odt,
+            "pdf_to_image": self._convert_pdf_to_image,
+            "pdf_to_images": self._convert_pdf_to_image,
+            "image_to_pdf": self._convert_image_to_pdf,
+            "image_to_image": lambda file: self._convert_image_to_image(file, self.conversion_format),
+            "media_to_media": lambda file: self._convert_media_to_media(file, self.conversion_format),
+        }
+        return handlers.get(self.conversion_type)
+
     @staticmethod
     def _normalize_word_com_path(path: str) -> str:
         value = str(path or "").strip().strip('"')
@@ -202,45 +216,27 @@ class ConversionMixin:
         # Для самых тяжелых сценариев используем отдельные batch-пути.
         if self.conversion_type == "word_to_pdf":
             results = self._convert_word_to_pdf_batch()
-            self.finished.emit({"new_files": results, "updated_files": [], "errors": self.errors})
+            self._emit_finished(results, [])
             return
         if self.conversion_type == "pdf_to_word":
             results = self._convert_pdf_to_word_batch()
-            self.finished.emit({"new_files": results, "updated_files": [], "errors": self.errors})
+            self._emit_finished(results, [])
             return
 
         for i, file in enumerate(self.files):
             if self._should_cancel():
                 self.status.emit("Операция отменена пользователем")
-                self.finished.emit({"new_files": results, "updated_files": [], "errors": self.errors})
+                self._emit_finished(results, [])
                 return
             if not file.is_file:
                 continue
 
             self.status.emit(f"Конвертация: {file.name}")
             try:
-                converted_path = None
-
-                if self.conversion_type == "word_to_pdf":
-                    converted_path = self._convert_word_to_pdf(file)
-                elif self.conversion_type == "pdf_to_word":
-                    converted_path = self._convert_pdf_to_word(file)
-                elif self.conversion_type == "word_to_odt":
-                    converted_path = self._convert_word_to_odt(file)
-                elif self.conversion_type == "odt_to_word":
-                    converted_path = self._convert_odt_to_word(file)
-                elif self.conversion_type == "odt_to_pdf":
-                    converted_path = self._convert_odt_to_pdf(file)
-                elif self.conversion_type == "pdf_to_odt":
-                    converted_path = self._convert_pdf_to_odt(file)
-                elif self.conversion_type in ("pdf_to_image", "pdf_to_images"):
-                    converted_path = self._convert_pdf_to_image(file)
-                elif self.conversion_type == "image_to_pdf":
-                    converted_path = self._convert_image_to_pdf(file)
-                elif self.conversion_type == "image_to_image":
-                    converted_path = self._convert_image_to_image(file, self.conversion_format)
-                elif self.conversion_type == "media_to_media":
-                    converted_path = self._convert_media_to_media(file, self.conversion_format)
+                handler = self._get_conversion_handler()
+                if handler is None:
+                    raise Exception(f"Неизвестная операция конвертации: {self.conversion_type}")
+                converted_path = handler(file)
 
                 if converted_path and os.path.exists(converted_path):
                     results.append(FileItem(converted_path))
@@ -252,7 +248,7 @@ class ConversionMixin:
 
             self.progress.emit(int((i + 1) / total * 100))
 
-        self.finished.emit({"new_files": results, "updated_files": [], "errors": self.errors})
+        self._emit_finished(results, [])
 
     def _convert_word_to_pdf_batch(self) -> list[FileItem]:
         """Быстрый пакетный DOC/DOCX -> PDF через один скрытый экземпляр Word."""

@@ -12,7 +12,7 @@ class FileOpsMixin:
         for i, file in enumerate(self.files):
             if self._should_cancel():
                 self.status.emit("Операция отменена пользователем")
-                self.finished.emit({"new_files": results, "updated_files": [], "errors": self.errors})
+                self._emit_finished(results, [])
                 return
 
             dest_path = os.path.join(self.destination, file.name)
@@ -32,7 +32,7 @@ class FileOpsMixin:
             self.progress.emit(int((i + 1) / total * 100))
             self.status.emit(f"Копирование: {file.name}")
 
-        self.finished.emit({"new_files": results, "updated_files": [], "errors": self.errors})
+        self._emit_finished(results, [])
 
     def _move_files(self):
         total = len(self.files)
@@ -41,7 +41,7 @@ class FileOpsMixin:
         for i, file in enumerate(self.files):
             if self._should_cancel():
                 self.status.emit("Операция отменена пользователем")
-                self.finished.emit({"new_files": [], "updated_files": updated, "errors": self.errors})
+                self._emit_finished([], updated)
                 return
 
             dest_path = os.path.join(self.destination, file.name)
@@ -58,7 +58,7 @@ class FileOpsMixin:
             self.progress.emit(int((i + 1) / total * 100))
             self.status.emit(f"Перемещение: {file.name}")
 
-        self.finished.emit({"new_files": [], "updated_files": updated, "errors": self.errors})
+        self._emit_finished([], updated)
 
     def _rename_files(self):
         if len(self.files) != len(self.new_names):
@@ -73,7 +73,7 @@ class FileOpsMixin:
         for i, (file, new_name) in enumerate(zip(self.files, self.new_names)):
             if self._should_cancel():
                 self.status.emit("Операция отменена пользователем")
-                self.finished.emit({"new_files": [], "updated_files": updated, "errors": self.errors})
+                self._emit_finished([], updated)
                 return
 
             old_path = file.path
@@ -93,7 +93,7 @@ class FileOpsMixin:
             self.progress.emit(int((i + 1) / total * 100))
             self.status.emit(f"Переименование: {file.name}")
 
-        self.finished.emit({"new_files": [], "updated_files": updated, "errors": self.errors})
+        self._emit_finished([], updated)
 
     def _get_unique_path(self, path: str) -> str:
         if not os.path.exists(path):

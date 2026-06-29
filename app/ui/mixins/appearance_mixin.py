@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from pathlib import Path
 
 from PyQt6.QtCore import QEvent, QObject, Qt, QTimer, QUrl
@@ -54,6 +54,16 @@ from app.ui.ui_components import (
     setup_standard_dropdown,
     setup_standard_primary_button,
     setup_standard_secondary_button,
+    refresh_standard_field_styles,
+    refresh_standard_surface_styles,
+)
+from app.ui.ui_spacing import (
+    LINK_BUTTON_HEIGHT,
+    MARGINS_NONE,
+    MESSAGE_DIALOG_MARGINS,
+    SPACE_LG,
+    SPACE_XL,
+    SPACE_2XL,
 )
 
 
@@ -63,6 +73,46 @@ class AppearanceMixin:
         icon_path = Path(__file__).resolve().parents[1] / "checkbox_checked.svg"
         return icon_path.resolve().as_posix()
 
+    def _tab_content_style_block(self, theme: str) -> str:
+        is_light = str(theme).lower() == "light"
+        base_text = "#1f2328" if is_light else "#e0e0e0"
+        return f"""
+            QStackedWidget#operations_stack {{
+                background: transparent;
+                border: none;
+            }}
+            QScrollArea#operation_page_scroll,
+            QScrollArea#settings_page_scroll {{
+                border: none;
+                background: transparent;
+            }}
+            QWidget#operation_page_content,
+            QWidget#settings_page_content,
+            QWidget#rename_history_settings_page,
+            QWidget#rename_history_settings_content,
+            QWidget#template_params_widget {{
+                background-color: transparent;
+            }}
+            QFrame#card,
+            QFrame#settings_card {{
+                background-color: transparent;
+                border: none;
+            }}
+            QFrame#card QWidget,
+            QFrame#settings_card QWidget {{
+                background-color: transparent;
+            }}
+            QLabel#tab_section_label,
+            QLabel#settings_page_title {{
+                font-size: 13px;
+                color: {base_text};
+            }}
+            QLabel#tab_hint_label {{
+                font-size: 13px;
+                color: #3d74b3;
+            }}
+        """
+
     def _apply_detached_theme_style(self, style: str):
         """Применяет тему к отдельным окнам, не входящим в иерархию главного окна."""
         dialog = getattr(self, "_settings_dialog", None)
@@ -70,6 +120,8 @@ class AppearanceMixin:
             return
         try:
             dialog.setStyleSheet(style)
+            refresh_standard_field_styles(dialog)
+            refresh_standard_surface_styles(dialog)
         except Exception:
             pass
 
@@ -78,26 +130,41 @@ class AppearanceMixin:
         checkmark_url = self._checkbox_checkmark_url()
         style = """
             QMainWindow {
-                background-color: #4a4a4a;
+                background-color: #2c2c2c;
             }
             QWidget {
-                background-color: #4a4a4a;
+                background-color: #2c2c2c;
                 font-family: "Segoe UI";
                 font-size: 14px;
                 font-weight: 600;
             }
             QWidget#top_menu_bar {
-                background-color: #4a4a4a;
+                background-color: #2c2c2c;
             }
             QWidget#app_header {
-                background-color: #4a4a4a;
+                background-color: #2c2c2c;
             }
-            QLineEdit, QPlainTextEdit, QTextBrowser, QListWidget, QTableWidget, QComboBox, QSpinBox {
-                background-color: #3a3a3a;
+            QLineEdit,
+            QPlainTextEdit,
+            QTextBrowser,
+            QTextEdit,
+            QSpinBox,
+            QDoubleSpinBox,
+            QAbstractSpinBox,
+            QDateEdit,
+            QTimeEdit,
+            QDateTimeEdit,
+            QComboBox {
+                background-color: #383838;
+                color: #f0f0f0;
+                border: 1px solid #4f4f4f;
+            }
+            QListWidget, QTableWidget {
+                background-color: #383838;
             }
             QFrame#card {
-                background-color: #3a3a3a;
-                border: 1px solid #3a3a3a;
+                background-color: transparent;
+                border: none;
                 border-top: none;
                 border-top-left-radius: 0px;
                 border-top-right-radius: 0px;
@@ -115,19 +182,66 @@ class AppearanceMixin:
                 background-color: transparent;
             }
             QWidget#template_params_widget {
-                background-color: transparent;
+                background-color: #383838;
+            }
+            QWidget#template_params_widget QLineEdit[renameTemplateField="true"],
+            QWidget#template_params_widget QLineEdit[renameTemplateField="true"]:hover,
+            QWidget#template_params_widget QLineEdit[renameTemplateField="true"]:focus,
+            QWidget#template_params_widget QSpinBox[renameTemplateField="true"],
+            QWidget#template_params_widget QSpinBox[renameTemplateField="true"]:hover,
+            QWidget#template_params_widget QSpinBox[renameTemplateField="true"]:focus,
+            QWidget#template_params_widget QToolButton#menu_like_combo[renameTemplateField="true"],
+            QWidget#template_params_widget QToolButton#menu_like_combo[renameTemplateField="true"]:hover,
+            QWidget#template_params_widget QToolButton#menu_like_combo[renameTemplateField="true"]:focus {
+                background-color: #383838;
+                color: #f0f0f0;
+                border: none;
+                border-radius: 4px;
+            }
+            QWidget#template_params_widget QLineEdit,
+            QWidget#template_params_widget QPlainTextEdit,
+            QWidget#template_params_widget QTextBrowser,
+            QWidget#template_params_widget QSpinBox,
+            QWidget#template_params_widget QSpinBox QLineEdit,
+            QWidget#template_params_widget QDoubleSpinBox QLineEdit,
+            QWidget#template_params_widget QAbstractSpinBox QLineEdit,
+            QWidget#template_params_widget QComboBox QLineEdit,
+            QWidget#template_params_widget QComboBox,
+            QWidget#template_params_widget QToolButton#menu_like_combo {
+                background-color: #383838;
+                color: #f0f0f0;
+                border: none;
+                border-radius: 4px;
+            }
+            QWidget#template_params_widget QSpinBox::up-button,
+            QWidget#template_params_widget QSpinBox::down-button,
+            QWidget#template_params_widget QDoubleSpinBox::up-button,
+            QWidget#template_params_widget QDoubleSpinBox::down-button,
+            QWidget#template_params_widget QComboBox::drop-down {
+                background-color: #383838;
+                border: none;
+            }
+            QWidget#template_params_widget QComboBox {
+                padding: 3px;
+                min-height: 24px;
+                max-height: 24px;
+            }
+            QWidget#template_params_widget QComboBox::drop-down {
+                border: none;
+                background-color: #383838;
+                width: 18px;
             }
             QFrame#card QPushButton {
                 background-color: #3d74b3;
                 color: #ffffff;
-                border: 1px solid rgba(255, 255, 255, 0.35);
+                border: none;
                 border-radius: 4px;
             }
             QFrame#card QPushButton:hover {
-                background-color: #4a82c0;
+                background-color: #3d74b3;
             }
             QFrame#card QPushButton:pressed {
-                background-color: #3568a0;
+                background-color: #3d74b3;
             }
 QFrame#card QPushButton:disabled {
                 background-color: #6c7a86;
@@ -138,21 +252,21 @@ QFrame#card QPushButton:disabled {
             QFrame#card QPushButton[text="Сжать файлы"],
             QFrame#card QPushButton[text="Начать действие"],
             QFrame#card QPushButton[text="Откатить"] {
-                background-color: #2c8f73;
+                background-color: #3d74b3;
             }
             QFrame#card QPushButton#convert_btn:hover,
             QFrame#card QPushButton[text="Конвертировать"]:hover,
             QFrame#card QPushButton[text="Сжать файлы"]:hover,
             QFrame#card QPushButton[text="Начать действие"]:hover,
             QFrame#card QPushButton[text="Откатить"]:hover {
-                background-color: #36a083;
+                background-color: #3d74b3;
             }
             QFrame#card QPushButton#convert_btn:pressed,
             QFrame#card QPushButton[text="Конвертировать"]:pressed,
             QFrame#card QPushButton[text="Сжать файлы"]:pressed,
             QFrame#card QPushButton[text="Начать действие"]:pressed,
             QFrame#card QPushButton[text="Откатить"]:pressed {
-                background-color: #287f67;
+                background-color: #3d74b3;
             }
             QLabel#card_title {
                 font-size: 14px;
@@ -170,17 +284,17 @@ QFrame#card QPushButton:disabled {
                 font-weight: normal;
                 color: #fff;
                 background-color: #3d74b3;
-                border: 1px solid rgba(255, 255, 255, 0.35);
-                border-radius: 4px;
+                border: none;
+                border-radius: 10px;
                 text-align: center;
                 min-height: 26px;
                 max-height: 28px;
             }
             QPushButton:hover {
-                background-color: #4a82c0;
+                background-color: #3d74b3;
             }
             QPushButton:pressed {
-                background-color: #3568a0;
+                background-color: #3d74b3;
             }
 QPushButton:disabled {
                 background-color: #6c7a86;
@@ -190,15 +304,15 @@ QPushButton:disabled {
                 padding: 0px;
                 min-height: 0px;
                 max-height: 20px;
-                color: #7bdc8a;
+                color: #e7e7e7;
                 background-color: transparent;
-                border: 1px solid rgba(255, 255, 255, 0.35);
+                border: none;
                 border-radius: 0px;
                 text-align: center;
             }
             QPushButton#about_program_btn:hover {
-                color: #57c56b;
-                text-decoration: underline;
+                color: #e7e7e7;
+                text-decoration: none;
                 background-color: transparent;
             }
             QPushButton#about_program_btn:pressed {
@@ -210,12 +324,12 @@ QPushButton:disabled {
                 max-height: 22px;
                 color: #e7e7e7;
                 background-color: transparent;
-                border: 1px solid rgba(255, 255, 255, 0.35);
+                border: none;
                 border-radius: 0px;
             }
             QPushButton#top_menu_link_btn:hover {
-                color: #ffffff;
-                text-decoration: underline;
+                color: #e7e7e7;
+                text-decoration: none;
                 background-color: transparent;
             }
             QPushButton#top_menu_link_btn:pressed {
@@ -223,59 +337,59 @@ QPushButton:disabled {
             }
 
             QPushButton#convert_btn {
-                background-color: #2c8f73;
+                background-color: #3d74b3;
             }
             QPushButton#convert_btn:hover {
-                background-color: #36a083;
+                background-color: #3d74b3;
             }
             QPushButton#convert_btn:pressed {
-                background-color: #287f67;
+                background-color: #3d74b3;
             }
 QPushButton#convert_btn:disabled {
-                background-color: #2c8f73;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QPushButton#cancel_operation_btn {
-                background-color: #c84b4b;
+                background-color: #3d74b3;
                 color: #ffffff;
-                border: 1px solid rgba(255, 255, 255, 0.35);
-                border-radius: 4px;
+                border: none;
+                border-radius: 10px;
                 min-width: 84px;
             }
             QPushButton#cancel_operation_btn:hover {
-                background-color: #d75a5a;
+                background-color: #3d74b3;
             }
             QPushButton#cancel_operation_btn:pressed {
-                background-color: #af3f3f;
+                background-color: #3d74b3;
             }
 QPushButton#cancel_operation_btn:disabled {
-                background-color: #c84b4b;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QPushButton[text="Откатить"]:disabled,
             QFrame#card QPushButton[text="Откатить"]:disabled {
-                background-color: #2c8f73;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
 
             QPushButton[text="Очистить"] {
-                background-color: #aa5257;
+                background-color: #3d74b3;
             }
             QPushButton[text="Очистить"]:hover {
-                background-color: #bc6066;
+                background-color: #3d74b3;
             }
             QPushButton[text="Очистить"]:pressed {
-                background-color: #9a464b;
+                background-color: #3d74b3;
             }
 
             QPushButton[text="Начать действие"] {
-                background-color: #5fbf7a;
+                background-color: #3d74b3;
             }
             QPushButton[text="Начать действие"]:hover {
-                background-color: #4fa66a;
+                background-color: #3d74b3;
             }
             QPushButton[text="Начать действие"]:pressed {
-                background-color: #46955f;
+                background-color: #3d74b3;
             }
 
             QGroupBox {
@@ -314,19 +428,19 @@ QPushButton#cancel_operation_btn:disabled {
                 font-size: 14px;
                 font-weight: bold;
                 color: #ffffff;
-                background-color: #3f78b5;
-                border: 1px solid rgba(255, 255, 255, 0.35);
+                background-color: #3d74b3;
+                border: none;
                 border-radius: 0px;
                 min-height: 34px;
                 max-height: 34px;
             }
             QPushButton[buttonVariant="section"]:hover {
-                background-color: #4c86c3;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QPushButton[buttonVariant="section"]:checked {
-                background-color: #356da8;
-                border: 1px solid rgba(255, 255, 255, 0.35);
+                background-color: #3d74b3;
+                border: none;
                 color: #ffffff;
                 border-bottom-left-radius: 0px;
                 border-bottom-right-radius: 0px;
@@ -349,7 +463,7 @@ QPushButton#cancel_operation_btn:disabled {
                 width: 14px;
                 height: 14px;
                 margin-right: 6px;
-                border: 1px solid #c7cfda;
+                border: 1px solid #4a4a4a;
                 border-radius: 2px;
                 background-color: #f2f4f7;
             }
@@ -363,9 +477,9 @@ QPushButton#cancel_operation_btn:disabled {
                 padding: 3px;
                 min-height: 24px;
                 max-height: 24px;
-                background-color: #3a3a3a;
+                background-color: #383838;
                 color: #f0f0f0;
-                border: 1px solid rgba(255, 255, 255, 0.55);
+                border: 1px solid #4f4f4f;
                 border-radius: 0px;
             }
             QLineEdit,
@@ -376,28 +490,40 @@ QPushButton#cancel_operation_btn:disabled {
                 max-height: 24px;
             }
             QLineEdit,
-            QSpinBox {
+            QSpinBox,
+            QDoubleSpinBox,
+            QAbstractSpinBox,
+            QDateEdit,
+            QTimeEdit,
+            QDateTimeEdit,
+            QComboBox {
                 padding: 3px;
                 min-height: 24px;
                 max-height: 24px;
+                background-color: #383838;
+                color: #f0f0f0;
+                border: 1px solid #4f4f4f;
+                border-radius: 4px;
             }
             QComboBox::drop-down {
-                border-left: 1px solid rgba(255, 255, 255, 0.55);
+                border-left: 1px solid #4f4f4f;
+                border-top-right-radius: 4px;
+                border-bottom-right-radius: 4px;
             }
             QComboBox:hover {
-                border: 1px solid rgba(255, 255, 255, 0.75);
+                border: 1px solid #4f4f4f;
             }
             QToolButton#menu_like_combo {
                 font-size: 14px;
                 padding: 3px;
                 min-height: 24px;
                 max-height: 24px;
-                background-color: #3a3a3a;
+                background-color: #383838;
                 color: #f0f0f0;
-                border: 1px solid rgba(255, 255, 255, 0.55);
-                border-radius: 0px;
+                border: 1px solid #4f4f4f;
+                border-radius: 4px;
                 text-align: left;
-                padding-left: 12px;
+                padding-left: 6px;
             }
             QToolButton#menu_like_combo::menu-indicator {
                 subcontrol-origin: padding;
@@ -405,12 +531,23 @@ QPushButton#cancel_operation_btn:disabled {
                 right: 6px;
             }
             QToolButton#menu_like_combo:hover {
-                border: 1px solid rgba(255, 255, 255, 0.75);
+                border: 1px solid #4f4f4f;
+            }
+            QToolButton#menu_like_combo[renameTemplateField="true"],
+            QToolButton#menu_like_combo[renameTemplateField="true"]:hover,
+            QToolButton#menu_like_combo[renameTemplateField="true"]:focus,
+            QWidget#template_params_widget QSpinBox[renameTemplateField="true"],
+            QWidget#template_params_widget QSpinBox[renameTemplateField="true"]:hover,
+            QWidget#template_params_widget QSpinBox[renameTemplateField="true"]:focus {
+                background-color: #383838;
+                color: #f0f0f0;
+                border: none;
+                border-radius: 0px;
             }
             QComboBox QAbstractItemView {
-                background-color: #ffffff;
-                color: #1f2328;
-                border: 1px solid #c7cfda;
+                background-color: #383838;
+                color: #f0f0f0;
+                border: 1px solid #4f4f4f;
                 selection-background-color: #3d74b3;
                 outline: 0px;
                 border-radius: 0px;
@@ -418,16 +555,16 @@ QPushButton#cancel_operation_btn:disabled {
                 margin: 0px;
             }
             QComboBox QListView {
-                background-color: #ffffff;
-                color: #1f2328;
-                border: 1px solid #c7cfda;
+                background-color: #383838;
+                color: #f0f0f0;
+                border: 1px solid #4f4f4f;
                 border-radius: 0px;
                 margin: 0px;
                 padding: 0px;
                 outline: 0px;
             }
             QComboBox QListView::viewport {
-                background-color: #ffffff;
+                background-color: #383838;
                 margin: 0px;
                 padding: 0px;
             }
@@ -435,24 +572,24 @@ QPushButton#cancel_operation_btn:disabled {
                 padding: 4px 8px;
                 margin: 0px;
                 background-color: transparent;
-                color: #1f2328;
+                color: #f0f0f0;
             }
             QComboBox QAbstractItemView::item:selected {
                 background-color: #3d74b3;
                 color: #ffffff;
             }
             QMenu {
-                background-color: #ffffff;
-                color: #1f2328;
-                border: 1px solid #c7cfda;
+                background-color: #383838;
+                color: #f0f0f0;
+                border: 1px solid #4f4f4f;
                 margin: 0px;
                 padding: 0px;
                 border-radius: 0px;
             }
             QMenu#menu_like_combo_popup,
             QMenu#header_dropdown_popup {
-                background-color: #ffffff;
-                border: 1px solid #c7cfda;
+                background-color: #383838;
+                border: 1px solid #4f4f4f;
                 margin: 0px;
                 padding: 0px;
                 border-radius: 0px;
@@ -467,7 +604,7 @@ QPushButton#cancel_operation_btn:disabled {
             }
             QMenu::separator {
                 height: 1px;
-                background: rgba(0, 0, 0, 0.2);
+                background: rgba(255, 255, 255, 0.18);
             }
             QToolButton#header_cell_tl,
             QToolButton#header_cell_tr,
@@ -477,10 +614,10 @@ QPushButton#cancel_operation_btn:disabled {
                 padding-left: 8px;
                 min-height: 20px;
                 max-height: 20px;
-                background-color: #3a3a3a;
+                background-color: #383838;
                 color: #f0f0f0;
-                border: 1px solid rgba(255, 255, 255, 0.55);
-                border-radius: 0px;
+                border: 1px solid #4f4f4f;
+                border-radius: 4px;
                 text-align: left;
             }
             QLineEdit#header_cell_br {
@@ -488,10 +625,10 @@ QPushButton#cancel_operation_btn:disabled {
                 padding: 2px;
                 min-height: 20px;
                 max-height: 20px;
-                background-color: #3a3a3a;
+                background-color: #383838;
                 color: #f0f0f0;
-                border: 1px solid rgba(255, 255, 255, 0.55);
-                border-radius: 0px;
+                border: 1px solid #4f4f4f;
+                border-radius: 4px;
             }
             QToolButton#header_cell_tl::menu-indicator,
             QToolButton#header_cell_tr::menu-indicator,
@@ -500,15 +637,10 @@ QPushButton#cancel_operation_btn:disabled {
                 subcontrol-position: right center;
                 right: 6px;
             }
-            QToolButton#header_cell_tl:hover,
-            QToolButton#header_cell_tr:hover,
-            QToolButton#header_cell_bl:hover {
-                border: 1px solid rgba(255, 255, 255, 0.75);
-            }
             QToolButton#header_cell_tl:pressed,
             QToolButton#header_cell_tr:pressed,
             QToolButton#header_cell_bl:pressed {
-                background-color: #363636;
+                background-color: #383838;
             }
             /* Single grid lines between adjacent controls (no doubled borders). */
             QToolButton#header_cell_tl {
@@ -534,9 +666,9 @@ QPushButton#cancel_operation_btn:disabled {
                 padding: 3px;
                 min-height: 24px;
                 max-height: 24px;
-                background-color: #3a3a3a;
+                background-color: #383838;
                 color: #f0f0f0;
-                border: 1px solid #4a4a4a;
+                border: 1px solid #4f4f4f;
                 border-radius: 0px;
             }
             QLineEdit::placeholder {
@@ -544,22 +676,22 @@ QPushButton#cancel_operation_btn:disabled {
             }
             QPlainTextEdit {
                 font-size: 14px;
-                background-color: #363636;
+                background-color: #383838;
                 color: #f0f0f0;
-                border: 1px solid #444;
+                border: 1px solid #4f4f4f;
                 border-radius: 0px;
             }
             QPlainTextEdit:focus {
-                border: 1px solid #2f79c6;
+                border: 1px solid #3d74b3;
             }
             QSpinBox {
                 font-size: 14px;
                 padding: 3px;
                 min-height: 24px;
                 max-height: 24px;
-                background-color: #3a3a3a;
+                background-color: #383838;
                 color: #f0f0f0;
-                border: 1px solid #4a4a4a;
+                border: 1px solid #4f4f4f;
                 border-radius: 0px;
             }
             QSlider {
@@ -572,7 +704,7 @@ QPushButton#cancel_operation_btn:disabled {
                 border-radius: 2px;
             }
             QSlider::handle:horizontal {
-                background: #2f79c6;
+                background: #3d74b3;
                 width: 12px;
                 height: 12px;
                 margin: -4px 0;
@@ -580,16 +712,16 @@ QPushButton#cancel_operation_btn:disabled {
             }
             QListWidget {
                 font-size: 13px;
-                background-color: #3a3a3a;
+                background-color: #383838;
                 color: #f0f0f0;
-                border: 1px solid #4a4a4a;
+                border: 1px solid #4f4f4f;
                 border-radius: 0px;
             }
             QListView {
                 font-size: 13px;
-                background-color: #3a3a3a;
+                background-color: #383838;
                 color: #f0f0f0;
-                border: 1px solid #4a4a4a;
+                border: 1px solid #4f4f4f;
                 border-radius: 0px;
             }
             QListView::item {
@@ -598,26 +730,27 @@ QPushButton#cancel_operation_btn:disabled {
                 color: #f0f0f0;
             }
             QListView::item:selected {
-                background-color: #2f79c6;
+                background-color: #3d74b3;
                 color: white;
             }
             QListView#files_list,
             QListWidget#files_list {
-                background-color: #3a3a3a;
-                alternate-background-color: #3a3a3a;
+                background-color: #383838;
+                alternate-background-color: #383838;
                 color: #f0f0f0;
                 selection-color: #1f2328;
-                selection-background-color: #9fc5f8;
+                selection-background-color: #3d74b3;
+                border-radius: 4px;
                 show-decoration-selected: 1;
             }
             QListView#files_list::item,
             QListWidget#files_list::item {
-                background-color: #3a3a3a;
+                background-color: #383838;
                 color: #f0f0f0;
             }
             QListView#files_list::item:alternate,
             QListWidget#files_list::item:alternate {
-                background-color: #3a3a3a;
+                background-color: #383838;
                 color: #f0f0f0;
             }
             QListView#files_list::item:selected,
@@ -626,7 +759,7 @@ QPushButton#cancel_operation_btn:disabled {
             QListWidget#files_list::item:selected:active,
             QListView#files_list::item:selected:!active,
             QListWidget#files_list::item:selected:!active {
-                background-color: #9fc5f8;
+                background-color: #3d74b3;
                 color: #1f2328;
                 selection-color: #1f2328;
             }
@@ -635,7 +768,7 @@ QPushButton#cancel_operation_btn:disabled {
                 color: #f0f0f0;
             }
             QListWidget::item:selected {
-                background-color: #2f79c6;
+                background-color: #3d74b3;
                 color: white;
             }
             QListWidget#settings_nav {
@@ -660,11 +793,11 @@ QPushButton#cancel_operation_btn:disabled {
                 max-height: 36px;
             }
             QListWidget#settings_nav::item:hover {
-                background-color: #4a82c0;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QListWidget#settings_nav::item:selected {
-                background-color: #2f79c6;
+                background-color: #3d74b3;
                 color: #ffffff;
                 font-weight: 900;
                 border: none;
@@ -672,7 +805,7 @@ QPushButton#cancel_operation_btn:disabled {
             QTabWidget::pane {
                 border: none;
                 border-radius: 0px;
-                background-color: #4a4a4a;
+                background-color: #2c2c2c;
             }
             QTabBar::tab {
                 padding: 2px 10px;
@@ -691,29 +824,29 @@ QPushButton#cancel_operation_btn:disabled {
                 color: #e8e8e8;
             }
             QTabBar::tab:hover:!selected {
-                background-color: #434853;
+                background-color: #3b3f46;
             }
             QProgressBar {
                 font-size: 14px;
                 min-height: 26px;
                 max-height: 26px;
-                background-color: #3f3f3f;
+                background-color: #353535;
                 color: #e0e0e0;
                 border: 1px solid #4a4a4a;
                 border-radius: 0px;
                 text-align: center;
             }
             QProgressBar::chunk {
-                background-color: #2f79c6;
+                background-color: #3d74b3;
                 border-radius: 0px;
             }
             QStatusBar {
                 font-size: 13px;
-                background-color: #4a4a4a;
+                background-color: #2c2c2c;
                 color: #e0e0e0;
             }
             QMessageBox {
-                background-color: #4a4a4a;
+                background-color: #2c2c2c;
             }
             QMessageBox QLabel {
                 font-size: 13px;
@@ -723,22 +856,22 @@ QPushButton#cancel_operation_btn:disabled {
                 min-height: 22px;
                 max-height: 22px;
                 font-size: 13px;
-                background-color: #2f79c6;
+                background-color: #3d74b3;
                 color: white;
                 border-radius: 4px;
             }
             QMessageBox QPushButton:hover {
-                background-color: #2768a8;
+                background-color: #3d74b3;
             }
             QMessageBox QPushButton:pressed {
-                background-color: #245f99;
+                background-color: #3d74b3;
             }
             QScrollArea {
                 border: none;
-                background-color: #4a4a4a;
+                background-color: #2c2c2c;
             }
             QScrollArea QWidget#qt_scrollarea_viewport {
-                background-color: #4a4a4a;
+                background-color: #2c2c2c;
                 border: none;
             }
             QScrollBar:vertical {
@@ -784,9 +917,9 @@ QPushButton#cancel_operation_btn:disabled {
                 background: transparent;
             }
             QTableWidget {
-                background-color: #3a3a3a;
+                background-color: #383838;
                 color: #f0f0f0;
-                border: 1px solid #4a4a4a;
+                border: 1px solid #4f4f4f;
                 border-radius: 6px;
             }
             QTableWidget::item {
@@ -794,25 +927,25 @@ QPushButton#cancel_operation_btn:disabled {
                 color: #f0f0f0;
             }
             QTableWidget::item:selected {
-                background-color: #2f79c6;
+                background-color: #3d74b3;
                 color: white;
             }
             QHeaderView::section {
                 background-color: #2b2b2b;
                 color: #e0e0e0;
                 padding: 4px;
-                border: 1px solid #444;
+                border: 1px solid #4f4f4f;
             }
-            /* Force light dropdown popup even in dark theme (override generic QListView). */
+            /* Keep dropdown popup consistent with the dark field color. */
             QComboBox QAbstractItemView,
             QComboBox QListView,
             QComboBox QListView::viewport {
-                background-color: #ffffff;
-                color: #1f2328;
+                background-color: #383838;
+                color: #f0f0f0;
                 font-family: "Segoe UI";
                 font-size: 14px;
                 font-weight: 600;
-                border: 1px solid #c7cfda;
+                border: 1px solid #4f4f4f;
                 border-radius: 0px;
                 margin: 0px;
                 padding: 0px;
@@ -822,64 +955,64 @@ QPushButton#cancel_operation_btn:disabled {
                 padding: 6px 10px;
                 margin: 0px;
                 background-color: transparent;
-                color: #1f2328;
+                color: #f0f0f0;
             }
             QComboBox QAbstractItemView::item:selected {
                 background-color: #3d74b3;
                 color: #ffffff;
             }
             QPushButton[buttonVariant="secondary"] {
-                background-color: #3f78b5;
+                background-color: #3d74b3;
                 color: #ffffff;
-                border: 1px solid rgba(255, 255, 255, 0.35);
-                border-radius: 4px;
+                border: none;
+                border-radius: 10px;
             }
             QPushButton[buttonVariant="secondary"]:hover {
-                background-color: #4c86c3;
+                background-color: #3d74b3;
             }
             QPushButton[buttonVariant="secondary"]:pressed {
-                background-color: #356da8;
+                background-color: #3d74b3;
             }
             QPushButton[buttonVariant="secondary"]:disabled {
                 background-color: #6a7f97;
                 color: #ffffff;
             }
             QPushButton[buttonVariant="primary"] {
-                background-color: #2f9a72;
+                background-color: #3d74b3;
                 color: #ffffff;
-                border: 1px solid rgba(255, 255, 255, 0.35);
-                border-radius: 4px;
+                border: none;
+                border-radius: 10px;
             }
             QPushButton[buttonVariant="primary"]:hover {
-                background-color: #39ab82;
+                background-color: #3d74b3;
             }
             QPushButton[buttonVariant="primary"]:pressed {
-                background-color: #288765;
+                background-color: #3d74b3;
             }
             QPushButton[buttonVariant="primary"]:disabled {
-                background-color: #2f9a72;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QPushButton[buttonVariant="danger"] {
-                background-color: #cf5656;
+                background-color: #3d74b3;
                 color: #ffffff;
-                border: 1px solid rgba(255, 255, 255, 0.35);
-                border-radius: 4px;
+                border: none;
+                border-radius: 10px;
             }
             QPushButton[buttonVariant="danger"]:hover {
-                background-color: #dd6666;
+                background-color: #3d74b3;
             }
             QPushButton[buttonVariant="danger"]:pressed {
-                background-color: #b94848;
+                background-color: #3d74b3;
             }
             QPushButton[buttonVariant="danger"]:disabled {
-                background-color: #cf5656;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QPushButton[buttonVariant="link"] {
                 background-color: transparent;
                 color: #dce8f6;
-                border: 1px solid rgba(255, 255, 255, 0.35);
+                border: none;
                 border-radius: 0px;
                 padding: 2px 8px;
                 min-height: 0px;
@@ -894,6 +1027,7 @@ QPushButton#cancel_operation_btn:disabled {
                 background-color: transparent;
             }
         """
+        style += self._tab_content_style_block("dark")
         style = style.replace("__CHECKMARK_URL__", checkmark_url)
         self.setStyleSheet(style)
         self._apply_detached_theme_style(style)
@@ -918,8 +1052,8 @@ QPushButton#cancel_operation_btn:disabled {
                 background-color: #f3f3f3;
             }
             QFrame#card {
-                background-color: #ffffff;
-                border: 1px solid #c8cdd4;
+                background-color: transparent;
+                border: none;
                 border-top: none;
                 border-top-left-radius: 0px;
                 border-top-right-radius: 0px;
@@ -937,7 +1071,54 @@ QPushButton#cancel_operation_btn:disabled {
                 background-color: transparent;
             }
             QWidget#template_params_widget {
-                background-color: transparent;
+                background-color: #383838;
+            }
+            QWidget#template_params_widget QLineEdit[renameTemplateField="true"],
+            QWidget#template_params_widget QLineEdit[renameTemplateField="true"]:hover,
+            QWidget#template_params_widget QLineEdit[renameTemplateField="true"]:focus,
+            QWidget#template_params_widget QSpinBox[renameTemplateField="true"],
+            QWidget#template_params_widget QSpinBox[renameTemplateField="true"]:hover,
+            QWidget#template_params_widget QSpinBox[renameTemplateField="true"]:focus,
+            QWidget#template_params_widget QToolButton#menu_like_combo[renameTemplateField="true"],
+            QWidget#template_params_widget QToolButton#menu_like_combo[renameTemplateField="true"]:hover,
+            QWidget#template_params_widget QToolButton#menu_like_combo[renameTemplateField="true"]:focus {
+                background-color: #383838;
+                color: #f0f0f0;
+                border: none;
+                border-radius: 4px;
+            }
+            QWidget#template_params_widget QLineEdit,
+            QWidget#template_params_widget QPlainTextEdit,
+            QWidget#template_params_widget QTextBrowser,
+            QWidget#template_params_widget QSpinBox,
+            QWidget#template_params_widget QSpinBox QLineEdit,
+            QWidget#template_params_widget QDoubleSpinBox QLineEdit,
+            QWidget#template_params_widget QAbstractSpinBox QLineEdit,
+            QWidget#template_params_widget QComboBox QLineEdit,
+            QWidget#template_params_widget QComboBox,
+            QWidget#template_params_widget QToolButton#menu_like_combo {
+                background-color: #383838;
+                color: #f0f0f0;
+                border: none;
+                border-radius: 4px;
+            }
+            QWidget#template_params_widget QSpinBox::up-button,
+            QWidget#template_params_widget QSpinBox::down-button,
+            QWidget#template_params_widget QDoubleSpinBox::up-button,
+            QWidget#template_params_widget QDoubleSpinBox::down-button,
+            QWidget#template_params_widget QComboBox::drop-down {
+                background-color: #383838;
+                border: none;
+            }
+            QWidget#template_params_widget QComboBox {
+                padding: 3px;
+                min-height: 24px;
+                max-height: 24px;
+            }
+            QWidget#template_params_widget QComboBox::drop-down {
+                border: none;
+                background-color: #383838;
+                width: 18px;
             }
             QGroupBox {
                 font-weight: bold;
@@ -970,17 +1151,17 @@ QPushButton#cancel_operation_btn:disabled {
                 font-weight: normal;
                 color: #ffffff;
                 background-color: #3d74b3;
-                border: 1px solid rgba(255, 255, 255, 0.35);
-                border-radius: 4px;
+                border: none;
+                border-radius: 10px;
                 text-align: center;
                 min-height: 26px;
                 max-height: 28px;
             }
             QPushButton:hover {
-                background-color: #4a82c0;
+                background-color: #3d74b3;
             }
             QPushButton:pressed {
-                background-color: #3568a0;
+                background-color: #3d74b3;
             }
             QPushButton:disabled {
                 background-color: #7b8793;
@@ -990,14 +1171,14 @@ QPushButton#cancel_operation_btn:disabled {
                 padding: 0px;
                 min-height: 0px;
                 max-height: 20px;
-                color: #7bdc8a;
+                color: #000000;
                 background-color: transparent;
-                border: 1px solid rgba(255, 255, 255, 0.35);
+                border: none;
                 border-radius: 0px;
                 text-align: center;
             }
             QPushButton#about_program_btn:hover {
-                color: #57c56b;
+                color: #000000;
                 text-decoration: underline;
                 background-color: transparent;
             }
@@ -1010,7 +1191,7 @@ QPushButton#cancel_operation_btn:disabled {
                 max-height: 22px;
                 color: #000000;
                 background-color: transparent;
-                border: 1px solid rgba(255, 255, 255, 0.35);
+                border: none;
                 border-radius: 0px;
             }
             QPushButton#top_menu_link_btn:hover {
@@ -1022,52 +1203,52 @@ QPushButton#cancel_operation_btn:disabled {
                 background-color: transparent;
             }
             QPushButton#convert_btn {
-                background-color: #2c8f73;
+                background-color: #3d74b3;
             }
             QPushButton#convert_btn:hover {
-                background-color: #36a083;
+                background-color: #3d74b3;
             }
             QPushButton#convert_btn:pressed {
-                background-color: #287f67;
+                background-color: #3d74b3;
             }
             QPushButton#convert_btn:disabled {
-                background-color: #5fbf7a;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QPushButton#cancel_operation_btn {
-                background-color: #d65a5a;
+                background-color: #3d74b3;
                 color: #ffffff;
-                border: 1px solid rgba(255, 255, 255, 0.35);
+                border: none;
                 border-radius: 4px;
                 min-width: 84px;
             }
             QPushButton#cancel_operation_btn:hover {
-                background-color: #e36a6a;
+                background-color: #3d74b3;
             }
             QPushButton#cancel_operation_btn:pressed {
-                background-color: #bd4b4b;
+                background-color: #3d74b3;
             }
             QPushButton#cancel_operation_btn:disabled {
-                background-color: #d65a5a;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QPushButton[text="Очистить"] {
-                background-color: #aa5257;
+                background-color: #3d74b3;
             }
             QPushButton[text="Очистить"]:hover {
-                background-color: #bc6066;
+                background-color: #3d74b3;
             }
             QPushButton[text="Очистить"]:pressed {
-                background-color: #9a464b;
+                background-color: #3d74b3;
             }
             QPushButton[text="Начать действие"] {
-                background-color: #5fbf7a;
+                background-color: #3d74b3;
             }
             QPushButton[text="Начать действие"]:hover {
-                background-color: #4fa66a;
+                background-color: #3d74b3;
             }
             QPushButton[text="Начать действие"]:pressed {
-                background-color: #46955f;
+                background-color: #3d74b3;
             }
             QPushButton[buttonVariant="section"] {
                 text-align: left;
@@ -1075,32 +1256,64 @@ QPushButton#cancel_operation_btn:disabled {
                 font-size: 14px;
                 font-weight: bold;
                 color: #ffffff;
-                background-color: #467fbd;
-                border: 1px solid rgba(255, 255, 255, 0.35);
+                background-color: #3d74b3;
+                border: none;
                 border-radius: 0px;
                 min-height: 34px;
                 max-height: 34px;
             }
             QPushButton[buttonVariant="section"]:hover {
-                background-color: #568ecc;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QPushButton[buttonVariant="section"]:checked {
-                background-color: #3b70a8;
-                border: 1px solid rgba(255, 255, 255, 0.35);
+                background-color: #3d74b3;
+                border: none;
                 color: #ffffff;
                 border-bottom-left-radius: 0px;
                 border-bottom-right-radius: 0px;
             }
-            QLineEdit, QPlainTextEdit, QTextBrowser, QListWidget, QTableWidget, QComboBox, QSpinBox {
+            QLineEdit,
+            QPlainTextEdit,
+            QTextBrowser,
+            QTextEdit,
+            QSpinBox,
+            QDoubleSpinBox,
+            QAbstractSpinBox,
+            QDateEdit,
+            QTimeEdit,
+            QDateTimeEdit,
+            QComboBox {
                 background-color: #ffffff;
+                color: #1f2328;
+                border: 1px solid #c7cfda;
+                border-radius: 4px;
+            }
+            QComboBox::drop-down {
+                border-left: 1px solid #c7cfda;
+                border-top-right-radius: 4px;
+                border-bottom-right-radius: 4px;
+            }
+            QComboBox {
+                background-color: #ffffff;
+                color: #1f2328;
+                border: 1px solid #c7cfda;
+                border-radius: 4px;
+            }
+            QListWidget, QTableWidget {
+                background-color: #f8fafc;
                 color: #1f2328;
                 border: 1px solid #c7cfda;
                 border-radius: 0px;
             }
             QLineEdit,
             QComboBox,
-            QSpinBox {
+            QSpinBox,
+            QDoubleSpinBox,
+            QAbstractSpinBox,
+            QDateEdit,
+            QTimeEdit,
+            QDateTimeEdit {
                 padding: 3px;
                 min-height: 24px;
                 max-height: 24px;
@@ -1116,9 +1329,9 @@ QPushButton#cancel_operation_btn:disabled {
                 background-color: #ffffff;
                 color: #1f2328;
                 border: 1px solid #c7cfda;
-                border-radius: 0px;
+                border-radius: 4px;
                 text-align: left;
-                padding-left: 12px;
+                padding-left: 6px;
             }
             QToolButton#menu_like_combo::menu-indicator {
                 subcontrol-origin: padding;
@@ -1145,7 +1358,7 @@ QPushButton#cancel_operation_btn:disabled {
                 background-color: #ffffff;
                 color: #1f2328;
                 border: 1px solid #c7cfda;
-                border-radius: 0px;
+                border-radius: 4px;
                 text-align: left;
             }
             QLineEdit#header_cell_br {
@@ -1156,7 +1369,7 @@ QPushButton#cancel_operation_btn:disabled {
                 background-color: #ffffff;
                 color: #1f2328;
                 border: 1px solid #c7cfda;
-                border-radius: 0px;
+                border-radius: 4px;
             }
             QToolButton#header_cell_tr {
                 border-left: 0px;
@@ -1196,11 +1409,11 @@ QPushButton#cancel_operation_btn:disabled {
                 max-height: 36px;
             }
             QListWidget#settings_nav::item:hover {
-                background-color: #4a82c0;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QListWidget#settings_nav::item:selected {
-                background-color: #2f79c6;
+                background-color: #3d74b3;
                 color: #ffffff;
                 font-weight: 900;
                 border: none;
@@ -1212,7 +1425,7 @@ QPushButton#cancel_operation_btn:disabled {
                 background-color: #ffffff;
                 color: #1f2328;
                 border: 1px solid #c7cfda;
-                border-radius: 0px;
+                border-radius: 4px;
                 margin: 0px;
                 padding: 0px;
                 outline: 0px;
@@ -1244,10 +1457,11 @@ QPushButton#cancel_operation_btn:disabled {
             QListWidget#files_list,
             QListView#files_list {
                 background-color: #f3f3f3;
-                alternate-background-color: #4d82bd;
+                alternate-background-color: #3d74b3;
                 color: #1f2328;
                 selection-color: #1f2328;
-                selection-background-color: #9fc5f8;
+                selection-background-color: #3d74b3;
+                border-radius: 4px;
                 show-decoration-selected: 1;
             }
             QListView#files_list::item,
@@ -1257,7 +1471,7 @@ QPushButton#cancel_operation_btn:disabled {
             }
             QListView#files_list::item:alternate,
             QListWidget#files_list::item:alternate {
-                background-color: #4d82bd;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QListView#files_list::item:selected,
@@ -1266,7 +1480,7 @@ QPushButton#cancel_operation_btn:disabled {
             QListWidget#files_list::item:selected:active,
             QListView#files_list::item:selected:!active,
             QListWidget#files_list::item:selected:!active {
-                background-color: #9fc5f8;
+                background-color: #3d74b3;
                 color: #1f2328;
                 selection-color: #1f2328;
             }
@@ -1277,7 +1491,7 @@ QPushButton#cancel_operation_btn:disabled {
                 background-color: transparent;
             }
             QListView::item:selected {
-                background-color: #2f79c6;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QListWidget::item {
@@ -1285,11 +1499,11 @@ QPushButton#cancel_operation_btn:disabled {
                 color: #1f2328;
             }
             QListWidget::item:selected {
-                background-color: #2f79c6;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QMenu, QMenu#menu_like_combo_popup, QMenu#header_dropdown_popup {
-                background-color: #f2f4f7;
+                background-color: #ffffff;
                 color: #1f2328;
                 border: 1px solid #c7cfda;
                 margin: 0px;
@@ -1412,15 +1626,15 @@ QPushButton#cancel_operation_btn:disabled {
             QFrame#card QPushButton {
                 color: #ffffff;
                 background-color: #3d74b3;
-                border: 1px solid rgba(255, 255, 255, 0.35);
+                border: none;
             }
             QPushButton:hover,
             QFrame#card QPushButton:hover {
-                background-color: #4a82c0;
+                background-color: #3d74b3;
             }
             QPushButton:pressed,
             QFrame#card QPushButton:pressed {
-                background-color: #3568a0;
+                background-color: #3d74b3;
             }
             QPushButton:disabled,
             QFrame#card QPushButton:disabled {
@@ -1437,7 +1651,7 @@ QPushButton#cancel_operation_btn:disabled {
             QFrame#card QPushButton[text="Начать действие"],
             QPushButton[text="Откатить"],
             QFrame#card QPushButton[text="Откатить"] {
-                background-color: #2c8f73;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QPushButton#convert_btn:hover,
@@ -1450,7 +1664,7 @@ QPushButton#cancel_operation_btn:disabled {
             QFrame#card QPushButton[text="Начать действие"]:hover,
             QPushButton[text="Откатить"]:hover,
             QFrame#card QPushButton[text="Откатить"]:hover {
-                background-color: #36a083;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QPushButton#convert_btn:pressed,
@@ -1463,7 +1677,7 @@ QPushButton#cancel_operation_btn:disabled {
             QFrame#card QPushButton[text="Начать действие"]:pressed,
             QPushButton[text="Откатить"]:pressed,
             QFrame#card QPushButton[text="Откатить"]:pressed {
-                background-color: #287f67;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QPushButton[text="Конвертировать"]:disabled,
@@ -1475,78 +1689,78 @@ QPushButton#cancel_operation_btn:disabled {
             }
             QPushButton[text="Откатить"]:disabled,
             QFrame#card QPushButton[text="Откатить"]:disabled {
-                background-color: #2c8f73;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QPushButton[text="Очистить"],
             QFrame#card QPushButton[text="Очистить"] {
-                background-color: #aa5257;
+                background-color: #3d74b3;
             }
             QPushButton[text="Очистить"]:hover,
             QFrame#card QPushButton[text="Очистить"]:hover {
-                background-color: #bc6066;
+                background-color: #3d74b3;
             }
             QPushButton[text="Очистить"]:pressed,
             QFrame#card QPushButton[text="Очистить"]:pressed {
-                background-color: #9a464b;
+                background-color: #3d74b3;
             }
             QPushButton#about_program_btn,
             QPushButton#top_menu_link_btn {
                 background-color: transparent;
-                border: 1px solid rgba(255, 255, 255, 0.35);
+                border: none;
             }
             QPushButton[buttonVariant="secondary"] {
-                background-color: #467fbd;
+                background-color: #3d74b3;
                 color: #ffffff;
-                border: 1px solid rgba(255, 255, 255, 0.35);
-                border-radius: 4px;
+                border: none;
+                border-radius: 10px;
             }
             QPushButton[buttonVariant="secondary"]:hover {
-                background-color: #568ecc;
+                background-color: #3d74b3;
             }
             QPushButton[buttonVariant="secondary"]:pressed {
-                background-color: #3b70a8;
+                background-color: #3d74b3;
             }
             QPushButton[buttonVariant="secondary"]:disabled {
                 background-color: #91a3b7;
                 color: #ffffff;
             }
             QPushButton[buttonVariant="primary"] {
-                background-color: #3aa277;
+                background-color: #3d74b3;
                 color: #ffffff;
-                border: 1px solid rgba(255, 255, 255, 0.35);
-                border-radius: 4px;
+                border: none;
+                border-radius: 10px;
             }
             QPushButton[buttonVariant="primary"]:hover {
-                background-color: #46b385;
+                background-color: #3d74b3;
             }
             QPushButton[buttonVariant="primary"]:pressed {
-                background-color: #2f8b67;
+                background-color: #3d74b3;
             }
             QPushButton[buttonVariant="primary"]:disabled {
-                background-color: #3aa277;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QPushButton[buttonVariant="danger"] {
-                background-color: #d85f5f;
+                background-color: #3d74b3;
                 color: #ffffff;
-                border: 1px solid rgba(255, 255, 255, 0.35);
-                border-radius: 4px;
+                border: none;
+                border-radius: 10px;
             }
             QPushButton[buttonVariant="danger"]:hover {
-                background-color: #e37070;
+                background-color: #3d74b3;
             }
             QPushButton[buttonVariant="danger"]:pressed {
-                background-color: #be4f4f;
+                background-color: #3d74b3;
             }
             QPushButton[buttonVariant="danger"]:disabled {
-                background-color: #d85f5f;
+                background-color: #3d74b3;
                 color: #ffffff;
             }
             QPushButton[buttonVariant="link"] {
                 background-color: transparent;
-                color: #2f5f99;
-                border: 1px solid rgba(255, 255, 255, 0.35);
+                color: #3d74b3;
+                border: none;
                 border-radius: 0px;
                 padding: 2px 8px;
                 min-height: 0px;
@@ -1554,13 +1768,14 @@ QPushButton#cancel_operation_btn:disabled {
             }
             QPushButton[buttonVariant="link"]:hover {
                 background-color: transparent;
-                color: #234a79;
+                color: #3d74b3;
                 text-decoration: underline;
             }
             QPushButton[buttonVariant="link"]:pressed {
                 background-color: transparent;
             }
         """
+        style += self._tab_content_style_block("light")
         style = style.replace("__CHECKMARK_URL__", checkmark_url)
         self.setStyleSheet(style)
         self._apply_detached_theme_style(style)
@@ -1656,12 +1871,12 @@ QPushButton#cancel_operation_btn:disabled {
             pass
 
         layout = QVBoxLayout(dialog)
-        layout.setContentsMargins(14, 12, 14, 12)
-        layout.setSpacing(12)
+        layout.setContentsMargins(*MESSAGE_DIALOG_MARGINS)
+        layout.setSpacing(SPACE_2XL)
 
         content_row = QHBoxLayout()
-        content_row.setContentsMargins(0, 0, 0, 0)
-        content_row.setSpacing(10)
+        content_row.setContentsMargins(*MARGINS_NONE)
+        content_row.setSpacing(SPACE_XL)
 
         icon_label = QLabel()
         icon_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
@@ -1688,15 +1903,15 @@ QPushButton#cancel_operation_btn:disabled {
         layout.addLayout(content_row)
 
         buttons_row = QHBoxLayout()
-        buttons_row.setContentsMargins(0, 0, 0, 0)
-        buttons_row.setSpacing(8)
+        buttons_row.setContentsMargins(*MARGINS_NONE)
+        buttons_row.setSpacing(SPACE_LG)
         buttons_row.addStretch()
 
         yes_button = QPushButton("Да")
-        setup_standard_secondary_button(yes_button, height=22)
+        setup_standard_secondary_button(yes_button, height=LINK_BUTTON_HEIGHT)
         yes_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         no_button = QPushButton("Нет")
-        setup_standard_secondary_button(no_button, height=22)
+        setup_standard_secondary_button(no_button, height=LINK_BUTTON_HEIGHT)
         no_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         for button in (yes_button, no_button):
             try:
