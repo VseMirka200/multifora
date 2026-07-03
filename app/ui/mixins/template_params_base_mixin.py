@@ -32,26 +32,31 @@ class TemplateParamsBaseMixin:
                     self.template_find.setText(data.get('find', ''))
                     self.template_replace.setText(data.get('replace', ''))
                     
-            elif template_type == "Простая нумерация":
-                if hasattr(self, 'template_num_start'):
-                    self.template_num_start.setValue(data.get('start', 1))
-                    self.template_num_step.setValue(data.get('step', 1))
-                    self.template_num_digits.setValue(data.get('digits', 3))
-                    self.template_num_sep.setText(data.get('separator', '_'))
-                    
-            elif template_type == "Нумерация с префиксом":
-                if hasattr(self, 'template_prefix_text'):
-                    self.template_prefix_text.setText(data.get('prefix', 'фото_'))
-                    self.template_prefix_start.setValue(data.get('start', 1))
-                    self.template_prefix_step.setValue(data.get('step', 1))
-                    self.template_prefix_digits.setValue(data.get('digits', 3))
-                    
-            elif template_type == "Нумерация с датой":
-                if hasattr(self, 'template_date_format'):
-                    self.template_date_format.setCurrentIndex(data.get('date_format', 0))
-                    self.template_date_start.setValue(data.get('start', 1))
-                    self.template_date_step.setValue(data.get('step', 1))
-                    self.template_date_digits.setValue(data.get('digits', 3))
+            elif template_type in ("Нумерация", "Простая нумерация", "Нумерация с префиксом", "Нумерация с датой"):
+                numbering_mode = data.get('numbering_mode', template_type)
+                if hasattr(self, "set_numbering_mode"):
+                    self.set_numbering_mode(numbering_mode)
+
+                if numbering_mode == "Простая нумерация":
+                    if hasattr(self, 'template_num_start'):
+                        self.template_num_start.setValue(data.get('start', 1))
+                        self.template_num_step.setValue(data.get('step', 1))
+                        self.template_num_digits.setValue(data.get('digits', 3))
+                        self.template_num_sep.setText(data.get('separator', '_'))
+
+                elif numbering_mode == "Нумерация с префиксом":
+                    if hasattr(self, 'template_prefix_text'):
+                        self.template_prefix_text.setText(data.get('prefix', 'фото_'))
+                        self.template_prefix_start.setValue(data.get('start', 1))
+                        self.template_prefix_step.setValue(data.get('step', 1))
+                        self.template_prefix_digits.setValue(data.get('digits', 3))
+
+                elif numbering_mode == "Нумерация с датой":
+                    if hasattr(self, 'template_date_format'):
+                        self.template_date_format.setCurrentIndex(data.get('date_format', 0))
+                        self.template_date_start.setValue(data.get('start', 1))
+                        self.template_date_step.setValue(data.get('step', 1))
+                        self.template_date_digits.setValue(data.get('digits', 3))
                     
             elif template_type == "Дата в начале названия":
                 if hasattr(self, 'template_original_date_format'):
@@ -60,13 +65,6 @@ class TemplateParamsBaseMixin:
             elif template_type == "Пользовательский шаблон":
                 if hasattr(self, 'template_custom'):
                     self.template_custom.setText(data.get('template', ''))
-                    if hasattr(self, 'template_custom_use_numbering'):
-                        self.template_custom_use_numbering.setChecked(data.get('use_numbering', True))
-                        self.on_custom_numbering_toggled(self.template_custom_use_numbering.checkState())
-                    if hasattr(self, 'template_custom_start'):
-                        self.template_custom_start.setValue(data.get('start', 1))
-                    if hasattr(self, 'template_custom_step'):
-                        self.template_custom_step.setValue(data.get('step', 1))
                     
         except Exception as e:
             QMessageBox.warning(self, "Ошибка", f"Не удалось применить данные шаблона: {str(e)}")

@@ -28,12 +28,12 @@ class StartupDispatchTests(unittest.TestCase):
     @patch("multifora_start.collect_startup_files", return_value=[r"C:\tmp\a.pdf"])
     @patch("multifora_start.is_first_instance", return_value=False)
     @patch("multifora_start.send_files_to_running_instance", return_value=True)
-    @patch("multifora_start.QMessageBox.warning")
+    @patch("multifora_start._enqueue_files")
     @patch("multifora_start.sys.exit", side_effect=SystemExit)
     def test_no_enqueue_when_send_succeeds(
         self,
         exit_mock: Mock,
-        warn_mock: Mock,
+        enqueue_mock: Mock,
         send_mock: Mock,
         _first_mock: Mock,
         _collect_mock: Mock,
@@ -44,7 +44,7 @@ class StartupDispatchTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             startup.main()
         send_mock.assert_called_once()
-        warn_mock.assert_not_called()
+        enqueue_mock.assert_not_called()
         exit_mock.assert_called_once_with(0)
 
     @patch("multifora_start._set_app_user_model_id")
@@ -53,14 +53,14 @@ class StartupDispatchTests(unittest.TestCase):
     @patch("multifora_start.collect_startup_files", return_value=[r"C:\tmp\a.pdf"])
     @patch("multifora_start.is_first_instance", return_value=False)
     @patch("multifora_start.send_files_to_running_instance", return_value=False)
-    @patch("multifora_start.QMessageBox.warning")
+    @patch("multifora_start._enqueue_files")
     @patch("multifora_start._debug_log")
     @patch("multifora_start.sys.exit", side_effect=SystemExit)
-    def test_log_when_send_fails(
+    def test_enqueue_when_send_fails(
         self,
         exit_mock: Mock,
         debug_log_mock: Mock,
-        warn_mock: Mock,
+        enqueue_mock: Mock,
         send_mock: Mock,
         _first_mock: Mock,
         _collect_mock: Mock,
@@ -72,11 +72,7 @@ class StartupDispatchTests(unittest.TestCase):
             startup.main()
         send_mock.assert_called_once()
         debug_log_mock.assert_called_once_with("Не удалось передать стартовые файлы уже запущенному экземпляру")
-        warn_mock.assert_called_once_with(
-            None,
-            "Мультифора",
-            "Не удалось передать файлы в уже запущенный экземпляр приложения.",
-        )
+        enqueue_mock.assert_called_once_with([r"C:\tmp\a.pdf"])
         exit_mock.assert_called_once_with(0)
 
 

@@ -54,20 +54,22 @@ from app.ui.ui_spacing import (
 
 _MENU_STYLE_LIGHT = """
     QMenu {
-        background-color: #ffffff;
-        color: #1f2328;
         border: 1px solid #c7cfda;
         margin: 0px;
         padding: 0px;
         border-radius: 0px;
     }
+    QMenu#menu_like_combo_popup {
+        border-radius: 4px;
+    }
     QMenu::item {
         padding: 4px 8px;
         background-color: transparent;
     }
+    QMenu::item:hover,
     QMenu::item:selected {
-        background-color: #3d74b3;
-        color: #ffffff;
+        background-color: rgba(61, 116, 179, 0.10);
+        color: #1f2328;
     }
     QMenu::separator {
         height: 1px;
@@ -84,13 +86,17 @@ _MENU_STYLE_DARK = """
         padding: 0px;
         border-radius: 0px;
     }
+    QMenu#menu_like_combo_popup {
+        border-radius: 4px;
+    }
     QMenu::item {
         padding: 4px 8px;
         background-color: transparent;
     }
+    QMenu::item:hover,
     QMenu::item:selected {
-        background-color: #3d74b3;
-        color: #ffffff;
+        background-color: rgba(255, 255, 255, 0.07);
+        color: #f0f0f0;
     }
     QMenu::separator {
         height: 1px;
@@ -197,6 +203,13 @@ def _build_standard_field_style(theme: str, kind: str) -> str:
                 border-top-right-radius: {_STANDARD_RADIUS}px;
                 border-bottom-right-radius: {_STANDARD_RADIUS}px;
             }}
+            QComboBox:on {{
+                border-bottom-left-radius: 0px;
+                border-bottom-right-radius: 0px;
+            }}
+            QComboBox:on::drop-down {{
+                border-bottom-right-radius: 0px;
+            }}
             QComboBox:hover {{
                 border: 1px solid {p["hover_border"]};
             }}
@@ -236,6 +249,10 @@ def _build_standard_field_style(theme: str, kind: str) -> str:
                 text-align: left;
                 padding-left: 6px;
             }}
+            QToolButton#menu_like_combo[menuOpen="true"] {{
+                border-bottom-left-radius: 0px;
+                border-bottom-right-radius: 0px;
+            }}
             QToolButton#menu_like_combo::menu-indicator {{
                 subcontrol-origin: padding;
                 subcontrol-position: right center;
@@ -266,6 +283,12 @@ def _build_standard_field_style(theme: str, kind: str) -> str:
                 border: 1px solid {p["border"]};
                 border-radius: {_STANDARD_RADIUS}px;
                 text-align: left;
+            }}
+            QToolButton#header_cell_tl[menuOpen="true"],
+            QToolButton#header_cell_tr[menuOpen="true"],
+            QToolButton#header_cell_bl[menuOpen="true"] {{
+                border-bottom-left-radius: 0px;
+                border-bottom-right-radius: 0px;
             }}
             QLineEdit#header_cell_br {{
                 font-size: 14px;
@@ -305,6 +328,54 @@ def _build_standard_field_style(theme: str, kind: str) -> str:
             }}
         """
     return ""
+
+
+def _build_standard_button_style(theme: str, role: str) -> str:
+    dark_theme = str(theme).lower() != "light"
+    if role == "link":
+        return """
+            QPushButton {
+                background-color: transparent;
+            }
+            QPushButton:hover {
+                background-color: rgba(61, 116, 179, 0.08);
+            }
+            QPushButton:pressed {
+                background-color: rgba(61, 116, 179, 0.14);
+            }
+            QPushButton:disabled {
+                background-color: transparent;
+            }
+        """
+    if dark_theme:
+        return """
+            QPushButton {
+                background-color: transparent;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 255, 255, 0.07);
+            }
+            QPushButton:pressed {
+                background-color: rgba(255, 255, 255, 0.12);
+            }
+            QPushButton:disabled {
+                background-color: transparent;
+            }
+        """
+    return """
+        QPushButton {
+            background-color: transparent;
+        }
+        QPushButton:hover {
+            background-color: rgba(61, 116, 179, 0.10);
+        }
+        QPushButton:pressed {
+            background-color: rgba(61, 116, 179, 0.18);
+        }
+        QPushButton:disabled {
+            background-color: transparent;
+        }
+    """
 
 
 def apply_standard_field_style(widget):
@@ -525,6 +596,7 @@ def setup_standard_action_button(widget, *, height: int = CONTROL_HEIGHT, varian
     widget.setMaximumWidth(16777215)
     widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
     widget.setProperty("buttonVariant", role)
+    widget.setCursor(Qt.CursorShape.PointingHandCursor)
     if variant == "primary" and not widget.objectName():
         widget.setObjectName("convert_btn")
     elif variant == "danger" and not widget.objectName():
@@ -537,6 +609,7 @@ def setup_standard_action_button(widget, *, height: int = CONTROL_HEIGHT, varian
         widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
     else:
         widget.setFlat(False)
+    widget.setStyleSheet(_build_standard_button_style(_resolve_widget_theme_mode(widget), role))
     _refresh_widget_style(widget)
     return widget
 
@@ -1036,6 +1109,8 @@ class MenuLikeComboBox(QToolButton):
         self._menu.setObjectName("menu_like_combo_popup")
         self._apply_popup_style()
         self._menu.aboutToShow.connect(self._sync_popup_width)
+        self._menu.aboutToShow.connect(self._mark_menu_open)
+        self._menu.aboutToHide.connect(self._mark_menu_closed)
         self.setMenu(self._menu)
 
     def _sync_popup_width(self):
@@ -1046,6 +1121,14 @@ class MenuLikeComboBox(QToolButton):
 
     def _apply_popup_style(self):
         apply_standard_menu_style(self._menu)
+
+    def _mark_menu_open(self):
+        self.setProperty("menuOpen", True)
+        _refresh_widget_style(self)
+
+    def _mark_menu_closed(self):
+        self.setProperty("menuOpen", False)
+        _refresh_widget_style(self)
 
     def _resolve_theme_mode(self) -> str:
         return _resolve_widget_theme_mode(self)
@@ -1196,6 +1279,17 @@ class FileListModel(QAbstractListModel):
             display_name = f"{file_item.name} -> {preview_name}"
         return f"{file_item.get_icon()} {display_name}"
 
+    @staticmethod
+    def _original_display_name(file_item) -> str:
+        return f"{file_item.get_icon()} {file_item.name}"
+
+    @staticmethod
+    def _preview_display_name(file_item) -> str:
+        preview_name = getattr(file_item, "preview_name", None)
+        if preview_name and preview_name != file_item.name:
+            return f"{file_item.get_icon()} {file_item.name} -> {preview_name}"
+        return f"{file_item.get_icon()} {file_item.name}"
+
     @classmethod
     def _short_display_name(cls, file_item) -> str:
         display_name = file_item.name
@@ -1223,12 +1317,12 @@ class FileListModel(QAbstractListModel):
 
         file_item = self._files[index.row()]
         if role == Qt.ItemDataRole.DisplayRole:
-            return self._short_display_name(file_item)
+            return self._original_display_name(file_item)
         if role == Qt.ItemDataRole.ToolTipRole:
             return self._full_display_name(file_item)
         if role == Qt.ItemDataRole.SizeHintRole:
             metrics = QFontMetrics(QApplication.font())
-            width = metrics.horizontalAdvance(self._short_display_name(file_item)) + 20
+            width = metrics.horizontalAdvance(self._original_display_name(file_item)) + 20
             return QSize(width, 24)
         if role == Qt.ItemDataRole.UserRole:
             return file_item
@@ -1322,7 +1416,11 @@ class FileListModel(QAbstractListModel):
             return
         top_left = self.index(0, 0)
         bottom_right = self.index(len(self._files) - 1, 0)
-        self.dataChanged.emit(top_left, bottom_right, [Qt.ItemDataRole.DisplayRole])
+        self.dataChanged.emit(
+            top_left,
+            bottom_right,
+            [Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.SizeHintRole, Qt.ItemDataRole.ToolTipRole],
+        )
 
 
 class FileListItemDelegate(QStyledItemDelegate):
@@ -1330,122 +1428,98 @@ class FileListItemDelegate(QStyledItemDelegate):
         super().__init__(parent)
         self._right_padding = max(0, int(right_padding))
 
+    @staticmethod
+    def _view_width(view, fallback: int = 260) -> int:
+        if view is None:
+            return fallback
+        try:
+            widget = view.viewport() if hasattr(view, "viewport") else view
+            width = widget.width()
+        except Exception:
+            width = fallback
+        return max(fallback, int(width))
+
     def sizeHint(self, option, index):
         hint = super().sizeHint(option, index)
         file_item = index.data(Qt.ItemDataRole.UserRole)
         preview_name = getattr(file_item, "preview_name", None) if file_item else None
-        if file_item and preview_name and preview_name != file_item.name:
+        view = option.widget
+        if file_item:
             metrics = QFontMetrics(option.font)
             icon_text = f"{file_item.get_icon()} "
-            old_width, new_width = self._rename_preview_text_widths(index, metrics)
-            width = (
-                6
-                + metrics.horizontalAdvance(icon_text)
-                + old_width
-                + 8
-                + metrics.horizontalAdvance("->")
-                + 8
-                + new_width
-                + 6
+            text = str(preview_name or file_item.name)
+            available_width = self._view_width(view, hint.width())
+            icon_width = metrics.horizontalAdvance(icon_text)
+            text_width = max(40, available_width - icon_width - 20 - self._right_padding)
+            text_rect = metrics.boundingRect(
+                QRect(0, 0, text_width, 10000),
+                int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap),
+                text,
             )
+            width = 6 + icon_width + 8 + text_rect.width() + 6 + self._right_padding
+            height = max(metrics.height(), text_rect.height()) + 8
             hint.setWidth(max(hint.width(), width))
-            hint.setHeight(max(hint.height(), 24))
+            hint.setHeight(max(hint.height(), height))
         return hint
-
-    def _rename_preview_text_widths(self, index, font_metrics: QFontMetrics | None = None) -> tuple[int, int]:
-        model = index.model()
-        if model is None:
-            return 0, 0
-        if font_metrics is None:
-            font_metrics = QFontMetrics(QApplication.font())
-
-        max_old_width = 0
-        max_new_width = 0
-        try:
-            row_count = model.rowCount()
-        except Exception:
-            row_count = 0
-        for row in range(row_count):
-            row_index = model.index(row, 0)
-            file_item = row_index.data(Qt.ItemDataRole.UserRole)
-            if not file_item:
-                continue
-            preview_name = getattr(file_item, "preview_name", None)
-            if not preview_name or preview_name == file_item.name:
-                continue
-            max_old_width = max(max_old_width, font_metrics.horizontalAdvance(str(file_item.name)))
-            max_new_width = max(max_new_width, font_metrics.horizontalAdvance(str(preview_name)))
-        return max_old_width, max_new_width
 
     def paint(self, painter, option, index):
         view_option = QStyleOptionViewItem(option)
         self.initStyleOption(view_option, index)
         file_item = index.data(Qt.ItemDataRole.UserRole)
         preview_name = getattr(file_item, "preview_name", None) if file_item else None
-        if file_item and preview_name and preview_name != file_item.name:
+        view = view_option.widget
+        if file_item:
             painter.save()
+            base_color = view_option.palette.color(QPalette.ColorRole.Base)
+            alt_color = view_option.palette.color(QPalette.ColorRole.AlternateBase)
+            if base_color == alt_color:
+                if base_color.lightness() < 128:
+                    alt_color = base_color.lighter(124)
+                else:
+                    alt_color = base_color.darker(118)
+            background = alt_color if (index.row() % 2) else base_color
             if view_option.state & QStyle.StateFlag.State_Selected:
-                painter.fillRect(view_option.rect, QColor("#3d74b3"))
-                text_color = QColor("#1f2328")
-            else:
-                text_color = view_option.palette.color(QPalette.ColorRole.Text)
+                if base_color.lightness() < 128:
+                    background = QColor(255, 255, 255, 46)
+                else:
+                    background = QColor(61, 116, 179, 56)
+            if view_option.state & QStyle.StateFlag.State_MouseOver:
+                if base_color.lightness() < 128:
+                    background = QColor(255, 255, 255, 18)
+                else:
+                    background = QColor(61, 116, 179, 26)
+            text_color = view_option.palette.color(QPalette.ColorRole.Text)
+
+            painter.fillRect(view_option.rect, background)
 
             metrics = painter.fontMetrics()
             left_padding = 6
-            right_padding = self._right_padding
-            spacing = 8
-            arrow_text = "->"
+            top_padding = 2
             icon_text = f"{file_item.get_icon()} "
-
+            text = str(preview_name or file_item.name)
             icon_width = metrics.horizontalAdvance(icon_text)
-            arrow_width = metrics.horizontalAdvance(arrow_text)
-            old_width, new_width = self._rename_preview_text_widths(index, metrics)
+            available_width = self._view_width(view, view_option.rect.width())
+            text_width = max(40, available_width - icon_width - 20 - self._right_padding)
+            text_rect_size = metrics.boundingRect(
+                QRect(0, 0, text_width, 10000),
+                int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap),
+                text,
+            )
 
             x = view_option.rect.x() + left_padding
-            y = view_option.rect.y()
-            h = view_option.rect.height()
+            y = view_option.rect.y() + top_padding
+            h = max(view_option.rect.height() - top_padding * 2, metrics.height())
 
             icon_rect = QRect(x, y, icon_width, h)
-            x += icon_width
-
-            old_rect = QRect(x, y, old_width, h)
-            x += old_width + spacing
-
-            arrow_rect = QRect(x, y, arrow_width, h)
-            x += arrow_width + spacing
-
-            new_rect = QRect(x, y, new_width, h)
+            text_rect = QRect(x + icon_width + 8, y, text_rect_size.width(), max(h, text_rect_size.height()))
 
             painter.setPen(text_color)
             painter.setFont(view_option.font)
-            painter.drawText(icon_rect, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter), icon_text)
-            painter.drawText(
-                old_rect,
-                int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
-                str(file_item.name),
-            )
-            painter.drawText(
-                arrow_rect,
-                int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
-                arrow_text,
-            )
-            painter.drawText(
-                new_rect,
-                int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
-                str(preview_name),
-            )
-            painter.restore()
-            return
-        if view_option.state & QStyle.StateFlag.State_Selected:
-            painter.save()
-            painter.fillRect(view_option.rect, QColor("#3d74b3"))
-            text_rect = view_option.rect.adjusted(6, 0, -self._right_padding, 0)
-            painter.setPen(QColor("#1f2328"))
-            painter.setFont(view_option.font)
+            painter.drawText(icon_rect, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop), icon_text)
             painter.drawText(
                 text_rect,
-                int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
-                index.data(Qt.ItemDataRole.DisplayRole) or "",
+                int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap),
+                text,
             )
             painter.restore()
             return
@@ -1467,10 +1541,13 @@ class FileListWidget(QListView):
         self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.setSelectionRectVisible(True)
         self.setAlternatingRowColors(True)
+        self.setWordWrap(True)
+        self.setUniformItemSizes(False)
+        self.setMouseTracking(True)
+        self.viewport().setMouseTracking(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
-        self.setUniformItemSizes(True)
         self.setAcceptDrops(True)
         self.viewport().setAcceptDrops(True)
         self.setDragEnabled(False)
@@ -1558,7 +1635,6 @@ class FileListWidget(QListView):
                 """
                 QListView {
                     border: 2px dashed #3d74b3;
-                    background-color: rgba(79, 195, 247, 0.1);
                 }
                 """
             )

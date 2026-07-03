@@ -608,84 +608,13 @@ class MultiforaMainWindow(
         layout.addStretch()
         return container
 
-    def _create_preview_panel(self):
-        panel = QFrame()
-        panel.setObjectName("drop_zone_overlay")
-        panel.setFrameShape(QFrame.Shape.NoFrame)
-        panel.setFrameShadow(QFrame.Shadow.Plain)
-        self.preview_panel = panel
-        panel_layout = QVBoxLayout(panel)
-        panel_layout.setContentsMargins(*MARGINS_NONE)
-        panel_layout.setSpacing(SPACE_NONE)
-
-        self.preview_list = FileListWidget()
-        self.preview_list.setObjectName("files_list")
-        self.preview_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
-        self.preview_list.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.preview_list.setDragDropMode(QAbstractItemView.DragDropMode.NoDragDrop)
-        self.preview_list.setAcceptDrops(False)
-        self.preview_list.setDragEnabled(False)
-        self.preview_list.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
-        self.preview_list.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.preview_list.setFrameShape(QFrame.Shape.NoFrame)
-        self.preview_list.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.preview_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.preview_list.setStyleSheet(
-            "QListWidget#files_list, QListView#files_list {"
-            "border: none;"
-            "border-radius: 4px;"
-            "margin: 0px;"
-            "padding: 0px;"
-            "}"
-        )
-        apply_standard_field_style(self.preview_list)
+    def refresh_preview_panel(self):
+        if not hasattr(self, "list_files") or self.list_files is None:
+            return
         try:
-            self.preview_list.doubleClicked.disconnect()
+            self.list_files.refresh()
         except Exception:
             pass
-        self.preview_proxy_model = PreviewSelectionProxyModel(self.preview_list)
-        self.preview_list.setModel(self.preview_proxy_model)
-        self.preview_list.setItemDelegate(FileListItemDelegate(self.preview_list, right_padding=0))
-        panel_layout.addWidget(self.preview_list, 1)
-
-        return panel
-
-    def refresh_preview_panel(self):
-        if not hasattr(self, "preview_list") or self.preview_list is None:
-            return
-
-        if not hasattr(self, "preview_proxy_model") or self.preview_proxy_model is None:
-            return
-
-        source_model = None
-        try:
-            source_model = self.list_files.model()
-        except Exception:
-            source_model = None
-
-        if source_model is not None and self.preview_proxy_model.sourceModel() is not source_model:
-            self.preview_proxy_model.setSourceModel(source_model)
-
-        visible_rows = []
-        try:
-            selected_rows = {
-                index.row()
-                for index in self.list_files.selectedIndexes()
-                if index.isValid() and index.column() == 0
-            }
-            visible_rows = sorted(selected_rows)
-        except Exception:
-            visible_rows = []
-
-        if not visible_rows:
-            try:
-                if source_model is not None and source_model.rowCount() > 0:
-                    visible_rows = [0]
-            except Exception:
-                visible_rows = []
-
-        self.preview_proxy_model.set_visible_rows(visible_rows)
-        self.preview_list.viewport().update()
 
     def update_ghostscript_status(self):
         """Обновляет информацию о наличии Ghostscript"""
@@ -820,6 +749,19 @@ class MultiforaMainWindow(
         list_header.setHorizontalSpacing(SPACE_SM)
         list_header.setVerticalSpacing(SPACE_SM)
 
+        def _bind_header_menu_state(button, menu):
+            def _set_open(is_open: bool):
+                try:
+                    button.setProperty("menuOpen", bool(is_open))
+                    button.style().unpolish(button)
+                    button.style().polish(button)
+                    button.update()
+                except Exception:
+                    pass
+
+            menu.aboutToShow.connect(lambda: _set_open(True))
+            menu.aboutToHide.connect(lambda: _set_open(False))
+
         self._list_header_ext_label = QLabel("Расширения:")
         self._list_header_ext_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self._list_header_ext_label.setFixedWidth(90)
@@ -865,6 +807,7 @@ class MultiforaMainWindow(
         self._ext_filter_menu.aboutToShow.connect(
             lambda: sync_standard_menu_width(self._ext_filter_menu, self.btn_ext_filter)
         )
+        _bind_header_menu_state(self.btn_ext_filter, self._ext_filter_menu)
         self._update_ext_filter_button_text()
         list_header.addWidget(self.btn_ext_filter, 0, 0)
 
@@ -898,6 +841,7 @@ class MultiforaMainWindow(
         self._type_filter_menu.aboutToShow.connect(
             lambda: sync_standard_menu_width(self._type_filter_menu, self.btn_type_filter)
         )
+        _bind_header_menu_state(self.btn_type_filter, self._type_filter_menu)
         self._update_type_filter_button_text()
         list_header.addWidget(self.btn_type_filter, 0, 1)
 
@@ -936,6 +880,7 @@ class MultiforaMainWindow(
         self._sort_filter_menu.aboutToShow.connect(
             lambda: sync_standard_menu_width(self._sort_filter_menu, self.combo_sort)
         )
+        _bind_header_menu_state(self.combo_sort, self._sort_filter_menu)
         list_header.addWidget(self.combo_sort, 1, 0)
 
         self._list_header_search_label = QLabel("Поиск:")
@@ -968,7 +913,15 @@ class MultiforaMainWindow(
         files_preview_layout.setSpacing(SPACE_SM)
 
         files_panel = QWidget()
-        files_panel.setStyleSheet("background-color: transparent; border: none;")
+        self.files_panel = files_panel
+        files_panel.setObjectName("drop_zone_surface")
+        files_panel.setStyleSheet(
+            "QWidget#drop_zone_surface {"
+            "background-color: #383838;"
+            "border: none;"
+            "border-radius: 4px;"
+            "}"
+        )
         files_panel_layout = QVBoxLayout(files_panel)
         files_panel_layout.setContentsMargins(*MARGINS_NONE)
         files_panel_layout.setSpacing(SPACE_NONE)
@@ -996,6 +949,7 @@ class MultiforaMainWindow(
             "}"
         )
         apply_standard_field_style(self.list_files)
+        self.list_files.setProperty("preview_mode", True)
         self.list_files.filesDropped.connect(self.add_files)
         self.list_files.itemDoubleClicked.connect(self.open_file)
         self.list_files.itemSelectionChanged.connect(self.on_file_selection_changed)
@@ -1004,12 +958,14 @@ class MultiforaMainWindow(
         self.list_files.customContextMenuRequested.connect(self.show_file_context_menu)
         files_panel_layout.addWidget(self.list_files, 1)
 
-        self.drop_zone_controls = QWidget(self.list_files.viewport())
+        self.drop_zone_controls = QWidget(files_panel)
         self.drop_zone_controls.setObjectName("drop_zone_overlay")
+        self.drop_zone_controls.setAcceptDrops(True)
+        self.drop_zone_controls.installEventFilter(self)
         self.drop_zone_controls.setStyleSheet(
             """
             QWidget#drop_zone_overlay {
-                background-color: #383838;
+                background-color: transparent;
                 border: none;
                 border-radius: 4px;
             }
@@ -1026,7 +982,7 @@ class MultiforaMainWindow(
 
         drop_buttons_row = QGridLayout()
         drop_buttons_row.setContentsMargins(*MARGINS_NONE)
-        drop_buttons_row.setHorizontalSpacing(SPACE_NONE)
+        drop_buttons_row.setHorizontalSpacing(SPACE_SM)
         drop_buttons_row.setVerticalSpacing(SPACE_NONE)
         drop_buttons_row.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
@@ -1062,18 +1018,16 @@ class MultiforaMainWindow(
         except Exception:
             pass
         try:
-            self.list_files.viewport().installEventFilter(self)
+            files_panel.installEventFilter(self)
             self.list_files.installEventFilter(self)
+            self.list_files.viewport().installEventFilter(self)
         except Exception:
             pass
         self._update_drop_zone_controls()
         QTimer.singleShot(0, self._update_drop_zone_controls)
 
-        preview_panel = self._create_preview_panel()
         files_preview_layout.addWidget(files_panel, 1)
-        files_preview_layout.addWidget(preview_panel, 1)
         self._configure_right_panel_spacing(right_layout, list_header)
-
         right_layout.addWidget(files_preview_row, 1)
 
         # Прогресс бар + кнопка отмены (под правым списком)
@@ -1229,12 +1183,33 @@ class MultiforaMainWindow(
                 self._splitter_grip_label.setStyleSheet(
                     "color: rgba(255, 255, 255, 0.68); background: transparent; font-size: 15px; font-weight: 600;"
                 )
+        if hasattr(self, "files_panel") and self.files_panel is not None:
+            if mode == "light":
+                self.files_panel.setStyleSheet(
+                    """
+                    QWidget#drop_zone_surface {
+                        background-color: #f3f3f3;
+                        border: none;
+                        border-radius: 4px;
+                    }
+                    """
+                )
+            else:
+                self.files_panel.setStyleSheet(
+                    """
+                    QWidget#drop_zone_surface {
+                        background-color: #383838;
+                        border: none;
+                        border-radius: 4px;
+                    }
+                    """
+                )
         if hasattr(self, "drop_zone_controls") and self.drop_zone_controls is not None:
             if mode == "light":
                 self.drop_zone_controls.setStyleSheet(
                     """
                     QWidget#drop_zone_overlay {
-                        background-color: #f3f3f3;
+                        background-color: transparent;
                         border: none;
                         border-radius: 4px;
                     }
@@ -1250,7 +1225,7 @@ class MultiforaMainWindow(
                 self.drop_zone_controls.setStyleSheet(
                     """
                     QWidget#drop_zone_overlay {
-                        background-color: #383838;
+                        background-color: transparent;
                         border: none;
                         border-radius: 4px;
                     }
@@ -1262,35 +1237,6 @@ class MultiforaMainWindow(
                 )
                 if hasattr(self, "drop_zone_hint_label"):
                     self.drop_zone_hint_label.setStyleSheet("color: rgba(220,220,220,180); font-size: 13px;")
-        if hasattr(self, "preview_panel") and self.preview_panel is not None:
-            if mode == "light":
-                self.preview_panel.setStyleSheet(
-                    """
-                    QWidget#drop_zone_overlay {
-                        background-color: #f3f3f3;
-                        border: none;
-                        border-radius: 4px;
-                    }
-                    QWidget#drop_zone_overlay QLabel {
-                        background-color: transparent;
-                        color: #5b6470;
-                    }
-                    """
-                )
-            else:
-                self.preview_panel.setStyleSheet(
-                    """
-                    QWidget#drop_zone_overlay {
-                        background-color: #383838;
-                        border: none;
-                        border-radius: 4px;
-                    }
-                    QWidget#drop_zone_overlay QLabel {
-                        background-color: transparent;
-                        color: rgba(220,220,220,180);
-                    }
-                    """
-                )
         for tile_name in ("btn_add_files", "btn_add_folder"):
             tile = getattr(self, tile_name, None)
             if tile is not None and callable(getattr(tile, "set_theme_mode", None)):
@@ -1379,20 +1325,50 @@ class MultiforaMainWindow(
                 pass
 
     def _update_drop_zone_controls(self):
-        if not hasattr(self, "list_files") or not hasattr(self, "drop_zone_controls"):
+        if not hasattr(self, "drop_zone_controls"):
             return
-        viewport = self.list_files.viewport()
-        self.drop_zone_controls.setGeometry(viewport.rect())
-        has_files = bool(self.list_files.model().files())
+        host = getattr(self, "files_panel", None)
+        if host is None:
+            return
+        self.drop_zone_controls.setGeometry(host.rect())
+        has_files = False
+        try:
+            model = self.list_files.model() if hasattr(self, "list_files") else None
+            has_files = bool(model and callable(getattr(model, "files", None)) and model.files())
+        except Exception:
+            has_files = False
         self.drop_zone_controls.setVisible(not has_files)
-        self.drop_zone_controls.raise_()
+        if not has_files:
+            self.drop_zone_controls.raise_()
 
     def eventFilter(self, obj, event):
+        if hasattr(self, "files_panel") and obj is self.files_panel:
+            if event.type() in (QEvent.Type.Resize, QEvent.Type.Show, QEvent.Type.Move, QEvent.Type.LayoutRequest):
+                self._update_drop_zone_controls()
         if hasattr(self, "list_files"):
             viewport = self.list_files.viewport()
             if obj is self.list_files or obj is viewport:
                 if event.type() in (QEvent.Type.Resize, QEvent.Type.Show, QEvent.Type.Move, QEvent.Type.LayoutRequest):
                     self._update_drop_zone_controls()
+        if hasattr(self, "drop_zone_controls") and obj is self.drop_zone_controls:
+            if event.type() in (QEvent.Type.DragEnter, QEvent.Type.DragMove):
+                if event.mimeData().hasUrls():
+                    event.acceptProposedAction()
+                    return True
+            elif event.type() == QEvent.Type.Drop:
+                if event.mimeData().hasUrls():
+                    paths = []
+                    for url in event.mimeData().urls():
+                        file_path = url.toLocalFile()
+                        if os.path.exists(file_path):
+                            paths.append(file_path)
+                    if paths:
+                        self.add_files(paths)
+                        event.acceptProposedAction()
+                        return True
+            elif event.type() == QEvent.Type.DragLeave:
+                event.accept()
+                return True
         return super().eventFilter(obj, event)
 
     def keyPressEvent(self, event):
@@ -1520,6 +1496,55 @@ class MultiforaMainWindow(
             self._auto_select_compress_type()
         if callable(getattr(self, "_update_compress_button", None)):
             self._update_compress_button()
+
+    def on_preview_selection_changed(self):
+        """Синхронизирует выделение из окна предпросмотра обратно в список файлов."""
+        if getattr(self, "_syncing_file_selection", False):
+            return
+        self._sync_source_selection_from_preview()
+        self.on_file_selection_changed()
+
+    def _selected_paths_from_view(self, view) -> list[str]:
+        paths = []
+        if view is None:
+            return paths
+        try:
+            for item in view.selectedItems():
+                file_item = item.data(Qt.ItemDataRole.UserRole)
+                file_path = getattr(file_item, "path", None) if file_item else None
+                if file_path:
+                    paths.append(file_path)
+        except Exception:
+            return []
+        return paths
+
+    def _sync_preview_selection_from_source(self):
+        if not hasattr(self, "preview_list") or self.preview_list is None:
+            return
+        if getattr(self, "_syncing_file_selection", False):
+            return
+        self._syncing_file_selection = True
+        try:
+            paths = self._selected_paths_from_view(self.list_files)
+            self.preview_list.clearSelection()
+            if paths:
+                self.preview_list.select_paths(paths)
+        finally:
+            self._syncing_file_selection = False
+
+    def _sync_source_selection_from_preview(self):
+        if not hasattr(self, "list_files") or self.list_files is None:
+            return
+        if getattr(self, "_syncing_file_selection", False):
+            return
+        self._syncing_file_selection = True
+        try:
+            paths = self._selected_paths_from_view(self.preview_list)
+            self.list_files.clearSelection()
+            if paths:
+                self.list_files.select_paths(paths)
+        finally:
+            self._syncing_file_selection = False
     
     def select_files(self):
         """Выбор файлов для обработки"""

@@ -26,7 +26,7 @@ from app.ui.ui_components import (
     apply_standard_menu_style,
     get_russian_text_input,
     setup_standard_dialog,
-    setup_standard_link_button,
+    setup_standard_secondary_button,
 )
 from app.ui.ui_spacing import LINK_BUTTON_HEIGHT, MARGINS_NONE, SPACE_NONE, SPACE_XXS, SPACE_SM, SPACE_MD, SPACE_LG, SPACE_XL
 
@@ -334,32 +334,37 @@ class TemplateCrudMixin:
             else:
                 return None
                 
-        elif self.current_template == "Простая нумерация":
-            if hasattr(self, 'template_num_start'):
-                template_data['start'] = self.template_num_start.value()
-                template_data['step'] = self.template_num_step.value()
-                template_data['digits'] = self.template_num_digits.value()
-                template_data['separator'] = self.template_num_sep.text()
+        elif self.current_template == "Нумерация":
+            if hasattr(self, "get_numbering_mode"):
+                template_data["numbering_mode"] = self.get_numbering_mode()
             else:
-                return None
-                
-        elif self.current_template == "Нумерация с префиксом":
-            if hasattr(self, 'template_prefix_text'):
-                template_data['prefix'] = self.template_prefix_text.text()
-                template_data['start'] = self.template_prefix_start.value()
-                template_data['step'] = self.template_prefix_step.value()
-                template_data['digits'] = self.template_prefix_digits.value()
-            else:
-                return None
-                
-        elif self.current_template == "Нумерация с датой":
-            if hasattr(self, 'template_date_format'):
-                template_data['date_format'] = self.template_date_format.currentIndex()
-                template_data['start'] = self.template_date_start.value()
-                template_data['step'] = self.template_date_step.value()
-                template_data['digits'] = self.template_date_digits.value()
-            else:
-                return None
+                template_data["numbering_mode"] = "Простая нумерация"
+
+            mode = template_data["numbering_mode"]
+            if mode == "Простая нумерация":
+                if hasattr(self, "template_num_start"):
+                    template_data["start"] = self.template_num_start.value()
+                    template_data["step"] = self.template_num_step.value()
+                    template_data["digits"] = self.template_num_digits.value()
+                    template_data["separator"] = self.template_num_sep.text()
+                else:
+                    return None
+            elif mode == "Нумерация с префиксом":
+                if hasattr(self, "template_prefix_text"):
+                    template_data["prefix"] = self.template_prefix_text.text()
+                    template_data["start"] = self.template_prefix_start.value()
+                    template_data["step"] = self.template_prefix_step.value()
+                    template_data["digits"] = self.template_prefix_digits.value()
+                else:
+                    return None
+            elif mode == "Нумерация с датой":
+                if hasattr(self, "template_date_format"):
+                    template_data["date_format"] = self.template_date_format.currentIndex()
+                    template_data["start"] = self.template_date_start.value()
+                    template_data["step"] = self.template_date_step.value()
+                    template_data["digits"] = self.template_date_digits.value()
+                else:
+                    return None
                 
         elif self.current_template == "Дата в начале названия":
             if hasattr(self, 'template_original_date_format'):
@@ -370,12 +375,6 @@ class TemplateCrudMixin:
         elif self.current_template == "Пользовательский шаблон":
             if hasattr(self, 'template_custom'):
                 template_data['template'] = self.template_custom.text()
-                if hasattr(self, 'template_custom_use_numbering'):
-                    template_data['use_numbering'] = self.template_custom_use_numbering.isChecked()
-                if hasattr(self, 'template_custom_start'):
-                    template_data['start'] = self.template_custom_start.value()
-                if hasattr(self, 'template_custom_step'):
-                    template_data['step'] = self.template_custom_step.value()
             else:
                 return None
                 
@@ -400,7 +399,6 @@ class TemplateCrudMixin:
             
         template_data = self.custom_templates[template_name]
         template_type = template_data['type']
-        
         index = self.combo_templates.findText(template_type)
         if index >= 0:
             self.combo_templates.setCurrentIndex(index)
@@ -511,12 +509,12 @@ class TemplateCrudMixin:
         import_export_buttons.addStretch()
 
         self.btn_export_templates = QPushButton("Экспорт шаблонов")
-        setup_standard_link_button(self.btn_export_templates, height=LINK_BUTTON_HEIGHT)
+        setup_standard_secondary_button(self.btn_export_templates, height=LINK_BUTTON_HEIGHT)
         self.btn_export_templates.clicked.connect(self.export_templates)
         import_export_buttons.addWidget(self.btn_export_templates)
 
         self.btn_import_templates = QPushButton("Импорт шаблонов")
-        setup_standard_link_button(self.btn_import_templates, height=LINK_BUTTON_HEIGHT)
+        setup_standard_secondary_button(self.btn_import_templates, height=LINK_BUTTON_HEIGHT)
         self.btn_import_templates.clicked.connect(lambda: self.import_templates(dialog))
         import_export_buttons.addWidget(self.btn_import_templates)
 
@@ -592,13 +590,9 @@ class TemplateCrudMixin:
             "Удалить символы с конца",
             "Удалить определенный текст",
             "Заменить текст другим",
-            "Простая нумерация",
-            "Нумерация с префиксом",
-            "Нумерация с датой",
+            "Нумерация",
             "Дата в начале названия",
             "Пользовательский шаблон"
         ]
         
         self.combo_templates.addItems(standard_templates)
-
-

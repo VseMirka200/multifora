@@ -44,7 +44,7 @@ class OperationsTabLayoutMixin:
         self,
         buttons: list[QPushButton],
         margins: tuple[int, int, int, int] = (0, SPACE_SM, 0, 0),
-        spacing: int = SPACE_NONE,
+        spacing: int = SPACE_SM,
     ) -> tuple[QWidget, QGridLayout]:
         row_widget = QWidget()
         row_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -105,7 +105,7 @@ class OperationsTabLayoutMixin:
     def _add_labeled_field(self, layout: QVBoxLayout, label_text: str, field: QWidget):
         field_layout = QVBoxLayout()
         field_layout.setContentsMargins(*MARGINS_NONE)
-        field_layout.setSpacing(SPACE_NONE)
+        field_layout.setSpacing(SPACE_SM)
         field_layout.addWidget(self._create_operation_label(label_text))
         field_layout.addWidget(field)
         layout.addLayout(field_layout)
@@ -212,7 +212,7 @@ class OperationsTabLayoutMixin:
         self.template_params_layout = QVBoxLayout(self.template_params_widget)
         self.template_params_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.template_params_layout.setContentsMargins(*MARGINS_NONE)
-        self.template_params_layout.setSpacing(SPACE_NONE)
+        self.template_params_layout.setSpacing(SPACE_SM)
         rename_layout.addWidget(self.template_params_widget)
         
         self.btn_apply_rename = QPushButton("Начать действие")

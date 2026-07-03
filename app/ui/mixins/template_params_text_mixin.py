@@ -2,14 +2,14 @@
 
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QSpinBox, QVBoxLayout, QWidget
 from app.ui.ui_components import setup_standard_form_label, setup_standard_line_input, setup_standard_spin_input
-from app.ui.ui_spacing import MARGINS_NONE, SPACE_NONE
+from app.ui.ui_spacing import MARGINS_NONE, SPACE_NONE, SPACE_SM
 
 
 class TemplateParamsTextMixin:
     def _create_param_block(self, label_text: str, field: QWidget):
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setSpacing(SPACE_NONE)
+        layout.setSpacing(SPACE_SM)
         layout.setContentsMargins(*MARGINS_NONE)
 
         label = QLabel(label_text)
@@ -81,7 +81,7 @@ class TemplateParamsTextMixin:
         """Создает параметры для замены текста"""
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setSpacing(SPACE_NONE)
+        layout.setSpacing(SPACE_SM)
         layout.setContentsMargins(*MARGINS_NONE)
         
         find_label = QLabel("Что заменить:")
@@ -105,7 +105,6 @@ class TemplateParamsTextMixin:
         layout.addWidget(self.template_replace)
         
         self.template_params_layout.addWidget(container)
-
 
 
 

@@ -37,12 +37,8 @@ class TemplateApplyMixin:
             self.create_remove_text_params()
         elif template_name == "Заменить текст другим":
             self.create_replace_text_params()
-        elif template_name == "Простая нумерация":
+        elif template_name == "Нумерация":
             self.create_numbering_params()
-        elif template_name == "Нумерация с префиксом":
-            self.create_numbering_prefix_params()
-        elif template_name == "Нумерация с датой":
-            self.create_numbering_date_params()
         elif template_name == "Дата в начале названия":
             self.create_date_original_params()
         elif template_name == "Пользовательский шаблон":
@@ -64,27 +60,31 @@ class TemplateApplyMixin:
         current_num = 1
         step = 1
         use_numbering = True
+        num_digits = 3
         
-        if self.current_template == "Простая нумерация":
+        numbering_mode = self.current_template
+        if self.current_template == "Нумерация":
+            numbering_mode = self.get_numbering_mode() if hasattr(self, "get_numbering_mode") else "Простая нумерация"
+
+        if numbering_mode == "Простая нумерация":
             current_num = self.template_num_start.value() if hasattr(self, 'template_num_start') else 1
             step = self.template_num_step.value() if hasattr(self, 'template_num_step') else 1
             num_digits = self.template_num_digits.value() if hasattr(self, 'template_num_digits') else 3
-        elif self.current_template == "Нумерация с префиксом":
+        elif numbering_mode == "Нумерация с префиксом":
             current_num = self.template_prefix_start.value() if hasattr(self, 'template_prefix_start') else 1
             step = self.template_prefix_step.value() if hasattr(self, 'template_prefix_step') else 1
             num_digits = self.template_prefix_digits.value() if hasattr(self, 'template_prefix_digits') else 3
-        elif self.current_template == "Нумерация с датой":
+        elif numbering_mode == "Нумерация с датой":
             current_num = self.template_date_start.value() if hasattr(self, 'template_date_start') else 1
             step = self.template_date_step.value() if hasattr(self, 'template_date_step') else 1
             num_digits = self.template_date_digits.value() if hasattr(self, 'template_date_digits') else 3
         elif self.current_template == "Пользовательский шаблон":
-            use_numbering = self.template_custom_use_numbering.isChecked() if hasattr(self, 'template_custom_use_numbering') else True
-            if use_numbering:
-                current_num = self.template_custom_start.value() if hasattr(self, 'template_custom_start') else 1
-                step = self.template_custom_step.value() if hasattr(self, 'template_custom_step') else 1
-            else:
-                current_num = 1
-                step = 1
+            template = self.template_custom.text() if hasattr(self, 'template_custom') else ""
+            custom_settings = rt.parse_custom_template_settings(template)
+            use_numbering = bool(custom_settings.get("use_numbering", False))
+            current_num = int(custom_settings.get("start", 1))
+            step = int(custom_settings.get("step", 1))
+            num_digits = int(custom_settings.get("digits", 3))
         for i, file_item in enumerate(self.files):
             old_name = file_item.name
             name_without_ext, ext = os.path.splitext(old_name)
@@ -115,19 +115,19 @@ class TemplateApplyMixin:
                 replace_text = getattr(self, 'template_replace', QLineEdit("")).text()
                 new_name = old_name.replace(find_text, replace_text) if find_text else old_name
 
-            elif self.current_template == "Простая нумерация":
+            elif numbering_mode == "Простая нумерация":
                 num_str = f"{current_num:0{num_digits}d}"
                 sep = getattr(self, 'template_num_sep', QLineEdit("_")).text()
                 new_name = f"{num_str}{sep}{old_name}"
                 current_num += step
 
-            elif self.current_template == "Нумерация с префиксом":
+            elif numbering_mode == "Нумерация с префиксом":
                 prefix = getattr(self, 'template_prefix_text', QLineEdit("фото_")).text()
                 num_str = f"{current_num:0{num_digits}d}"
                 new_name = f"{prefix}{num_str}{ext}"
                 current_num += step
 
-            elif self.current_template == "Нумерация с датой":
+            elif numbering_mode == "Нумерация с датой":
                 date_format_name = getattr(self, 'template_date_format', QComboBox()).currentText()
                 date_str = datetime.now().strftime(rt.get_date_format(date_format_name))
                 num_str = f"{current_num:0{num_digits}d}"
@@ -152,6 +152,7 @@ class TemplateApplyMixin:
                             date_str,
                             step,
                             use_numbering,
+                            num_digits,
                         )
 
             file_item.preview_name = new_name
