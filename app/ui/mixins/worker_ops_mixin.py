@@ -52,6 +52,10 @@ class WorkerOpsMixin:
             file_path = f"{base}.{extension}" if base else f"{file_path}.{extension}"
         if hasattr(self, "input_merge_output_path") and self.input_merge_output_path is not None:
             self.input_merge_output_path.setText(file_path)
+            try:
+                self.input_merge_output_path.setCursorPosition(0)
+            except Exception:
+                pass
         return file_path
 
     def select_merge_output_path(self):
@@ -78,6 +82,10 @@ class WorkerOpsMixin:
         base, _ext = os.path.splitext(current_path)
         if base:
             self.input_merge_output_path.setText(f"{base}{extension}")
+            try:
+                self.input_merge_output_path.setCursorPosition(0)
+            except Exception:
+                pass
 
     def convert_files(self, conversion_type: str, target_format: str = ""):
         """Конвертация файлов."""

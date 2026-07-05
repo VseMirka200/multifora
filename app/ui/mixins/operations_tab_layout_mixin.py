@@ -126,6 +126,7 @@ class OperationsTabLayoutMixin:
         checkbox.stateChanged.connect(callback)
         checkbox.setChecked(False)
         layout.addWidget(checkbox, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        layout.addSpacing(SPACE_SM)
 
         label = QLabel("Заменять файлы")
         label.setFixedHeight(CONTROL_HEIGHT)
@@ -161,7 +162,7 @@ class OperationsTabLayoutMixin:
             }
             QTabBar#operations_tab_bar::tab {
                 margin: 0px;
-                padding: 0px 10px;
+                padding: 0px 7px;
                 min-width: 24px;
                 min-height: 36px;
                 max-height: 36px;
@@ -250,8 +251,10 @@ class OperationsTabLayoutMixin:
         self.to_convert_combo = MenuLikeComboBox()
         self.to_convert_combo.addItem("Выберите целевой формат:")
         setup_standard_dropdown(self.to_convert_combo)
+        self.to_convert_combo.currentIndexChanged.connect(self.update_convert_button_state)
         self.to_convert_combo.setEnabled(False)
         self._add_labeled_field(convert_layout, "Конвертировать в:", self.to_convert_combo)
+        convert_layout.addSpacing(SPACE_SM)
         
         # Кнопка конвертации на всю ширину
         self.btn_convert = QPushButton("Конвертировать")
@@ -283,14 +286,11 @@ class OperationsTabLayoutMixin:
         self.input_merge_output_path = QLineEdit()
         self.input_merge_output_path.setReadOnly(True)
         self.input_merge_output_path.setPlaceholderText("Выберите файл сохранения")
+        self.input_merge_output_path.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.input_merge_output_path.installEventFilter(self)
         merge_output_row_layout.addWidget(self.input_merge_output_path, 1)
-
-        self.btn_merge_output_path = QPushButton("...")
-        self.btn_merge_output_path.setFixedWidth(34)
-        setup_standard_action_button(self.btn_merge_output_path, height=28)
-        self.btn_merge_output_path.clicked.connect(self.select_merge_output_path)
-        merge_output_row_layout.addWidget(self.btn_merge_output_path)
         merge_layout.addWidget(merge_output_row)
+        merge_layout.addSpacing(SPACE_SM)
 
         self.btn_merge = QPushButton("Объединить")
         setup_standard_primary_button(self.btn_merge, height=28)
@@ -394,6 +394,7 @@ class OperationsTabLayoutMixin:
         setup_standard_primary_button(self.btn_compress, height=28)
         self.btn_compress.clicked.connect(self.compress_files)
         self.btn_compress.setEnabled(True)
+        compress_layout.addSpacing(SPACE_SM)
         compress_layout.addWidget(self.btn_compress)
 
         # Советы по сжатию

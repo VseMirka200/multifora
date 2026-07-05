@@ -2,7 +2,7 @@
 
 import concurrent.futures
 
-from PyQt6.QtCore import QTimer, Qt, QUrl
+from PyQt6.QtCore import QTimer, Qt, QUrl, QSize
 from PyQt6.QtGui import QAction, QDesktopServices, QFont, QTextCursor
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -47,6 +47,7 @@ from app.ui.ui_spacing import (
     SETTINGS_PANEL_MARGINS,
     SETTINGS_PANEL_COLUMN_GAP,
     SPACE_NONE,
+    SPACE_SM,
 )
 
 
@@ -60,7 +61,7 @@ class SettingsPanelMixin:
         row = QWidget()
         layout = QHBoxLayout(row)
         layout.setContentsMargins(*MARGINS_NONE)
-        layout.setSpacing(SPACE_NONE)
+        layout.setSpacing(SPACE_SM)
 
         checkbox = QCheckBox()
         checkbox.setFixedSize(CHECKBOX_SIZE, CHECKBOX_SIZE)
@@ -109,6 +110,7 @@ class SettingsPanelMixin:
         page_layout = QVBoxLayout(page)
         page_layout.setContentsMargins(*MARGINS_NONE)
         page_layout.setSpacing(SPACE_NONE)
+        page_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
         scroll = QScrollArea()
         scroll.setObjectName("settings_page_scroll")
@@ -125,7 +127,7 @@ class SettingsPanelMixin:
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(*MARGINS_NONE)
         content_layout.setSpacing(SPACE_NONE)
-        content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        content_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
         card = QFrame()
         card.setObjectName("settings_card")
@@ -133,8 +135,9 @@ class SettingsPanelMixin:
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(*MARGINS_NONE)
         card_layout.setSpacing(SPACE_NONE)
+        card_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
-        content_layout.addWidget(card)
+        content_layout.addWidget(card, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         scroll.setWidget(content)
         return page, card_layout
 
@@ -209,15 +212,15 @@ class SettingsPanelMixin:
             page_layout = QVBoxLayout(page)
             page_layout.setContentsMargins(*MARGINS_NONE)
             page_layout.setSpacing(SPACE_NONE)
-            page_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+            page_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
             content = QWidget()
             content.setObjectName("rename_history_settings_content")
-            content.setMaximumWidth(310)
+            content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             content_layout = QVBoxLayout(content)
             content_layout.setContentsMargins(*MARGINS_NONE)
             content_layout.setSpacing(SPACE_NONE)
-            content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+            content_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
             history_label = QLabel("История переименований")
             history_label.setObjectName("settings_page_title")
@@ -227,10 +230,10 @@ class SettingsPanelMixin:
 
             self.rename_history_list = QListWidget()
             self.rename_history_list.setObjectName("rename_history_list")
-            self.rename_history_list.setFixedHeight(86)
+            self.rename_history_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             self.rename_history_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
             self.rename_history_list.currentRowChanged.connect(self.on_history_row_changed)
-            content_layout.addWidget(self.rename_history_list)
+            content_layout.addWidget(self.rename_history_list, 1)
 
             self.btn_history_undo = QPushButton("Откатить")
             self.btn_history_undo.clicked.connect(self.undo_last_rename)
@@ -238,9 +241,7 @@ class SettingsPanelMixin:
             history_buttons_widget, _ = self._build_rename_action_row([self.btn_history_undo])
             content_layout.addWidget(history_buttons_widget)
 
-            page_layout.addWidget(content, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-            page_layout.addStretch(1)
-
+            page_layout.addWidget(content, 1)
             self.rename_history_settings_page = page
 
         settings_stack = getattr(self, "settings_stack", None)
@@ -250,6 +251,12 @@ class SettingsPanelMixin:
         settings_nav = getattr(self, "settings_nav", None)
         if settings_nav is not None and settings_nav.findItems("История переименований", Qt.MatchFlag.MatchExactly) == []:
             settings_nav.addItem("История переименований")
+            try:
+                item = settings_nav.item(settings_nav.count() - 1)
+                if item is not None:
+                    item.setSizeHint(QSize(self._settings_nav_base_width, getattr(self, "_settings_nav_item_height", 36)))
+            except Exception:
+                pass
 
         return page
 
@@ -266,20 +273,24 @@ class SettingsPanelMixin:
 
         self.settings_nav = QListWidget()
         self.settings_nav.setObjectName("settings_nav")
-        self._settings_nav_base_width = 180
+        self._settings_nav_base_width = 192
         self.settings_nav.setFixedWidth(self._settings_nav_base_width)
         self.settings_nav.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.settings_nav.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.settings_nav.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.settings_nav.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.settings_nav.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        self.settings_nav.setWordWrap(True)
+        self.settings_nav.setTextElideMode(Qt.TextElideMode.ElideNone)
+        self.settings_nav.setSpacing(0)
+        self.settings_nav.setUniformItemSizes(True)
+        self._settings_nav_item_height = 36
         nav_font = QFont()
         nav_font.setPointSize(10)
-        nav_font.setBold(True)
-        nav_font.setWeight(800)
         for title in ["Внешний вид", "Поведения", "Ярлыки", "Обновления", "Логи"]:
             item = QListWidgetItem(title)
             item.setFont(nav_font)
+            item.setSizeHint(QSize(self._settings_nav_base_width, self._settings_nav_item_height))
             self.settings_nav.addItem(item)
         self.settings_nav.verticalScrollBar().rangeChanged.connect(lambda _min, _max: self._update_settings_nav_width())
         nav_container = QWidget()
@@ -326,6 +337,7 @@ class SettingsPanelMixin:
         behavior_card_layout.addStretch()
 
         shortcuts_card_layout = self._add_settings_page()
+        shortcuts_card_layout.setSpacing(SPACE_SM)
 
         desktop_shortcut_row, self.desktop_shortcut_checkbox = self._create_settings_checkbox_row(
             "Добавить ярлык на рабочий стол",
@@ -390,11 +402,13 @@ class SettingsPanelMixin:
         updates_card_layout.addLayout(update_buttons_layout)
 
         logs_card_layout = self._add_settings_page()
+        logs_card_layout.setSpacing(SPACE_SM)
 
         logs_filters_row = QWidget()
         logs_filters_layout = QHBoxLayout(logs_filters_row)
         logs_filters_layout.setContentsMargins(*MARGINS_NONE)
-        logs_filters_layout.setSpacing(SPACE_NONE)
+        logs_filters_layout.setSpacing(SPACE_SM)
+        logs_filters_row.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         self.logs_level_filter = LeftAlignedToolButton()
         self.logs_level_filter.setObjectName("header_cell_tl")
@@ -435,11 +449,12 @@ class SettingsPanelMixin:
         self.logs_view.setReadOnly(True)
         self.logs_view.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
         self.logs_view.setMaximumBlockCount(self.max_log_lines)
+        self.logs_view.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         try:
             self.logs_view.setFont(QFont("Consolas", 13))
         except Exception:
             pass
-        logs_card_layout.addWidget(self.logs_view)
+        logs_card_layout.addWidget(self.logs_view, 1)
 
         self.load_logs_into_view()
         self.settings_nav.currentRowChanged.connect(self.settings_stack.setCurrentIndex)

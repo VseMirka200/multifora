@@ -3,7 +3,7 @@ import os
 import re
 from datetime import datetime
 
-from PyQt6.QtWidgets import QCheckBox, QComboBox, QLineEdit, QSpinBox
+from PyQt6.QtWidgets import QCheckBox, QComboBox, QLineEdit, QSpinBox, QTextEdit
 
 import app.core.rename_templates as rt
 from app.ui.ui_components import setup_standard_dropdown
@@ -170,6 +170,9 @@ class TemplateApplyMixin:
         for field in container.findChildren(QLineEdit):
             field.textChanged.connect(lambda _value, self=self: self.refresh_rename_preview())
             field.textChanged.connect(lambda _value, self=self: self._schedule_settings_save())
+        for field in container.findChildren(QTextEdit):
+            field.textChanged.connect(lambda *_args, self=self: self.refresh_rename_preview())
+            field.textChanged.connect(lambda *_args, self=self: self._schedule_settings_save())
         for field in container.findChildren(QSpinBox):
             field.valueChanged.connect(lambda _value, self=self: self.refresh_rename_preview())
             field.valueChanged.connect(lambda _value, self=self: self._schedule_settings_save())

@@ -8,16 +8,14 @@ from PyQt6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QFrame,
-    QHBoxLayout,
     QHeaderView,
     QMenu,
     QMessageBox,
-    QPushButton,
+    QTabBar,
     QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
-    QWidget,
 )
 
 import app.core.settings as app_settings
@@ -26,9 +24,8 @@ from app.ui.ui_components import (
     apply_standard_menu_style,
     get_russian_text_input,
     setup_standard_dialog,
-    setup_standard_secondary_button,
 )
-from app.ui.ui_spacing import LINK_BUTTON_HEIGHT, MARGINS_NONE, SPACE_NONE, SPACE_XXS, SPACE_SM, SPACE_MD, SPACE_LG, SPACE_XL
+from app.ui.ui_spacing import MARGINS_NONE, SPACE_NONE, SPACE_SM, SPACE_MD
 
 
 class TemplateCrudMixin:
@@ -97,7 +94,7 @@ class TemplateCrudMixin:
         if self._get_effective_theme_mode_for_templates() == "light":
             return """
             QTableWidget {
-                background-color: #ffffff;
+                background-color: transparent;
                 alternate-background-color: #3d74b3;
                 border: 1px solid #c7cfda;
                 color: #1f2328;
@@ -137,7 +134,7 @@ class TemplateCrudMixin:
             """
         return """
             QTableWidget {
-                background-color: #3a3a3a;
+                background-color: transparent;
                 alternate-background-color: #3a3a3a;
                 border: 1px solid #4a4a4a;
                 color: #f0f0f0;
@@ -482,6 +479,29 @@ class TemplateCrudMixin:
         self.load_template(template_name)
         if parent_window:
             parent_window.accept()
+
+    def _build_template_manager_action_tabs(self, dialog):
+        action_tabs = QTabBar()
+        action_tabs.setObjectName("template_manager_action_tabs")
+        action_tabs.setExpanding(False)
+        action_tabs.setMovable(False)
+        action_tabs.setUsesScrollButtons(False)
+        action_tabs.setDocumentMode(True)
+        action_tabs.setDrawBase(False)
+        action_tabs.setElideMode(Qt.TextElideMode.ElideRight)
+        action_tabs.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        action_tabs.addTab("Экспорт шаблонов")
+        action_tabs.addTab("Импорт шаблонов")
+
+        def _trigger_action(index):
+            if index == 0:
+                self.export_templates()
+            elif index == 1:
+                self.import_templates(dialog)
+
+        action_tabs.tabBarClicked.connect(_trigger_action)
+        return action_tabs
+
     def show_template_manager(self):
         """Показывает модальное окно управления шаблонами"""
         dialog = QDialog(self)
@@ -503,26 +523,8 @@ class TemplateCrudMixin:
         card_layout.setContentsMargins(0, SPACE_MD, 0, SPACE_MD)
         card_layout.setSpacing(SPACE_SM)
 
-        import_export_buttons = QHBoxLayout()
-        import_export_buttons.setContentsMargins(0, SPACE_XXS, SPACE_XL, SPACE_XXS)
-        import_export_buttons.setSpacing(SPACE_LG)
-        import_export_buttons.addStretch()
-
-        self.btn_export_templates = QPushButton("Экспорт шаблонов")
-        setup_standard_secondary_button(self.btn_export_templates, height=LINK_BUTTON_HEIGHT)
-        self.btn_export_templates.clicked.connect(self.export_templates)
-        import_export_buttons.addWidget(self.btn_export_templates)
-
-        self.btn_import_templates = QPushButton("Импорт шаблонов")
-        setup_standard_secondary_button(self.btn_import_templates, height=LINK_BUTTON_HEIGHT)
-        self.btn_import_templates.clicked.connect(lambda: self.import_templates(dialog))
-        import_export_buttons.addWidget(self.btn_import_templates)
-
-        import_export_row = QWidget()
-        import_export_row.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        import_export_row.setFixedHeight(LINK_BUTTON_HEIGHT)
-        import_export_row.setLayout(import_export_buttons)
-        card_layout.addWidget(import_export_row)
+        action_tabs = self._build_template_manager_action_tabs(dialog)
+        card_layout.addWidget(action_tabs)
         
         self.templates_table = QTableWidget()
         self.templates_table.setColumnCount(2)

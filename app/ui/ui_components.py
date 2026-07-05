@@ -11,10 +11,11 @@ from PyQt6.QtCore import (
     QRectF,
     QPropertyAnimation,
     QSize,
+    QTimer,
     Qt,
     pyqtSignal,
 )
-from PyQt6.QtGui import QAction, QColor, QFont, QFontMetrics, QIcon, QPainter, QPalette, QPen, QPixmap, QPolygonF
+from PyQt6.QtGui import QAction, QColor, QFont, QFontMetrics, QIcon, QPainter, QPalette, QPen, QPixmap, QPolygonF, QTextOption
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QAbstractSpinBox,
@@ -38,6 +39,7 @@ from PyQt6.QtWidgets import (
     QStyleOptionViewItem,
     QStyleOptionToolButton,
     QStylePainter,
+    QTextEdit,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -60,10 +62,20 @@ _MENU_STYLE_LIGHT = """
         border-radius: 0px;
     }
     QMenu#menu_like_combo_popup {
-        border-radius: 4px;
+        border-top-left-radius: 0px;
+        border-top-right-radius: 0px;
+        border-bottom-left-radius: 4px;
+        border-bottom-right-radius: 4px;
+    }
+    QMenu#header_dropdown_popup {
+        border-top-left-radius: 0px;
+        border-top-right-radius: 0px;
+        border-bottom-left-radius: 4px;
+        border-bottom-right-radius: 4px;
     }
     QMenu::item {
         padding: 4px 8px;
+        margin: 1px 0px;
         background-color: transparent;
     }
     QMenu::item:hover,
@@ -87,10 +99,20 @@ _MENU_STYLE_DARK = """
         border-radius: 0px;
     }
     QMenu#menu_like_combo_popup {
-        border-radius: 4px;
+        border-top-left-radius: 0px;
+        border-top-right-radius: 0px;
+        border-bottom-left-radius: 4px;
+        border-bottom-right-radius: 4px;
+    }
+    QMenu#header_dropdown_popup {
+        border-top-left-radius: 0px;
+        border-top-right-radius: 0px;
+        border-bottom-left-radius: 4px;
+        border-bottom-right-radius: 4px;
     }
     QMenu::item {
         padding: 4px 8px;
+        margin: 1px 0px;
         background-color: transparent;
     }
     QMenu::item:hover,
@@ -147,6 +169,20 @@ def _build_standard_field_style(theme: str, kind: str) -> str:
                 border-radius: {_STANDARD_RADIUS}px;
             }}
             QLineEdit::placeholder {{
+                color: {p["placeholder"]};
+            }}
+        """
+    if kind == "textedit":
+        return f"""
+            QTextEdit {{
+                padding: 3px;
+                min-height: {FIELD_HEIGHT}px;
+                background-color: {p["bg"]};
+                color: {p["fg"]};
+                border: 1px solid {p["border"]};
+                border-radius: {_STANDARD_RADIUS}px;
+            }}
+            QTextEdit::placeholder {{
                 color: {p["placeholder"]};
             }}
         """
@@ -219,14 +255,17 @@ def _build_standard_field_style(theme: str, kind: str) -> str:
                 background-color: {p["bg"]};
                 color: {p["fg"]};
                 border: 1px solid {p["border"]};
-                border-radius: {_STANDARD_RADIUS}px;
+                border-top-left-radius: 0px;
+                border-top-right-radius: 0px;
+                border-bottom-left-radius: {_STANDARD_RADIUS}px;
+                border-bottom-right-radius: {_STANDARD_RADIUS}px;
                 outline: 0px;
                 margin: 0px;
                 padding: 0px;
             }}
             QComboBox QAbstractItemView::item {{
                 padding: 4px 8px;
-                margin: 0px;
+                margin: 1px 0px;
                 background-color: transparent;
                 color: {p["fg"]};
             }}
@@ -378,6 +417,34 @@ def _build_standard_button_style(theme: str, role: str) -> str:
     """
 
 
+def _build_field_like_button_style(theme: str) -> str:
+    p = _standard_palette(theme)
+    return f"""
+        QPushButton {{
+            background-color: {p["bg"]};
+            color: {p["fg"]};
+            border: 1px solid {p["border"]};
+            border-radius: {_STANDARD_RADIUS}px;
+            padding: 3px 8px;
+            min-height: {FIELD_HEIGHT}px;
+            max-height: {FIELD_HEIGHT}px;
+            text-align: center;
+        }}
+        QPushButton:hover {{
+            background-color: {p["hover_bg"]};
+            border: 1px solid {p["hover_border"]};
+        }}
+        QPushButton:pressed {{
+            background-color: {p["hover_bg"]};
+        }}
+        QPushButton:disabled {{
+            background-color: {p["disabled_bg"]};
+            color: {p["disabled_fg"]};
+            border: 1px solid {p["disabled_border"]};
+        }}
+    """
+
+
 def apply_standard_field_style(widget):
     theme = _resolve_widget_theme_mode(widget)
     name = widget.objectName() if hasattr(widget, "objectName") else ""
@@ -389,7 +456,7 @@ def apply_standard_field_style(widget):
         widget.setStyleSheet(_build_standard_field_style(theme, "combo"))
         try:
             view = QListView(widget)
-            view.setSpacing(SPACE_NONE)
+            view.setSpacing(2)
             view.setUniformItemSizes(True)
             view.setItemDelegate(ComboPopupItemDelegate(widget))
             view.setStyleSheet(_MENU_STYLE_LIGHT if theme == "light" else _MENU_STYLE_DARK)
@@ -399,6 +466,9 @@ def apply_standard_field_style(widget):
         return widget
     if isinstance(widget, QAbstractSpinBox):
         widget.setStyleSheet(_build_standard_field_style(theme, "spin"))
+        return widget
+    if isinstance(widget, QTextEdit):
+        widget.setStyleSheet(_build_standard_field_style(theme, "textedit"))
         return widget
     if isinstance(widget, QLineEdit):
         if name == "header_cell_br":
@@ -420,6 +490,8 @@ def refresh_standard_field_styles(root: QWidget):
         return root
     try:
         for widget in root.findChildren(QLineEdit):
+            apply_standard_field_style(widget)
+        for widget in root.findChildren(QTextEdit):
             apply_standard_field_style(widget)
         for widget in root.findChildren(QAbstractSpinBox):
             apply_standard_field_style(widget)
@@ -492,6 +564,42 @@ def _refresh_widget_style(widget: QWidget) -> None:
         pass
 
 
+class AutoHeightTextEdit(QTextEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptRichText(False)
+        self.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+        self.setWordWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.textChanged.connect(self._update_auto_height)
+        QTimer.singleShot(0, self._update_auto_height)
+
+    def setText(self, text: str):
+        self.setPlainText(str(text or "").replace("\r", "").replace("\n", ""))
+        self._update_auto_height()
+
+    def text(self) -> str:
+        return self.toPlainText().replace("\r", "").replace("\n", "")
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._update_auto_height()
+
+    def _update_auto_height(self):
+        try:
+            self.document().setTextWidth(max(0, self.viewport().width()))
+            doc_height = self.document().documentLayout().documentSize().height()
+            frame = self.frameWidth() * 2
+            height = int(doc_height + frame + 6)
+            min_height = getattr(self, "_auto_min_height", FIELD_HEIGHT)
+            self.setFixedHeight(max(min_height, height))
+        except Exception:
+            min_height = getattr(self, "_auto_min_height", FIELD_HEIGHT)
+            self.setFixedHeight(max(min_height, self.height() or min_height))
+
+
 class ComboPopupItemDelegate(QStyledItemDelegate):
     def __init__(self, combo: QComboBox):
         super().__init__(combo)
@@ -533,7 +641,7 @@ def setup_standard_dropdown(widget, *, fixed_width: int | None = None):
 
     try:
         view = QListView(widget)
-        view.setSpacing(SPACE_NONE)
+        view.setSpacing(2)
         view.setUniformItemSizes(True)
         view.setItemDelegate(ComboPopupItemDelegate(widget))
         widget.setView(view)
@@ -624,6 +732,19 @@ def setup_standard_danger_button(widget, *, height: int = CONTROL_HEIGHT):
 
 def setup_standard_secondary_button(widget, *, height: int = CONTROL_HEIGHT):
     return setup_standard_action_button(widget, height=height)
+
+
+def setup_standard_field_button(widget, *, fixed_width: int | None = None):
+    widget.setCursor(Qt.CursorShape.PointingHandCursor)
+    if fixed_width is not None:
+        widget.setFixedWidth(fixed_width)
+        widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+    else:
+        widget.setMaximumWidth(16777215)
+        widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+    widget.setStyleSheet(_build_field_like_button_style(_resolve_widget_theme_mode(widget)))
+    _refresh_widget_style(widget)
+    return widget
 
 
 def setup_standard_link_button(widget, *, height: int = LINK_BUTTON_HEIGHT):

@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from app.ui.ui_components import (
+    AutoHeightTextEdit,
     MenuLikeComboBox,
     setup_standard_action_button,
     setup_standard_dropdown,
@@ -101,7 +102,7 @@ class TemplateParamsNumberingMixin:
 
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setSpacing(SPACE_SM)
+        layout.setSpacing(SPACE_NONE)
         layout.setContentsMargins(*MARGINS_NONE)
 
         if label is None:
@@ -264,7 +265,7 @@ class TemplateParamsNumberingMixin:
         """Создает параметры для пользовательского шаблона"""
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setSpacing(SPACE_SM)
+        layout.setSpacing(SPACE_NONE)
         layout.setContentsMargins(*MARGINS_NONE)
         
         input_container = QWidget()
@@ -273,12 +274,13 @@ class TemplateParamsNumberingMixin:
         input_layout.setSpacing(SPACE_NONE)
         input_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         
-        self.template_custom = QLineEdit()
+        self.template_custom = AutoHeightTextEdit()
+        self.template_custom._auto_min_height = 44
         self.template_custom.setPlaceholderText("например: фото_{num:03d,start=1,step=1}_{date}_{name}")
         self.template_custom.setText("фото_{num:03d,start=1,step=1}_{date}_{name}")
         self.template_custom.setProperty("renameTemplateField", True)
-        setup_standard_line_input(self.template_custom)
-        input_layout.addWidget(self.template_custom)
+        self.template_custom.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        input_layout.addWidget(self.template_custom, 1)
         
         layout.addWidget(input_container)
 

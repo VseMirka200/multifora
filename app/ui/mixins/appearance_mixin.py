@@ -187,17 +187,21 @@ class AppearanceMixin:
             QWidget#template_params_widget QLineEdit[renameTemplateField="true"],
             QWidget#template_params_widget QLineEdit[renameTemplateField="true"]:hover,
             QWidget#template_params_widget QLineEdit[renameTemplateField="true"]:focus,
+            QWidget#template_params_widget QTextEdit[renameTemplateField="true"],
+            QWidget#template_params_widget QTextEdit[renameTemplateField="true"]:hover,
+            QWidget#template_params_widget QTextEdit[renameTemplateField="true"]:focus,
             QWidget#template_params_widget QSpinBox[renameTemplateField="true"],
             QWidget#template_params_widget QSpinBox[renameTemplateField="true"]:hover,
             QWidget#template_params_widget QSpinBox[renameTemplateField="true"]:focus,
             QWidget#template_params_widget QToolButton#menu_like_combo[renameTemplateField="true"],
             QWidget#template_params_widget QToolButton#menu_like_combo[renameTemplateField="true"]:hover,
             QWidget#template_params_widget QToolButton#menu_like_combo[renameTemplateField="true"]:focus {
-                border: none;
+                border: 1px solid #4f4f4f;
                 border-radius: 4px;
             }
             QWidget#template_params_widget QLineEdit,
             QWidget#template_params_widget QPlainTextEdit,
+            QWidget#template_params_widget QTextEdit,
             QWidget#template_params_widget QTextBrowser,
             QWidget#template_params_widget QSpinBox,
             QWidget#template_params_widget QSpinBox QLineEdit,
@@ -531,7 +535,7 @@ QPushButton#cancel_operation_btn:disabled {
             }
             QComboBox QAbstractItemView::item {
                 padding: 4px 8px;
-                margin: 0px;
+                margin: 1px 0px;
                 background-color: transparent;
                 color: #f0f0f0;
             }
@@ -557,13 +561,20 @@ QPushButton#cancel_operation_btn:disabled {
                 border-radius: 0px;
             }
             QMenu#menu_like_combo_popup {
-                border-radius: 4px;
+                border-top-left-radius: 0px;
+                border-top-right-radius: 0px;
+                border-bottom-left-radius: 4px;
+                border-bottom-right-radius: 4px;
             }
             QMenu#header_dropdown_popup {
-                border-radius: 4px;
+                border-top-left-radius: 0px;
+                border-top-right-radius: 0px;
+                border-bottom-left-radius: 4px;
+                border-bottom-right-radius: 4px;
             }
             QMenu::item {
                 padding: 4px 8px;
+                margin: 1px 0px;
                 background-color: transparent;
             }
             QMenu::item:selected {
@@ -746,7 +757,7 @@ QPushButton#cancel_operation_btn:disabled {
                 color: white;
             }
             QListWidget#settings_nav {
-                background-color: #3d74b3;
+                background-color: transparent;
                 border: none;
                 border-radius: 0px;
                 padding: 0px;
@@ -754,26 +765,28 @@ QPushButton#cancel_operation_btn:disabled {
                 outline: 0px;
             }
             QListWidget#settings_nav::item {
-                padding: 2px 10px;
+                padding: 0px 7px;
                 margin: 0px;
-                border-radius: 0px;
+                border-radius: 4px;
                 color: #ffffff;
                 font-family: "Segoe UI";
-                font-size: 10px;
-                font-weight: 900;
-                background-color: #3d74b3;
+                font-size: 13px;
+                font-weight: 400;
+                background-color: transparent;
                 border: none;
                 min-height: 36px;
                 max-height: 36px;
             }
             QListWidget#settings_nav::item:hover {
-                background-color: #3d74b3;
+                background-color: rgba(255, 255, 255, 0.07);
                 color: #ffffff;
+                border-radius: 0px;
             }
             QListWidget#settings_nav::item:selected {
-                background-color: #3d74b3;
+                background-color: rgba(255, 255, 255, 0.12);
                 color: #ffffff;
-                font-weight: 900;
+                font-weight: 400;
+                border-radius: 0px;
                 border: none;
             }
             QTabWidget::pane {
@@ -782,7 +795,7 @@ QPushButton#cancel_operation_btn:disabled {
                 background-color: #2c2c2c;
             }
             QTabBar::tab {
-                padding: 2px 10px;
+                padding: 2px 7px;
                 font-size: 14px;
                 font-weight: bold;
                 min-height: 18px;
@@ -1024,17 +1037,21 @@ QPushButton#cancel_operation_btn:disabled {
             QWidget#template_params_widget QLineEdit[renameTemplateField="true"],
             QWidget#template_params_widget QLineEdit[renameTemplateField="true"]:hover,
             QWidget#template_params_widget QLineEdit[renameTemplateField="true"]:focus,
+            QWidget#template_params_widget QTextEdit[renameTemplateField="true"],
+            QWidget#template_params_widget QTextEdit[renameTemplateField="true"]:hover,
+            QWidget#template_params_widget QTextEdit[renameTemplateField="true"]:focus,
             QWidget#template_params_widget QSpinBox[renameTemplateField="true"],
             QWidget#template_params_widget QSpinBox[renameTemplateField="true"]:hover,
             QWidget#template_params_widget QSpinBox[renameTemplateField="true"]:focus,
             QWidget#template_params_widget QToolButton#menu_like_combo[renameTemplateField="true"],
             QWidget#template_params_widget QToolButton#menu_like_combo[renameTemplateField="true"]:hover,
             QWidget#template_params_widget QToolButton#menu_like_combo[renameTemplateField="true"]:focus {
-                border: none;
+                border: 1px solid #c7cfda;
                 border-radius: 4px;
             }
             QWidget#template_params_widget QLineEdit,
             QWidget#template_params_widget QPlainTextEdit,
+            QWidget#template_params_widget QTextEdit,
             QWidget#template_params_widget QTextBrowser,
             QWidget#template_params_widget QSpinBox,
             QWidget#template_params_widget QSpinBox QLineEdit,
@@ -1303,7 +1320,7 @@ QPushButton#cancel_operation_btn:disabled {
                 border-bottom: 0px;
             }
             QListWidget#settings_nav {
-                background-color: #3d74b3;
+                background-color: transparent;
                 border: none;
                 border-radius: 0px;
                 padding: 0px;
@@ -1311,26 +1328,28 @@ QPushButton#cancel_operation_btn:disabled {
                 outline: 0px;
             }
             QListWidget#settings_nav::item {
-                padding: 2px 10px;
+                padding: 0px 7px;
                 margin: 0px;
-                border-radius: 0px;
-                color: #ffffff;
+                border-radius: 4px;
+                color: #1f2328;
                 font-family: "Segoe UI";
-                font-size: 10px;
-                font-weight: 900;
-                background-color: #3d74b3;
+                font-size: 13px;
+                font-weight: 400;
+                background-color: transparent;
                 border: none;
                 min-height: 36px;
                 max-height: 36px;
             }
             QListWidget#settings_nav::item:hover {
-                background-color: #3d74b3;
-                color: #ffffff;
+                background-color: rgba(61, 116, 179, 0.10);
+                color: #1f2328;
+                border-radius: 0px;
             }
             QListWidget#settings_nav::item:selected {
-                background-color: #3d74b3;
-                color: #ffffff;
-                font-weight: 900;
+                background-color: rgba(61, 116, 179, 0.18);
+                color: #1f2328;
+                font-weight: 400;
+                border-radius: 0px;
                 border: none;
             }
             /* Force light dropdown popup even in dark theme (override generic QListView). */
@@ -1354,7 +1373,7 @@ QPushButton#cancel_operation_btn:disabled {
             }
             QComboBox QAbstractItemView::item {
                 padding: 4px 8px;
-                margin: 0px;
+                margin: 1px 0px;
                 background-color: transparent;
                 color: #1f2328;
             }
@@ -1437,13 +1456,20 @@ QPushButton#cancel_operation_btn:disabled {
                 border-radius: 0px;
             }
             QMenu#menu_like_combo_popup {
-                border-radius: 4px;
+                border-top-left-radius: 0px;
+                border-top-right-radius: 0px;
+                border-bottom-left-radius: 4px;
+                border-bottom-right-radius: 4px;
             }
             QMenu#header_dropdown_popup {
-                border-radius: 4px;
+                border-top-left-radius: 0px;
+                border-top-right-radius: 0px;
+                border-bottom-left-radius: 4px;
+                border-bottom-right-radius: 4px;
             }
             QMenu::item {
                 padding: 4px 8px;
+                margin: 1px 0px;
                 background-color: transparent;
             }
             QMenu::item:selected {

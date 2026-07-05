@@ -99,7 +99,6 @@ from app.ui.ui_spacing import (
     HEADER_FIELD_HEIGHT,
     MARGINS_NONE,
     PROGRESS_HEIGHT,
-    SETTINGS_PANEL_FILES_GAP,
     SPACE_NONE,
     SPACE_XXS,
     SPACE_SM,
@@ -733,7 +732,6 @@ class MultiforaMainWindow(
             self._ensure_rename_history_settings_page()
         self.tabs.tabBar().hide()
         main_layout.addWidget(self.settings_panel_host)
-        main_layout.addSpacing(SETTINGS_PANEL_FILES_GAP)
         
         left_layout.addWidget(self.tabs)
 
@@ -741,13 +739,15 @@ class MultiforaMainWindow(
         right_widget = QWidget()
         self._right_panel = right_widget
         right_layout = QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(*MARGINS_NONE)
+        right_layout.setSpacing(SPACE_NONE)
 
         # Заголовок и кнопки управления списком
         list_header = QGridLayout()
         self._list_header_layout = list_header
-        list_header.setContentsMargins(SPACE_NONE, SPACE_XS, SPACE_NONE, SPACE_NONE)
+        list_header.setContentsMargins(SPACE_NONE, SPACE_NONE, SPACE_NONE, SPACE_NONE)
         list_header.setHorizontalSpacing(SPACE_SM)
-        list_header.setVerticalSpacing(SPACE_SM)
+        list_header.setVerticalSpacing(SPACE_NONE)
 
         def _bind_header_menu_state(button, menu):
             def _set_open(is_open: bool):
@@ -1036,30 +1036,40 @@ class MultiforaMainWindow(
 
         # Информация о файлах
         info_layout = QHBoxLayout()
+        info_layout.setContentsMargins(SPACE_NONE, SPACE_XXS, SPACE_NONE, SPACE_NONE)
+        info_layout.setSpacing(SPACE_SM)
+
+        def _setup_info_label(label: QLabel):
+            label.setFixedHeight(18)
+            label.setStyleSheet("font-size: 13px; font-weight: 600; padding: 0px 2px;")
+            return label
+
         self.label_count = QLabel("Файлов: 0")
-        self.label_count.setStyleSheet("font-weight: bold; font-size: 13px;")
+        _setup_info_label(self.label_count)
         info_layout.addWidget(self.label_count)
 
         count_size_sep = QFrame()
         count_size_sep.setFrameShape(QFrame.Shape.VLine)
         count_size_sep.setFrameShadow(QFrame.Shadow.Plain)
-        count_size_sep.setStyleSheet("background-color: #2c2c2c; border: none;")
-        count_size_sep.setFixedWidth(2)
+        count_size_sep.setStyleSheet("background-color: rgba(255, 255, 255, 0.18); border: none;")
+        count_size_sep.setFixedWidth(1)
+        count_size_sep.setFixedHeight(16)
         info_layout.addWidget(count_size_sep)
 
         self.label_item_size = QLabel("Размер: 0 MB")
-        self.label_item_size.setStyleSheet("font-weight: bold; font-size: 13px;")
+        _setup_info_label(self.label_item_size)
         info_layout.addWidget(self.label_item_size)
 
         size_total_sep = QFrame()
         size_total_sep.setFrameShape(QFrame.Shape.VLine)
         size_total_sep.setFrameShadow(QFrame.Shadow.Plain)
-        size_total_sep.setStyleSheet("background-color: #2c2c2c; border: none;")
-        size_total_sep.setFixedWidth(2)
+        size_total_sep.setStyleSheet("background-color: rgba(255, 255, 255, 0.18); border: none;")
+        size_total_sep.setFixedWidth(1)
+        size_total_sep.setFixedHeight(16)
         info_layout.addWidget(size_total_sep)
 
         self.label_total_size = QLabel("Общий объем: 0 MB")
-        self.label_total_size.setStyleSheet("font-weight: bold; font-size: 13px;")
+        _setup_info_label(self.label_total_size)
         info_layout.addWidget(self.label_total_size)
 
         info_layout.addStretch()
@@ -1368,6 +1378,13 @@ class MultiforaMainWindow(
                         return True
             elif event.type() == QEvent.Type.DragLeave:
                 event.accept()
+                return True
+        if hasattr(self, "input_merge_output_path") and obj is self.input_merge_output_path:
+            if event.type() == QEvent.Type.MouseButtonPress:
+                try:
+                    self.select_merge_output_path()
+                except Exception:
+                    pass
                 return True
         return super().eventFilter(obj, event)
 
