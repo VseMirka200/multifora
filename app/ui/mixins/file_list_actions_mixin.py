@@ -1,10 +1,9 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 import os
 import re
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QFileDialog,
     QDialog,
     QHBoxLayout,
     QLabel,
@@ -15,8 +14,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.core.models import FileItem
-from app.core.conversion_formats import KNOWN_FILE_EXTENSIONS, build_file_dialog_filter
-from app.core.app_utils import _debug_log
+from app.core.conversion_formats import KNOWN_FILE_EXTENSIONS
 from app.ui.ui_components import (
     setup_standard_dialog,
     setup_standard_secondary_button,
@@ -147,16 +145,6 @@ class FileListActionsMixin:
             self.list_files.set_manual_sorting(False)
         self.update_file_list()
 
-    def add_files_dialog(self):
-        """Открытие диалога для добавления файлов"""
-        files, _ = QFileDialog.getOpenFileNames(
-            self,
-            "Выберите файлы",
-            "",
-            build_file_dialog_filter(),
-        )
-        if files:
-            self.add_files(files)
     def _ask_folder_add_mode(self):
         dialog = QDialog(self)
         setup_standard_dialog(dialog, title="Добавление папки", min_width=520)
@@ -365,20 +353,3 @@ class FileListActionsMixin:
         if self._get_sort_mode() != self._manual_sort_mode_text():
             self._set_sort_mode(self._manual_sort_mode_text(), notify=False)
         self.list_files.set_manual_sorting(True)
-    def clear_files(self):
-        """Очистка списка файлов"""
-        if not self.files:
-            return
-            
-        reply = self.show_russian_message_box(
-            "Подтверждение",
-            "Очистить список файлов? (файлы на диске не удаляются)",
-            QMessageBox.Icon.Question,
-            True
-        )
-        
-        if reply:
-            self.files.clear()
-            self.list_files.clear()
-            self.update_file_info()
-            self.status_bar.showMessage("Список очищен")

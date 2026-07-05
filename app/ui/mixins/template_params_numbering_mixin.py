@@ -1,9 +1,7 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
-from datetime import datetime
-from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QComboBox,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -131,10 +129,11 @@ class TemplateParamsNumberingMixin:
 
     def create_numbering_params(self):
         """Создает параметры для нумерации"""
-        container = QWidget()
+        container = QFrame()
+        container.setObjectName("template_numbering_card")
         layout = QVBoxLayout(container)
         layout.setSpacing(SPACE_SM)
-        layout.setContentsMargins(*MARGINS_NONE)
+        layout.setContentsMargins(MARGINS_NONE[0], SPACE_SM, SPACE_SM, SPACE_SM)
 
         self.template_numbering_mode = MenuLikeComboBox()
         self.template_numbering_mode.addItems(self._numbering_mode_items())

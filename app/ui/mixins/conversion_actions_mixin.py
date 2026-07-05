@@ -7,10 +7,8 @@ from app.core.models import FileItem
 from app.core.conversion_formats import (
     CONVERSION_CATEGORIES,
     category_for_file_type,
-    format_for_path,
     formats_for_category,
     matches_format,
-    suffix_for_format,
 )
 
 
@@ -18,18 +16,6 @@ class ConversionActionsMixin:
     @staticmethod
     def _convert_formats_for_category(category: str) -> list[str]:
         return formats_for_category(category)
-
-    @staticmethod
-    def _convert_source_format_label(file_item) -> str | None:
-        return format_for_path(getattr(file_item, "path", ""))
-
-    @staticmethod
-    def _convert_target_suffix(format_label: str) -> str:
-        return suffix_for_format(format_label)
-
-    @staticmethod
-    def _file_category_label(file_item) -> str:
-        return str(getattr(file_item, "file_type", "")).lower()
 
     @staticmethod
     def _display_category_for_file(file_item) -> str:
@@ -54,14 +40,6 @@ class ConversionActionsMixin:
         source_label = str(source_label or "").strip()
         formats = self._convert_formats_for_category(category_label)
         return [fmt for fmt in formats if fmt != source_label]
-
-    def _populate_combo_items(self, combo, placeholder: str, values: list[str]) -> None:
-        combo.blockSignals(True)
-        combo.clear()
-        combo.addItem(placeholder)
-        for value in values:
-            combo.addItem(value)
-        combo.blockSignals(False)
 
     def update_to_combo_based_on_from(self):
         """Обновляет второе выпадающее меню на основе выбора в первом и типа файла."""

@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QSpinBox, QVBoxLayout, QWidget
 from app.ui.ui_components import setup_standard_form_label, setup_standard_line_input, setup_standard_spin_input

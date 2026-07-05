@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 import concurrent.futures
 
@@ -7,7 +7,6 @@ from PyQt6.QtGui import QAction, QDesktopServices, QFont, QTextCursor
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
-    QDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -32,7 +31,6 @@ from app.ui.ui_components import (
     MenuLikeComboBox,
     apply_standard_menu_style,
     setup_standard_action_button,
-    setup_standard_dialog,
     setup_standard_dropdown,
     setup_standard_line_input,
     setup_standard_form_label,
@@ -41,7 +39,6 @@ from app.ui.ui_components import (
 )
 from app.ui.ui_spacing import (
     CHECKBOX_SIZE,
-    CONTROL_HEIGHT,
     HEADER_FIELD_HEIGHT,
     MARGINS_NONE,
     SETTINGS_PANEL_MARGINS,
@@ -99,7 +96,7 @@ class SettingsPanelMixin:
 
         label = QLabel(label_text)
         label.setFixedWidth(label_width)
-        label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(label)
         layout.addWidget(field, 0)
         layout.addStretch()
@@ -107,6 +104,7 @@ class SettingsPanelMixin:
 
     def _create_settings_page_card(self) -> tuple[QWidget, QVBoxLayout]:
         page = QWidget()
+        page.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         page_layout = QVBoxLayout(page)
         page_layout.setContentsMargins(*MARGINS_NONE)
         page_layout.setSpacing(SPACE_NONE)
@@ -115,15 +113,16 @@ class SettingsPanelMixin:
         scroll = QScrollArea()
         scroll.setObjectName("settings_page_scroll")
         scroll.setWidgetResizable(True)
+        scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         scroll.setContentsMargins(*MARGINS_NONE)
         scroll.setViewportMargins(0, 0, 0, 0)
-        page_layout.addWidget(scroll)
+        page_layout.addWidget(scroll, 1)
 
         content = QWidget()
         content.setObjectName("settings_page_content")
-        content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(*MARGINS_NONE)
         content_layout.setSpacing(SPACE_NONE)
@@ -131,13 +130,13 @@ class SettingsPanelMixin:
 
         card = QFrame()
         card.setObjectName("settings_card")
-        card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(*MARGINS_NONE)
         card_layout.setSpacing(SPACE_NONE)
         card_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
-        content_layout.addWidget(card, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        content_layout.addWidget(card, 1)
         scroll.setWidget(content)
         return page, card_layout
 
@@ -287,7 +286,7 @@ class SettingsPanelMixin:
         self._settings_nav_item_height = 36
         nav_font = QFont()
         nav_font.setPointSize(10)
-        for title in ["Внешний вид", "Поведения", "Ярлыки", "Обновления", "Логи"]:
+        for title in ["Основное", "Обновления", "Логи"]:
             item = QListWidgetItem(title)
             item.setFont(nav_font)
             item.setSizeHint(QSize(self._settings_nav_base_width, self._settings_nav_item_height))
@@ -304,7 +303,23 @@ class SettingsPanelMixin:
         self.settings_stack = QStackedWidget()
         root_layout.addWidget(self.settings_stack, 1)
 
-        appearance_card_layout = self._add_settings_page()
+        main_card_layout = self._add_settings_page()
+        main_card_layout.setSpacing(SPACE_SM)
+
+        def _add_settings_section_title(layout: QVBoxLayout, text: str):
+            label = QLabel(text)
+            label.setObjectName("settings_page_title")
+            setup_standard_form_label(label)
+            label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            layout.addWidget(label)
+            separator = QFrame()
+            separator.setObjectName("settings_section_separator")
+            separator.setFrameShape(QFrame.Shape.HLine)
+            separator.setFrameShadow(QFrame.Shadow.Plain)
+            separator.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            separator.setFixedHeight(1)
+            layout.addWidget(separator)
+            layout.addSpacing(SPACE_SM)
 
         self.theme_mode_combo = MenuLikeComboBox()
         setup_standard_dropdown(self.theme_mode_combo, fixed_width=200)
@@ -312,19 +327,18 @@ class SettingsPanelMixin:
         self.theme_mode_combo.addItem("Темная", "dark")
         self.theme_mode_combo.addItem("Светлая", "light")
         self.theme_mode_combo.currentIndexChanged.connect(self._on_theme_mode_changed)
-        theme_row = self._create_settings_select_row("Тема:", self.theme_mode_combo)
-        appearance_card_layout.addWidget(theme_row)
+        _add_settings_section_title(main_card_layout, "Внешний вид")
+        theme_row = self._create_settings_select_row("Тема:", self.theme_mode_combo, label_width=40)
+        main_card_layout.addWidget(theme_row)
 
-        appearance_card_layout.addStretch()
-
-        behavior_card_layout = self._add_settings_page()
+        _add_settings_section_title(main_card_layout, "Поведения")
 
         auto_clear_row, self.auto_clear_checkbox = self._create_settings_checkbox_row(
             "Автоматически очищать список после операций",
             "После завершения копирования/переименования/конвертации список файлов будет очищен автоматически.",
         )
         self.auto_clear_checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
-        behavior_card_layout.addWidget(auto_clear_row)
+        main_card_layout.addWidget(auto_clear_row)
 
         disable_warning_row, self.disable_warning_dialogs_checkbox = self._create_settings_checkbox_row(
             "Отключить предупреждающие окна",
@@ -332,12 +346,9 @@ class SettingsPanelMixin:
         )
         self.disable_warning_dialogs_checkbox.stateChanged.connect(self._on_disable_warning_dialogs_changed)
         self.disable_warning_dialogs_checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
-        behavior_card_layout.addWidget(disable_warning_row)
+        main_card_layout.addWidget(disable_warning_row)
 
-        behavior_card_layout.addStretch()
-
-        shortcuts_card_layout = self._add_settings_page()
-        shortcuts_card_layout.setSpacing(SPACE_SM)
+        _add_settings_section_title(main_card_layout, "Ярлыки")
 
         desktop_shortcut_row, self.desktop_shortcut_checkbox = self._create_settings_checkbox_row(
             "Добавить ярлык на рабочий стол",
@@ -345,7 +356,7 @@ class SettingsPanelMixin:
         )
         self.desktop_shortcut_checkbox.stateChanged.connect(self.toggle_desktop_shortcut)
         self.desktop_shortcut_checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
-        shortcuts_card_layout.addWidget(desktop_shortcut_row)
+        main_card_layout.addWidget(desktop_shortcut_row)
 
         start_menu_shortcut_row, self.start_menu_shortcut_checkbox = self._create_settings_checkbox_row(
             "Добавить ярлык в меню Пуск",
@@ -353,7 +364,7 @@ class SettingsPanelMixin:
         )
         self.start_menu_shortcut_checkbox.stateChanged.connect(self.toggle_start_menu_shortcut)
         self.start_menu_shortcut_checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
-        shortcuts_card_layout.addWidget(start_menu_shortcut_row)
+        main_card_layout.addWidget(start_menu_shortcut_row)
 
         context_menu_row, self.context_menu_checkbox = self._create_settings_checkbox_row(
             "Добавить в контекстное меню Windows",
@@ -361,8 +372,8 @@ class SettingsPanelMixin:
         )
         self.context_menu_checkbox.stateChanged.connect(self.toggle_context_menu)
         self.context_menu_checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
-        shortcuts_card_layout.addWidget(context_menu_row)
-        shortcuts_card_layout.addStretch()
+        main_card_layout.addWidget(context_menu_row)
+        main_card_layout.addStretch()
 
         updates_card_layout = self._add_settings_page()
 

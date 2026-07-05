@@ -91,7 +91,8 @@ class WindowsIntegrationMixin:
             for root in roots:
                 with winreg.CreateKey(winreg.HKEY_CURRENT_USER, root) as key:
                     winreg.SetValueEx(key, "MUIVerb", 0, winreg.REG_SZ, "Добавить в Мультифору")
-                    winreg.SetValueEx(key, "MultiSelectModel", 0, winreg.REG_SZ, "Player")
+                    # Document mode lets Explorer pass the full multi-selection to the verb.
+                    winreg.SetValueEx(key, "MultiSelectModel", 0, winreg.REG_SZ, "Document")
                     if icon_value:
                         winreg.SetValueEx(key, "Icon", 0, winreg.REG_SZ, icon_value)
                 cmd_key = root + r"\command"
@@ -264,6 +265,7 @@ class WindowsIntegrationMixin:
                 os.makedirs(os.path.dirname(shortcut_path), exist_ok=True)
             except Exception:
                 pass
+            shortcut_exists = os.path.exists(shortcut_path)
             target_path = sys.executable
             args = ""
             try:
@@ -275,6 +277,13 @@ class WindowsIntegrationMixin:
 
             working_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
             icon_path = _get_shortcut_icon_path()
+            if not icon_path and shortcut_exists:
+                # Не затираем уже существующий ярлык, если иконка временно недоступна.
+                self.log_event(
+                    f"Иконка ярлыка недоступна, сохраняю существующий ярлык без изменений: {shortcut_path}",
+                    "INFO",
+                )
+                return True
             ps_target = self._escape_ps(target_path)
             ps_args = self._escape_ps(args)
             ps_workdir = self._escape_ps(working_dir)

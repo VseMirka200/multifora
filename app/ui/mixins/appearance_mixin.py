@@ -1,58 +1,24 @@
 # -*- coding: utf-8 -*-
 from pathlib import Path
 
-from PyQt6.QtCore import QEvent, QObject, Qt, QTimer, QUrl
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import (
-    QAction,
-    QColor,
-    QDesktopServices,
-    QFont,
     QFontMetrics,
     QGuiApplication,
-    QPalette,
-    QTextCursor,
 )
 from PyQt6.QtWidgets import (
-    QAbstractItemView,
-    QApplication,
-    QCheckBox,
     QComboBox,
     QDialog,
-    QFrame,
-    QGroupBox,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
-    QLineEdit,
-    QListView,
-    QListWidget,
-    QListWidgetItem,
-    QMainWindow,
-    QMenu,
     QMessageBox,
-    QPlainTextEdit,
-    QProgressBar,
     QPushButton,
-    QScrollArea,
     QSizePolicy,
-    QSlider,
-    QSpinBox,
     QStyle,
-    QStyleOptionViewItem,
-    QStyledItemDelegate,
-    QTabBar,
-    QTableWidget,
-    QTabWidget,
-    QTextBrowser,
-    QToolButton,
     QVBoxLayout,
-    QWidget,
 )
-from app.core.message_boxes import tune_message_box_layout
 from app.ui.ui_components import (
-    setup_standard_danger_button,
     setup_standard_dropdown,
-    setup_standard_primary_button,
     setup_standard_secondary_button,
     refresh_standard_field_styles,
     refresh_standard_surface_styles,
@@ -80,18 +46,25 @@ class AppearanceMixin:
             QStackedWidget#operations_stack {{
                 background: transparent;
                 border: none;
+                margin: 0px;
+                padding: 0px;
             }}
             QScrollArea#operation_page_scroll,
             QScrollArea#settings_page_scroll {{
                 border: none;
                 background: transparent;
+                margin: 0px;
+                padding: 0px;
             }}
             QWidget#operation_page_content,
             QWidget#settings_page_content,
             QWidget#rename_history_settings_page,
             QWidget#rename_history_settings_content,
-            QWidget#template_params_widget {{
+            QWidget#template_params_widget,
+            QFrame#template_numbering_card {{
                 background-color: transparent;
+                margin: 0px;
+                padding: 0px;
             }}
             QFrame#card,
             QFrame#settings_card {{
@@ -102,10 +75,23 @@ class AppearanceMixin:
             QFrame#settings_card QWidget {{
                 background-color: transparent;
             }}
-            QLabel#tab_section_label,
-            QLabel#settings_page_title {{
+            QLabel#tab_section_label {{
                 font-size: 13px;
+                font-weight: 700;
                 color: {base_text};
+            }}
+            QLabel#settings_page_title {{
+                font-size: 15px;
+                font-weight: 700;
+                color: {base_text};
+            }}
+            QFrame#settings_section_separator {{
+                background-color: {"rgba(0, 0, 0, 0.14)" if is_light else "rgba(255, 255, 255, 0.18)"};
+                border: none;
+                margin: 0px;
+                padding: 0px;
+                min-height: 1px;
+                max-height: 1px;
             }}
             QLabel#tab_hint_label {{
                 font-size: 13px;
@@ -181,7 +167,16 @@ class AppearanceMixin:
             QFrame#settings_card QWidget {
                 background-color: transparent;
             }
-            QWidget#template_params_widget {
+            QFrame#settings_section_separator {
+                background-color: rgba(255, 255, 255, 0.18);
+                border: none;
+                margin: 0px;
+                padding: 0px;
+                min-height: 1px;
+                max-height: 1px;
+            }
+            QWidget#template_params_widget,
+            QFrame#template_numbering_card {
                 background-color: #383838;
             }
             QWidget#template_params_widget QLineEdit[renameTemplateField="true"],
@@ -1030,6 +1025,14 @@ QPushButton#cancel_operation_btn:disabled {
             }
             QFrame#settings_card QWidget {
                 background-color: transparent;
+            }
+            QFrame#settings_section_separator {
+                background-color: rgba(0, 0, 0, 0.14);
+                border: none;
+                margin: 0px;
+                padding: 0px;
+                min-height: 1px;
+                max-height: 1px;
             }
             QWidget#template_params_widget {
                 background-color: #383838;

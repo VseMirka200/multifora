@@ -1,21 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
-import sys
-import shutil
-import subprocess
-import json
-import tempfile
-import time
-import re
-import winreg
-import ctypes
-from ctypes import wintypes
-import secrets
-import hashlib
-from datetime import datetime
 from PyQt6.QtWidgets import (
     QAbstractItemView,
-    QComboBox,
     QDialog,
     QFrame,
     QFileDialog,
@@ -31,35 +17,26 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
     QSplitter,
     QStyle,
-    QToolButton,
     QTabWidget,
     QVBoxLayout,
     QWidget,
 )
-from PyQt6.QtCore import QEvent, QSortFilterProxyModel, QTimer, Qt, QSize, pyqtSignal
-from PyQt6.QtGui import QAction, QActionGroup, QColor, QIcon, QPalette, QPixmap
-from functools import partial
+from PyQt6.QtCore import QEvent, QTimer, Qt, QSize, pyqtSignal
+from PyQt6.QtGui import QAction, QActionGroup, QColor, QIcon, QPalette
 from PyQt6.QtNetwork import QLocalServer
 
 from app.core.app_identity import APP_WINDOW_TITLE
 from app.core.app_utils import _debug_log
 from app.core.app_ipc import (
     _drain_queued_files,
-    _collect_paths_from_args,
     _load_ipc_token,
-    _delete_ipc_token,
     _get_ipc_server_name,
     _normalize_path_candidate,
 )
-from app.core.app_icons import _get_shortcut_icon_path, _get_app_icon_qt_path
+from app.core.app_icons import _get_app_icon_qt_path
 from app.core.message_boxes import install_warning_suppression_hook
 from app.core.deps import (
     HAS_WORD_TO_PDF,
-    HAS_PDF_TO_WORD,
-    HAS_PDF_TO_IMAGE,
-    HAS_PYMUPDF,
-    HAS_ODF_PYTHON,
-    HAS_PIL,
     ensure_ghostscript_detected,
 )
 from app.core.models import FileItem
@@ -72,16 +49,12 @@ from app.core.conversion_formats import (
 )
 from core.workers import FileWorker
 from core.workers.conversion.conversion_mixin import prewarm_word_background
-import app.core.settings as app_settings
-import app.core.rename_templates as rt
 
 from app.ui.ui_components import (
     apply_standard_menu_style,
     apply_standard_field_style,
-    ClickableLabel,
     ExpandableGroupBox,
     FileListWidget,
-    FileListItemDelegate,
     LeftAlignedToolButton,
     LoggingStatusBar,
     setup_standard_dialog,
@@ -114,11 +87,19 @@ from app.ui.mixins import (
     RenameHistoryMixin,
     WindowsIntegrationMixin,
     WorkerOpsMixin,
-    TemplateUiMixin,
-    FileListUiMixin,
+    TemplateCrudMixin,
+    TemplateParamsBaseMixin,
+    TemplateParamsTextMixin,
+    TemplateParamsNumberingMixin,
+    TemplateApplyMixin,
+    FileListActionsMixin,
+    FileListContextMixin,
+    FileListPreviewMixin,
     AppearanceMixin,
     SettingsPanelMixin,
-    OperationsTabMixin,
+    OperationsTabLayoutMixin,
+    OperationsCompressUiMixin,
+    ConversionActionsMixin,
 )
 
 
@@ -196,32 +177,25 @@ class DropActionTile(QFrame):
                 )
 
 
-class PreviewSelectionProxyModel(QSortFilterProxyModel):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._visible_rows = set()
-
-    def set_visible_rows(self, rows):
-        self._visible_rows = {int(row) for row in rows if row is not None and int(row) >= 0}
-        self.invalidateFilter()
-
-    def filterAcceptsRow(self, source_row, source_parent):
-        if not self._visible_rows:
-            return True
-        return source_row in self._visible_rows
-
-
 class MultiforaMainWindow(
     LifecycleMixin,
     LoggingMixin,
     RenameHistoryMixin,
     WorkerOpsMixin,
     WindowsIntegrationMixin,
-    TemplateUiMixin,
-    FileListUiMixin,
+    TemplateCrudMixin,
+    TemplateParamsBaseMixin,
+    TemplateParamsTextMixin,
+    TemplateParamsNumberingMixin,
+    TemplateApplyMixin,
+    FileListActionsMixin,
+    FileListContextMixin,
+    FileListPreviewMixin,
     AppearanceMixin,
     SettingsPanelMixin,
-    OperationsTabMixin,
+    OperationsTabLayoutMixin,
+    OperationsCompressUiMixin,
+    ConversionActionsMixin,
     QMainWindow,
 ):
     """Главное окно Мультифора"""
@@ -410,14 +384,6 @@ class MultiforaMainWindow(
         """Забирает файлы из очереди и добавляет в список."""
         files = _drain_queued_files()
         self._add_files_with_source_message(files, "из очереди")
-    
-    
-    def add_files_from_command_line(self):
-        """Добавляет файлы из командной строки (в т.ч. из контекстного меню)."""
-        file_paths = _collect_paths_from_args(sys.argv[1:])
-
-        if self._add_files_with_source_message(file_paths, "из командной строки"):
-            self.tabs.setCurrentIndex(0)
 
     @staticmethod
     def _ru_files_label(count: int) -> str:
@@ -568,45 +534,6 @@ class MultiforaMainWindow(
         self.file_worker.start()
         self._show_progress_dialog("Повторное выполнение операции...")
     
-    def is_admin(self):
-        """Проверяет, запущена ли программа с правами администратора"""
-        try:
-            if os.name != 'nt':
-                return os.getuid() == 0
-            else:
-                return ctypes.windll.shell32.IsUserAnAdmin() != 0
-        except Exception as e:
-            _debug_log(f"Ошибка проверки прав администратора: {e}")
-            return False
-
-    def style_link(self, label: QLabel):
-        """Стилизует QLabel как ссылку"""
-        label.setStyleSheet("""
-            QLabel {
-                font-size: 13px;
-                color: #3d74b3;
-                text-decoration: underline;
-            }
-            QLabel:hover {
-                color: #3d74b3;
-            }
-        """)
-
-    def create_info_row(self, label_text, value_widget):
-        """Создает строку информации с меткой и значением"""
-        container = QWidget()
-        layout = QHBoxLayout(container)
-        layout.setContentsMargins(*MARGINS_NONE)
-        layout.setSpacing(SPACE_SM)
-
-        label = QLabel(label_text)
-        label.setStyleSheet("font-size: 13px; font-weight: bold;")
-        layout.addWidget(label)
-
-        layout.addWidget(value_widget)
-        layout.addStretch()
-        return container
-
     def refresh_preview_panel(self):
         if not hasattr(self, "list_files") or self.list_files is None:
             return
@@ -908,12 +835,14 @@ class MultiforaMainWindow(
         right_layout.addSpacing(SPACE_SM)
         files_preview_row = QWidget()
         self.files_preview_splitter = files_preview_row
+        files_preview_row.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         files_preview_layout = QHBoxLayout(files_preview_row)
         files_preview_layout.setContentsMargins(*MARGINS_NONE)
         files_preview_layout.setSpacing(SPACE_SM)
 
         files_panel = QWidget()
         self.files_panel = files_panel
+        files_panel.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         files_panel.setObjectName("drop_zone_surface")
         files_panel.setStyleSheet(
             "QWidget#drop_zone_surface {"
@@ -1409,9 +1338,6 @@ class MultiforaMainWindow(
         self._update_drop_zone_controls()
         self._schedule_settings_save()
 
-    def showEvent(self, event):
-        super().showEvent(event)
-
     def moveEvent(self, event):
         super().moveEvent(event)
         self._schedule_settings_save()
@@ -1589,15 +1515,3 @@ class MultiforaMainWindow(
         
         if folder:
             self.add_files([folder])
-
-    def add_folder_files(self, folder_path):
-        """Добавляет все файлы из папки (рекурсивно)"""
-        file_paths = []
-        for root, _, files in os.walk(folder_path):
-            for name in files:
-                file_paths.append(os.path.join(root, name))
-        
-        if file_paths:
-            self.add_files(file_paths)
-        else:
-            QMessageBox.information(self, "Информация", "В выбранной папке нет файлов.")

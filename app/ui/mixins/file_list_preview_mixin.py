@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import webbrowser
 
 from PyQt6.QtCore import Qt

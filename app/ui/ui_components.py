@@ -15,7 +15,7 @@ from PyQt6.QtCore import (
     Qt,
     pyqtSignal,
 )
-from PyQt6.QtGui import QAction, QColor, QFont, QFontMetrics, QIcon, QPainter, QPalette, QPen, QPixmap, QPolygonF, QTextOption
+from PyQt6.QtGui import QAction, QColor, QFont, QFontMetrics, QIcon, QPainter, QPalette, QPixmap, QPolygonF, QTextOption
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QAbstractSpinBox,
@@ -23,8 +23,6 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
-    QDialogButtonBox,
-    QFrame,
     QGroupBox,
     QLabel,
     QLineEdit,
@@ -48,7 +46,6 @@ from app.ui.ui_spacing import (
     CONTROL_HEIGHT,
     FIELD_HEIGHT,
     HEADER_FIELD_HEIGHT,
-    LINK_BUTTON_HEIGHT,
     MARGINS_NONE,
     SPACE_NONE,
     SPACE_SM,
@@ -734,66 +731,9 @@ def setup_standard_secondary_button(widget, *, height: int = CONTROL_HEIGHT):
     return setup_standard_action_button(widget, height=height)
 
 
-def setup_standard_field_button(widget, *, fixed_width: int | None = None):
-    widget.setCursor(Qt.CursorShape.PointingHandCursor)
-    if fixed_width is not None:
-        widget.setFixedWidth(fixed_width)
-        widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-    else:
-        widget.setMaximumWidth(16777215)
-        widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-    widget.setStyleSheet(_build_field_like_button_style(_resolve_widget_theme_mode(widget)))
-    _refresh_widget_style(widget)
-    return widget
-
-
-def setup_standard_link_button(widget, *, height: int = LINK_BUTTON_HEIGHT):
-    return setup_standard_action_button(widget, height=height, variant="link")
-
-
 def setup_standard_section_button(widget, *, height: int = 34):
     widget.setCursor(Qt.CursorShape.PointingHandCursor)
     return setup_standard_action_button(widget, height=height, variant="section")
-
-
-def build_bookmark_icon(*, size: int = 16, theme: str = "dark") -> QIcon:
-    """Creates a compact bookmark icon for saved items."""
-    dark_theme = str(theme).lower() != "light"
-    fill_color = QColor("#3d74b3" if dark_theme else "#3d74b3")
-    outline_color = QColor("#3d74b3" if dark_theme else "#3d74b3")
-    notch_color = QColor("#ffffff" if dark_theme else "#f8fbff")
-
-    pix = QPixmap(size, size)
-    pix.fill(Qt.GlobalColor.transparent)
-
-    painter = QPainter(pix)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-    painter.setPen(QPen(outline_color, 1.2))
-    painter.setBrush(fill_color)
-
-    left = 3.0
-    top = 2.0
-    right = float(size - 3)
-    bottom = float(size - 2)
-    notch_x = float(size / 2)
-    notch_y = float(size - 5)
-    bookmark_shape = QPolygonF(
-        [
-            QPointF(left, top),
-            QPointF(right, top),
-            QPointF(right, bottom),
-            QPointF(notch_x, notch_y),
-            QPointF(left, bottom),
-        ]
-    )
-    painter.drawPolygon(bookmark_shape)
-
-    painter.setPen(Qt.PenStyle.NoPen)
-    painter.setBrush(notch_color)
-    notch_width = max(2.0, size * 0.14)
-    painter.drawRect(int(notch_x - notch_width / 2), int(notch_y), int(notch_width), int(size - notch_y))
-    painter.end()
-    return QIcon(pix)
 
 
 def setup_standard_form_label(widget, *, align: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignLeft):
@@ -801,18 +741,6 @@ def setup_standard_form_label(widget, *, align: Qt.AlignmentFlag = Qt.AlignmentF
     widget.setWordWrap(True)
     widget.setFixedHeight(18)
     widget.setStyleSheet("font-size: 13px; margin: 0px; padding: 0px;")
-    return widget
-
-
-def setup_standard_section_label(widget, *, align: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignLeft):
-    widget.setAlignment(align | Qt.AlignmentFlag.AlignVCenter)
-    widget.setWordWrap(True)
-    widget.setStyleSheet("font-size: 13px; margin: 0px; padding: 0px;")
-    return widget
-
-
-def setup_transparent_widget(widget):
-    widget.setStyleSheet("background-color: transparent;")
     return widget
 
 

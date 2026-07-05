@@ -1,31 +1,31 @@
 # -*- coding: utf-8 -*-
-import os
 from datetime import datetime
 
-from PyQt6.QtCore import QTimer, Qt, QSize
+from PyQt6.QtCore import QModelIndex, QTimer, Qt, QSize
 from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractItemView,
+    QHBoxLayout,
     QDialog,
     QFrame,
     QHeaderView,
     QMenu,
     QMessageBox,
-    QTabBar,
+    QPushButton,
     QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
+    QWidget,
 )
 
-import app.core.settings as app_settings
 from app.ui.ui_components import (
-    build_bookmark_icon,
     apply_standard_menu_style,
     get_russian_text_input,
+    setup_standard_secondary_button,
     setup_standard_dialog,
 )
-from app.ui.ui_spacing import MARGINS_NONE, SPACE_NONE, SPACE_SM, SPACE_MD
+from app.ui.ui_spacing import MARGINS_NONE, SPACE_NONE
 
 
 class TemplateCrudMixin:
@@ -95,36 +95,50 @@ class TemplateCrudMixin:
             return """
             QTableWidget {
                 background-color: transparent;
-                alternate-background-color: #3d74b3;
-                border: 1px solid #c7cfda;
+                alternate-background-color: #454545;
                 color: #1f2328;
-                selection-background-color: #3d74b3;
+                border: none;
+                selection-background-color: rgba(61, 116, 179, 0.22);
                 selection-color: #1f2328;
+                show-decoration-selected: 1;
+            }
+            QTableWidget:focus {
+                outline: none;
+                border: none;
             }
             QTableWidget::item {
-                border-right: 1px solid #d6dbe2;
-                border-bottom: none;
-                padding: 3px;
+                padding: 2px 4px;
+                min-height: 22px;
+                background-color: transparent;
+                color: #1f2328;
+            }
+            QTableWidget::item:focus {
+                outline: none;
+                border: none;
             }
             QTableWidget::item:alternate {
-                background-color: #3d74b3;
-                color: #ffffff;
-            }
-            QTableWidget::item:selected {
-                background-color: #3d74b3;
+                background-color: #454545;
                 color: #1f2328;
             }
+            QTableWidget::item:hover {
+                background-color: rgba(61, 116, 179, 0.10);
+                color: #1f2328;
+            }
+            QTableWidget::item:selected,
+            QTableWidget::item:selected:active,
             QTableWidget::item:selected:!active {
-                background-color: #3d74b3;
+                background-color: rgba(61, 116, 179, 0.22);
                 color: #1f2328;
+                selection-color: #1f2328;
+            }
+            QTableWidget::item:selected:focus {
+                outline: none;
+                border: none;
+                background-color: rgba(61, 116, 179, 0.22);
             }
             QHeaderView::section {
                 background-color: #eef1f5;
                 color: #1f2328;
-                border-top: none;
-                border-left: none;
-                border-bottom: none;
-                border-right: 1px solid #d6dbe2;
                 padding: 4px;
             }
             QTableCornerButton::section {
@@ -135,32 +149,50 @@ class TemplateCrudMixin:
         return """
             QTableWidget {
                 background-color: transparent;
-                alternate-background-color: #3a3a3a;
-                border: 1px solid #4a4a4a;
+                alternate-background-color: #454545;
                 color: #f0f0f0;
-                selection-background-color: #3d74b3;
-                selection-color: #ffffff;
+                border: none;
+                selection-background-color: rgba(255, 255, 255, 0.20);
+                selection-color: #f0f0f0;
+                show-decoration-selected: 1;
+            }
+            QTableWidget:focus {
+                outline: none;
+                border: none;
             }
             QTableWidget::item {
-                border-right: 1px solid rgba(255, 255, 255, 0.55);
-                border-bottom: none;
-                padding: 3px;
+                padding: 2px 4px;
+                min-height: 22px;
+                background-color: transparent;
+                color: #f0f0f0;
             }
-            QTableWidget::item:selected {
-                background-color: #3d74b3;
-                color: #ffffff;
+            QTableWidget::item:focus {
+                outline: none;
+                border: none;
             }
+            QTableWidget::item:alternate {
+                background-color: #454545;
+                color: #f0f0f0;
+            }
+            QTableWidget::item:hover {
+                background-color: rgba(255, 255, 255, 0.07);
+                color: #f0f0f0;
+            }
+            QTableWidget::item:selected,
+            QTableWidget::item:selected:active,
             QTableWidget::item:selected:!active {
-                background-color: #3d74b3;
-                color: #ffffff;
+                background-color: #5c5c5c;
+                color: #f0f0f0;
+                selection-color: #f0f0f0;
+            }
+            QTableWidget::item:selected:focus {
+                outline: none;
+                border: none;
+                background-color: #5c5c5c;
             }
             QHeaderView::section {
                 background-color: #2b2b2b;
                 color: #f0f0f0;
-                border-top: none;
-                border-left: none;
-                border-bottom: none;
-                border-right: 1px solid rgba(255, 255, 255, 0.55);
                 padding: 4px;
             }
             QTableCornerButton::section {
@@ -176,8 +208,13 @@ class TemplateCrudMixin:
             row = self.templates_table.currentRow()
             if row < 0:
                 return ""
-            item = self.templates_table.item(row, 1)
-            return item.text().strip() if item is not None else ""
+            item = self.templates_table.item(row, 0)
+            if item is None:
+                return ""
+            stored_name = item.data(Qt.ItemDataRole.UserRole)
+            if stored_name:
+                return str(stored_name).strip()
+            return item.text().strip()
         except Exception:
             return ""
 
@@ -214,10 +251,10 @@ class TemplateCrudMixin:
 
         try:
             for row in range(self.templates_table.rowCount()):
-                item = self.templates_table.item(row, 1)
-                if item is not None and item.text() == new_name:
+                item = self.templates_table.item(row, 0)
+                if item is not None and item.data(Qt.ItemDataRole.UserRole) == new_name:
                     self.templates_table.selectRow(row)
-                    self.templates_table.setCurrentCell(row, 1)
+                    self.templates_table.setCurrentCell(row, 0)
                     break
         except Exception:
             pass
@@ -227,7 +264,7 @@ class TemplateCrudMixin:
         index = self.templates_table.indexAt(pos)
         if index.isValid():
             self.templates_table.selectRow(index.row())
-            self.templates_table.setCurrentCell(index.row(), 1)
+            self.templates_table.setCurrentCell(index.row(), 0)
 
         template_name = self._get_selected_template_name()
         if not template_name:
@@ -384,7 +421,9 @@ class TemplateCrudMixin:
             return
             
         row = selected_rows[0].row()
-        template_name = self.templates_table.item(row, 1).text()
+        template_item = self.templates_table.item(row, 0)
+        template_name = template_item.data(Qt.ItemDataRole.UserRole) if template_item is not None else ""
+        template_name = str(template_name).strip() if template_name else ""
         self.load_template(template_name)
         if parent_window:
             parent_window.accept()
@@ -413,7 +452,9 @@ class TemplateCrudMixin:
             return
             
         row = selected_rows[0].row()
-        template_name = self.templates_table.item(row, 1).text()
+        template_item = self.templates_table.item(row, 0)
+        template_name = template_item.data(Qt.ItemDataRole.UserRole) if template_item is not None else ""
+        template_name = str(template_name).strip() if template_name else ""
         
         reply = self.show_russian_message_box(
             "Подтверждение", 
@@ -433,30 +474,29 @@ class TemplateCrudMixin:
             current_name = self._get_selected_template_name()
             self.templates_table.clearContents()
             self.templates_table.setRowCount(len(self.custom_templates))
-            
             row = 0
             for name, template_data in self.custom_templates.items():
-                number_item = QTableWidgetItem(str(row + 1))
-                number_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                number_item.setFlags(number_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                self.templates_table.setItem(row, 0, number_item)
-
-                name_item = QTableWidgetItem(name)
+                name_item = QTableWidgetItem(f"{row + 1}. {name}")
                 name_item.setData(Qt.ItemDataRole.UserRole, name)
-                name_item.setIcon(build_bookmark_icon(theme=self._get_effective_theme_mode_for_templates()))
-                self.templates_table.setItem(row, 1, name_item)
+                name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.templates_table.setItem(row, 0, name_item)
                 row += 1
                 
             self.templates_table.horizontalHeader().setStretchLastSection(False)
-            self.templates_table.setColumnWidth(0, 46)
-            self.templates_table.setColumnWidth(1, 390)
+            self.templates_table.setColumnWidth(0, 390)
             if current_name:
                 for row in range(self.templates_table.rowCount()):
-                    item = self.templates_table.item(row, 1)
-                    if item is not None and item.text() == current_name:
+                    item = self.templates_table.item(row, 0)
+                    if item is not None and item.data(Qt.ItemDataRole.UserRole) == current_name:
                         self.templates_table.selectRow(row)
-                        self.templates_table.setCurrentCell(row, 1)
+                        self.templates_table.setCurrentCell(row, 0)
                         break
+                else:
+                    self.templates_table.clearSelection()
+                    self.templates_table.setCurrentIndex(QModelIndex())
+            else:
+                self.templates_table.clearSelection()
+                self.templates_table.setCurrentIndex(QModelIndex())
     def delete_template_from_manager(self, template_name, parent_window):
         """Удаление шаблона из менеджера"""
         if template_name not in self.custom_templates:
@@ -480,27 +520,48 @@ class TemplateCrudMixin:
         if parent_window:
             parent_window.accept()
 
-    def _build_template_manager_action_tabs(self, dialog):
-        action_tabs = QTabBar()
-        action_tabs.setObjectName("template_manager_action_tabs")
-        action_tabs.setExpanding(False)
-        action_tabs.setMovable(False)
-        action_tabs.setUsesScrollButtons(False)
-        action_tabs.setDocumentMode(True)
-        action_tabs.setDrawBase(False)
-        action_tabs.setElideMode(Qt.TextElideMode.ElideRight)
-        action_tabs.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        action_tabs.addTab("Экспорт шаблонов")
-        action_tabs.addTab("Импорт шаблонов")
+    def _build_template_manager_action_buttons(self, dialog):
+        actions_row = QWidget()
+        actions_row.setObjectName("template_manager_action_row")
+        actions_row.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
-        def _trigger_action(index):
-            if index == 0:
-                self.export_templates()
-            elif index == 1:
-                self.import_templates(dialog)
+        actions_layout = QHBoxLayout(actions_row)
+        actions_layout.setContentsMargins(*MARGINS_NONE)
+        actions_layout.setSpacing(0)
 
-        action_tabs.tabBarClicked.connect(_trigger_action)
-        return action_tabs
+        export_btn = QPushButton("Экспорт шаблонов")
+        setup_standard_secondary_button(export_btn)
+        export_btn.setStyleSheet(
+            export_btn.styleSheet()
+            + """
+            QPushButton {
+                border-radius: 0px;
+            }
+            QPushButton:hover {
+                border-radius: 0px;
+            }
+            """
+        )
+        export_btn.clicked.connect(self.export_templates)
+        actions_layout.addWidget(export_btn, 1)
+
+        import_btn = QPushButton("Импорт шаблонов")
+        setup_standard_secondary_button(import_btn)
+        import_btn.setStyleSheet(
+            import_btn.styleSheet()
+            + """
+            QPushButton {
+                border-radius: 0px;
+            }
+            QPushButton:hover {
+                border-radius: 0px;
+            }
+            """
+        )
+        import_btn.clicked.connect(lambda: self.import_templates(dialog))
+        actions_layout.addWidget(import_btn, 1)
+
+        return actions_row
 
     def show_template_manager(self):
         """Показывает модальное окно управления шаблонами"""
@@ -519,21 +580,23 @@ class TemplateCrudMixin:
         card = QFrame()
         card.setObjectName("settings_card")
         card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        card.setFrameShape(QFrame.Shape.NoFrame)
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(0, SPACE_MD, 0, SPACE_MD)
-        card_layout.setSpacing(SPACE_SM)
+        card_layout.setContentsMargins(0, 0, 0, 0)
+        card_layout.setSpacing(0)
 
-        action_tabs = self._build_template_manager_action_tabs(dialog)
-        card_layout.addWidget(action_tabs)
+        actions_row = self._build_template_manager_action_buttons(dialog)
+        card_layout.addWidget(actions_row)
         
         self.templates_table = QTableWidget()
-        self.templates_table.setColumnCount(2)
-        self.templates_table.setHorizontalHeaderLabels(["№", "Название шаблона"])
+        self.templates_table.setColumnCount(1)
+        self.templates_table.setHorizontalHeaderLabels(["Название шаблона"])
         self.templates_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.templates_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.templates_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.templates_table.setAlternatingRowColors(True)
         self.templates_table.setShowGrid(False)
+        self.templates_table.setAutoFillBackground(False)
         self.templates_table.setIconSize(QSize(16, 16))
         self.templates_table.verticalHeader().setVisible(False)
         self.templates_table.horizontalHeader().setVisible(False)
@@ -543,7 +606,7 @@ class TemplateCrudMixin:
         header.setStretchLastSection(False)
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         header.setMinimumSectionSize(36)
-        self._templates_table_min_widths = {0: 46, 1: 220}
+        self._templates_table_min_widths = {0: 220}
         header.sectionResized.connect(self._on_templates_table_section_resized)
         self.templates_table.cellDoubleClicked.connect(lambda *_args: self.load_selected_template(dialog))
         self.templates_table.customContextMenuRequested.connect(
@@ -577,7 +640,6 @@ class TemplateCrudMixin:
         )
         dialog.setMinimumWidth(required_width)
         dialog.resize(required_width, dialog.sizeHint().height())
-        self.templates_table.setFocus()
         
         dialog.exec()
     def update_template_combo(self):

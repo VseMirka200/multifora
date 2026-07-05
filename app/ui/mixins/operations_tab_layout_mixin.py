@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
 
-from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QAbstractItemView,
     QCheckBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QListWidget,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -197,6 +195,7 @@ class OperationsTabLayoutMixin:
         
         # Секция 1: Переименование (карточка)
         rename_card, rename_layout = self._create_operation_card()
+        rename_layout.setContentsMargins(SPACE_SM, SPACE_NONE, SPACE_NONE, SPACE_NONE)
         
         # Шаблоны переименования
         self.combo_templates = MenuLikeComboBox()
@@ -231,6 +230,7 @@ class OperationsTabLayoutMixin:
 
         # Секция 2: Конвертация документов (карточка)
         convert_card, convert_layout = self._create_operation_card()
+        convert_layout.setContentsMargins(SPACE_SM, SPACE_NONE, SPACE_NONE, SPACE_NONE)
 
         # Поле: Тип конвертируемых файлов
         self.convert_file_type_combo = MenuLikeComboBox()
@@ -267,6 +267,7 @@ class OperationsTabLayoutMixin:
 
         # Секция 3: Объединение документов (карточка)
         merge_card, merge_layout = self._create_operation_card()
+        merge_layout.setContentsMargins(SPACE_SM, SPACE_NONE, SPACE_NONE, SPACE_NONE)
 
         self.combo_merge_format = MenuLikeComboBox()
         self.combo_merge_format.addItem("PDF (Word и PDF)", "pdf")
@@ -301,6 +302,7 @@ class OperationsTabLayoutMixin:
 
         # Секция 4: Сжатие файлов (карточка)
         compress_card, compress_layout = self._create_operation_card(align_top=True)
+        compress_layout.setContentsMargins(SPACE_SM, SPACE_NONE, SPACE_NONE, SPACE_NONE)
         
         # Выбор типа сжатия
         self.combo_compress_type = MenuLikeComboBox()
@@ -430,9 +432,6 @@ class OperationsTabLayoutMixin:
             self.operations_tab_bar.setCurrentIndex(0)
             self.operations_stack.setCurrentIndex(0)
             self._current_operations_tab_index = 0
-
-    def _build_action_row(self, buttons: list[QPushButton]) -> tuple[QWidget, QGridLayout]:
-        return self._build_rename_action_row(buttons)
 
     def _on_operations_tab_changed(self, index: int):
         if index == getattr(self, "_settings_tab_index", -1):
