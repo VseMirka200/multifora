@@ -33,7 +33,7 @@ class MainWindowSmokeTests(unittest.TestCase):
 
                 settings_widget = window._ensure_settings_panel_widget()
                 self.assertIsNotNone(settings_widget)
-                self.assertGreaterEqual(window.settings_stack.count(), 5)
+                self.assertGreaterEqual(window.settings_stack.count(), 4)
             finally:
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()

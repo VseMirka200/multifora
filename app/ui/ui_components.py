@@ -262,7 +262,7 @@ def _build_standard_field_style(theme: str, kind: str) -> str:
             }}
             QComboBox QAbstractItemView::item {{
                 padding: 4px 8px;
-                margin: 1px 0px;
+                margin: 0px;
                 background-color: transparent;
                 color: {p["fg"]};
             }}
@@ -453,7 +453,7 @@ def apply_standard_field_style(widget):
         widget.setStyleSheet(_build_standard_field_style(theme, "combo"))
         try:
             view = QListView(widget)
-            view.setSpacing(2)
+            view.setSpacing(0)
             view.setUniformItemSizes(True)
             view.setItemDelegate(ComboPopupItemDelegate(widget))
             view.setStyleSheet(_MENU_STYLE_LIGHT if theme == "light" else _MENU_STYLE_DARK)
@@ -638,7 +638,7 @@ def setup_standard_dropdown(widget, *, fixed_width: int | None = None):
 
     try:
         view = QListView(widget)
-        view.setSpacing(2)
+        view.setSpacing(0)
         view.setUniformItemSizes(True)
         view.setItemDelegate(ComboPopupItemDelegate(widget))
         widget.setView(view)

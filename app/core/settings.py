@@ -4,7 +4,6 @@ import time
 from PyQt6.QtCore import QObject, Qt
 
 from app.core.app_utils import _debug_log
-from app.core.app_utils import _get_app_data_dir
 from app.core.deps import _detect_ghostscript
 
 
@@ -240,13 +239,14 @@ def _restore_file_list_view_state(window, state: dict) -> None:
 
 
 def get_settings_file_path() -> str:
-    """Возвращает полный путь к файлу настроек (в AppData пользователя)."""
-    target_dir = _get_app_data_dir()
+    """Возвращает полный путь к файлу настроек (в Documents пользователя)."""
+    target_dir = os.path.join(os.path.expanduser("~"), "Documents", "Multifora")
     os.makedirs(target_dir, exist_ok=True)
     target_file = os.path.join(target_dir, "multifora_settings.json")
 
     roaming_dir = os.path.join(os.path.expanduser("~"), "AppData", "Roaming")
     candidate_files = [
+        os.path.join(roaming_dir, "Multifora", "multifora_settings.json"),
         os.path.join(roaming_dir, "python", "Multifora", "multifora_settings.json"),
         os.path.join(roaming_dir, "multifora_settings.json"),
     ]
@@ -397,7 +397,19 @@ def load_settings(window) -> None:
                 try:
                     geom_hex = data.get("window_geometry")
                     if isinstance(geom_hex, str) and geom_hex:
-                        window.restoreGeometry(bytes.fromhex(geom_hex))
+                        window._pending_window_geometry = geom_hex
+                except Exception:
+                    pass
+
+            if "window_pos" in data:
+                try:
+                    window._pending_window_pos = data.get("window_pos")
+                except Exception:
+                    pass
+
+            if "window_size" in data:
+                try:
+                    window._pending_window_size = data.get("window_size")
                 except Exception:
                     pass
 
@@ -428,7 +440,7 @@ def load_settings(window) -> None:
 
             if data.get("window_maximized"):
                 try:
-                    window.setWindowState(window.windowState() | Qt.WindowState.WindowMaximized)
+                    window._pending_window_maximized = True
                 except Exception:
                     pass
     except Exception as e:
@@ -445,7 +457,33 @@ def load_settings(window) -> None:
 def save_settings(window) -> None:
     """Сохранение настроек в файл."""
     settings_file = get_settings_file_path()
+    if not getattr(window, "initial_load_complete", False) and not getattr(window, "_force_settings_save", False):
+        return
     try:
+        is_maximized = bool(window.isMaximized()) if hasattr(window, "isMaximized") else False
+        geometry_source = None
+        if is_maximized and callable(getattr(window, "normalGeometry", None)):
+            try:
+                geometry_source = window.normalGeometry()
+            except Exception:
+                geometry_source = None
+        if geometry_source is None and callable(getattr(window, "geometry", None)):
+            try:
+                geometry_source = window.geometry()
+            except Exception:
+                geometry_source = None
+
+        if geometry_source is not None:
+            saved_pos = [int(geometry_source.x()), int(geometry_source.y())]
+            saved_size = [int(geometry_source.width()), int(geometry_source.height())]
+        else:
+            saved_pos = None
+            saved_size = None
+            if hasattr(window, "pos") and callable(getattr(window, "pos", None)):
+                saved_pos = [window.pos().x(), window.pos().y()]
+            if hasattr(window, "size") and callable(getattr(window, "size", None)):
+                saved_size = [window.size().width(), window.size().height()]
+
         data = {
             "custom_templates": window.custom_templates,
             "auto_clear": window.auto_clear_checkbox.isChecked(),
@@ -497,10 +535,13 @@ def save_settings(window) -> None:
                 ),
             },
             "window_geometry": window.saveGeometry().toHex().data().decode("ascii") if hasattr(window, "saveGeometry") else None,
-            "window_maximized": bool(window.isMaximized()) if hasattr(window, "isMaximized") else False,
+            "window_pos": saved_pos,
+            "window_size": saved_size,
+            "window_maximized": is_maximized,
             "expandable_groups": _collect_expandable_groups_state(window),
         }
         with open(settings_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception as e:
         _debug_log(f"Ошибка сохранения настроек: {e}")
+

@@ -112,7 +112,14 @@ class LifecycleMixin:
             return
 
         _delete_ipc_token()
+        if hasattr(self, "_settings_save_timer") and self._settings_save_timer is not None:
+            try:
+                self._settings_save_timer.stop()
+            except Exception:
+                pass
+        self._force_settings_save = True
         self.save_settings()
+        self._force_settings_save = False
         if hasattr(self, "ipc_server") and self.ipc_server:
             try:
                 self.ipc_server.close()

@@ -81,17 +81,20 @@ class AppearanceMixin:
                 color: {base_text};
             }}
             QLabel#settings_page_title {{
-                font-size: 15px;
+                font-size: 30px;
                 font-weight: 700;
                 color: {base_text};
+                padding-bottom: 5px;
+                margin-bottom: 3px;
+                border-bottom: 1px solid {"rgba(0, 0, 0, 0.28)" if is_light else "rgba(255, 255, 255, 0.26)"};
             }}
             QFrame#settings_section_separator {{
-                background-color: {"rgba(0, 0, 0, 0.14)" if is_light else "rgba(255, 255, 255, 0.18)"};
+                background-color: {"rgba(0, 0, 0, 0.36)" if is_light else "rgba(255, 255, 255, 0.38)"};
                 border: none;
                 margin: 0px;
                 padding: 0px;
-                min-height: 1px;
-                max-height: 1px;
+                min-height: 3px;
+                max-height: 3px;
             }}
             QLabel#tab_hint_label {{
                 font-size: 13px;
@@ -168,12 +171,12 @@ class AppearanceMixin:
                 background-color: transparent;
             }
             QFrame#settings_section_separator {
-                background-color: rgba(255, 255, 255, 0.18);
+                background-color: rgba(255, 255, 255, 0.38);
                 border: none;
                 margin: 0px;
                 padding: 0px;
-                min-height: 1px;
-                max-height: 1px;
+                min-height: 3px;
+                max-height: 3px;
             }
             QWidget#template_params_widget,
             QFrame#template_numbering_card {
@@ -530,7 +533,7 @@ QPushButton#cancel_operation_btn:disabled {
             }
             QComboBox QAbstractItemView::item {
                 padding: 4px 8px;
-                margin: 1px 0px;
+                margin: 0px;
                 background-color: transparent;
                 color: #f0f0f0;
             }
@@ -656,10 +659,22 @@ QPushButton#cancel_operation_btn:disabled {
                 background-color: #383838;
                 color: #f0f0f0;
                 border: 1px solid #4f4f4f;
-                border-radius: 0px;
+                border-radius: 4px;
+            }
+            QPlainTextEdit#logs_view {
+                border-radius: 4px;
+            }
+            QPlainTextEdit#logs_view::corner {
+                background: #383838;
+                border-bottom-right-radius: 4px;
             }
             QPlainTextEdit:focus {
                 border: 1px solid #3d74b3;
+                border-radius: 4px;
+            }
+            QPlainTextEdit#logs_view:focus {
+                border: 1px solid #3d74b3;
+                border-radius: 4px;
             }
             QSpinBox {
                 font-size: 14px;
@@ -693,6 +708,12 @@ QPushButton#cancel_operation_btn:disabled {
                 color: #f0f0f0;
                 border: 1px solid #4f4f4f;
                 border-radius: 0px;
+            }
+            QListWidget#rename_history_list {
+                background-color: #383838;
+                color: #f0f0f0;
+                border: 1px solid #4f4f4f;
+                border-radius: 4px;
             }
             QListView {
                 font-size: 13px;
@@ -1027,12 +1048,12 @@ QPushButton#cancel_operation_btn:disabled {
                 background-color: transparent;
             }
             QFrame#settings_section_separator {
-                background-color: rgba(0, 0, 0, 0.14);
+                background-color: rgba(0, 0, 0, 0.36);
                 border: none;
                 margin: 0px;
                 padding: 0px;
-                min-height: 1px;
-                max-height: 1px;
+                min-height: 3px;
+                max-height: 3px;
             }
             QWidget#template_params_widget {
                 background-color: #383838;
@@ -1391,6 +1412,12 @@ QPushButton#cancel_operation_btn:disabled {
                 color: #1f2328;
                 border: 1px solid #c7cfda;
                 border-radius: 0px;
+            }
+            QListWidget#rename_history_list {
+                background-color: #ffffff;
+                color: #1f2328;
+                border: 1px solid #c7cfda;
+                border-radius: 4px;
             }
             QListView {
                 font-size: 13px;

@@ -257,6 +257,9 @@ class SettingsPanelMixin:
             except Exception:
                 pass
 
+        self._refresh_rename_history_view()
+        self._update_undo_button()
+
         return page
 
     def create_settings_tab(self):
@@ -310,6 +313,8 @@ class SettingsPanelMixin:
             label = QLabel(text)
             label.setObjectName("settings_page_title")
             setup_standard_form_label(label)
+            label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            label.setFixedHeight(40)
             label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             layout.addWidget(label)
             separator = QFrame()
@@ -317,8 +322,18 @@ class SettingsPanelMixin:
             separator.setFrameShape(QFrame.Shape.HLine)
             separator.setFrameShadow(QFrame.Shadow.Plain)
             separator.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            separator.setFixedHeight(1)
+            separator.setFixedHeight(3)
             layout.addWidget(separator)
+            layout.addSpacing(SPACE_SM)
+
+        def _add_settings_section_divider(layout: QVBoxLayout):
+            divider = QFrame()
+            divider.setObjectName("settings_section_separator")
+            divider.setFrameShape(QFrame.Shape.HLine)
+            divider.setFrameShadow(QFrame.Shadow.Plain)
+            divider.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            divider.setFixedHeight(3)
+            layout.addWidget(divider)
             layout.addSpacing(SPACE_SM)
 
         self.theme_mode_combo = MenuLikeComboBox()
@@ -331,6 +346,7 @@ class SettingsPanelMixin:
         theme_row = self._create_settings_select_row("Тема:", self.theme_mode_combo, label_width=40)
         main_card_layout.addWidget(theme_row)
 
+        _add_settings_section_divider(main_card_layout)
         _add_settings_section_title(main_card_layout, "Поведения")
 
         auto_clear_row, self.auto_clear_checkbox = self._create_settings_checkbox_row(
@@ -348,6 +364,7 @@ class SettingsPanelMixin:
         self.disable_warning_dialogs_checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
         main_card_layout.addWidget(disable_warning_row)
 
+        _add_settings_section_divider(main_card_layout)
         _add_settings_section_title(main_card_layout, "Ярлыки")
 
         desktop_shortcut_row, self.desktop_shortcut_checkbox = self._create_settings_checkbox_row(
@@ -457,6 +474,7 @@ class SettingsPanelMixin:
         logs_card_layout.addWidget(logs_filters_row)
 
         self.logs_view = QPlainTextEdit()
+        self.logs_view.setObjectName("logs_view")
         self.logs_view.setReadOnly(True)
         self.logs_view.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
         self.logs_view.setMaximumBlockCount(self.max_log_lines)

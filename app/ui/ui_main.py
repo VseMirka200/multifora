@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import json
 import os
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -233,6 +234,11 @@ class MultiforaMainWindow(
         self._is_redo_operation = False
         self._pending_undo_entry = None
         self._pending_redo_entry = None
+        self._pending_window_geometry = None
+        self._pending_window_pos = None
+        self._pending_window_size = None
+        self._pending_window_maximized = False
+        self._geometry_restore_applied = False
         self._left_panel = None
         self._right_panel = None
         self._header_compact_mode = None
@@ -275,7 +281,7 @@ class MultiforaMainWindow(
         self.queue_timer.start()
 
         # Устанавливаем флаг, что начальная загрузка завершена
-        self.initial_load_complete = True
+
         QTimer.singleShot(1500, self.check_updates_on_startup)
 
     def _start_word_background_warmup(self):
@@ -570,7 +576,7 @@ class MultiforaMainWindow(
 
     def init_ui(self):
         self.setWindowTitle(APP_WINDOW_TITLE)
-        self.setGeometry(100, 100, 1200, 700)
+        self.resize(1200, 700)
         
         # Центральный виджет
         central = QWidget()
@@ -1042,6 +1048,120 @@ class MultiforaMainWindow(
         self._update_header_compact_mode()
         self._connect_ui_state_autosave()
 
+    def _apply_saved_window_geometry(self):
+        if self._geometry_restore_applied:
+            return
+        self._geometry_restore_applied = True
+
+        geom_hex = getattr(self, "_pending_window_geometry", None)
+        pending_pos = getattr(self, "_pending_window_pos", None)
+        pending_size = getattr(self, "_pending_window_size", None)
+
+        applied_geometry = False
+        if isinstance(geom_hex, str) and geom_hex:
+            try:
+                applied_geometry = bool(self.restoreGeometry(bytes.fromhex(geom_hex)))
+            except Exception as e:
+                _debug_log(f"Ошибка восстановления геометрии окна: {e}")
+
+        if not applied_geometry and isinstance(pending_pos, (list, tuple)) and len(pending_pos) == 2:
+            try:
+                if isinstance(pending_size, (list, tuple)) and len(pending_size) == 2:
+                    self.setGeometry(
+                        int(pending_pos[0]),
+                        int(pending_pos[1]),
+                        int(pending_size[0]),
+                        int(pending_size[1]),
+                    )
+                else:
+                    self.move(int(pending_pos[0]), int(pending_pos[1]))
+                applied_geometry = True
+            except Exception as e:
+                _debug_log(f"Ошибка восстановления позиции/размера окна: {e}")
+
+        if not applied_geometry and not geom_hex and not getattr(self, "_pending_window_maximized", False):
+            self.setGeometry(100, 100, 1200, 700)
+
+        if getattr(self, "_pending_window_maximized", False):
+            try:
+                self.setWindowState(self.windowState() | Qt.WindowState.WindowMaximized)
+            except Exception as e:
+                _debug_log(f"Ошибка восстановления состояния окна: {e}")
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        has_pending_geometry = (
+            getattr(self, "_pending_window_geometry", None)
+            or getattr(self, "_pending_window_pos", None)
+            or getattr(self, "_pending_window_size", None)
+            or getattr(self, "_pending_window_maximized", False)
+        )
+        if has_pending_geometry:
+            QTimer.singleShot(100, self._restore_window_geometry_from_pending)
+        else:
+            QTimer.singleShot(150, lambda: setattr(self, "initial_load_complete", True))
+
+    def _restore_window_geometry_from_pending(self):
+        if self._geometry_restore_applied:
+            return
+        self._geometry_restore_applied = True
+        self._restoring_window_geometry = True
+        try:
+            pending_pos = getattr(self, "_pending_window_pos", None)
+            pending_size = getattr(self, "_pending_window_size", None)
+            pending_geom = getattr(self, "_pending_window_geometry", None)
+
+            settings_path_getter = getattr(self, "get_settings_file_path", None)
+            if callable(settings_path_getter):
+                try:
+                    settings_path = settings_path_getter()
+                    if settings_path and os.path.exists(settings_path):
+                        with open(settings_path, "r", encoding="utf-8") as f:
+                            settings_data = json.load(f)
+                        pending_pos = settings_data.get("window_pos", pending_pos)
+                        pending_size = settings_data.get("window_size", pending_size)
+                        pending_geom = settings_data.get("window_geometry", pending_geom)
+                        if settings_data.get("window_maximized"):
+                            self._pending_window_maximized = True
+                except Exception as e:
+                    _debug_log(f"Error reading window geometry from settings file: {e}")
+
+            applied = False
+            if isinstance(pending_pos, (list, tuple)) and len(pending_pos) == 2:
+                try:
+                    if isinstance(pending_size, (list, tuple)) and len(pending_size) == 2:
+                        self.setGeometry(
+                            int(pending_pos[0]),
+                            int(pending_pos[1]),
+                            int(pending_size[0]),
+                            int(pending_size[1]),
+                        )
+                    else:
+                        self.move(int(pending_pos[0]), int(pending_pos[1]))
+                    applied = True
+                except Exception as e:
+                    _debug_log(f"Error restoring window position/size: {e}")
+
+            if not applied and isinstance(pending_geom, str) and pending_geom:
+                try:
+                    applied = bool(self.restoreGeometry(bytes.fromhex(pending_geom)))
+                except Exception as e:
+                    _debug_log(f"Error restoring window geometry: {e}")
+
+            if not applied and not getattr(self, "_pending_window_maximized", False):
+                try:
+                    self.setGeometry(100, 100, 1200, 700)
+                except Exception:
+                    pass
+
+            if getattr(self, "_pending_window_maximized", False):
+                try:
+                    self.setWindowState(self.windowState() | Qt.WindowState.WindowMaximized)
+                except Exception as e:
+                    _debug_log(f"Error restoring maximized state: {e}")
+        finally:
+            self._restoring_window_geometry = False
+            self.initial_load_complete = True
     def _connect_ui_state_autosave(self):
         if hasattr(self, "tabs"):
             self._safe_connect_signal(
@@ -1336,11 +1456,13 @@ class MultiforaMainWindow(
         except Exception:
             pass
         self._update_drop_zone_controls()
-        self._schedule_settings_save()
+        if not getattr(self, "_restoring_window_geometry", False) and getattr(self, "initial_load_complete", False):
+            self._schedule_settings_save()
 
     def moveEvent(self, event):
         super().moveEvent(event)
-        self._schedule_settings_save()
+        if not getattr(self, "_restoring_window_geometry", False) and getattr(self, "initial_load_complete", False):
+            self._schedule_settings_save()
         
     def update_converter_from_format(self):
         """Обновляет поля конвертации на основе выбранных файлов и категории."""
@@ -1515,3 +1637,10 @@ class MultiforaMainWindow(
         
         if folder:
             self.add_files([folder])
+
+
+
+
+
+
+
