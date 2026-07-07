@@ -1,0 +1,46 @@
+# Logs
+lods/
+logs/
+*.log
+*.log.*
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temp/editor files
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Virtual environments
+.venv/
+venv/
+
+# Test/type/lint caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Coverage
+.coverage
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# IDE/editor settings
+.idea/
+.vscode/
+
+# Local UI assets (generated/temp)
+app/ui/assets/
