@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import os
 
 from PyQt6.QtCore import (
@@ -15,7 +14,18 @@ from PyQt6.QtCore import (
     Qt,
     pyqtSignal,
 )
-from PyQt6.QtGui import QAction, QColor, QFont, QFontMetrics, QIcon, QPainter, QPalette, QPixmap, QPolygonF, QTextOption
+from PyQt6.QtGui import (
+    QAction,
+    QColor,
+    QFont,
+    QFontMetrics,
+    QIcon,
+    QPainter,
+    QPalette,
+    QPixmap,
+    QPolygonF,
+    QTextOption,
+)
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QAbstractSpinBox,
@@ -23,6 +33,7 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
+    QFrame,
     QGroupBox,
     QLabel,
     QLineEdit,
@@ -48,322 +59,20 @@ from app.ui.ui_spacing import (
     HEADER_FIELD_HEIGHT,
     MARGINS_NONE,
     SPACE_NONE,
+    SPACE_XS,
     SPACE_SM,
+    SPACE_MD,
 )
+from app.ui.ui_styles import (
+    MENU_STYLE_DARK,
+    MENU_STYLE_LIGHT,
+    build_standard_field_style,
+)
+from app.core.app_utils import _log_ignored_error
 
-_MENU_STYLE_LIGHT = """
-    QMenu {
-        border: 1px solid #c7cfda;
-        margin: 0px;
-        padding: 0px;
-        border-radius: 0px;
-    }
-    QMenu#menu_like_combo_popup {
-        border-top-left-radius: 0px;
-        border-top-right-radius: 0px;
-        border-bottom-left-radius: 4px;
-        border-bottom-right-radius: 4px;
-    }
-    QMenu#header_dropdown_popup {
-        border-top-left-radius: 0px;
-        border-top-right-radius: 0px;
-        border-bottom-left-radius: 4px;
-        border-bottom-right-radius: 4px;
-    }
-    QMenu::item {
-        padding: 4px 8px;
-        margin: 1px 0px;
-        background-color: transparent;
-    }
-    QMenu::item:hover,
-    QMenu::item:selected {
-        background-color: rgba(61, 116, 179, 0.10);
-        color: #1f2328;
-    }
-    QMenu::separator {
-        height: 1px;
-        background: rgba(0, 0, 0, 0.2);
-    }
-"""
-
-_MENU_STYLE_DARK = """
-    QMenu {
-        background-color: #383838;
-        color: #f0f0f0;
-        border: 1px solid #4f4f4f;
-        margin: 0px;
-        padding: 0px;
-        border-radius: 0px;
-    }
-    QMenu#menu_like_combo_popup {
-        border-top-left-radius: 0px;
-        border-top-right-radius: 0px;
-        border-bottom-left-radius: 4px;
-        border-bottom-right-radius: 4px;
-    }
-    QMenu#header_dropdown_popup {
-        border-top-left-radius: 0px;
-        border-top-right-radius: 0px;
-        border-bottom-left-radius: 4px;
-        border-bottom-right-radius: 4px;
-    }
-    QMenu::item {
-        padding: 4px 8px;
-        margin: 1px 0px;
-        background-color: transparent;
-    }
-    QMenu::item:hover,
-    QMenu::item:selected {
-        background-color: rgba(255, 255, 255, 0.07);
-        color: #f0f0f0;
-    }
-    QMenu::separator {
-        height: 1px;
-        background: rgba(255, 255, 255, 0.18);
-    }
-"""
-
-_STANDARD_RADIUS = 4
-
-
-def _standard_palette(theme: str) -> dict[str, str]:
-    if str(theme).lower() == "light":
-        return {
-            "bg": "#ffffff",
-            "fg": "#1f2328",
-            "border": "#c7cfda",
-            "hover_border": "#aab5c3",
-            "hover_bg": "#f8fafc",
-            "disabled_bg": "#f2f4f7",
-            "disabled_fg": "#8b949e",
-            "disabled_border": "#d6dbe2",
-            "placeholder": "#6f7785",
-        }
-    return {
-        "bg": "#383838",
-        "fg": "#f0f0f0",
-        "border": "#4f4f4f",
-        "hover_border": "#4f4f4f",
-        "hover_bg": "#383838",
-        "disabled_bg": "#3d3d3d",
-        "disabled_fg": "#a8a8a8",
-        "disabled_border": "#5a5a5a",
-        "placeholder": "#9aa3ad",
-    }
-
-
-def _build_standard_field_style(theme: str, kind: str) -> str:
-    p = _standard_palette(theme)
-    if kind == "line":
-        return f"""
-            QLineEdit {{
-                padding: 3px;
-                min-height: {FIELD_HEIGHT}px;
-                max-height: {FIELD_HEIGHT}px;
-                background-color: {p["bg"]};
-                color: {p["fg"]};
-                border: 1px solid {p["border"]};
-                border-radius: {_STANDARD_RADIUS}px;
-            }}
-            QLineEdit::placeholder {{
-                color: {p["placeholder"]};
-            }}
-        """
-    if kind == "textedit":
-        return f"""
-            QTextEdit {{
-                padding: 3px;
-                min-height: {FIELD_HEIGHT}px;
-                background-color: {p["bg"]};
-                color: {p["fg"]};
-                border: 1px solid {p["border"]};
-                border-radius: {_STANDARD_RADIUS}px;
-            }}
-            QTextEdit::placeholder {{
-                color: {p["placeholder"]};
-            }}
-        """
-    if kind == "spin":
-        return f"""
-            QSpinBox,
-            QDoubleSpinBox,
-            QAbstractSpinBox,
-            QDateEdit,
-            QTimeEdit,
-            QDateTimeEdit {{
-                padding: 3px;
-                min-height: {FIELD_HEIGHT}px;
-                max-height: {FIELD_HEIGHT}px;
-                background-color: {p["bg"]};
-                color: {p["fg"]};
-                border: 1px solid {p["border"]};
-                border-radius: {_STANDARD_RADIUS}px;
-            }}
-            QSpinBox QLineEdit,
-            QDoubleSpinBox QLineEdit,
-            QAbstractSpinBox QLineEdit,
-            QDateEdit QLineEdit,
-            QTimeEdit QLineEdit,
-            QDateTimeEdit QLineEdit {{
-                background-color: {p["bg"]};
-                color: {p["fg"]};
-                border: none;
-                border-radius: {_STANDARD_RADIUS}px;
-            }}
-            QSpinBox::up-button,
-            QSpinBox::down-button,
-            QDoubleSpinBox::up-button,
-            QDoubleSpinBox::down-button {{
-                background-color: {p["bg"]};
-                border: none;
-            }}
-        """
-    if kind == "combo":
-        return f"""
-            QComboBox {{
-                padding: 3px;
-                min-height: {FIELD_HEIGHT}px;
-                max-height: {FIELD_HEIGHT}px;
-                background-color: {p["bg"]};
-                color: {p["fg"]};
-                border: 1px solid {p["border"]};
-                border-radius: {_STANDARD_RADIUS}px;
-                text-align: left;
-            }}
-            QComboBox::drop-down {{
-                background-color: {p["bg"]};
-                border-left: 1px solid {p["border"]};
-                border-top-right-radius: {_STANDARD_RADIUS}px;
-                border-bottom-right-radius: {_STANDARD_RADIUS}px;
-            }}
-            QComboBox:on {{
-                border-bottom-left-radius: 0px;
-                border-bottom-right-radius: 0px;
-            }}
-            QComboBox:on::drop-down {{
-                border-bottom-right-radius: 0px;
-            }}
-            QComboBox:hover {{
-                border: 1px solid {p["hover_border"]};
-            }}
-            QComboBox QAbstractItemView,
-            QComboBox QListView,
-            QComboBox QListView::viewport {{
-                background-color: {p["bg"]};
-                color: {p["fg"]};
-                border: 1px solid {p["border"]};
-                border-top-left-radius: 0px;
-                border-top-right-radius: 0px;
-                border-bottom-left-radius: {_STANDARD_RADIUS}px;
-                border-bottom-right-radius: {_STANDARD_RADIUS}px;
-                outline: 0px;
-                margin: 0px;
-                padding: 0px;
-            }}
-            QComboBox QAbstractItemView::item {{
-                padding: 4px 8px;
-                margin: 0px;
-                background-color: transparent;
-                color: {p["fg"]};
-            }}
-            QComboBox QAbstractItemView::item:selected {{
-                background-color: #3d74b3;
-                color: #ffffff;
-            }}
-        """
-    if kind == "menu":
-        return f"""
-            QToolButton#menu_like_combo {{
-                font-size: 14px;
-                padding: 3px;
-                min-height: {FIELD_HEIGHT}px;
-                max-height: {FIELD_HEIGHT}px;
-                background-color: {p["bg"]};
-                color: {p["fg"]};
-                border: 1px solid {p["border"]};
-                border-radius: {_STANDARD_RADIUS}px;
-                text-align: left;
-                padding-left: 6px;
-            }}
-            QToolButton#menu_like_combo[menuOpen="true"] {{
-                border-bottom-left-radius: 0px;
-                border-bottom-right-radius: 0px;
-            }}
-            QToolButton#menu_like_combo::menu-indicator {{
-                subcontrol-origin: padding;
-                subcontrol-position: right center;
-                right: 6px;
-            }}
-            QToolButton#menu_like_combo:hover {{
-                border: 1px solid {p["hover_border"]};
-                background-color: {p["hover_bg"]};
-            }}
-            QToolButton#menu_like_combo:disabled {{
-                color: {p["disabled_fg"]};
-                background-color: {p["disabled_bg"]};
-                border: 1px solid {p["disabled_border"]};
-            }}
-        """
-    if kind == "header":
-        return f"""
-            QToolButton#header_cell_tl,
-            QToolButton#header_cell_tr,
-            QToolButton#header_cell_bl {{
-                font-size: 14px;
-                padding: 3px;
-                padding-left: 8px;
-                min-height: {HEADER_FIELD_HEIGHT}px;
-                max-height: {HEADER_FIELD_HEIGHT}px;
-                background-color: {p["bg"]};
-                color: {p["fg"]};
-                border: 1px solid {p["border"]};
-                border-radius: {_STANDARD_RADIUS}px;
-                text-align: left;
-            }}
-            QToolButton#header_cell_tl[menuOpen="true"],
-            QToolButton#header_cell_tr[menuOpen="true"],
-            QToolButton#header_cell_bl[menuOpen="true"] {{
-                border-bottom-left-radius: 0px;
-                border-bottom-right-radius: 0px;
-            }}
-            QLineEdit#header_cell_br {{
-                font-size: 14px;
-                padding: 3px;
-                min-height: {HEADER_FIELD_HEIGHT}px;
-                max-height: {HEADER_FIELD_HEIGHT}px;
-                background-color: {p["bg"]};
-                color: {p["fg"]};
-                border: 1px solid {p["border"]};
-                border-radius: {_STANDARD_RADIUS}px;
-            }}
-            QToolButton#header_cell_tl::menu-indicator,
-            QToolButton#header_cell_tr::menu-indicator,
-            QToolButton#header_cell_bl::menu-indicator {{
-                subcontrol-origin: padding;
-                subcontrol-position: right center;
-                right: 6px;
-            }}
-            QToolButton#header_cell_tl:pressed,
-            QToolButton#header_cell_tr:pressed,
-            QToolButton#header_cell_bl:pressed {{
-                background-color: {p["bg"]};
-            }}
-        """
-    if kind == "surface":
-        return f"""
-            QAbstractItemView#files_list,
-            QListWidget#files_list,
-            QListView#files_list {{
-                background-color: {p["bg"]};
-                color: {p["fg"]};
-                border: 1px solid {p["border"]};
-                border-radius: {_STANDARD_RADIUS}px;
-                outline: 0px;
-                margin: 0px;
-                padding: 0px;
-            }}
-        """
-    return ""
+_MENU_STYLE_LIGHT = MENU_STYLE_LIGHT
+_MENU_STYLE_DARK = MENU_STYLE_DARK
+_build_standard_field_style = build_standard_field_style
 
 
 def _build_standard_button_style(theme: str, role: str) -> str:
@@ -414,32 +123,6 @@ def _build_standard_button_style(theme: str, role: str) -> str:
     """
 
 
-def _build_field_like_button_style(theme: str) -> str:
-    p = _standard_palette(theme)
-    return f"""
-        QPushButton {{
-            background-color: {p["bg"]};
-            color: {p["fg"]};
-            border: 1px solid {p["border"]};
-            border-radius: {_STANDARD_RADIUS}px;
-            padding: 3px 8px;
-            min-height: {FIELD_HEIGHT}px;
-            max-height: {FIELD_HEIGHT}px;
-            text-align: center;
-        }}
-        QPushButton:hover {{
-            background-color: {p["hover_bg"]};
-            border: 1px solid {p["hover_border"]};
-        }}
-        QPushButton:pressed {{
-            background-color: {p["hover_bg"]};
-        }}
-        QPushButton:disabled {{
-            background-color: {p["disabled_bg"]};
-            color: {p["disabled_fg"]};
-            border: 1px solid {p["disabled_border"]};
-        }}
-    """
 
 
 def apply_standard_field_style(widget):
@@ -458,8 +141,8 @@ def apply_standard_field_style(widget):
             view.setItemDelegate(ComboPopupItemDelegate(widget))
             view.setStyleSheet(_MENU_STYLE_LIGHT if theme == "light" else _MENU_STYLE_DARK)
             widget.setView(view)
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("apply_standard_field_style", error)
         return widget
     if isinstance(widget, QAbstractSpinBox):
         widget.setStyleSheet(_build_standard_field_style(theme, "spin"))
@@ -500,8 +183,8 @@ def refresh_standard_field_styles(root: QWidget):
         for widget in root.findChildren(QAbstractItemView):
             if widget.objectName() == "files_list":
                 apply_standard_field_style(widget)
-    except Exception:
-        pass
+    except Exception as error:
+        _log_ignored_error("refresh_standard_field_styles", error)
     return root
 
 
@@ -512,8 +195,8 @@ def refresh_standard_surface_styles(root: QWidget):
         for widget in root.findChildren(QAbstractItemView):
             if widget.objectName() == "files_list":
                 apply_standard_field_style(widget)
-    except Exception:
-        pass
+    except Exception as error:
+        _log_ignored_error("refresh_standard_surface_styles", error)
     return root
 
 
@@ -546,8 +229,8 @@ def _resolve_widget_theme_mode(widget) -> str:
                 if mode in ("light", "dark"):
                     return mode
                 parent = parent.parent() if hasattr(parent, "parent") else None
-    except Exception:
-        pass
+    except Exception as error:
+        _log_ignored_error("_resolve_widget_theme_mode", error)
     return "dark"
 
 
@@ -557,8 +240,8 @@ def _refresh_widget_style(widget: QWidget) -> None:
         widget.style().unpolish(widget)
         widget.style().polish(widget)
         widget.update()
-    except Exception:
-        pass
+    except Exception as error:
+        _log_ignored_error("_refresh_widget_style", error)
 
 
 class AutoHeightTextEdit(QTextEdit):
@@ -609,7 +292,12 @@ class ComboPopupItemDelegate(QStyledItemDelegate):
 
 
 def setup_standard_dropdown(widget, *, fixed_width: int | None = None):
-    height = HEADER_FIELD_HEIGHT if getattr(widget, "objectName", lambda: "")() in {"header_cell_tl", "header_cell_tr", "header_cell_bl"} else FIELD_HEIGHT
+    header_fields = {"header_cell_tl", "header_cell_tr", "header_cell_bl"}
+    height = (
+        HEADER_FIELD_HEIGHT
+        if getattr(widget, "objectName", lambda: "")() in header_fields
+        else FIELD_HEIGHT
+    )
     widget.setFixedHeight(height)
     widget.setMinimumWidth(0)
     if fixed_width is not None:
@@ -633,8 +321,8 @@ def setup_standard_dropdown(widget, *, fixed_width: int | None = None):
             line_edit.setReadOnly(True)
             line_edit.setAlignment(Qt.AlignmentFlag.AlignLeft)
             line_edit.setFont(widget.font())
-    except Exception:
-        pass
+    except Exception as error:
+        _log_ignored_error("setup_standard_dropdown", error)
 
     try:
         view = QListView(widget)
@@ -642,8 +330,8 @@ def setup_standard_dropdown(widget, *, fixed_width: int | None = None):
         view.setUniformItemSizes(True)
         view.setItemDelegate(ComboPopupItemDelegate(widget))
         widget.setView(view)
-    except Exception:
-        pass
+    except Exception as error:
+        _log_ignored_error("setup_standard_dropdown", error)
 
     apply_standard_field_style(widget)
 
@@ -671,8 +359,8 @@ def setup_standard_spin_input(widget, *, fixed_width: int | None = None):
         line_edit = widget.lineEdit()
         if line_edit is not None:
             line_edit.setAlignment(Qt.AlignmentFlag.AlignLeft)
-    except Exception:
-        pass
+    except Exception as error:
+        _log_ignored_error("setup_standard_spin_input", error)
     if fixed_width is not None:
         widget.setFixedWidth(fixed_width)
         widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
@@ -793,13 +481,13 @@ def get_russian_text_input(parent, *, title: str, label: str, text: str = "") ->
     dialog = QDialog(parent)
     try:
         dialog._effective_theme_mode = getattr(parent, "_effective_theme_mode", "dark")
-    except Exception:
-        pass
+    except Exception as error:
+        _log_ignored_error("get_russian_text_input", error)
     setup_standard_dialog(dialog, title=title, min_width=380)
     try:
         dialog.setStyleSheet(parent.styleSheet())
-    except Exception:
-        pass
+    except Exception as error:
+        _log_ignored_error("get_russian_text_input", error)
 
     layout = QVBoxLayout(dialog)
     layout.setContentsMargins(10, 6, 10, 6)
@@ -927,7 +615,7 @@ class ExpandableGroupBox(QGroupBox):
                 self.content_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
         else:
             self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            # Collapse to header height so the closed group does not leave an empty gap.
+            # В свёрнутом виде оставляем только заголовок, иначе layout сохраняет пустой зазор.
             self.setMinimumHeight(header_h)
             self.setMaximumHeight(header_h)
             self.resize(self.width(), header_h)
@@ -976,7 +664,7 @@ class ExpandableGroupBox(QGroupBox):
         self._content_animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
         self._content_animation.valueChanged.connect(lambda _v: self._refresh_parent_layouts())
         self._content_animation.finished.connect(self._on_content_animation_finished)
-        # Lock the correct height right after widget assembly so resizing stays stable.
+        # Фиксируем собранную высоту, чтобы дальнейшее изменение окна не растягивало группу.
         self._apply_size_policy()
 
     def _target_content_height(self) -> int:
@@ -1007,15 +695,15 @@ class ExpandableGroupBox(QGroupBox):
         if animated and self._content_animation is not None:
             self._is_animating = True
             self.content_widget.setVisible(True)
-            # Clear any previously forced height so animation can interpolate smoothly.
+            # Перед анимацией снимаем ограничение, иначе высота не сможет плавно изменяться.
             self.content_widget.setMinimumHeight(0)
             self.content_widget.setMaximumHeight(16777215)
             self._apply_size_policy()
             try:
                 self._content_animation.stop()
-            except Exception:
-                pass
-            # Use current rendered height as animation start; maximumHeight can be 16777215.
+            except Exception as error:
+                _log_ignored_error("ExpandableGroupBox._set_expanded_state", error)
+            # Берём фактическую высоту: maximumHeight может содержать служебное значение 16777215.
             start_h = max(0, int(self.content_widget.height()))
             self._content_animation.setStartValue(start_h)
             self._content_animation.setEndValue(target_h)
@@ -1065,8 +753,8 @@ class ExpandableGroupBox(QGroupBox):
                     lay.invalidate()
                     lay.activate()
                 parent.updateGeometry()
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("ExpandableGroupBox._refresh_parent_layouts", error)
             parent = parent.parentWidget()
 
 
@@ -1099,7 +787,7 @@ class ToggleSwitch(QCheckBox):
         track_y = (self.height() - self._track_h) // 2
         track_rect = QRectF(track_x, track_y, self._track_w, self._track_h)
 
-        theme = self._resolve_theme_mode()
+        theme = _resolve_widget_theme_mode(self)
 
         if not self.isEnabled():
             track_color = QColor("#555d64")
@@ -1131,12 +819,15 @@ class ToggleSwitch(QCheckBox):
         p.setBrush(thumb_color)
         p.drawEllipse(QPointF(thumb_cx, thumb_cy), self._thumb_r, self._thumb_r)
 
-        text_rect = QRect(self._track_w + self._gap, 0, max(0, self.width() - self._track_w - self._gap), self.height())
+        text_rect = QRect(
+            self._track_w + self._gap,
+            0,
+            max(0, self.width() - self._track_w - self._gap),
+            self.height(),
+        )
         p.setPen(text_color)
         p.drawText(text_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), self.text())
 
-    def _resolve_theme_mode(self) -> str:
-        return _resolve_widget_theme_mode(self)
 
 
 class MenuLikeComboBox(QToolButton):
@@ -1179,8 +870,6 @@ class MenuLikeComboBox(QToolButton):
         self.setProperty("menuOpen", False)
         _refresh_widget_style(self)
 
-    def _resolve_theme_mode(self) -> str:
-        return _resolve_widget_theme_mode(self)
 
     def paintEvent(self, event):
         option = QStyleOptionToolButton()
@@ -1312,13 +1001,6 @@ class FileListModel(QAbstractListModel):
         super().__init__(parent)
         self._files = []
 
-    @staticmethod
-    def _truncate_to_half(text: str) -> str:
-        text = str(text or "")
-        if len(text) <= 40:
-            return text
-        keep = max(20, len(text) // 2)
-        return f"{text[:keep]}…"
 
     @staticmethod
     def _full_display_name(file_item) -> str:
@@ -1332,20 +1014,7 @@ class FileListModel(QAbstractListModel):
     def _original_display_name(file_item) -> str:
         return f"{file_item.get_icon()} {file_item.name}"
 
-    @staticmethod
-    def _preview_display_name(file_item) -> str:
-        preview_name = getattr(file_item, "preview_name", None)
-        if preview_name and preview_name != file_item.name:
-            return f"{file_item.get_icon()} {file_item.name} -> {preview_name}"
-        return f"{file_item.get_icon()} {file_item.name}"
 
-    @classmethod
-    def _short_display_name(cls, file_item) -> str:
-        display_name = file_item.name
-        preview_name = getattr(file_item, "preview_name", None)
-        if preview_name and preview_name != file_item.name:
-            display_name = f"{file_item.name} -> {preview_name}"
-        return f"{file_item.get_icon()} {cls._truncate_to_half(display_name)}"
 
     def rowCount(self, parent=QModelIndex()):
         if parent.isValid():
@@ -1735,6 +1404,80 @@ class ClickableLabel(QLabel):
         super().mouseReleaseEvent(event)
 
 
+class DropActionTile(QFrame):
+    clicked = pyqtSignal()
+
+    def __init__(self, icon: QIcon, text: str, parent=None):
+        super().__init__(parent)
+        self.setObjectName("drop_action_tile")
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedSize(144, 132)
+        self._theme = "dark"
+        self._apply_theme_style()
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(SPACE_XS, SPACE_XS, SPACE_XS, SPACE_XS)
+        layout.setSpacing(SPACE_MD)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        icon_label = QLabel()
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_label.setPixmap(icon.pixmap(QSize(48, 48)))
+        icon_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        layout.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignHCenter)
+
+        self.text_label = QLabel(text)
+        self.text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.text_label.setStyleSheet('font-family: "Segoe UI"; font-size: 12px; font-weight: 600;')
+        self.text_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        layout.addWidget(self.text_label, 0, Qt.AlignmentFlag.AlignHCenter)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def set_theme_mode(self, mode: str):
+        self._theme = "light" if str(mode).lower() == "light" else "dark"
+        self._apply_theme_style()
+
+    def _apply_theme_style(self):
+        if self._theme == "light":
+            self.setStyleSheet(
+                "QFrame#drop_action_tile {"
+                "background-color: transparent;"
+                "border: 2px dashed rgba(90, 100, 110, 170);"
+                "border-radius: 12px;"
+                "}"
+                "QFrame#drop_action_tile:hover {"
+                "border-color: rgba(61,116,179,220);"
+                "background-color: rgba(61,116,179,18);"
+                "}"
+            )
+            if hasattr(self, "text_label"):
+                self.text_label.setStyleSheet(
+                    'font-family: "Segoe UI"; font-size: 12px; font-weight: 600; color: #1f2328;'
+                )
+        else:
+            self.setStyleSheet(
+                "QFrame#drop_action_tile {"
+                "background-color: transparent;"
+                "border: 2px dashed rgba(255,255,255,120);"
+                "border-radius: 12px;"
+                "}"
+                "QFrame#drop_action_tile:hover {"
+                "border-color: rgba(255,255,255,210);"
+                "background-color: rgba(255,255,255,24);"
+                "}"
+            )
+            if hasattr(self, "text_label"):
+                self.text_label.setStyleSheet(
+                    'font-family: "Segoe UI"; font-size: 12px; font-weight: 600; color: #f0f0f0;'
+                )
+
+
 class LoggingStatusBar(QStatusBar):
     messageLogged = pyqtSignal(str)
 
@@ -1746,6 +1489,7 @@ class LoggingStatusBar(QStatusBar):
 
 __all__ = [
     "ClickableLabel",
+    "DropActionTile",
     "ExpandableGroupBox",
     "FileListItemAdapter",
     "FileListModel",

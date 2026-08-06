@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
@@ -193,11 +192,9 @@ class OperationsTabLayoutMixin:
         self.operations_tab_bar.currentChanged.connect(self._on_operations_tab_changed)
         tab_layout.addWidget(self.operations_stack)
         
-        # Секция 1: Переименование (карточка)
         rename_card, rename_layout = self._create_operation_card()
         rename_layout.setContentsMargins(SPACE_SM, SPACE_NONE, SPACE_NONE, SPACE_NONE)
         
-        # Шаблоны переименования
         self.combo_templates = MenuLikeComboBox()
         self.combo_templates.setProperty("renameTemplateField", True)
         self.combo_templates.currentTextChanged.connect(self.on_template_selected)
@@ -205,7 +202,6 @@ class OperationsTabLayoutMixin:
         self._add_labeled_field(rename_layout, "Шаблон:", self.combo_templates)
         rename_layout.addSpacing(SPACE_SM)
         
-        # Виджет для параметров шаблона
         self.template_params_widget = QWidget()
         self.template_params_widget.setObjectName("template_params_widget")
         self.template_params_widget.setVisible(False)
@@ -228,11 +224,9 @@ class OperationsTabLayoutMixin:
 
         self._add_operations_page(self._wrap_operations_page(rename_card, "rename_page"), "Переименование")
 
-        # Секция 2: Конвертация документов (карточка)
         convert_card, convert_layout = self._create_operation_card()
         convert_layout.setContentsMargins(SPACE_SM, SPACE_NONE, SPACE_NONE, SPACE_NONE)
 
-        # Поле: Тип конвертируемых файлов
         self.convert_file_type_combo = MenuLikeComboBox()
         self.convert_file_type_combo.addItems(["Выберите тип файла:", *CONVERSION_CATEGORIES])
         setup_standard_dropdown(self.convert_file_type_combo)
@@ -240,14 +234,12 @@ class OperationsTabLayoutMixin:
         self.convert_file_type_combo.currentIndexChanged.connect(self.update_convert_button_state)
         self._add_labeled_field(convert_layout, "Тип файла:", self.convert_file_type_combo)
         
-        # Первое поле: Что конвертировать
         self.from_convert_combo = MenuLikeComboBox()
         self.from_convert_combo.addItem("Выберите исходный формат:")
         setup_standard_dropdown(self.from_convert_combo)
         self.from_convert_combo.currentIndexChanged.connect(self.update_to_combo_based_on_from)
         self._add_labeled_field(convert_layout, "Конвертировать из:", self.from_convert_combo)
         
-        # Второе поле: Во что конвертировать
         self.to_convert_combo = MenuLikeComboBox()
         self.to_convert_combo.addItem("Выберите целевой формат:")
         setup_standard_dropdown(self.to_convert_combo)
@@ -256,7 +248,6 @@ class OperationsTabLayoutMixin:
         self._add_labeled_field(convert_layout, "Конвертировать в:", self.to_convert_combo)
         convert_layout.addSpacing(SPACE_SM)
         
-        # Кнопка конвертации на всю ширину
         self.btn_convert = QPushButton("Конвертировать")
         setup_standard_primary_button(self.btn_convert, height=28)
         self.btn_convert.clicked.connect(self.convert_files_dual_combo)
@@ -265,7 +256,6 @@ class OperationsTabLayoutMixin:
 
         self._add_operations_page(self._wrap_operations_page(convert_card, "convert_page"), "Конвертация")
 
-        # Секция 3: Объединение документов (карточка)
         merge_card, merge_layout = self._create_operation_card()
         merge_layout.setContentsMargins(SPACE_SM, SPACE_NONE, SPACE_NONE, SPACE_NONE)
 
@@ -300,11 +290,9 @@ class OperationsTabLayoutMixin:
 
         self._add_operations_page(self._wrap_operations_page(merge_card, "merge_page"), "Объединение")
 
-        # Секция 4: Сжатие файлов (карточка)
         compress_card, compress_layout = self._create_operation_card(align_top=True)
         compress_layout.setContentsMargins(SPACE_SM, SPACE_NONE, SPACE_NONE, SPACE_NONE)
         
-        # Выбор типа сжатия
         self.combo_compress_type = MenuLikeComboBox()
         self.combo_compress_type.addItems(["Изображения", "PDF документы"])
         setup_standard_dropdown(self.combo_compress_type)
@@ -315,7 +303,6 @@ class OperationsTabLayoutMixin:
         self.compress_mode_stack.setContentsMargins(*MARGINS_NONE)
         self.compress_mode_stack.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
-        # Для PDF: выбор метода сжатия
         self.pdf_mode_widget = QWidget()
         pdf_mode_layout = QVBoxLayout(self.pdf_mode_widget)
         pdf_mode_layout.setSpacing(SPACE_NONE)
@@ -352,7 +339,6 @@ class OperationsTabLayoutMixin:
         pdf_mode_layout.addWidget(self.pdf_method_widget)
         pdf_mode_layout.addWidget(self.replace_pdf_row)
 
-        # Уровень сжатия (только для изображений)
         self.image_mode_widget = QWidget()
         image_mode_layout = QVBoxLayout(self.image_mode_widget)
         image_mode_layout.setContentsMargins(*MARGINS_NONE)
@@ -391,7 +377,6 @@ class OperationsTabLayoutMixin:
         self.compress_mode_stack.setCurrentWidget(self.image_mode_widget)
         self.compress_mode_stack.setFixedHeight(self.image_mode_widget.sizeHint().height())
         compress_layout.addWidget(self.compress_mode_stack)
-        # Кнопка сжатия
         self.btn_compress = QPushButton("Сжать файлы")
         setup_standard_primary_button(self.btn_compress, height=28)
         self.btn_compress.clicked.connect(self.compress_files)
@@ -399,14 +384,12 @@ class OperationsTabLayoutMixin:
         compress_layout.addSpacing(SPACE_SM)
         compress_layout.addWidget(self.btn_compress)
 
-        # Советы по сжатию
         self.compress_tips_label = QLabel()
         self.compress_tips_label = self._create_operation_hint_label("")
         self.compress_tips_label.setWordWrap(True)
         self.compress_tips_label.setVisible(False)
         compress_layout.addWidget(self.compress_tips_label)
 
-        # Информация о требованиях (только для PDF)
         self.compress_info_label = QLabel()
         self.compress_info_label = self._create_operation_hint_label("")
         self.compress_info_label.setWordWrap(True)
@@ -414,7 +397,6 @@ class OperationsTabLayoutMixin:
         self.compress_info_label.setMaximumHeight(0)
         compress_layout.addWidget(self.compress_info_label)
 
-        # Обновляем информацию о требованиях
         self.on_compress_type_changed(self.combo_compress_type.currentText())
 
         self._add_operations_page(self._wrap_operations_page(compress_card, "compress_page"), "Сжатие")

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from datetime import datetime
 
 from PyQt6.QtCore import QModelIndex, QTimer, Qt, QSize
@@ -26,6 +25,7 @@ from app.ui.ui_components import (
     setup_standard_dialog,
 )
 from app.ui.ui_spacing import MARGINS_NONE, SPACE_NONE
+from app.core.app_utils import _log_ignored_error
 
 
 class TemplateCrudMixin:
@@ -65,8 +65,8 @@ class TemplateCrudMixin:
                     if str(item_text).strip().casefold() == normalized_name:
                         index = idx
                         break
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("TemplateCrudMixin.restore_template_session_state", error)
         if index < 0:
             return
 
@@ -256,8 +256,8 @@ class TemplateCrudMixin:
                     self.templates_table.selectRow(row)
                     self.templates_table.setCurrentCell(row, 0)
                     break
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("TemplateCrudMixin._rename_selected_template", error)
         self.status_bar.showMessage(f"Шаблон переименован: {template_name} -> {new_name}")
 
     def _show_templates_context_menu(self, pos, parent_window=None):
@@ -273,8 +273,8 @@ class TemplateCrudMixin:
         menu = QMenu(self.templates_table)
         try:
             menu._effective_theme_mode = getattr(self, "_effective_theme_mode", "dark")
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("TemplateCrudMixin._show_templates_context_menu", error)
         apply_standard_menu_style(menu)
 
         action_apply = menu.addAction("Применить")
@@ -570,8 +570,8 @@ class TemplateCrudMixin:
         setup_standard_dialog(dialog, title="Управление шаблонами")
         try:
             dialog.setStyleSheet(self.styleSheet())
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("TemplateCrudMixin.show_template_manager", error)
         
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(*MARGINS_NONE)

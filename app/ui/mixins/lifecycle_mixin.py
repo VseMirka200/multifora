@@ -6,6 +6,7 @@ import app.core.settings as app_settings
 from app.core.app_ipc import _delete_ipc_token
 from app.core.message_boxes import tune_message_box_layout
 from app.ui.ui_components import setup_standard_danger_button, setup_standard_secondary_button
+from app.core.app_utils import _log_ignored_error
 
 
 class LifecycleMixin:
@@ -115,8 +116,8 @@ class LifecycleMixin:
         if hasattr(self, "_settings_save_timer") and self._settings_save_timer is not None:
             try:
                 self._settings_save_timer.stop()
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("LifecycleMixin.closeEvent", error)
         self._force_settings_save = True
         self.save_settings()
         self._force_settings_save = False

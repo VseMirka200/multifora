@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QMessageBox
@@ -75,7 +74,10 @@ class ConversionActionsMixin:
     def update_convert_button_state(self):
         """Обновляет состояние кнопки конвертации."""
         category_selected = self._selected_convert_category()
-        from_selected = getattr(self, "from_convert_combo", None) is not None and self.from_convert_combo.currentIndex() > 0
+        from_selected = (
+            getattr(self, "from_convert_combo", None) is not None
+            and self.from_convert_combo.currentIndex() > 0
+        )
         to_selected = getattr(self, "to_convert_combo", None) is not None and self.to_convert_combo.currentIndex() > 0
         has_files = bool(getattr(self, "list_files", None) and self.list_files.selectedItems())
 

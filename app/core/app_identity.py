@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Centralized application names used by UI and build metadata."""
 
 APP_TECHNICAL_NAME = "Multifora"

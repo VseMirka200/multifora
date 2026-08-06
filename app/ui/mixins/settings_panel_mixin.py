@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 import concurrent.futures
 
@@ -46,6 +45,7 @@ from app.ui.ui_spacing import (
     SPACE_NONE,
     SPACE_SM,
 )
+from app.core.app_utils import _log_ignored_error
 
 
 class SettingsPanelMixin:
@@ -187,8 +187,8 @@ class SettingsPanelMixin:
         self.log_event("Открыта панель настроек")
         try:
             self.load_logs_into_view()
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("SettingsPanelMixin.show_settings_modal", error)
         if hasattr(self, "settings_nav") and self.settings_nav is not None:
             target_row = getattr(self, "_pending_settings_nav_row", self.settings_nav.currentRow())
             if not isinstance(target_row, int) or target_row < 0 or target_row >= self.settings_nav.count():
@@ -248,14 +248,24 @@ class SettingsPanelMixin:
             settings_stack.addWidget(page)
 
         settings_nav = getattr(self, "settings_nav", None)
-        if settings_nav is not None and settings_nav.findItems("История переименований", Qt.MatchFlag.MatchExactly) == []:
+        history_items = (
+            settings_nav.findItems("История переименований", Qt.MatchFlag.MatchExactly)
+            if settings_nav is not None
+            else []
+        )
+        if settings_nav is not None and not history_items:
             settings_nav.addItem("История переименований")
             try:
                 item = settings_nav.item(settings_nav.count() - 1)
                 if item is not None:
-                    item.setSizeHint(QSize(self._settings_nav_base_width, getattr(self, "_settings_nav_item_height", 36)))
-            except Exception:
-                pass
+                    item.setSizeHint(
+                QSize(
+                    self._settings_nav_base_width,
+                    getattr(self, "_settings_nav_item_height", 36),
+                )
+            )
+            except Exception as error:
+                _log_ignored_error("SettingsPanelMixin._ensure_rename_history_settings_page", error)
 
         self._refresh_rename_history_view()
         self._update_undo_button()
@@ -294,7 +304,9 @@ class SettingsPanelMixin:
             item.setFont(nav_font)
             item.setSizeHint(QSize(self._settings_nav_base_width, self._settings_nav_item_height))
             self.settings_nav.addItem(item)
-        self.settings_nav.verticalScrollBar().rangeChanged.connect(lambda _min, _max: self._update_settings_nav_width())
+        self.settings_nav.verticalScrollBar().rangeChanged.connect(
+            lambda _min, _max: self._update_settings_nav_width()
+        )
         nav_container = QWidget()
         nav_layout = QVBoxLayout(nav_container)
         nav_layout.setContentsMargins(*MARGINS_NONE)
@@ -485,8 +497,8 @@ class SettingsPanelMixin:
         self.logs_view.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         try:
             self.logs_view.setFont(QFont("Consolas", 13))
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("SettingsPanelMixin.create_settings_tab", error)
         logs_card_layout.addWidget(self.logs_view, 1)
 
         self.load_logs_into_view()
@@ -506,8 +518,8 @@ class SettingsPanelMixin:
         mode = "system"
         try:
             mode = self.theme_mode_combo.currentData() or "system"
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("SettingsPanelMixin._on_theme_mode_changed", error)
         self.apply_theme_mode(mode)
         self._schedule_settings_save()
 
@@ -595,8 +607,8 @@ class SettingsPanelMixin:
         try:
             if hasattr(self, "auto_update_check_checkbox") and self.auto_update_check_checkbox.isChecked():
                 self._start_update_check(silent=True)
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("SettingsPanelMixin.check_updates_on_startup", error)
 
     def _start_update_check(self, silent: bool = False):
         if getattr(self, "_update_future", None) and not self._update_future.done():

@@ -13,6 +13,7 @@ CATEGORY_FILE_TYPES = {
     "Видео": "video",
     "Звуки": "audio",
 }
+_FILE_TYPE_CATEGORIES = {file_type: category for category, file_type in CATEGORY_FILE_TYPES.items()}
 
 CATEGORY_FORMATS = {
     "Документы": ("DOCX", "PDF", "ODT"),
@@ -21,8 +22,7 @@ CATEGORY_FORMATS = {
     "Звуки": ("MP3", "WAV", "OGG", "FLAC", "AAC", "M4A", "WMA"),
 }
 
-# DOC is intentionally grouped with DOCX because the conversion backends handle it
-# as a Word document and the UI exposes one common source format.
+# DOC относится к DOCX: интерфейс и конвертер обрабатывают оба расширения как Word-документы.
 FORMAT_EXTENSIONS = {
     "DOCX": (".doc", ".docx"),
     "PDF": (".pdf",),
@@ -50,14 +50,31 @@ FORMAT_EXTENSIONS = {
     "M4A": (".m4a",),
     "WMA": (".wma",),
 }
+_EXTENSION_FORMATS = {
+    extension: format_label
+    for format_label, extensions in FORMAT_EXTENSIONS.items()
+    for extension in extensions
+}
+
+
+def _extensions_for_formats(format_labels) -> tuple[str, ...]:
+    return tuple(
+        extension
+        for format_label in format_labels
+        for extension in FORMAT_EXTENSIONS[format_label]
+    )
+
 
 FILE_TYPE_EXTENSIONS = {
-    "document": frozenset((".txt", ".rtf", *FORMAT_EXTENSIONS["DOCX"], *FORMAT_EXTENSIONS["PDF"], *FORMAT_EXTENSIONS["ODT"])),
-    "image": frozenset(),
-    "video": frozenset(),
-    "audio": frozenset(),
+    "document": frozenset(
+        (".txt", ".rtf", *_extensions_for_formats(CATEGORY_FORMATS["Документы"]))
+    ),
+    "image": frozenset((".svg", ".ico", *_extensions_for_formats(CATEGORY_FORMATS["Фотографии"]))),
+    "video": frozenset(_extensions_for_formats(CATEGORY_FORMATS["Видео"])),
+    "audio": frozenset(_extensions_for_formats(CATEGORY_FORMATS["Звуки"])),
     "archive": frozenset((".zip", ".rar", ".7z", ".tar", ".gz")),
 }
+KNOWN_FILE_EXTENSIONS = frozenset().union(*FILE_TYPE_EXTENSIONS.values())
 
 
 def formats_for_category(category: str) -> list[str]:
@@ -66,18 +83,12 @@ def formats_for_category(category: str) -> list[str]:
 
 def category_for_file_type(file_type: str) -> str | None:
     normalized = str(file_type or "").strip().lower()
-    for category, expected_type in CATEGORY_FILE_TYPES.items():
-        if normalized == expected_type:
-            return category
-    return None
+    return _FILE_TYPE_CATEGORIES.get(normalized)
 
 
 def format_for_path(path: str) -> str | None:
     extension = os.path.splitext(str(path or ""))[1].lower()
-    for format_label, extensions in FORMAT_EXTENSIONS.items():
-        if extension in extensions:
-            return format_label
-    return None
+    return _EXTENSION_FORMATS.get(extension)
 
 
 def suffix_for_format(format_label: str) -> str:
@@ -91,23 +102,18 @@ def matches_format(path: str, format_label: str) -> bool:
 
 
 def extensions_for_category(category: str) -> tuple[str, ...]:
-    return tuple(
-        extension
-        for format_label in CATEGORY_FORMATS.get(str(category or "").strip(), ())
-        for extension in FORMAT_EXTENSIONS[format_label]
-    )
-
-
-# Populate broad file-type groups after helper-independent constants are declared.
-FILE_TYPE_EXTENSIONS["image"] = frozenset((".svg", ".ico", *extensions_for_category("Фотографии")))
-FILE_TYPE_EXTENSIONS["video"] = frozenset(extensions_for_category("Видео"))
-FILE_TYPE_EXTENSIONS["audio"] = frozenset(extensions_for_category("Звуки"))
-KNOWN_FILE_EXTENSIONS = frozenset().union(*FILE_TYPE_EXTENSIONS.values())
+    format_labels = CATEGORY_FORMATS.get(str(category or "").strip(), ())
+    return _extensions_for_formats(format_labels)
 
 
 def build_file_dialog_filter() -> str:
     """Формирует фильтр выбора файлов из того же реестра, что и конвертер."""
-    labels = {"Документы": "Документы", "Фотографии": "Изображения", "Видео": "Видео", "Звуки": "Аудио"}
+    labels = {
+        "Документы": "Документы",
+        "Фотографии": "Изображения",
+        "Видео": "Видео",
+        "Звуки": "Аудио",
+    }
     groups = ["Все файлы (*.*)"]
     for category in CONVERSION_CATEGORIES:
         masks = " ".join(f"*{extension}" for extension in extensions_for_category(category))

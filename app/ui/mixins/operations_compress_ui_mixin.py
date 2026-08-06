@@ -1,8 +1,8 @@
-# -*- coding: utf-8 -*-
 
 from PyQt6.QtCore import Qt
 
 from app.core.deps import HAS_PIL, HAS_PYMUPDF, ensure_ghostscript_detected
+from app.core.app_utils import _log_ignored_error
 
 
 class OperationsCompressUiMixin:
@@ -88,7 +88,7 @@ class OperationsCompressUiMixin:
         self.btn_compress.setEnabled(can_compress)
 
     def on_compress_type_changed(self, compress_type):
-        # Keep compression panel compact: do not reserve space for empty hints.
+        # Пустые подсказки не должны увеличивать высоту панели сжатия.
         is_pdf_mode = "PDF" in str(compress_type)
 
         tips_text = ""
@@ -96,13 +96,17 @@ class OperationsCompressUiMixin:
             tips_text = self.compress_tips_label.text().strip()
 
         if hasattr(self, "compress_mode_stack") and self.compress_mode_stack is not None:
-            target = getattr(self, "pdf_mode_widget", None) if is_pdf_mode else getattr(self, "image_mode_widget", None)
+            target = (
+            getattr(self, "pdf_mode_widget", None)
+            if is_pdf_mode
+            else getattr(self, "image_mode_widget", None)
+        )
             if target is not None:
                 self.compress_mode_stack.setCurrentWidget(target)
                 try:
                     self.compress_mode_stack.setFixedHeight(target.sizeHint().height())
-                except Exception:
-                    pass
+                except Exception as error:
+                    _log_ignored_error("OperationsCompressUiMixin.on_compress_type_changed", error)
 
         if hasattr(self, "compress_tips_label") and self.compress_tips_label is not None:
             self.compress_tips_label.setVisible(bool(tips_text))
@@ -116,15 +120,16 @@ class OperationsCompressUiMixin:
         if callable(getattr(self, "refresh_compression_preview", None)):
             self.refresh_compression_preview(show_empty_warning=False)
 
-    def on_replace_pdf_checked(self, state):
-        _ = state
-        if callable(getattr(self, "refresh_compression_preview", None)):
-            self.refresh_compression_preview(show_empty_warning=False)
+    def _refresh_compression_preview_if_available(self):
+        refresh_preview = getattr(self, "refresh_compression_preview", None)
+        if callable(refresh_preview):
+            refresh_preview(show_empty_warning=False)
 
-    def on_replace_image_checked(self, state):
-        _ = state
-        if callable(getattr(self, "refresh_compression_preview", None)):
-            self.refresh_compression_preview(show_empty_warning=False)
+    def on_replace_pdf_checked(self, _state):
+        self._refresh_compression_preview_if_available()
+
+    def on_replace_image_checked(self, _state):
+        self._refresh_compression_preview_if_available()
 
     def on_pdf_method_changed(self, method_text: str):
         if not hasattr(self, "pdf_method_warning_label"):
@@ -133,9 +138,7 @@ class OperationsCompressUiMixin:
             self.pdf_method_warning_label.setVisible(True)
         else:
             self.pdf_method_warning_label.setVisible(False)
-        if callable(getattr(self, "refresh_compression_preview", None)):
-            self.refresh_compression_preview(show_empty_warning=False)
+        self._refresh_compression_preview_if_available()
 
     def on_compression_level_changed(self, _index: int):
-        if callable(getattr(self, "refresh_compression_preview", None)):
-            self.refresh_compression_preview(show_empty_warning=False)
+        self._refresh_compression_preview_if_available()

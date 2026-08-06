@@ -1,7 +1,35 @@
+import importlib.util
+import sys
+import types
 import unittest
+from importlib.machinery import SourceFileLoader
+from pathlib import Path
 from unittest.mock import Mock, patch
 
-import multifora_start as startup
+
+def _load_startup_module():
+    module_name = "multifora_start"
+    loader = SourceFileLoader(module_name, str(Path("multifora_start.py")))
+    spec = importlib.util.spec_from_loader(module_name, loader)
+    module = importlib.util.module_from_spec(spec)
+
+    ui_module_name = "app.ui.ui_main"
+    previous_ui_module = sys.modules.get(ui_module_name)
+    ui_module = types.ModuleType(ui_module_name)
+    ui_module.MultiforaMainWindow = type("MultiforaMainWindow", (), {})
+    sys.modules[ui_module_name] = ui_module
+    sys.modules[module_name] = module
+    try:
+        loader.exec_module(module)
+    finally:
+        if previous_ui_module is None:
+            sys.modules.pop(ui_module_name, None)
+        else:
+            sys.modules[ui_module_name] = previous_ui_module
+    return module
+
+
+startup = _load_startup_module()
 
 
 class _DummyApp:

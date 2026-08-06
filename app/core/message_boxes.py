@@ -1,8 +1,7 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFontMetrics
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QMessageBox, QPushButton, QStyle, QVBoxLayout
-
-from app.ui.ui_components import setup_standard_secondary_button
+from app.core.app_utils import _log_ignored_error
 
 
 _MESSAGE_BOX_HOOKS_INSTALLED = False
@@ -11,6 +10,13 @@ _DIALOG_MAX_WIDTH = 560
 _ICON_SIZE = 32
 _ICON_SLOT_SIZE = 40
 _BUTTON_MIN_WIDTH = 84
+
+
+def _setup_message_box_button(button: QPushButton, *, height: int = 22) -> QPushButton:
+    button.setFixedHeight(height)
+    button.setCursor(Qt.CursorShape.PointingHandCursor)
+    button.setProperty("buttonVariant", "secondary")
+    return button
 
 
 def _resolve_message_box_icon(widget, icon: QMessageBox.Icon):
@@ -42,8 +48,8 @@ def tune_message_box_layout(msg_box: QMessageBox, icon: QMessageBox.Icon):
                 label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
                 label.setFixedSize(_ICON_SLOT_SIZE, _ICON_SLOT_SIZE)
                 continue
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("tune_message_box_layout", error)
         if label.text():
             label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             label.setWordWrap(True)
@@ -59,8 +65,8 @@ def _show_localized_message_box(parent, title, text, icon, default_button=QMessa
     try:
         dialog._effective_theme_mode = getattr(parent, "_effective_theme_mode", "dark")
         dialog.setStyleSheet(parent.styleSheet())
-    except Exception:
-        pass
+    except Exception as error:
+        _log_ignored_error("_show_localized_message_box", error)
 
     layout = QVBoxLayout(dialog)
     layout.setContentsMargins(14, 12, 14, 12)
@@ -91,14 +97,14 @@ def _show_localized_message_box(parent, title, text, icon, default_button=QMessa
     button_row.addStretch()
 
     ok_button = QPushButton("Хорошо")
-    setup_standard_secondary_button(ok_button, height=22)
+    _setup_message_box_button(ok_button, height=22)
     ok_button.setSizePolicy(ok_button.sizePolicy().Policy.Fixed, ok_button.sizePolicy().Policy.Fixed)
     try:
         ok_button.style().unpolish(ok_button)
         ok_button.style().polish(ok_button)
         ok_button.updateGeometry()
-    except Exception:
-        pass
+    except Exception as error:
+        _log_ignored_error("_show_localized_message_box", error)
     ok_button.setFixedWidth(max(_BUTTON_MIN_WIDTH, ok_button.sizeHint().width()))
     button_row.addWidget(ok_button)
     layout.addLayout(button_row)
@@ -124,13 +130,13 @@ def install_warning_suppression_hook():
             if status_bar is not None and callable(getattr(status_bar, "showMessage", None)):
                 try:
                     status_bar.showMessage(str(text))
-                except Exception:
-                    pass
+                except Exception as error:
+                    _log_ignored_error("_warning", error)
             if callable(getattr(parent, "log_event", None)):
                 try:
                     parent.log_event(f"{title}: {text}", "WARN")
-                except Exception:
-                    pass
+                except Exception as error:
+                    _log_ignored_error("_warning", error)
             return QMessageBox.StandardButton.Ok
         return _show_localized_message_box(parent, title, text, QMessageBox.Icon.Warning)
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 import os
 import re
@@ -20,6 +19,7 @@ from app.ui.ui_components import (
     setup_standard_secondary_button,
 )
 from app.ui.ui_spacing import DIALOG_MARGINS, MARGINS_NONE, SPACE_MD, SPACE_XL
+from app.core.app_utils import _log_ignored_error
 
 
 class FileListActionsMixin:
@@ -32,8 +32,8 @@ class FileListActionsMixin:
         if hasattr(self, "get_sort_mode"):
             try:
                 return self.get_sort_mode()
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("FileListActionsMixin._get_sort_mode", error)
         if hasattr(self, "combo_sort") and self.combo_sort is not None and hasattr(self.combo_sort, "currentText"):
             return self.combo_sort.currentText()
         return self._manual_sort_mode_text()
@@ -42,8 +42,8 @@ class FileListActionsMixin:
         if hasattr(self, "get_sort_mode_index"):
             try:
                 return int(self.get_sort_mode_index())
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("FileListActionsMixin._get_sort_mode_index", error)
         if hasattr(self, "combo_sort") and self.combo_sort is not None and hasattr(self.combo_sort, "currentIndex"):
             return int(self.combo_sort.currentIndex())
         return 0
@@ -53,8 +53,8 @@ class FileListActionsMixin:
             try:
                 self.set_sort_mode(mode, notify=notify)
                 return
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("FileListActionsMixin._set_sort_mode", error)
         if hasattr(self, "combo_sort") and self.combo_sort is not None and hasattr(self.combo_sort, "setCurrentText"):
             if hasattr(self.combo_sort, "blockSignals"):
                 self.combo_sort.blockSignals(True)
@@ -151,8 +151,8 @@ class FileListActionsMixin:
         try:
             dialog._effective_theme_mode = getattr(self, "_effective_theme_mode", "dark")
             dialog.setStyleSheet(self.styleSheet())
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("FileListActionsMixin._ask_folder_add_mode", error)
 
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(*DIALOG_MARGINS)
@@ -168,8 +168,8 @@ class FileListActionsMixin:
         try:
             icon = dialog.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxQuestion)
             icon_label.setPixmap(icon.pixmap(32, 32))
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("FileListActionsMixin._ask_folder_add_mode", error)
         content_row.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignTop)
 
         text_label = QLabel("Выберите способ добавления:\nдобавить папку целиком или только её содержимое?")
@@ -232,7 +232,6 @@ class FileListActionsMixin:
                         expanded_paths.append(path)
                     elif folder_mode is None:
                         folder_mode = "cancel"
-                    # if canceled, skip folder
                 else:
                     expanded_paths.append(path)
             except Exception:
@@ -280,8 +279,8 @@ class FileListActionsMixin:
                     self.refresh_active_file_preview()
                 elif getattr(self, "current_template", None):
                     self.refresh_rename_preview()
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("FileListActionsMixin.add_files", error)
             if callable(getattr(self, "log_event", None)):
                 self.log_event(f"Добавлены файлы в список: {self._ru_files_label(added_count)}")
             self.status_bar.showMessage(f"Добавлено {self._ru_files_label(added_count)}")

@@ -1,11 +1,16 @@
+import glob
 import os
-import sys
 import shutil
-import winreg
+import sys
 
 from app.core.app_utils import _debug_log
 
-# Optional dependency placeholders
+try:
+    import winreg
+except ImportError:
+    winreg = None
+
+
 fitz = None
 Image = None
 ImageOps = None
@@ -25,83 +30,135 @@ HAS_FFMPEG = False
 HAS_PYMUPDF = False
 HAS_ODF_PYTHON = False
 HAS_PIL = False
-
-# Проверяем наличие Ghostscript
 HAS_GHOSTSCRIPT = False
 GHOSTSCRIPT_PATH = None
 
-# Проверяем наличие PyMuPDF
+_GHOSTSCRIPT_REGISTRY_PATHS = (
+    r"SOFTWARE\\GPL Ghostscript",
+    r"SOFTWARE\\AFPL Ghostscript",
+    r"SOFTWARE\\Artifex Ghostscript",
+    r"SOFTWARE\\WOW6432Node\\GPL Ghostscript",
+    r"SOFTWARE\\WOW6432Node\\AFPL Ghostscript",
+    r"SOFTWARE\\WOW6432Node\\Artifex Ghostscript",
+)
+_GHOSTSCRIPT_EXECUTABLES = ("gswin64c.exe", "gs.exe")
+
+
 try:
     import fitz
+
     HAS_PYMUPDF = True
     _debug_log("PyMuPDF найден")
 except ImportError:
     _debug_log("PyMuPDF не найден. Установите: pip install PyMuPDF")
 
-# Проверяем наличие Pillow
 try:
     from PIL import Image, ImageOps
+
     HAS_PIL = True
     _debug_log("Pillow найден")
 except ImportError:
     _debug_log("Pillow не найден. Установите: pip install Pillow")
 
-# Проверяем наличие Ghostscript (ваш путь gs10.06.0)
+
+def _registry_value(key, name: str):
+    try:
+        return winreg.QueryValueEx(key, name)[0]
+    except OSError:
+        return None
+
+
+def _ghostscript_executable_from_registry_key(key):
+    dll_path = _registry_value(key, "GS_DLL")
+    if dll_path and os.path.exists(dll_path):
+        executable = os.path.join(os.path.dirname(dll_path), "gswin64c.exe")
+        if os.path.exists(executable):
+            return executable
+
+    library_path = _registry_value(key, "GS_LIB")
+    if library_path and os.path.exists(library_path):
+        executable = os.path.normpath(
+            os.path.join(os.path.dirname(library_path), "..", "bin", "gswin64c.exe")
+        )
+        if os.path.exists(executable):
+            return executable
+    return None
+
+
 def _find_ghostscript_in_registry():
     """Ищет путь Ghostscript через реестр Windows."""
-    reg_roots = [winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER]
-    reg_paths = [
-        r"SOFTWARE\\GPL Ghostscript",
-        r"SOFTWARE\\AFPL Ghostscript",
-        r"SOFTWARE\\Artifex Ghostscript",
-        r"SOFTWARE\\WOW6432Node\\GPL Ghostscript",
-        r"SOFTWARE\\WOW6432Node\\AFPL Ghostscript",
-        r"SOFTWARE\\WOW6432Node\\Artifex Ghostscript",
-    ]
-    for root in reg_roots:
-        for reg_path in reg_paths:
+    if winreg is None:
+        return None
+
+    registry_roots = (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER)
+    for root in registry_roots:
+        for registry_path in _GHOSTSCRIPT_REGISTRY_PATHS:
             try:
-                with winreg.OpenKey(root, reg_path) as key:
+                with winreg.OpenKey(root, registry_path) as key:
                     versions = []
-                    i = 0
+                    index = 0
                     while True:
                         try:
-                            versions.append(winreg.EnumKey(key, i))
-                            i += 1
+                            versions.append(winreg.EnumKey(key, index))
+                            index += 1
                         except OSError:
                             break
+
                     for version in sorted(versions, reverse=True):
                         try:
-                            with winreg.OpenKey(key, version) as vkey:
-                                dll_path = None
-                                try:
-                                    dll_path = winreg.QueryValueEx(vkey, "GS_DLL")[0]
-                                except OSError:
-                                    dll_path = None
-                                if dll_path and os.path.exists(dll_path):
-                                    bin_dir = os.path.dirname(dll_path)
-                                    cand = os.path.join(bin_dir, "gswin64c.exe")
-                                    if os.path.exists(cand):
-                                        return cand
-                                    if os.path.exists(cand):
-                                        return cand
-                                try:
-                                    gs_lib = winreg.QueryValueEx(vkey, "GS_LIB")[0]
-                                except OSError:
-                                    gs_lib = None
-                                if gs_lib and os.path.exists(gs_lib):
-                                    base_dir = os.path.dirname(gs_lib)
-                                    bin_dir = os.path.join(base_dir, "..", "bin")
-                                    cand = os.path.join(bin_dir, "gswin64c.exe")
-                                    if os.path.exists(cand):
-                                        return cand
-                                    if os.path.exists(cand):
-                                        return cand
+                            with winreg.OpenKey(key, version) as version_key:
+                                executable = _ghostscript_executable_from_registry_key(version_key)
+                                if executable:
+                                    return executable
                         except OSError:
                             continue
             except OSError:
                 continue
     return None
+
+
+def _ghostscript_candidates(custom_path=None):
+    candidates = []
+    if custom_path:
+        candidates.append(custom_path)
+
+    environment_path = os.environ.get("MULTIFORA_GHOSTSCRIPT_PATH") or os.environ.get(
+        "GHOSTSCRIPT_PATH"
+    )
+    if environment_path:
+        candidates.append(environment_path)
+
+    registry_path = _find_ghostscript_in_registry()
+    if registry_path:
+        candidates.append(registry_path)
+
+    try:
+        base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    except Exception as error:
+        _debug_log(f"Ошибка определения каталога приложения для Ghostscript: {error}")
+        base_dir = None
+
+    if base_dir:
+        candidates.append(os.path.join(base_dir, "bin", "gswin64", "gswin64c.exe"))
+
+    candidates.append(r"C:\\Program Files\\gs\\gs*\\bin\\gswin64c.exe")
+    candidates.extend(_GHOSTSCRIPT_EXECUTABLES)
+    return candidates
+
+
+def _resolve_ghostscript_candidate(candidate):
+    if not candidate:
+        return None
+
+    paths = glob.glob(candidate) if "*" in candidate else [candidate]
+    for path in paths:
+        if os.path.exists(path):
+            return path
+        resolved_path = shutil.which(path)
+        if resolved_path and os.path.exists(resolved_path):
+            return resolved_path
+    return None
+
 
 def _detect_ghostscript(custom_path=None):
     """Определяет путь к Ghostscript."""
@@ -110,60 +167,22 @@ def _detect_ghostscript(custom_path=None):
     HAS_GHOSTSCRIPT = False
     GHOSTSCRIPT_PATH = None
 
-    candidates = []
-    if custom_path:
-        candidates.append(custom_path)
-
-    env_path = os.environ.get("MULTIFORA_GHOSTSCRIPT_PATH") or os.environ.get("GHOSTSCRIPT_PATH")
-    if env_path:
-        candidates.append(env_path)
-
-    reg_path = _find_ghostscript_in_registry()
-    if reg_path:
-        candidates.append(reg_path)
-
-    try:
-        base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-    except Exception:
-        base_dir = None
-
-    if base_dir:
-        candidates.extend([
-            os.path.join(base_dir, "bin", "gswin64", "gswin64c.exe"),
-        ])
-
-    candidates.extend([
-        r"C:\\Program Files\\gs\\gs*\\bin\\gswin64c.exe",
-        "gswin64c.exe",
-        "gs.exe",
-    ])
-
-    for path in candidates:
+    for candidate in _ghostscript_candidates(custom_path):
         try:
-            if not path:
-                continue
-            if "*" in path:
-                import glob
-                matches = glob.glob(path)
-                if matches:
-                    path = matches[0]
-                else:
-                    continue
-            if os.path.exists(path):
-                GHOSTSCRIPT_PATH = path
-                HAS_GHOSTSCRIPT = True
-                _debug_log(f"Ghostscript найден: {path}")
-                return
-            which_path = shutil.which(path)
-            if which_path and os.path.exists(which_path):
-                GHOSTSCRIPT_PATH = which_path
-                HAS_GHOSTSCRIPT = True
-                _debug_log(f"Ghostscript найден в PATH: {which_path}")
-                return
-        except Exception:
+            resolved_path = _resolve_ghostscript_candidate(candidate)
+        except Exception as error:
+            _debug_log(f"Ошибка проверки пути Ghostscript {candidate!r}: {error}")
+            continue
+        if not resolved_path:
             continue
 
+        GHOSTSCRIPT_PATH = resolved_path
+        HAS_GHOSTSCRIPT = True
+        _debug_log(f"Ghostscript найден: {resolved_path}")
+        return
+
     _debug_log("Ghostscript не найден")
+
 
 def ensure_ghostscript_detected(custom_path=None):
     """Refresh Ghostscript detection when path/config may have changed."""
@@ -171,39 +190,40 @@ def ensure_ghostscript_detected(custom_path=None):
         _detect_ghostscript(custom_path)
     return HAS_GHOSTSCRIPT, GHOSTSCRIPT_PATH
 
+
 try:
     from docx2pdf import convert as word_to_pdf
+
     HAS_WORD_TO_PDF = True
 except ImportError:
     _debug_log("docx2pdf не найден")
 
 try:
     import pdf2docx
+
     HAS_PDF_TO_WORD = True
 except ImportError:
     _debug_log("pdf2docx не найден")
 
-
 try:
     from pdf2image import convert_from_path
+
     HAS_PDF_TO_IMAGE = True
 except ImportError:
     _debug_log("pdf2image не найден")
 
-
 try:
     from odf import text, teletype
-    from odf.opendocument import load, OpenDocumentText
+    from odf.opendocument import OpenDocumentText, load
+
     HAS_ODF_PYTHON = True
 except ImportError:
     _debug_log("python-odf не найден")
 
 try:
     from imageio_ffmpeg import get_ffmpeg_exe
+
     HAS_FFMPEG = True
     _debug_log("imageio-ffmpeg найден")
 except ImportError:
     _debug_log("imageio-ffmpeg не найден. Установите: pip install imageio-ffmpeg")
-
-
-

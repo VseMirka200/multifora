@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from pathlib import Path
 
 from PyQt6.QtCore import Qt
@@ -23,6 +22,7 @@ from app.ui.ui_components import (
     refresh_standard_field_styles,
     refresh_standard_surface_styles,
 )
+from app.ui.ui_styles import build_tab_content_style_block
 from app.ui.ui_spacing import (
     LINK_BUTTON_HEIGHT,
     MARGINS_NONE,
@@ -31,6 +31,7 @@ from app.ui.ui_spacing import (
     SPACE_XL,
     SPACE_2XL,
 )
+from app.core.app_utils import _log_ignored_error
 
 
 class AppearanceMixin:
@@ -40,74 +41,7 @@ class AppearanceMixin:
         return icon_path.resolve().as_posix()
 
     def _tab_content_style_block(self, theme: str) -> str:
-        is_light = str(theme).lower() == "light"
-        base_text = "#1f2328" if is_light else "#e0e0e0"
-        return f"""
-            QStackedWidget#operations_stack {{
-                background: transparent;
-                border: none;
-                margin: 0px;
-                padding: 0px;
-            }}
-            QScrollArea#operation_page_scroll,
-            QScrollArea#settings_page_scroll {{
-                border: none;
-                background: transparent;
-                margin: 0px;
-                padding: 0px;
-            }}
-            QWidget#operation_page_content,
-            QWidget#settings_page_content,
-            QWidget#rename_history_settings_page,
-            QWidget#rename_history_settings_content,
-            QWidget#template_params_widget,
-            QFrame#template_numbering_card {{
-                background-color: transparent;
-                margin: 0px;
-                padding: 0px;
-            }}
-            QFrame#card,
-            QFrame#settings_card {{
-                background-color: transparent;
-                border: none;
-            }}
-            QFrame#card QWidget,
-            QFrame#settings_card QWidget {{
-                background-color: transparent;
-            }}
-            QLabel#tab_section_label {{
-                font-size: 13px;
-                font-weight: 700;
-                color: {base_text};
-            }}
-            QLabel#settings_page_title {{
-                font-size: 30px;
-                font-weight: 700;
-                color: {base_text};
-                padding-bottom: 5px;
-                margin-bottom: 3px;
-                border-bottom: 1px solid {"rgba(0, 0, 0, 0.28)" if is_light else "rgba(255, 255, 255, 0.26)"};
-            }}
-            QLabel#settings_page_title_plain {{
-                font-size: 30px;
-                font-weight: 700;
-                color: {base_text};
-                padding-bottom: 5px;
-                margin-bottom: 3px;
-            }}
-            QFrame#settings_section_separator {{
-                background-color: {"rgba(0, 0, 0, 0.36)" if is_light else "rgba(255, 255, 255, 0.38)"};
-                border: none;
-                margin: 0px;
-                padding: 0px;
-                min-height: 3px;
-                max-height: 3px;
-            }}
-            QLabel#tab_hint_label {{
-                font-size: 13px;
-                color: #3d74b3;
-            }}
-        """
+        return build_tab_content_style_block(theme)
 
     def _apply_detached_theme_style(self, style: str):
         """Применяет тему к отдельным окнам, не входящим в иерархию главного окна."""
@@ -118,8 +52,8 @@ class AppearanceMixin:
             dialog.setStyleSheet(style)
             refresh_standard_field_styles(dialog)
             refresh_standard_surface_styles(dialog)
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("AppearanceMixin._apply_detached_theme_style", error)
 
     def apply_dark_style(self):
         """Применяет темный стиль для приложения"""
@@ -1756,7 +1690,8 @@ QPushButton#cancel_operation_btn:disabled {
         for combo in combos:
             try:
                 setup_standard_dropdown(combo)
-            except Exception:
+            except Exception as error:
+                _log_ignored_error("AppearanceMixin._apply_combo_popup_light_style", error)
                 continue
 
     def _get_system_theme_mode(self):
@@ -1789,13 +1724,13 @@ QPushButton#cancel_operation_btn:disabled {
         try:
             if callable(getattr(self, "_apply_logs_level_menu_style", None)):
                 self._apply_logs_level_menu_style()
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("AppearanceMixin.apply_theme_mode", error)
         try:
             if callable(getattr(self, "_apply_theme_runtime_widgets", None)):
                 self._apply_theme_runtime_widgets()
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("AppearanceMixin.apply_theme_mode", error)
 
         if hasattr(self, "theme_mode_combo") and self.theme_mode_combo is not None:
             try:
@@ -1804,8 +1739,8 @@ QPushButton#cancel_operation_btn:disabled {
                     self.theme_mode_combo.blockSignals(True)
                     self.theme_mode_combo.setCurrentIndex(idx)
                     self.theme_mode_combo.blockSignals(False)
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("AppearanceMixin.apply_theme_mode", error)
 
     def setup_system_theme_tracking(self):
         if getattr(self, "_system_theme_tracking_connected", False):
@@ -1815,8 +1750,8 @@ QPushButton#cancel_operation_btn:disabled {
             if hasattr(hints, "colorSchemeChanged"):
                 hints.colorSchemeChanged.connect(self._on_system_theme_changed)
                 self._system_theme_tracking_connected = True
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("AppearanceMixin.setup_system_theme_tracking", error)
 
     def _on_system_theme_changed(self, _scheme):
         if getattr(self, "theme_mode", "system") == "system":
@@ -1831,8 +1766,8 @@ QPushButton#cancel_operation_btn:disabled {
         try:
             dialog._effective_theme_mode = getattr(self, "_effective_theme_mode", "dark")
             dialog.setStyleSheet(self.styleSheet())
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("AppearanceMixin.show_russian_message_box", error)
 
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(*MESSAGE_DIALOG_MARGINS)
@@ -1852,10 +1787,12 @@ QPushButton#cancel_operation_btn:disabled {
             QMessageBox.Icon.Question: QStyle.StandardPixmap.SP_MessageBoxQuestion,
         }
         try:
-            standard_icon = dialog.style().standardIcon(icon_map.get(icon, QStyle.StandardPixmap.SP_MessageBoxQuestion))
+            standard_icon = dialog.style().standardIcon(
+            icon_map.get(icon, QStyle.StandardPixmap.SP_MessageBoxQuestion)
+        )
             icon_label.setPixmap(standard_icon.pixmap(32, 32))
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("AppearanceMixin.show_russian_message_box", error)
         content_row.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignVCenter)
 
         text_label = QLabel(str(text))
@@ -1882,8 +1819,8 @@ QPushButton#cancel_operation_btn:disabled {
                 button.style().unpolish(button)
                 button.style().polish(button)
                 button.updateGeometry()
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("AppearanceMixin.show_russian_message_box", error)
         button_width = max(84, yes_button.sizeHint().width(), no_button.sizeHint().width())
         for button in (yes_button, no_button):
             button.setFixedWidth(button_width)
@@ -1896,8 +1833,8 @@ QPushButton#cancel_operation_btn:disabled {
             content_width = max(420, min(560, metrics.horizontalAdvance(str(text)) + 150))
             dialog.setMinimumWidth(content_width)
             dialog.resize(max(content_width, dialog.sizeHint().width()), dialog.sizeHint().height())
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("AppearanceMixin.show_russian_message_box", error)
 
         yes_button.clicked.connect(dialog.accept)
         no_button.clicked.connect(dialog.reject)
@@ -1908,6 +1845,5 @@ QPushButton#cancel_operation_btn:disabled {
             yes_button.setFocus()
 
         return dialog.exec() == int(QDialog.DialogCode.Accepted)
-
 
 

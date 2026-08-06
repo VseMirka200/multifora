@@ -55,7 +55,10 @@ class MergeMixin:
 
     def _merge_word_files_to_docx(self, files: list) -> str:
         if not all(file.path.lower().endswith(".docx") for file in files):
-            raise Exception("Объединение в DOCX поддерживает только файлы DOCX. Для DOC и смешанных файлов выберите PDF.")
+            raise Exception(
+                "Объединение в DOCX поддерживает только файлы DOCX. "
+                "Для DOC и смешанных файлов выберите PDF."
+            )
 
         try:
             from docx import Document

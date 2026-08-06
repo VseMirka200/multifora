@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 from PyQt6.QtWidgets import (
     QFrame,
@@ -20,6 +19,7 @@ from app.ui.ui_components import (
     setup_standard_line_input,
     setup_standard_spin_input,
 )
+from app.ui.ui_helpers import create_param_block, create_spin_param_block, signals_blocked
 from app.ui.ui_spacing import (
     MARGINS_NONE,
     SPACE_NONE,
@@ -48,7 +48,12 @@ class TemplateParamsNumberingMixin:
         return "Простая нумерация"
 
     def _set_numbering_mode_visibility(self, mode_text: str | None = None):
-        mode = self._normalize_numbering_mode(mode_text or getattr(getattr(self, "template_numbering_mode", None), "currentText", lambda: "")())
+        mode_getter = getattr(
+            getattr(self, "template_numbering_mode", None),
+            "currentText",
+            lambda: "",
+        )
+        mode = self._normalize_numbering_mode(mode_text or mode_getter())
         simple_visible = mode == "Простая нумерация"
         prefix_visible = mode == "Нумерация с префиксом"
         date_visible = mode == "Нумерация с датой"
@@ -88,43 +93,28 @@ class TemplateParamsNumberingMixin:
         target = self._normalize_numbering_mode(mode_text)
         index = combo.findText(target)
         if index >= 0:
-            was_blocked = combo.blockSignals(True)
-            try:
+            with signals_blocked(combo):
                 combo.setCurrentIndex(index)
-            finally:
-                combo.blockSignals(was_blocked)
         self._set_numbering_mode_visibility(target)
 
     def _create_labeled_spin_block(self, label_text: str, spinbox: QSpinBox, *, label: QLabel | None = None):
-        spinbox.setProperty("renameTemplateField", True)
+        if label is None:
+            return create_spin_param_block(label_text, spinbox)
+        return self._create_param_block_with_label(label, spinbox)
 
+    def _create_param_block_with_label(self, label: QLabel, field: QWidget):
+        setup_standard_form_label(label)
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setSpacing(SPACE_NONE)
         layout.setContentsMargins(*MARGINS_NONE)
-
-        if label is None:
-            label = QLabel(label_text)
-        setup_standard_form_label(label)
         layout.addWidget(label)
 
         field_container = QWidget()
         field_layout = QHBoxLayout(field_container)
         field_layout.setContentsMargins(*MARGINS_NONE)
-        field_layout.addWidget(spinbox)
+        field_layout.addWidget(field)
         layout.addWidget(field_container)
-        return container
-
-    def _create_param_block(self, label_text: str, field: QWidget):
-        container = QWidget()
-        layout = QVBoxLayout(container)
-        layout.setSpacing(SPACE_SM)
-        layout.setContentsMargins(*MARGINS_NONE)
-
-        label = QLabel(label_text)
-        setup_standard_form_label(label)
-        layout.addWidget(label)
-        layout.addWidget(field)
         return container
 
     def create_numbering_params(self):
@@ -139,7 +129,7 @@ class TemplateParamsNumberingMixin:
         self.template_numbering_mode.addItems(self._numbering_mode_items())
         setup_standard_dropdown(self.template_numbering_mode)
         self.template_numbering_mode.currentIndexChanged.connect(self._on_numbering_mode_changed)
-        layout.addWidget(self._create_param_block("Как нумеровать:", self.template_numbering_mode))
+        layout.addWidget(create_param_block("Как нумеровать:", self.template_numbering_mode))
 
         self.template_num_simple_widget = QWidget()
         simple_layout = QVBoxLayout(self.template_num_simple_widget)
@@ -186,7 +176,7 @@ class TemplateParamsNumberingMixin:
         self.template_prefix_text = QLineEdit("фото_")
         self.template_prefix_text.setProperty("renameTemplateField", True)
         setup_standard_line_input(self.template_prefix_text)
-        prefix_layout.addWidget(self._create_param_block("Префикс:", self.template_prefix_text))
+        prefix_layout.addWidget(create_param_block("Префикс:", self.template_prefix_text))
 
         self.template_prefix_start = QSpinBox()
         self.template_prefix_start.setRange(1, 9999)
@@ -217,7 +207,7 @@ class TemplateParamsNumberingMixin:
             "15-01-2024",
         ])
         setup_standard_dropdown(self.template_date_format)
-        date_layout.addWidget(self._create_param_block("Формат даты:", self.template_date_format))
+        date_layout.addWidget(create_param_block("Формат даты:", self.template_date_format))
 
         self.template_date_start = QSpinBox()
         self.template_date_start.setRange(1, 9999)
@@ -258,7 +248,7 @@ class TemplateParamsNumberingMixin:
             "15-01-2024_название",
         ])
         setup_standard_dropdown(self.template_original_date_format)
-        layout.addWidget(self._create_param_block("Дата в начале:", self.template_original_date_format))
+        layout.addWidget(create_param_block("Дата в начале:", self.template_original_date_format))
         self.template_params_layout.addWidget(container)
     def create_custom_template_params(self):
         """Создает параметры для пользовательского шаблона"""

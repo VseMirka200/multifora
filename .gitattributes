@@ -1,6 +1,5 @@
 # Управление окончаниями строк
 *.py text eol=lf
-*.pyw text eol=lf
 *.txt text eol=lf
 *.md text eol=lf
 *.json text eol=lf

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 import webbrowser
 
@@ -119,7 +118,11 @@ class FileListPreviewMixin:
                 category_label = ""
         from_idx = from_combo.currentIndex() if hasattr(from_combo, "currentIndex") else 0
         to_idx = to_combo.currentIndex() if hasattr(to_combo, "currentIndex") else 0
-        type_idx = type_combo.currentIndex() if hasattr(type_combo, "currentIndex") else 0 if type_combo is not None else 0
+        type_idx = (
+            type_combo.currentIndex()
+            if type_combo is not None and hasattr(type_combo, "currentIndex")
+            else 0
+        )
 
         if from_idx <= 0 or to_idx <= 0 or (type_combo is not None and type_idx <= 0):
             self._set_preview_names_to_original()

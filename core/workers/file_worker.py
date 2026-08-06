@@ -55,28 +55,25 @@ class FileWorker(FileOpsMixin, ConversionMixin, CompressionMixin, MergeMixin, QT
             )
         )
 
-    def set_copy_move(self, files: list, destination: str, move: bool = False):
-        self.operation = "move" if move else "copy"
+    def _prepare_operation(self, operation: str, files: list) -> None:
+        self.operation = operation
         self.files = files
-        self.destination = destination
         self._cancel_requested = False
         self.errors = []
 
+    def set_copy_move(self, files: list, destination: str, move: bool = False):
+        self._prepare_operation("move" if move else "copy", files)
+        self.destination = destination
+
     def set_conversion(self, files: list, conversion_type: str, conversion_format: str = ""):
-        self.operation = "convert"
-        self.files = files
+        self._prepare_operation("convert", files)
         self.conversion_type = conversion_type
         self.conversion_format = conversion_format
-        self._cancel_requested = False
-        self.errors = []
         self._word_warmup_done = False
 
     def set_rename(self, files: list, new_names: list):
-        self.operation = "rename"
-        self.files = files
+        self._prepare_operation("rename", files)
         self.new_names = new_names
-        self._cancel_requested = False
-        self.errors = []
 
     def set_compression(
         self,
@@ -87,41 +84,36 @@ class FileWorker(FileOpsMixin, ConversionMixin, CompressionMixin, MergeMixin, QT
         replace_pdf: bool = False,
         replace_image: bool = False,
     ):
-        self.operation = "compress"
-        self.files = files
+        self._prepare_operation("compress", files)
         self.compression_level = compression_level
         self.compression_type = compression_type
         self.pdf_method = pdf_method
         self.replace_pdf = replace_pdf
         self.replace_image = replace_image
-        self._cancel_requested = False
-        self.errors = []
 
     def set_merge(self, files: list, output_format: str = "pdf", output_path: str = ""):
-        self.operation = "merge"
-        self.files = files
+        self._prepare_operation("merge", files)
         self.merge_output_format = output_format
         self.merge_output_path = output_path
-        self._cancel_requested = False
-        self.errors = []
+
+    def _compression_handler(self):
+        return self._compress_pdf_files if self.compression_type == "pdf" else self._compress_image_files
 
     def run(self):
+        handlers = {
+            "copy": self._copy_files,
+            "move": self._move_files,
+            "convert": self._convert_files,
+            "rename": self._rename_files,
+            "compress": self._compression_handler(),
+            "merge": self._merge_files,
+        }
+        handler = handlers.get(self.operation)
+        if handler is None:
+            return
+
         try:
-            if self.operation == "copy":
-                self._copy_files()
-            elif self.operation == "move":
-                self._move_files()
-            elif self.operation == "convert":
-                self._convert_files()
-            elif self.operation == "rename":
-                self._rename_files()
-            elif self.operation == "compress":
-                if self.compression_type == "pdf":
-                    self._compress_pdf_files()
-                else:
-                    self._compress_image_files_with_replace_support()
-            elif self.operation == "merge":
-                self._merge_files()
-        except Exception as e:
-            self._record_error(None, str(e))
-            self.error.emit(str(e))
+            handler()
+        except Exception as error:
+            self._record_error(None, str(error))
+            self.error.emit(str(error))

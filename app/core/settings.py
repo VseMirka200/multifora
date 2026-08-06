@@ -1,26 +1,49 @@
-import os
 import json
+import os
 import time
-from PyQt6.QtCore import QObject, Qt
+
+from PyQt6.QtCore import QObject
 
 from app.core.app_utils import _debug_log
 from app.core.deps import _detect_ghostscript
 
 
+_DEFAULT_THEME_MODE = "system"
+_VALID_THEME_MODES = {_DEFAULT_THEME_MODE, "dark", "light"}
+_SETTINGS_FILENAME = "multifora_settings.json"
+
+
+def _log_settings_error(context: str, error: Exception) -> None:
+    _debug_log(f"Ошибка {context}: {error}")
+
+
+def _set_widget_value_without_signals(widget, setter, context: str) -> None:
+    if widget is None:
+        return
+
+    previous_state = False
+    signals_blocked = False
+    try:
+        previous_state = bool(widget.blockSignals(True))
+        signals_blocked = True
+        setter()
+    except Exception as error:
+        _log_settings_error(context, error)
+    finally:
+        if signals_blocked:
+            try:
+                widget.blockSignals(previous_state)
+            except Exception as error:
+                _log_settings_error(f"восстановления сигналов после {context}", error)
+
+
 def _set_checkbox_state(checkbox, checked: bool) -> None:
     """Безопасно устанавливает состояние чекбокса без генерации сигналов."""
-    if checkbox is None:
-        return
-    try:
-        checkbox.blockSignals(True)
-        checkbox.setChecked(bool(checked))
-    except Exception:
-        return
-    finally:
-        try:
-            checkbox.blockSignals(False)
-        except Exception:
-            pass
+    _set_widget_value_without_signals(
+        checkbox,
+        lambda: checkbox.setChecked(bool(checked)),
+        "установки состояния флажка",
+    )
 
 
 def _set_combo_current_data(combo, value) -> None:
@@ -28,25 +51,26 @@ def _set_combo_current_data(combo, value) -> None:
     if combo is None:
         return
     try:
-        idx = combo.findData(value)
-        if idx < 0:
-            return
-        combo.blockSignals(True)
-        combo.setCurrentIndex(idx)
-    except Exception:
+        index = combo.findData(value)
+    except Exception as error:
+        _log_settings_error("поиска значения в списке", error)
         return
-    finally:
-        try:
-            combo.blockSignals(False)
-        except Exception:
-            pass
+    if index < 0:
+        return
+
+    _set_widget_value_without_signals(
+        combo,
+        lambda: combo.setCurrentIndex(index),
+        "выбора значения в списке",
+    )
 
 
 def _collect_expandable_groups_state(window) -> dict:
     states = {}
     try:
         groups = window.findChildren(QObject)
-    except Exception:
+    except Exception as error:
+        _log_settings_error("получения сворачиваемых групп", error)
         return states
 
     for group in groups:
@@ -54,11 +78,10 @@ def _collect_expandable_groups_state(window) -> dict:
             if not callable(getattr(group, "isExpanded", None)):
                 continue
             title = getattr(group, "_title", "")
-            if not isinstance(title, str) or not title.strip():
-                continue
-            states[title] = bool(group.isExpanded())
-        except Exception:
-            continue
+            if isinstance(title, str) and title.strip():
+                states[title] = bool(group.isExpanded())
+        except Exception as error:
+            _log_settings_error("чтения состояния сворачиваемой группы", error)
     return states
 
 
@@ -67,7 +90,8 @@ def _restore_expandable_groups_state(window, states: dict) -> None:
         return
     try:
         groups = window.findChildren(QObject)
-    except Exception:
+    except Exception as error:
+        _log_settings_error("получения сворачиваемых групп", error)
         return
 
     for group in groups:
@@ -77,8 +101,8 @@ def _restore_expandable_groups_state(window, states: dict) -> None:
             title = getattr(group, "_title", "")
             if title in states:
                 group.setChecked(bool(states[title]))
-        except Exception:
-            continue
+        except Exception as error:
+            _log_settings_error("восстановления сворачиваемой группы", error)
 
 
 def _collect_template_session_state(window) -> dict:
@@ -88,22 +112,25 @@ def _collect_template_session_state(window) -> dict:
             state = getter()
             if isinstance(state, dict):
                 return state
-        except Exception:
-            pass
+        except Exception as error:
+            _log_settings_error("сохранения состояния шаблона", error)
     return {"selected_template": "", "template_data": {}}
 
 
-def _normalize_rename_history_entry(entry, *, fallback_timestamp: float | None = None) -> dict | None:
+def _normalize_rename_history_entry(
+    entry,
+    *,
+    fallback_timestamp: float | None = None,
+) -> dict | None:
     if not isinstance(entry, dict):
         return None
 
     normalized = dict(entry)
     pairs = normalized.get("pairs", [])
+    if isinstance(pairs, tuple):
+        pairs = list(pairs)
     if not isinstance(pairs, list):
-        if isinstance(pairs, tuple):
-            pairs = list(pairs)
-        else:
-            return None
+        return None
 
     clean_pairs = []
     for pair in pairs:
@@ -112,48 +139,52 @@ def _normalize_rename_history_entry(entry, *, fallback_timestamp: float | None =
         left, right = pair
         clean_pairs.append([str(left), str(right)])
 
-    normalized["pairs"] = clean_pairs
     if not clean_pairs:
         return None
+    normalized["pairs"] = clean_pairs
 
+    default_timestamp = fallback_timestamp or time.time()
     try:
-        normalized["timestamp"] = float(normalized.get("timestamp", fallback_timestamp or time.time()))
-    except Exception:
-        normalized["timestamp"] = float(fallback_timestamp or time.time())
+        normalized["timestamp"] = float(normalized.get("timestamp", default_timestamp))
+    except (TypeError, ValueError):
+        normalized["timestamp"] = float(default_timestamp)
 
     try:
         normalized["count"] = int(normalized.get("count", len(clean_pairs)))
-    except Exception:
+    except (TypeError, ValueError):
         normalized["count"] = len(clean_pairs)
 
-    if "label" in normalized and normalized["label"] is not None:
+    if normalized.get("label") is not None:
         normalized["label"] = str(normalized["label"])
 
     return normalized
 
 
+def _normalized_history(entries, max_items: int) -> list[dict]:
+    if not isinstance(entries, list):
+        return []
+    return [
+        normalized
+        for entry in entries[-max_items:]
+        if (normalized := _normalize_rename_history_entry(entry)) is not None
+    ]
+
+
+def _history_limit(window) -> int:
+    try:
+        return int(getattr(window, "_max_rename_history", 20) or 20)
+    except (TypeError, ValueError):
+        return 20
+
+
 def _collect_rename_history_state(window) -> dict:
-    history = []
-    redo_history = []
-    max_items = int(getattr(window, "_max_rename_history", 20) or 20)
-
-    raw_history = getattr(window, "_rename_history", [])
-    if isinstance(raw_history, list):
-        for entry in raw_history[-max_items:]:
-            normalized = _normalize_rename_history_entry(entry)
-            if normalized is not None:
-                history.append(normalized)
-
-    raw_redo_history = getattr(window, "_rename_redo_history", [])
-    if isinstance(raw_redo_history, list):
-        for entry in raw_redo_history[-max_items:]:
-            normalized = _normalize_rename_history_entry(entry)
-            if normalized is not None:
-                redo_history.append(normalized)
-
+    max_items = _history_limit(window)
     return {
-        "history": history,
-        "redo_history": redo_history,
+        "history": _normalized_history(getattr(window, "_rename_history", []), max_items),
+        "redo_history": _normalized_history(
+            getattr(window, "_rename_redo_history", []),
+            max_items,
+        ),
     }
 
 
@@ -161,387 +192,433 @@ def _restore_rename_history_state(window, state: dict) -> None:
     if not isinstance(state, dict):
         return
 
-    max_items = int(getattr(window, "_max_rename_history", 20) or 20)
-    restored_history = []
-    restored_redo_history = []
+    max_items = _history_limit(window)
+    window._rename_history = _normalized_history(state.get("history", []), max_items)
+    window._rename_redo_history = _normalized_history(
+        state.get("redo_history", []),
+        max_items,
+    )
 
-    history = state.get("history", [])
-    if isinstance(history, list):
-        for entry in history[-max_items:]:
-            normalized = _normalize_rename_history_entry(entry)
-            if normalized is not None:
-                restored_history.append(normalized)
 
-    redo_history = state.get("redo_history", [])
-    if isinstance(redo_history, list):
-        for entry in redo_history[-max_items:]:
-            normalized = _normalize_rename_history_entry(entry)
-            if normalized is not None:
-                restored_redo_history.append(normalized)
-
-    window._rename_history = restored_history
-    window._rename_redo_history = restored_redo_history
+def _restore_filter_actions(actions, selected_values) -> None:
+    if not isinstance(selected_values, list) or not isinstance(actions, dict):
+        return
+    selected = {str(value) for value in selected_values}
+    for value, action in actions.items():
+        _set_widget_value_without_signals(
+            action,
+            lambda action=action, value=value: action.setChecked(value in selected),
+            "восстановления фильтра списка файлов",
+        )
 
 
 def _restore_file_list_view_state(window, state: dict) -> None:
     if not isinstance(state, dict):
         return
 
-    try:
-        sort_mode = str(state.get("sort_mode") or "").strip()
-        if sort_mode and callable(getattr(window, "set_sort_mode", None)):
-            window.set_sort_mode(sort_mode, notify=False)
-    except Exception:
-        pass
+    sort_mode = str(state.get("sort_mode") or "").strip()
+    set_sort_mode = getattr(window, "set_sort_mode", None)
+    if sort_mode and callable(set_sort_mode):
+        try:
+            set_sort_mode(sort_mode, notify=False)
+        except Exception as error:
+            _log_settings_error("восстановления сортировки", error)
 
-    try:
+    search_input = getattr(window, "input_search", None)
+    if search_input is not None:
         search_query = str(state.get("search_query") or "")
-        if hasattr(window, "input_search") and window.input_search is not None:
-            window.input_search.blockSignals(True)
-            window.input_search.setText(search_query)
-            window.input_search.blockSignals(False)
-    except Exception:
-        pass
+        _set_widget_value_without_signals(
+            search_input,
+            lambda: search_input.setText(search_query),
+            "восстановления поискового запроса",
+        )
+
+    _restore_filter_actions(
+        getattr(window, "_type_filter_actions", None),
+        state.get("type_filters"),
+    )
+    _restore_filter_actions(
+        getattr(window, "_ext_filter_actions", None),
+        state.get("extension_filters"),
+    )
 
     try:
-        selected_types = state.get("type_filters")
-        if isinstance(selected_types, list) and hasattr(window, "_type_filter_actions"):
-            selected_types = {str(value) for value in selected_types}
-            for value, action in window._type_filter_actions.items():
-                action.blockSignals(True)
-                action.setChecked(value in selected_types)
-                action.blockSignals(False)
-    except Exception:
-        pass
+        update_type_filter = getattr(window, "_update_type_filter_button_text", None)
+        if callable(update_type_filter):
+            update_type_filter()
+        update_extension_filter = getattr(window, "_update_ext_filter_button_text", None)
+        if callable(update_extension_filter):
+            update_extension_filter()
+
+        refresh_sort = getattr(window, "on_sort_changed", None)
+        refresh_list = getattr(window, "update_file_list", None)
+        if callable(refresh_sort):
+            refresh_sort()
+        elif callable(refresh_list):
+            refresh_list()
+    except Exception as error:
+        _log_settings_error("обновления списка после загрузки фильтров", error)
+
+
+def _legacy_settings_candidates() -> tuple[str, ...]:
+    roaming_dir = os.path.join(os.path.expanduser("~"), "AppData", "Roaming")
+    return (
+        os.path.join(roaming_dir, "Multifora", _SETTINGS_FILENAME),
+        os.path.join(roaming_dir, "python", "Multifora", _SETTINGS_FILENAME),
+        os.path.join(roaming_dir, _SETTINGS_FILENAME),
+    )
+
+
+def _migrate_legacy_settings(target_file: str) -> None:
+    existing_candidates = []
+    for candidate in _legacy_settings_candidates():
+        try:
+            if os.path.exists(candidate):
+                existing_candidates.append(candidate)
+        except OSError as error:
+            _log_settings_error(f"проверки старого файла настроек {candidate}", error)
+
+    if not existing_candidates:
+        return
 
     try:
-        selected_ext = state.get("extension_filters")
-        if isinstance(selected_ext, list) and hasattr(window, "_ext_filter_actions"):
-            selected_ext = {str(value) for value in selected_ext}
-            for value, action in window._ext_filter_actions.items():
-                action.blockSignals(True)
-                action.setChecked(value in selected_ext)
-                action.blockSignals(False)
-    except Exception:
-        pass
+        newest_candidate = max(existing_candidates, key=os.path.getmtime)
+        target_exists = os.path.exists(target_file)
+        target_is_older = target_exists and os.path.getmtime(newest_candidate) > os.path.getmtime(
+            target_file
+        )
+        should_migrate = not target_exists or target_is_older
+        if not should_migrate or os.path.normcase(newest_candidate) == os.path.normcase(target_file):
+            return
 
-    try:
-        if hasattr(window, "_update_type_filter_button_text"):
-            window._update_type_filter_button_text()
-        if hasattr(window, "_update_ext_filter_button_text"):
-            window._update_ext_filter_button_text()
-        if callable(getattr(window, "on_sort_changed", None)):
-            window.on_sort_changed()
-        elif callable(getattr(window, "update_file_list", None)):
-            window.update_file_list()
-    except Exception:
-        pass
+        with open(newest_candidate, "r", encoding="utf-8") as source:
+            migrated_data = source.read()
+        with open(target_file, "w", encoding="utf-8") as destination:
+            destination.write(migrated_data)
+    except Exception as error:
+        _log_settings_error("миграции файла настроек", error)
 
 
 def get_settings_file_path() -> str:
     """Возвращает полный путь к файлу настроек (в Documents пользователя)."""
     target_dir = os.path.join(os.path.expanduser("~"), "Documents", "Multifora")
     os.makedirs(target_dir, exist_ok=True)
-    target_file = os.path.join(target_dir, "multifora_settings.json")
-
-    roaming_dir = os.path.join(os.path.expanduser("~"), "AppData", "Roaming")
-    candidate_files = [
-        os.path.join(roaming_dir, "Multifora", "multifora_settings.json"),
-        os.path.join(roaming_dir, "python", "Multifora", "multifora_settings.json"),
-        os.path.join(roaming_dir, "multifora_settings.json"),
-    ]
-
-    existing_candidates = []
-    for candidate in candidate_files:
-        try:
-            if os.path.exists(candidate):
-                existing_candidates.append(candidate)
-        except Exception:
-            continue
-
-    if existing_candidates:
-        try:
-            newest_candidate = max(existing_candidates, key=os.path.getmtime)
-            should_migrate = (not os.path.exists(target_file)) or (os.path.getmtime(newest_candidate) > os.path.getmtime(target_file))
-            if should_migrate and os.path.normcase(newest_candidate) != os.path.normcase(target_file):
-                with open(newest_candidate, "r", encoding="utf-8") as src:
-                    migrated_data = src.read()
-                with open(target_file, "w", encoding="utf-8") as dst:
-                    dst.write(migrated_data)
-        except Exception as e:
-            _debug_log(f"Ошибка миграции файла настроек: {e}")
-
+    target_file = os.path.join(target_dir, _SETTINGS_FILENAME)
+    _migrate_legacy_settings(target_file)
     return target_file
 
 
-def load_settings(window) -> None:
-    """Загрузка настроек из файла БЕЗ уведомлений."""
+def _initialize_settings_defaults(window) -> None:
     window.windows_context_menu_enabled = False
     window.desktop_shortcut_enabled = False
     window.start_menu_shortcut_enabled = False
     window.disable_warning_dialogs = False
     window.auto_update_check_enabled = True
-    window.theme_mode = "system"
+    window.theme_mode = _DEFAULT_THEME_MODE
     window._pending_template_session_state = None
     window._pending_settings_dialog_geometry = None
     window._pending_settings_nav_row = 0
     window._rename_history = []
     window._rename_redo_history = []
-    _set_checkbox_state(getattr(window, "auto_clear_checkbox", None), False)
-    _set_checkbox_state(getattr(window, "context_menu_checkbox", None), False)
-    _set_checkbox_state(getattr(window, "desktop_shortcut_checkbox", None), False)
-    _set_checkbox_state(getattr(window, "start_menu_shortcut_checkbox", None), False)
 
-    _set_checkbox_state(getattr(window, "disable_warning_dialogs_checkbox", None), False)
-    _set_checkbox_state(getattr(window, "auto_update_check_checkbox", None), True)
+    checkbox_defaults = {
+        "auto_clear_checkbox": False,
+        "context_menu_checkbox": False,
+        "desktop_shortcut_checkbox": False,
+        "start_menu_shortcut_checkbox": False,
+        "disable_warning_dialogs_checkbox": False,
+        "auto_update_check_checkbox": True,
+    }
+    for attribute_name, checked in checkbox_defaults.items():
+        _set_checkbox_state(getattr(window, attribute_name, None), checked)
 
+
+def _restore_boolean_option(
+    window,
+    data: dict,
+    setting_name: str,
+    attribute_name: str,
+    checkbox_name: str,
+) -> None:
+    if setting_name not in data:
+        return
+    value = bool(data[setting_name])
+    setattr(window, attribute_name, value)
+    _set_checkbox_state(getattr(window, checkbox_name, None), value)
+
+
+def _restore_widget_index(widget, raw_index, context: str) -> int | None:
+    if widget is None:
+        return None
+    try:
+        index = int(raw_index)
+        if 0 <= index < widget.count():
+            widget.setCurrentIndex(index)
+            return index
+    except Exception as error:
+        _log_settings_error(context, error)
+    return None
+
+
+def _restore_navigation_state(window, data: dict) -> None:
+    if "current_tab_index" in data:
+        _restore_widget_index(
+            getattr(window, "tabs", None),
+            data.get("current_tab_index"),
+            "восстановления основной вкладки",
+        )
+
+    if "settings_nav_current_row" in data:
+        try:
+            settings_row = int(data.get("settings_nav_current_row"))
+        except (TypeError, ValueError) as error:
+            _log_settings_error("восстановления раздела настроек", error)
+        else:
+            if settings_row >= 0:
+                window._pending_settings_nav_row = settings_row
+                settings_nav = getattr(window, "settings_nav", None)
+                if settings_nav is not None and settings_row < settings_nav.count():
+                    settings_nav.setCurrentRow(settings_row)
+
+    if "operations_tab_index" not in data:
+        return
+    operations_tab_bar = getattr(window, "operations_tab_bar", None)
+    if operations_tab_bar is None:
+        return
+
+    try:
+        index = int(data.get("operations_tab_index"))
+        if index == getattr(window, "_settings_tab_index", -1):
+            index = 0
+        if not 0 <= index < operations_tab_bar.count():
+            return
+
+        operations_tab_bar.setCurrentIndex(index)
+        operations_stack = getattr(window, "operations_stack", None)
+        if operations_stack is not None and index < operations_stack.count():
+            operations_stack.setCurrentIndex(index)
+        window._current_operations_tab_index = index
+    except Exception as error:
+        _log_settings_error("восстановления вкладки операций", error)
+
+
+def _nonempty_string(value):
+    return value if isinstance(value, str) and value else None
+
+
+def _restore_pending_state(window, data: dict) -> None:
+    settings_geometry = _nonempty_string(data.get("settings_dialog_geometry"))
+    if settings_geometry:
+        window._pending_settings_dialog_geometry = settings_geometry
+
+    template_session = data.get("template_session")
+    if isinstance(template_session, dict):
+        window._pending_template_session_state = template_session
+
+    window_geometry = _nonempty_string(data.get("window_geometry"))
+    if window_geometry:
+        window._pending_window_geometry = window_geometry
+
+    if "window_pos" in data:
+        window._pending_window_pos = data.get("window_pos")
+    if "window_size" in data:
+        window._pending_window_size = data.get("window_size")
+    if data.get("window_maximized"):
+        window._pending_window_maximized = True
+
+
+def _restore_theme(window, data: dict) -> None:
+    if "theme_mode" not in data:
+        return
+    theme_mode = str(data.get("theme_mode") or _DEFAULT_THEME_MODE).strip().lower()
+    if theme_mode not in _VALID_THEME_MODES:
+        theme_mode = _DEFAULT_THEME_MODE
+    window.theme_mode = theme_mode
+    _set_combo_current_data(getattr(window, "theme_mode_combo", None), theme_mode)
+
+
+def _apply_settings_data(window, data: dict) -> None:
+    if "custom_templates" in data:
+        window.custom_templates = data["custom_templates"]
+    if "rename_history" in data:
+        _restore_rename_history_state(window, data.get("rename_history"))
+    if "auto_clear" in data:
+        _set_checkbox_state(getattr(window, "auto_clear_checkbox", None), data["auto_clear"])
+
+    boolean_options = (
+        (
+            "disable_warning_dialogs",
+            "disable_warning_dialogs",
+            "disable_warning_dialogs_checkbox",
+        ),
+        ("windows_context_menu", "windows_context_menu_enabled", "context_menu_checkbox"),
+        ("desktop_shortcut", "desktop_shortcut_enabled", "desktop_shortcut_checkbox"),
+        ("start_menu_shortcut", "start_menu_shortcut_enabled", "start_menu_shortcut_checkbox"),
+        ("auto_check_updates", "auto_update_check_enabled", "auto_update_check_checkbox"),
+    )
+    for setting_name, attribute_name, checkbox_name in boolean_options:
+        _restore_boolean_option(
+            window,
+            data,
+            setting_name,
+            attribute_name,
+            checkbox_name,
+        )
+
+    _restore_navigation_state(window, data)
+    _restore_pending_state(window, data)
+
+    if "file_list_view_state" in data:
+        _restore_file_list_view_state(window, data.get("file_list_view_state"))
+    if "expandable_groups" in data:
+        _restore_expandable_groups_state(window, data.get("expandable_groups"))
+
+    _restore_theme(window, data)
+
+    if "ghostscript_path" in data:
+        window.ghostscript_path_override = data.get("ghostscript_path") or None
+        _detect_ghostscript(window.ghostscript_path_override)
+
+
+def load_settings(window) -> None:
+    """Загрузка настроек из файла БЕЗ уведомлений."""
+    _initialize_settings_defaults(window)
     settings_file = get_settings_file_path()
+
     try:
         if os.path.exists(settings_file):
-            with open(settings_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            with open(settings_file, "r", encoding="utf-8") as settings_stream:
+                data = json.load(settings_stream)
+            if not isinstance(data, dict):
+                raise ValueError("корневое значение файла настроек должно быть объектом")
+            _apply_settings_data(window, data)
+    except Exception as error:
+        _log_settings_error("загрузки настроек", error)
 
-            if "custom_templates" in data:
-                window.custom_templates = data["custom_templates"]
-
-            if "rename_history" in data:
-                try:
-                    _restore_rename_history_state(window, data.get("rename_history"))
-                except Exception:
-                    pass
-
-            if "auto_clear" in data:
-                _set_checkbox_state(getattr(window, "auto_clear_checkbox", None), data["auto_clear"])
-
-            if "disable_warning_dialogs" in data:
-                window.disable_warning_dialogs = bool(data["disable_warning_dialogs"])
-                _set_checkbox_state(
-                    getattr(window, "disable_warning_dialogs_checkbox", None),
-                    window.disable_warning_dialogs,
-                )
-
-            if "windows_context_menu" in data:
-                window.windows_context_menu_enabled = data["windows_context_menu"]
-                _set_checkbox_state(
-                    getattr(window, "context_menu_checkbox", None),
-                    window.windows_context_menu_enabled,
-                )
-
-            if "desktop_shortcut" in data:
-                window.desktop_shortcut_enabled = data["desktop_shortcut"]
-                _set_checkbox_state(
-                    getattr(window, "desktop_shortcut_checkbox", None),
-                    window.desktop_shortcut_enabled,
-                )
-
-            if "start_menu_shortcut" in data:
-                window.start_menu_shortcut_enabled = data["start_menu_shortcut"]
-                _set_checkbox_state(
-                    getattr(window, "start_menu_shortcut_checkbox", None),
-                    window.start_menu_shortcut_enabled,
-                )
-
-            if "current_tab_index" in data and hasattr(window, "tabs"):
-                try:
-                    idx = int(data.get("current_tab_index"))
-                    if 0 <= idx < window.tabs.count():
-                        window.tabs.setCurrentIndex(idx)
-                except Exception:
-                    pass
-
-            if "settings_nav_current_row" in data:
-                try:
-                    settings_row = int(data.get("settings_nav_current_row"))
-                    if settings_row >= 0:
-                        window._pending_settings_nav_row = settings_row
-                        if hasattr(window, "settings_nav") and window.settings_nav is not None:
-                            if settings_row < window.settings_nav.count():
-                                window.settings_nav.setCurrentRow(settings_row)
-                except Exception:
-                    pass
-
-            if "settings_dialog_geometry" in data:
-                try:
-                    settings_geom_hex = data.get("settings_dialog_geometry")
-                    if isinstance(settings_geom_hex, str) and settings_geom_hex:
-                        window._pending_settings_dialog_geometry = settings_geom_hex
-                except Exception:
-                    pass
-
-            if "operations_tab_index" in data and hasattr(window, "operations_tab_bar"):
-                try:
-                    idx = int(data.get("operations_tab_index"))
-                    settings_idx = getattr(window, "_settings_tab_index", -1)
-                    if idx == settings_idx:
-                        idx = 0
-                    if 0 <= idx < window.operations_tab_bar.count():
-                        window.operations_tab_bar.setCurrentIndex(idx)
-                        if hasattr(window, "operations_stack") and idx < window.operations_stack.count():
-                            window.operations_stack.setCurrentIndex(idx)
-                        window._current_operations_tab_index = idx
-                except Exception:
-                    pass
-
-            if "template_session" in data:
-                template_session = data.get("template_session")
-                if isinstance(template_session, dict):
-                    window._pending_template_session_state = template_session
-
-            if "file_list_view_state" in data:
-                try:
-                    _restore_file_list_view_state(window, data.get("file_list_view_state"))
-                except Exception:
-                    pass
-
-            if "window_geometry" in data:
-                try:
-                    geom_hex = data.get("window_geometry")
-                    if isinstance(geom_hex, str) and geom_hex:
-                        window._pending_window_geometry = geom_hex
-                except Exception:
-                    pass
-
-            if "window_pos" in data:
-                try:
-                    window._pending_window_pos = data.get("window_pos")
-                except Exception:
-                    pass
-
-            if "window_size" in data:
-                try:
-                    window._pending_window_size = data.get("window_size")
-                except Exception:
-                    pass
-
-            if "expandable_groups" in data:
-                try:
-                    _restore_expandable_groups_state(window, data.get("expandable_groups"))
-                except Exception:
-                    pass
-
-            if "auto_check_updates" in data:
-                window.auto_update_check_enabled = bool(data["auto_check_updates"])
-                _set_checkbox_state(
-                    getattr(window, "auto_update_check_checkbox", None),
-                    window.auto_update_check_enabled,
-                )
-
-            if "theme_mode" in data:
-                mode = str(data.get("theme_mode") or "system").strip().lower()
-                if mode not in ("system", "dark", "light"):
-                    mode = "system"
-                window.theme_mode = mode
-                if hasattr(window, "theme_mode_combo") and window.theme_mode_combo is not None:
-                    _set_combo_current_data(window.theme_mode_combo, mode)
-
-            if "ghostscript_path" in data:
-                window.ghostscript_path_override = data.get("ghostscript_path") or None
-                _detect_ghostscript(window.ghostscript_path_override)
-
-            if data.get("window_maximized"):
-                try:
-                    window._pending_window_maximized = True
-                except Exception:
-                    pass
-    except Exception as e:
-        _debug_log(f"Ошибка загрузки настроек: {e}")
-
-    try:
-        window.apply_theme_mode(getattr(window, "theme_mode", "system"))
-    except Exception:
-        pass
+    apply_theme = getattr(window, "apply_theme_mode", None)
+    if callable(apply_theme):
+        try:
+            apply_theme(getattr(window, "theme_mode", _DEFAULT_THEME_MODE))
+        except Exception as error:
+            _log_settings_error("применения темы", error)
 
     window.apply_shortcut_settings(silent=True)
 
 
+def _resolve_saved_geometry(window):
+    is_maximized = bool(window.isMaximized()) if hasattr(window, "isMaximized") else False
+    geometry_source = None
+
+    geometry_getters = []
+    if is_maximized:
+        geometry_getters.append(getattr(window, "normalGeometry", None))
+    geometry_getters.append(getattr(window, "geometry", None))
+
+    for getter in geometry_getters:
+        if not callable(getter):
+            continue
+        try:
+            geometry_source = getter()
+        except Exception as error:
+            _log_settings_error("получения геометрии окна", error)
+        if geometry_source is not None:
+            break
+
+    if geometry_source is not None:
+        saved_position = [int(geometry_source.x()), int(geometry_source.y())]
+        saved_size = [int(geometry_source.width()), int(geometry_source.height())]
+        return is_maximized, saved_position, saved_size
+
+    saved_position = None
+    saved_size = None
+    position_getter = getattr(window, "pos", None)
+    size_getter = getattr(window, "size", None)
+    if callable(position_getter):
+        position = position_getter()
+        saved_position = [position.x(), position.y()]
+    if callable(size_getter):
+        size = size_getter()
+        saved_size = [size.width(), size.height()]
+    return is_maximized, saved_position, saved_size
+
+
+def _current_widget_index(window, attribute_name: str, default: int = 0) -> int:
+    widget = getattr(window, attribute_name, None)
+    if widget is None:
+        return default
+    return int(widget.currentIndex())
+
+
+def _collect_file_list_view_state(window) -> dict:
+    get_sort_mode = getattr(window, "get_sort_mode", None)
+    search_input = getattr(window, "input_search", None)
+    return {
+        "sort_mode": get_sort_mode() if callable(get_sort_mode) else "",
+        "search_query": search_input.text() if search_input is not None else "",
+        "type_filters": sorted(
+            key
+            for key, action in getattr(window, "_type_filter_actions", {}).items()
+            if action.isChecked()
+        ),
+        "extension_filters": sorted(
+            key
+            for key, action in getattr(window, "_ext_filter_actions", {}).items()
+            if action.isChecked()
+        ),
+    }
+
+
+def _encoded_geometry(widget):
+    if widget is None or not callable(getattr(widget, "saveGeometry", None)):
+        return None
+    return widget.saveGeometry().toHex().data().decode("ascii")
+
+
+def _collect_settings_data(window) -> dict:
+    is_maximized, saved_position, saved_size = _resolve_saved_geometry(window)
+    settings_nav = getattr(window, "settings_nav", None)
+    auto_update_checkbox = getattr(window, "auto_update_check_checkbox", None)
+
+    return {
+        "custom_templates": window.custom_templates,
+        "auto_clear": window.auto_clear_checkbox.isChecked(),
+        "windows_context_menu": window.windows_context_menu_enabled,
+        "ghostscript_path": window.ghostscript_path_override,
+        "desktop_shortcut": window.desktop_shortcut_enabled,
+        "start_menu_shortcut": window.start_menu_shortcut_enabled,
+        "disable_warning_dialogs": getattr(window, "disable_warning_dialogs", False),
+        "auto_check_updates": (
+            auto_update_checkbox.isChecked() if auto_update_checkbox is not None else True
+        ),
+        "theme_mode": getattr(window, "theme_mode", _DEFAULT_THEME_MODE),
+        "current_tab_index": _current_widget_index(window, "tabs"),
+        "settings_nav_current_row": settings_nav.currentRow() if settings_nav is not None else 0,
+        "operations_tab_index": _current_widget_index(window, "operations_tab_bar"),
+        "settings_dialog_geometry": _encoded_geometry(getattr(window, "_settings_dialog", None)),
+        "template_session": _collect_template_session_state(window),
+        "rename_history": _collect_rename_history_state(window),
+        "file_list_view_state": _collect_file_list_view_state(window),
+        "window_geometry": _encoded_geometry(window),
+        "window_pos": saved_position,
+        "window_size": saved_size,
+        "window_maximized": is_maximized,
+        "expandable_groups": _collect_expandable_groups_state(window),
+    }
+
+
 def save_settings(window) -> None:
     """Сохранение настроек в файл."""
-    settings_file = get_settings_file_path()
-    if not getattr(window, "initial_load_complete", False) and not getattr(window, "_force_settings_save", False):
+    if not getattr(window, "initial_load_complete", False) and not getattr(
+        window,
+        "_force_settings_save",
+        False,
+    ):
         return
+
+    settings_file = get_settings_file_path()
     try:
-        is_maximized = bool(window.isMaximized()) if hasattr(window, "isMaximized") else False
-        geometry_source = None
-        if is_maximized and callable(getattr(window, "normalGeometry", None)):
-            try:
-                geometry_source = window.normalGeometry()
-            except Exception:
-                geometry_source = None
-        if geometry_source is None and callable(getattr(window, "geometry", None)):
-            try:
-                geometry_source = window.geometry()
-            except Exception:
-                geometry_source = None
-
-        if geometry_source is not None:
-            saved_pos = [int(geometry_source.x()), int(geometry_source.y())]
-            saved_size = [int(geometry_source.width()), int(geometry_source.height())]
-        else:
-            saved_pos = None
-            saved_size = None
-            if hasattr(window, "pos") and callable(getattr(window, "pos", None)):
-                saved_pos = [window.pos().x(), window.pos().y()]
-            if hasattr(window, "size") and callable(getattr(window, "size", None)):
-                saved_size = [window.size().width(), window.size().height()]
-
-        data = {
-            "custom_templates": window.custom_templates,
-            "auto_clear": window.auto_clear_checkbox.isChecked(),
-            "windows_context_menu": window.windows_context_menu_enabled,
-            "ghostscript_path": window.ghostscript_path_override,
-            "desktop_shortcut": window.desktop_shortcut_enabled,
-            "start_menu_shortcut": window.start_menu_shortcut_enabled,
-            "disable_warning_dialogs": getattr(window, "disable_warning_dialogs", False),
-            "auto_check_updates": (
-                window.auto_update_check_checkbox.isChecked()
-                if hasattr(window, "auto_update_check_checkbox")
-                else True
-            ),
-            "theme_mode": getattr(window, "theme_mode", "system"),
-            "current_tab_index": window.tabs.currentIndex() if hasattr(window, "tabs") else 0,
-            "settings_nav_current_row": (
-                window.settings_nav.currentRow()
-                if hasattr(window, "settings_nav") and window.settings_nav is not None
-                else 0
-            ),
-            "operations_tab_index": (
-                window.operations_tab_bar.currentIndex()
-                if hasattr(window, "operations_tab_bar") and window.operations_tab_bar is not None
-                else 0
-            ),
-            "settings_dialog_geometry": (
-                window._settings_dialog.saveGeometry().toHex().data().decode("ascii")
-                if hasattr(window, "_settings_dialog") and window._settings_dialog is not None
-                else None
-            ),
-            "template_session": _collect_template_session_state(window),
-            "rename_history": _collect_rename_history_state(window),
-            "file_list_view_state": {
-                "sort_mode": (
-                    window.get_sort_mode()
-                    if callable(getattr(window, "get_sort_mode", None))
-                    else ""
-                ),
-                "search_query": (
-                    window.input_search.text()
-                    if hasattr(window, "input_search") and window.input_search is not None
-                    else ""
-                ),
-                "type_filters": sorted(
-                    key for key, action in getattr(window, "_type_filter_actions", {}).items() if action.isChecked()
-                ),
-                "extension_filters": sorted(
-                    key for key, action in getattr(window, "_ext_filter_actions", {}).items() if action.isChecked()
-                ),
-            },
-            "window_geometry": window.saveGeometry().toHex().data().decode("ascii") if hasattr(window, "saveGeometry") else None,
-            "window_pos": saved_pos,
-            "window_size": saved_size,
-            "window_maximized": is_maximized,
-            "expandable_groups": _collect_expandable_groups_state(window),
-        }
-        with open(settings_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        _debug_log(f"Ошибка сохранения настроек: {e}")
-
+        data = _collect_settings_data(window)
+        with open(settings_file, "w", encoding="utf-8") as settings_stream:
+            json.dump(data, settings_stream, ensure_ascii=False, indent=2)
+    except Exception as error:
+        _log_settings_error("сохранения настроек", error)

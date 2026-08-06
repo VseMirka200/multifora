@@ -2,6 +2,7 @@ import os
 import time
 
 from PyQt6.QtWidgets import QMessageBox
+from app.core.app_utils import _log_ignored_error
 
 
 class RenameHistoryMixin:
@@ -11,14 +12,14 @@ class RenameHistoryMixin:
             try:
                 saver()
                 return
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("RenameHistoryMixin._persist_rename_history_state", error)
         scheduler = getattr(self, "_schedule_settings_save", None)
         if callable(scheduler):
             try:
                 scheduler()
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("RenameHistoryMixin._persist_rename_history_state", error)
 
     def on_history_row_changed(self, row: int):
         if getattr(self, "_is_history_refresh", False):

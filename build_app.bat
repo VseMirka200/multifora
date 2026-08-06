@@ -19,7 +19,7 @@ if errorlevel 1 goto :error
 if exist "build" rmdir /s /q "build"
 if exist "dist\%APP_BUILD_NAME%" rmdir /s /q "dist\%APP_BUILD_NAME%"
 
-python -m PyInstaller --noconfirm --clean --windowed --name "%APP_BUILD_NAME%" --icon "icons\icon.ico" multifora_start.pyw
+python -m PyInstaller --noconfirm --clean --windowed --name "%APP_BUILD_NAME%" --icon "icons\icon.ico" multifora_start.py
 if errorlevel 1 goto :error
 
 if exist "icons" (

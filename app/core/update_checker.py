@@ -1,10 +1,10 @@
-# -*- coding: utf-8 -*-
 import json
 import os
 import re
 import subprocess
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from app.core.app_utils import _log_ignored_error
 
 
 REPO = "VseMirka200/multifora"
@@ -68,8 +68,8 @@ def get_local_version() -> str:
         tag = (res.stdout or "").strip()
         if res.returncode == 0 and tag:
             return tag
-    except Exception:
-        pass
+    except Exception as error:
+        _log_ignored_error("get_local_version", error)
 
     try:
         res = subprocess.run(
@@ -83,8 +83,8 @@ def get_local_version() -> str:
         commit = (res.stdout or "").strip()
         if res.returncode == 0 and commit:
             return f"dev-{commit}"
-    except Exception:
-        pass
+    except Exception as error:
+        _log_ignored_error("get_local_version", error)
     return "unknown"
 
 

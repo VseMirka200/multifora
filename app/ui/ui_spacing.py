@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 SPACE_NONE = 0
 SPACE_XXS = 1
 SPACE_XS = 2

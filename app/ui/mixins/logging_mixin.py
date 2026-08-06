@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from app.core.app_utils import _get_app_data_dir
+from app.core.app_utils import _get_app_data_dir, _log_ignored_error
 
 
 class LoggingMixin:
@@ -35,11 +35,11 @@ class LoggingMixin:
             if not os.path.exists(logs_dir) and os.path.isdir(legacy_logs_dir):
                 try:
                     os.replace(legacy_logs_dir, logs_dir)
-                except Exception:
-                    pass
+                except Exception as error:
+                    _log_ignored_error("LoggingMixin.get_logs_dir", error)
             os.makedirs(logs_dir, exist_ok=True)
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("LoggingMixin.get_logs_dir", error)
         return logs_dir
 
     def get_log_file_path(self):
@@ -65,8 +65,8 @@ class LoggingMixin:
             else:
                 with open(log_path, "a", encoding="utf-8") as f:
                     f.write(line + "\n")
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("LoggingMixin.log_event", error)
         self._append_log_line(line)
 
     def attach_action_logging(self, root: QWidget | None = None):
@@ -75,8 +75,8 @@ class LoggingMixin:
         widgets = [root_widget]
         try:
             widgets.extend(root_widget.findChildren(QWidget))
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("LoggingMixin.attach_action_logging", error)
 
         for widget in widgets:
             self._attach_widget_logger(widget)
@@ -116,8 +116,8 @@ class LoggingMixin:
             if isinstance(widget, QAbstractButton):
                 widget.clicked.connect(lambda _checked=False, w=widget: self._log_button_action(w))
                 return
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("LoggingMixin._attach_widget_logger", error)
 
     def _should_skip_action_logging(self, widget: QWidget) -> bool:
         if widget is None:
@@ -168,8 +168,8 @@ class LoggingMixin:
                     value = self._normalize_log_value(getter())
                     if value:
                         return value
-                except Exception:
-                    pass
+                except Exception as error:
+                    _log_ignored_error("LoggingMixin._widget_caption", error)
 
         caption = self._find_caption_in_parent_layout(widget)
         if caption:
@@ -230,8 +230,8 @@ class LoggingMixin:
                     value = self._normalize_log_value(getter())
                     if value:
                         return value.rstrip(":")
-                except Exception:
-                    pass
+                except Exception as error:
+                    _log_ignored_error("LoggingMixin._extract_widget_text", error)
         return ""
 
     def _log_button_action(self, widget: QAbstractButton):
@@ -315,8 +315,8 @@ class LoggingMixin:
                 try:
                     self._apply_logs_filters()
                     return
-                except Exception:
-                    pass
+                except Exception as error:
+                    _log_ignored_error("LoggingMixin._append_log_line", error)
         self.logs_view.appendPlainText(line)
         self.logs_view.moveCursor(QTextCursor.MoveOperation.End)
 
@@ -337,15 +337,15 @@ class LoggingMixin:
                 with open(log_path, "w", encoding="utf-8") as f:
                     if lines:
                         f.write("\n".join(lines) + "\n")
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("LoggingMixin.load_logs_into_view", error)
         self._log_lines = list(lines)
         if hasattr(self, "_apply_logs_filters"):
             try:
                 self._apply_logs_filters()
                 return
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("LoggingMixin.load_logs_into_view", error)
         self.logs_view.setPlainText("\n".join(lines))
         self.logs_view.moveCursor(QTextCursor.MoveOperation.End)
 

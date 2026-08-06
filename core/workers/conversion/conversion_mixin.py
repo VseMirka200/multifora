@@ -1,7 +1,6 @@
 import os
 import shutil
 import subprocess
-import sys
 import threading
 import time
 import urllib.parse
@@ -31,6 +30,32 @@ from app.core.conversion_formats import suffix_for_format
 
 _WORD_WARMUP_LOCK = threading.Lock()
 _WORD_WARMUP_DONE = False
+_WD_EXPORT_FORMAT_PDF = 17
+
+
+def _close_word_document(document) -> None:
+    if document is None:
+        return
+    try:
+        document.Close(False)
+    except Exception as error:
+        _debug_log(f"Не удалось закрыть документ Word: {error}")
+
+
+def _quit_word_application(word_application) -> None:
+    if word_application is None:
+        return
+    try:
+        word_application.Quit()
+    except Exception as error:
+        _debug_log(f"Не удалось закрыть Microsoft Word: {error}")
+
+
+def _uninitialize_com(pythoncom_module) -> None:
+    try:
+        pythoncom_module.CoUninitialize()
+    except Exception as error:
+        _debug_log(f"Не удалось завершить COM-сеанс Word: {error}")
 
 
 def prewarm_word_background(status_callback=None, log_callback=None) -> bool:
@@ -59,15 +84,8 @@ def prewarm_word_background(status_callback=None, log_callback=None) -> bool:
                 _WORD_WARMUP_DONE = True
                 return True
             finally:
-                if word_app is not None:
-                    try:
-                        word_app.Quit()
-                    except Exception:
-                        pass
-                try:
-                    pythoncom.CoUninitialize()
-                except Exception:
-                    pass
+                _quit_word_application(word_app)
+                _uninitialize_com(pythoncom)
         except Exception as e:
             msg = f"Не удалось запустить фоновую подготовку Microsoft Word: {e}"
             if callable(log_callback):
@@ -107,26 +125,6 @@ class ConversionMixin:
             value = value[1:]
         value = value.replace("/", "\\")
         return os.path.normpath(value)
-
-    def _resolve_python_for_docx2pdf(self) -> str | None:
-        """Return a Python interpreter path suitable for `python -c` calls."""
-        candidates = []
-        try:
-            base_exe = getattr(sys, "_base_executable", None)
-            if base_exe:
-                candidates.append(base_exe)
-        except Exception:
-            pass
-        candidates.append(sys.executable)
-        candidates.append(shutil.which("python"))
-        candidates.append(shutil.which("python3"))
-
-        for exe in candidates:
-            if not exe:
-                continue
-            if os.path.basename(exe).lower().startswith("python"):
-                return exe
-        return None
 
     def _convert_image_to_image(self, file: FileItem, target_format: str) -> str:
         source_ext = os.path.splitext(file.path)[1].lower()
@@ -168,8 +166,8 @@ class ConversionMixin:
                 exe = get_ffmpeg_exe()
                 if exe and os.path.exists(exe):
                     return exe
-            except Exception:
-                pass
+            except Exception as error:
+                _debug_log(f"Не удалось определить встроенный ffmpeg: {error}")
         return shutil.which("ffmpeg")
 
     def _convert_media_to_media(self, file: FileItem, target_format: str) -> str:
@@ -213,7 +211,7 @@ class ConversionMixin:
     def _convert_files(self):
         total = len(self.files)
         results = []
-        # Для самых тяжелых сценариев используем отдельные batch-пути.
+        # Для самых тяжёлых сценариев используем отдельные пакетные обработчики.
         if self.conversion_type == "word_to_pdf":
             results = self._convert_word_to_pdf_batch()
             self._emit_finished(results, [])
@@ -326,15 +324,11 @@ class ConversionMixin:
                         )
                         document.ExportAsFixedFormat(
                             OutputFileName=normalized_dst,
-                            ExportFormat=17,  # wdExportFormatPDF
+                            ExportFormat=_WD_EXPORT_FORMAT_PDF,
                             OpenAfterExport=False,
                         )
                     finally:
-                        if document is not None:
-                            try:
-                                document.Close(False)
-                            except Exception:
-                                pass
+                        _close_word_document(document)
 
                     if os.path.exists(normalized_dst):
                         results.append(FileItem(normalized_dst))
@@ -346,15 +340,8 @@ class ConversionMixin:
                     self.error.emit(msg)
                 self.progress.emit(int((i + 1) / total * 100))
         finally:
-            if word_app is not None:
-                try:
-                    word_app.Quit()
-                except Exception:
-                    pass
-            try:
-                pythoncom.CoUninitialize()
-            except Exception:
-                pass
+            _quit_word_application(word_app)
+            _uninitialize_com(pythoncom)
 
         return results
 
@@ -469,7 +456,10 @@ class ConversionMixin:
                     raise Exception("docx2pdf не создал выходной PDF-файл")
                 except Exception as e:
                     err_text = str(e)
-                    if ("NoneType" in err_text and "write" in err_text) or ("could not start Microsoft Word" in err_text):
+                    word_start_failed = (
+                        "NoneType" in err_text and "write" in err_text
+                    ) or "could not start Microsoft Word" in err_text
+                    if word_start_failed:
                         err_text = (
                             "Не удалось запустить Microsoft Word. Убедитесь, что Word установлен и активирован, "
                             "хотя бы один раз запускался вручную и не осталось зависших процессов WINWORD.EXE."
@@ -520,25 +510,14 @@ class ConversionMixin:
             )
             document.ExportAsFixedFormat(
                 OutputFileName=normalized_dst,
-                ExportFormat=17,  # wdExportFormatPDF
+                ExportFormat=_WD_EXPORT_FORMAT_PDF,
                 OpenAfterExport=False,
             )
             return os.path.exists(normalized_dst)
         finally:
-            if document is not None:
-                try:
-                    document.Close(False)
-                except Exception:
-                    pass
-            if word_app is not None:
-                try:
-                    word_app.Quit()
-                except Exception:
-                    pass
-            try:
-                pythoncom.CoUninitialize()
-            except Exception:
-                pass
+            _close_word_document(document)
+            _quit_word_application(word_app)
+            _uninitialize_com(pythoncom)
 
     def _convert_pdf_to_word(self, file: FileItem) -> str:
         if file.path.lower().endswith(".pdf"):

@@ -1,42 +1,22 @@
+import ctypes
 import os
-import shutil
 import subprocess
 import sys
-import winreg
-import ctypes
+
+try:
+    import winreg
+except ImportError:
+    winreg = None
 
 from PyQt6.QtCore import Qt, QStandardPaths
 from PyQt6.QtWidgets import QMessageBox
 
 from app.core.app_identity import APP_DISPLAY_NAME
-from app.core.app_utils import _debug_log
+from app.core.app_utils import _debug_log, _log_ignored_error
 from app.core.app_icons import _get_shortcut_icon_path
 
 
 class WindowsIntegrationMixin:
-    def get_pythonw_path(self):
-        """Получает путь к pythonw.exe."""
-        try:
-            python_exe = sys.executable
-            python_dir = os.path.dirname(python_exe)
-            pythonw_names = [
-                "pythonw.exe",
-                "pythonw",
-                os.path.basename(python_exe).replace("python", "pythonw"),
-            ]
-            for name in pythonw_names:
-                pythonw_path = os.path.join(python_dir, name)
-                if os.path.exists(pythonw_path):
-                    return pythonw_path
-            for name in ["pythonw.exe", "pythonw"]:
-                pythonw_path = shutil.which(name)
-                if pythonw_path:
-                    return pythonw_path
-            return None
-        except Exception as exc:
-            _debug_log(f"Ошибка получения пути к pythonw.exe: {exc}")
-            return None
-
     def is_context_menu_registered(self):
         """Проверяет, зарегистрировано ли контекстное меню в реестре (HKCU)."""
         try:
@@ -57,23 +37,14 @@ class WindowsIntegrationMixin:
         """Регистрирует пункт контекстного меню Windows (HKCU, без админа)."""
         try:
             exe_path = os.path.abspath(sys.argv[0])
-            pythonw_path = None
-            if exe_path.lower().endswith(".pyw"):
-                pythonw_path = self.get_pythonw_path() or sys.executable
-                base_cmd = f"\"{pythonw_path}\" \"{exe_path}\""
-            elif exe_path.lower().endswith(".py"):
+            if exe_path.lower().endswith(".py"):
                 base_cmd = f"\"{sys.executable}\" \"{exe_path}\""
             else:
                 base_cmd = f"\"{exe_path}\""
 
             icon_path = _get_shortcut_icon_path()
             if not icon_path:
-                if exe_path.lower().endswith(".pyw"):
-                    icon_path = pythonw_path or sys.executable
-                elif exe_path.lower().endswith(".py"):
-                    icon_path = sys.executable
-                else:
-                    icon_path = exe_path
+                icon_path = sys.executable if exe_path.lower().endswith(".py") else exe_path
             if icon_path:
                 if icon_path.lower().endswith((".exe", ".dll")):
                     icon_value = f"\"{icon_path}\",0"
@@ -91,7 +62,7 @@ class WindowsIntegrationMixin:
             for root in roots:
                 with winreg.CreateKey(winreg.HKEY_CURRENT_USER, root) as key:
                     winreg.SetValueEx(key, "MUIVerb", 0, winreg.REG_SZ, "Добавить в Мультифору")
-                    # Document mode lets Explorer pass the full multi-selection to the verb.
+                    # Режим Document передаёт команде всё выделение Проводника, а не один файл.
                     winreg.SetValueEx(key, "MultiSelectModel", 0, winreg.REG_SZ, "Document")
                     if icon_value:
                         winreg.SetValueEx(key, "Icon", 0, winreg.REG_SZ, icon_value)
@@ -110,8 +81,8 @@ class WindowsIntegrationMixin:
                     "Ошибка",
                     f"Не удалось добавить контекстное меню.\n\n{exc}",
                 )
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("WindowsIntegrationMixin.register_context_menu", error)
             return False
 
     def unregister_context_menu_silent(self):
@@ -130,8 +101,8 @@ class WindowsIntegrationMixin:
                 return
             try:
                 winreg.DeleteKey(root_key, subkey)
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("WindowsIntegrationMixin._del_tree", error)
 
         try:
             for sub in [
@@ -146,8 +117,8 @@ class WindowsIntegrationMixin:
                 r"Software\Classes\Directory\Background\shell\AddToMultifora",
             ]:
                 _del_tree(winreg.HKEY_CURRENT_USER, sub)
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("WindowsIntegrationMixin.unregister_context_menu_silent", error)
 
     def unregister_context_menu(self):
         """Удаляет контекстное меню (HKCU, без админ-прав)."""
@@ -158,8 +129,8 @@ class WindowsIntegrationMixin:
             self.log_event(f"Ошибка удаления контекстного меню: {exc}", "ERROR")
             try:
                 QMessageBox.critical(self, "Ошибка", f"Не удалось удалить контекстное меню.\n\n{exc}")
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("WindowsIntegrationMixin.unregister_context_menu", error)
             return False
 
     def toggle_context_menu(self, state):
@@ -192,7 +163,11 @@ class WindowsIntegrationMixin:
                     self.context_menu_checkbox.blockSignals(True)
                     self.context_menu_checkbox.setChecked(False)
                     self.context_menu_checkbox.blockSignals(False)
-                    QMessageBox.warning(self, "Ошибка", "Не удалось добавить контекстное меню. Проверьте права доступа.")
+                    QMessageBox.warning(
+                        self,
+                        "Ошибка",
+                        "Не удалось добавить контекстное меню. Проверьте права доступа.",
+                    )
             else:
                 success = self.unregister_context_menu()
                 if success:
@@ -204,7 +179,11 @@ class WindowsIntegrationMixin:
                     self.context_menu_checkbox.blockSignals(True)
                     self.context_menu_checkbox.setChecked(True)
                     self.context_menu_checkbox.blockSignals(False)
-                    QMessageBox.warning(self, "Ошибка", "Не удалось удалить контекстное меню. Возможно, нет прав доступа.")
+                    QMessageBox.warning(
+                        self,
+                        "Ошибка",
+                        "Не удалось удалить контекстное меню. Возможно, нет прав доступа.",
+                    )
         finally:
             self._context_menu_toggle_in_progress = False
 
@@ -216,8 +195,8 @@ class WindowsIntegrationMixin:
             SHCNE_ASSOCCHANGED = 0x08000000
             SHCNF_IDLIST = 0x0000
             ctypes.windll.shell32.SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, None, None)
-        except Exception:
-            pass
+        except Exception as error:
+            _log_ignored_error("WindowsIntegrationMixin.refresh_shell_context_menu", error)
 
     def get_desktop_shortcut_path(self):
         """Возвращает путь ярлыка на рабочем столе."""
@@ -263,8 +242,8 @@ class WindowsIntegrationMixin:
         try:
             try:
                 os.makedirs(os.path.dirname(shortcut_path), exist_ok=True)
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("WindowsIntegrationMixin.create_windows_shortcut", error)
             shortcut_exists = os.path.exists(shortcut_path)
             target_path = sys.executable
             args = ""

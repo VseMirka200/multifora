@@ -81,7 +81,7 @@ class ConversionMixinTests(unittest.TestCase):
         self.assertEqual(len(worker.finished.emitted), 1)
         self.assertEqual(worker.finished.emitted[0].get("new_files"), [])
 
-    def test_word_to_pdf_fallback_without_python_executable(self):
+    def test_word_to_pdf_falls_back_when_hidden_com_is_unavailable(self):
         worker = _DummyConversionWorker()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -96,7 +96,7 @@ class ConversionMixinTests(unittest.TestCase):
                     f.write(b"%PDF-1.4")
 
             with patch.object(worker, "_warmup_word", return_value=None):
-                with patch.object(worker, "_resolve_python_for_docx2pdf", return_value=None):
+                with patch.object(worker, "_convert_word_to_pdf_hidden_com", return_value=False):
                     with patch.object(conv_module, "HAS_WORD_TO_PDF", True):
                         with patch.object(conv_module, "word_to_pdf", side_effect=fake_word_to_pdf) as convert_mock:
                             result_path = worker._convert_word_to_pdf(source_item)

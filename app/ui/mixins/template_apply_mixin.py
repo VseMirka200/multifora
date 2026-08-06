@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import os
 from datetime import datetime
 
@@ -6,6 +5,7 @@ from PyQt6.QtWidgets import QCheckBox, QComboBox, QLineEdit, QSpinBox, QTextEdit
 
 import app.core.rename_templates as rt
 from app.ui.ui_components import setup_standard_dropdown
+from app.core.app_utils import _log_ignored_error
 
 
 class TemplateApplyMixin:
@@ -101,11 +101,19 @@ class TemplateApplyMixin:
 
             elif self.current_template == "Удалить символы с начала":
                 remove_chars = getattr(self, "template_remove_start", QSpinBox()).value()
-                new_name = f"{name_without_ext[remove_chars:]}{ext}" if len(name_without_ext) > remove_chars else old_name
+                new_name = (
+                    f"{name_without_ext[remove_chars:]}{ext}"
+                    if len(name_without_ext) > remove_chars
+                    else old_name
+                )
 
             elif self.current_template == "Удалить символы с конца":
                 remove_chars = getattr(self, "template_remove_end", QSpinBox()).value()
-                new_name = f"{name_without_ext[:-remove_chars]}{ext}" if len(name_without_ext) > remove_chars else old_name
+                new_name = (
+                    f"{name_without_ext[:-remove_chars]}{ext}"
+                    if len(name_without_ext) > remove_chars
+                    else old_name
+                )
 
             elif self.current_template == "Удалить определенный текст":
                 text_to_remove = getattr(self, "template_remove_text", QLineEdit("")).text()
@@ -194,9 +202,9 @@ class TemplateApplyMixin:
         for combo in container.findChildren(QComboBox):
             try:
                 combo._effective_theme_mode = mode
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("TemplateApplyMixin._apply_template_params_theme", error)
             try:
                 setup_standard_dropdown(combo)
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("TemplateApplyMixin._apply_template_params_theme", error)

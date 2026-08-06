@@ -3,7 +3,7 @@ import os
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 
-from app.core.app_utils import _debug_log
+from app.core.app_utils import _debug_log, _log_ignored_error
 from app.core.models import FileItem
 
 
@@ -54,8 +54,8 @@ class WorkerOpsMixin:
             self.input_merge_output_path.setText(file_path)
             try:
                 self.input_merge_output_path.setCursorPosition(0)
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("WorkerOpsMixin._select_merge_output_path_for_format", error)
         return file_path
 
     def select_merge_output_path(self):
@@ -84,8 +84,8 @@ class WorkerOpsMixin:
             self.input_merge_output_path.setText(f"{base}{extension}")
             try:
                 self.input_merge_output_path.setCursorPosition(0)
-            except Exception:
-                pass
+            except Exception as error:
+                _log_ignored_error("WorkerOpsMixin.on_merge_format_changed", error)
 
     def convert_files(self, conversion_type: str, target_format: str = ""):
         """Конвертация файлов."""
@@ -185,7 +185,11 @@ class WorkerOpsMixin:
                 pdf_method = "optimize"
             replace_pdf = self.checkbox_replace_pdf.isChecked() if hasattr(self, "checkbox_replace_pdf") else False
         elif compress_type == "Изображения":
-            replace_image = self.checkbox_replace_image.isChecked() if hasattr(self, "checkbox_replace_image") else False
+            replace_image = (
+            self.checkbox_replace_image.isChecked()
+            if hasattr(self, "checkbox_replace_image")
+            else False
+        )
 
         compression_level = 85
         if compress_type == "Изображения" and hasattr(self, "combo_compression_level"):
