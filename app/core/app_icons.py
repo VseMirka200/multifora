@@ -3,7 +3,6 @@ import os
 import sys
 
 from app.core.app_utils import _debug_log, _get_app_data_dir
-from app.core.deps import HAS_PIL, Image
 
 _ICON_SIZES = ((16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256))
 
@@ -73,7 +72,9 @@ def _get_shortcut_icon_path():
         generated_ico_path = os.path.join(_get_app_data_dir(), "app_icon.ico")
         if not _icon_needs_refresh(png_path, generated_ico_path):
             return generated_ico_path
-        if not HAS_PIL:
+        try:
+            from PIL import Image
+        except ImportError:
             _debug_log("Pillow недоступен: не удалось создать ICO")
             return None
 

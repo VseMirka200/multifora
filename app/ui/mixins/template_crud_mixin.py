@@ -95,7 +95,7 @@ class TemplateCrudMixin:
             return """
             QTableWidget {
                 background-color: transparent;
-                alternate-background-color: #454545;
+                alternate-background-color: #eef1f5;
                 color: #1f2328;
                 border: none;
                 selection-background-color: rgba(61, 116, 179, 0.22);
@@ -117,7 +117,7 @@ class TemplateCrudMixin:
                 border: none;
             }
             QTableWidget::item:alternate {
-                background-color: #454545;
+                background-color: #eef1f5;
                 color: #1f2328;
             }
             QTableWidget::item:hover {

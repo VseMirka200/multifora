@@ -23,7 +23,7 @@ from app.core.app_utils import _log_ignored_error
 
 
 class FileListActionsMixin:
-    _FILTERABLE_FILE_TYPES = frozenset(("document", "image", "video", "audio", "archive", "folder", "other"))
+    _FILTERABLE_FILE_TYPES = frozenset(("document", "image", "archive", "folder", "other"))
 
     def _manual_sort_mode_text(self) -> str:
         return "Без сортировки (ручной порядок)"

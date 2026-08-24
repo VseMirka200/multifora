@@ -110,20 +110,30 @@ def _remove_file_safely(path: str) -> None:
         return
     try:
         os.remove(path)
-    except Exception as error:
+    except OSError as error:
         _debug_log(f"Не удалось удалить временный файл {path}: {error}")
 
 
-def _stop_process(process) -> None:
+def _stop_process(process: subprocess.Popen) -> None:
+    """Останавливает дочерний процесс и при необходимости переходит к kill."""
     try:
         process.terminate()
-        process.wait(timeout=2)
-        return
-    except Exception as terminate_error:
-        _debug_log(f"Не удалось штатно остановить процесс сжатия: {terminate_error}")
+    except OSError as terminate_error:
+        _debug_log(
+            f"Не удалось отправить процессу сигнал завершения: {terminate_error}"
+        )
+    else:
+        try:
+            process.wait(timeout=2)
+            return
+        except subprocess.TimeoutExpired:
+            _debug_log("Процесс сжатия не завершился за 2 секунды")
+        except OSError as wait_error:
+            _debug_log(f"Ошибка ожидания завершения процесса: {wait_error}")
+
     try:
         process.kill()
-    except Exception as kill_error:
+    except OSError as kill_error:
         _debug_log(f"Не удалось принудительно остановить процесс сжатия: {kill_error}")
 
 

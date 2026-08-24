@@ -54,7 +54,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from app.ui.ui_spacing import (
-    CONTROL_HEIGHT,
+    ACTION_BUTTON_HEIGHT,
     FIELD_HEIGHT,
     HEADER_FIELD_HEIGHT,
     MARGINS_NONE,
@@ -77,10 +77,16 @@ _build_standard_field_style = build_standard_field_style
 
 def _build_standard_button_style(theme: str, role: str) -> str:
     dark_theme = str(theme).lower() != "light"
+    role = str(role or "secondary").lower()
+
     if role == "link":
         return """
             QPushButton {
                 background-color: transparent;
+                color: #d8e6ff;
+                border: none;
+                border-radius: 8px;
+                padding: 4px 8px;
             }
             QPushButton:hover {
                 background-color: rgba(61, 116, 179, 0.08);
@@ -90,36 +96,121 @@ def _build_standard_button_style(theme: str, role: str) -> str:
             }
             QPushButton:disabled {
                 background-color: transparent;
+                color: rgba(216, 230, 255, 0.45);
             }
         """
+
     if dark_theme:
-        return """
-            QPushButton {
-                background-color: transparent;
-            }
-            QPushButton:hover {
-                background-color: rgba(255, 255, 255, 0.07);
-            }
-            QPushButton:pressed {
-                background-color: rgba(255, 255, 255, 0.12);
-            }
-            QPushButton:disabled {
-                background-color: transparent;
-            }
-        """
-    return """
-        QPushButton {
-            background-color: transparent;
+        palettes = {
+            "primary": {
+                "bg": "#3d74b3",
+                "hover": "#4a82c2",
+                "pressed": "#315f93",
+                "border": "#4f89c9",
+                "fg": "#ffffff",
+                "disabled_bg": "#3a3a3a",
+                "disabled_border": "#4a4a4a",
+                "disabled_fg": "#8d8d8d",
+            },
+            "danger": {
+                "bg": "#8f3b3b",
+                "hover": "#a44646",
+                "pressed": "#793232",
+                "border": "#b85a5a",
+                "fg": "#ffffff",
+                "disabled_bg": "#3a3a3a",
+                "disabled_border": "#4a4a4a",
+                "disabled_fg": "#8d8d8d",
+            },
+            "section": {
+                "bg": "#363636",
+                "hover": "#404040",
+                "pressed": "#2f2f2f",
+                "border": "#4d4d4d",
+                "fg": "#f2f2f2",
+                "disabled_bg": "#303030",
+                "disabled_border": "#404040",
+                "disabled_fg": "#7f7f7f",
+            },
+            "secondary": {
+                "bg": "#303030",
+                "hover": "#3a3a3a",
+                "pressed": "#2a2a2a",
+                "border": "#474747",
+                "fg": "#f1f1f1",
+                "disabled_bg": "#292929",
+                "disabled_border": "#3b3b3b",
+                "disabled_fg": "#787878",
+            },
         }
-        QPushButton:hover {
-            background-color: rgba(61, 116, 179, 0.10);
+    else:
+        palettes = {
+            "primary": {
+                "bg": "#3d74b3",
+                "hover": "#4a82c2",
+                "pressed": "#315f93",
+                "border": "#3b6ea8",
+                "fg": "#ffffff",
+                "disabled_bg": "#eef2f7",
+                "disabled_border": "#d7dee8",
+                "disabled_fg": "#9aa4b2",
+            },
+            "danger": {
+                "bg": "#c55353",
+                "hover": "#d36161",
+                "pressed": "#ab4747",
+                "border": "#b94d4d",
+                "fg": "#ffffff",
+                "disabled_bg": "#eef2f7",
+                "disabled_border": "#d7dee8",
+                "disabled_fg": "#9aa4b2",
+            },
+            "section": {
+                "bg": "#f3f5f8",
+                "hover": "#e9edf3",
+                "pressed": "#dde5ee",
+                "border": "#d2dbe6",
+                "fg": "#1f2933",
+                "disabled_bg": "#f8fafc",
+                "disabled_border": "#e4eaf2",
+                "disabled_fg": "#9aa4b2",
+            },
+            "secondary": {
+                "bg": "#f6f8fb",
+                "hover": "#edf2f7",
+                "pressed": "#e2eaf3",
+                "border": "#d6dee8",
+                "fg": "#243244",
+                "disabled_bg": "#f8fafc",
+                "disabled_border": "#e4eaf2",
+                "disabled_fg": "#9aa4b2",
+            },
         }
-        QPushButton:pressed {
-            background-color: rgba(61, 116, 179, 0.18);
-        }
-        QPushButton:disabled {
-            background-color: transparent;
-        }
+
+    colors = palettes.get(role, palettes["secondary"])
+    return f"""
+        QPushButton {{
+            background-color: {colors['bg']};
+            color: {colors['fg']};
+            border: 1px solid {colors['border']};
+            border-radius: 7px;
+            padding: 2px 9px;
+            font-weight: 500;
+            font-size: 13px;
+        }}
+        QPushButton:hover {{
+            background-color: {colors['hover']};
+            border-color: {colors['border']};
+        }}
+        QPushButton:pressed {{
+            background-color: {colors['pressed']};
+            border-color: {colors['border']};
+        }}
+        QPushButton:disabled {{
+            background-color: {colors['disabled_bg']};
+            color: {colors['disabled_fg']};
+            border: 1px solid {colors['disabled_border']};
+        }}
     """
 
 
@@ -197,6 +288,21 @@ def refresh_standard_surface_styles(root: QWidget):
                 apply_standard_field_style(widget)
     except Exception as error:
         _log_ignored_error("refresh_standard_surface_styles", error)
+    return root
+
+
+def refresh_standard_button_styles(root: QWidget):
+    if root is None:
+        return root
+    try:
+        for widget in root.findChildren(QPushButton):
+            role = widget.property("buttonVariant")
+            if not role:
+                continue
+            widget.setStyleSheet(_build_standard_button_style(_resolve_widget_theme_mode(widget), str(role)))
+            _refresh_widget_style(widget)
+    except Exception as error:
+        _log_ignored_error("refresh_standard_button_styles", error)
     return root
 
 
@@ -382,12 +488,12 @@ def setup_standard_header_dropdown(widget):
     return widget
 
 
-def setup_standard_action_button(widget, *, height: int = CONTROL_HEIGHT, variant: str | None = None):
-    role = variant or "secondary"
+def setup_standard_action_button(widget, *, height: int = ACTION_BUTTON_HEIGHT, variant: str | None = None):
+    role = variant or widget.property("buttonVariant") or "secondary"
     widget.setFixedHeight(height)
     widget.setMinimumWidth(0)
     widget.setMaximumWidth(16777215)
-    widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+    widget.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
     widget.setProperty("buttonVariant", role)
     widget.setCursor(Qt.CursorShape.PointingHandCursor)
     if variant == "primary" and not widget.objectName():
@@ -407,15 +513,15 @@ def setup_standard_action_button(widget, *, height: int = CONTROL_HEIGHT, varian
     return widget
 
 
-def setup_standard_primary_button(widget, *, height: int = CONTROL_HEIGHT):
+def setup_standard_primary_button(widget, *, height: int = ACTION_BUTTON_HEIGHT):
     return setup_standard_action_button(widget, height=height, variant="primary")
 
 
-def setup_standard_danger_button(widget, *, height: int = CONTROL_HEIGHT):
+def setup_standard_danger_button(widget, *, height: int = ACTION_BUTTON_HEIGHT):
     return setup_standard_action_button(widget, height=height, variant="danger")
 
 
-def setup_standard_secondary_button(widget, *, height: int = CONTROL_HEIGHT):
+def setup_standard_secondary_button(widget, *, height: int = ACTION_BUTTON_HEIGHT):
     return setup_standard_action_button(widget, height=height)
 
 
@@ -582,7 +688,8 @@ class ExpandableGroupBox(QGroupBox):
         painter = QPainter(pix)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor("#ffffff"))
+        theme = _resolve_widget_theme_mode(self)
+        painter.setBrush(QColor("#1f2328" if theme == "light" else "#f0f0f0"))
         if pointing_down:
             triangle = QPolygonF([QPointF(2.0, 3.0), QPointF(8.0, 3.0), QPointF(5.0, 7.5)])
         else:
@@ -590,6 +697,12 @@ class ExpandableGroupBox(QGroupBox):
         painter.drawPolygon(triangle)
         painter.end()
         return QIcon(pix)
+
+    def refresh_theme_icon(self):
+        if self.header_button is None:
+            return
+        self.header_button.setIcon(self._build_disclosure_icon(pointing_down=self._expanded))
+        self.header_button.update()
 
     def _toggle(self):
         self._set_expanded_state(self.header_button.isChecked(), animated=True)
@@ -759,7 +872,7 @@ class ExpandableGroupBox(QGroupBox):
 
 
 class ToggleSwitch(QCheckBox):
-    """Checkbox rendered as an on/off switch with a sliding thumb."""
+    """Флажок в виде переключателя с подвижным ползунком."""
 
     def __init__(self, text="", parent=None):
         super().__init__(text, parent)
@@ -792,7 +905,7 @@ class ToggleSwitch(QCheckBox):
         if not self.isEnabled():
             track_color = QColor("#555d64")
             thumb_color = QColor("#c8cdd1")
-            text_color = QColor("#8ea1ab") if theme != "light" else QColor("#8b949e")
+            text_color = QColor("#8ea1ab") if theme != "light" else QColor("#6f7785")
         elif self.isChecked():
             track_color = QColor("#3d74b3")
             thumb_color = QColor("#ffffff")
@@ -831,7 +944,7 @@ class ToggleSwitch(QCheckBox):
 
 
 class MenuLikeComboBox(QToolButton):
-    """Single-select dropdown with QMenu backend and QComboBox-like API."""
+    """Выпадающий список на QMenu с API, похожим на QComboBox."""
 
     currentIndexChanged = pyqtSignal(int)
     currentTextChanged = pyqtSignal(str)
@@ -842,7 +955,10 @@ class MenuLikeComboBox(QToolButton):
         self.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
         self.setMinimumWidth(0)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        # Выпадающие поля панели операций должны сжиматься вместе с разделителем,
+        # а не сохранять ширину по самому длинному пункту. Текст сокращается при
+        # отрисовке, поэтому политика Ignored оставляет поле адаптивным.
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         self._items = []
         self._current_index = -1
         self._menu = QMenu(self)
@@ -870,6 +986,15 @@ class MenuLikeComboBox(QToolButton):
         self.setProperty("menuOpen", False)
         _refresh_widget_style(self)
 
+    def minimumSizeHint(self):
+        hint = super().minimumSizeHint()
+        return QSize(0, max(FIELD_HEIGHT, hint.height()))
+
+    def sizeHint(self):
+        hint = super().sizeHint()
+        # Начальная ширина должна быть удобной, но не должна заставлять узкую
+        # боковую панель выходить за доступные границы.
+        return QSize(min(max(120, hint.width()), 180), max(FIELD_HEIGHT, hint.height()))
 
     def paintEvent(self, event):
         option = QStyleOptionToolButton()
@@ -880,13 +1005,21 @@ class MenuLikeComboBox(QToolButton):
         painter = QStylePainter(self)
         painter.drawComplexControl(QStyle.ComplexControl.CC_ToolButton, option)
 
-        text_rect = self.rect().adjusted(4, 0, -10, 0)
+        # В узкой панели оставляем место под стрелку меню и сокращаем только
+        # отображаемый текст. Полное значение остаётся доступно в подсказке и меню.
+        text_rect = self.rect().adjusted(4, 0, -22, 0)
+        metrics = QFontMetrics(self.font())
+        painted_text = metrics.elidedText(
+            text,
+            Qt.TextElideMode.ElideRight,
+            max(0, text_rect.width()),
+        )
         painter.drawItemText(
             text_rect,
             int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
             self.palette(),
             self.isEnabled(),
-            text,
+            painted_text,
             self.foregroundRole(),
         )
 
@@ -944,6 +1077,7 @@ class MenuLikeComboBox(QToolButton):
         self._current_index = index
         text = self._items[index][0]
         self.setText(text)
+        self.setToolTip(text)
         self.currentIndexChanged.emit(index)
         self.currentTextChanged.emit(text)
 
@@ -954,7 +1088,7 @@ class MenuLikeComboBox(QToolButton):
 
 
 class LeftAlignedToolButton(QToolButton):
-    """ToolButton that always paints text left-aligned (keeps menu arrow on the right)."""
+    """Кнопка инструмента с текстом слева и стрелкой меню справа."""
 
     def paintEvent(self, event):
         option = QStyleOptionToolButton()
@@ -1369,11 +1503,11 @@ class FileListWidget(QListView):
             event.ignore()
 
     def dragLeaveEvent(self, event):
-        self.setStyleSheet("")
+        apply_standard_field_style(self)
         event.accept()
 
     def dropEvent(self, event):
-        self.setStyleSheet("")
+        apply_standard_field_style(self)
         if event.source() == self and self.dragEnabled():
             super().dropEvent(event)
             self.orderChanged.emit()

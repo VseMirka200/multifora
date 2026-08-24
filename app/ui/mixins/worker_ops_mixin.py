@@ -121,11 +121,21 @@ class WorkerOpsMixin:
 
         if not self.create_file_worker():
             return
-        self.file_worker.set_conversion(files, conversion_type, target_format)
+        output_dir = ""
+        destination_getter = getattr(self, "_selected_conversion_destination", None)
+        if callable(destination_getter):
+            output_dir = destination_getter()
+        self.file_worker.set_conversion(
+            files,
+            conversion_type,
+            target_format,
+            output_dir=output_dir,
+        )
         self._last_operation = {
             "op": "convert",
             "conversion_type": conversion_type,
             "conversion_format": target_format,
+            "conversion_output_dir": output_dir,
             "file_paths": [f.path for f in files],
         }
         self.file_worker.start()
@@ -143,9 +153,83 @@ class WorkerOpsMixin:
             "pdf_to_odt": "ODT",
             "pdf_to_image": "изображения",
             "image_to_image": "изображения",
-            "media_to_media": "медиафайлы",
         }
         return names.get(conversion_type, conversion_type)
+
+    def _update_metadata_controls(self, *_args):
+        mode = "all"
+        combo = getattr(self, "combo_metadata_mode", None)
+        if combo is not None:
+            mode = str(combo.currentData() or "all")
+        selective = mode == "selected"
+        for checkbox in getattr(self, "metadata_field_checkboxes", {}).values():
+            checkbox.setEnabled(selective)
+
+    def remove_document_metadata(self):
+        """Удаляет все или выбранные группы метаданных из документов."""
+        candidates = self._get_selected_or_all_file_items()
+        supported_extensions = (".pdf", ".docx", ".odt", ".doc")
+        files = [
+            file_item
+            for file_item in candidates
+            if str(getattr(file_item, "path", "")).lower().endswith(supported_extensions)
+        ]
+        if not files:
+            QMessageBox.warning(
+                self,
+                "Ошибка",
+                "Добавьте или выберите документы PDF, DOCX, ODT или DOC.",
+            )
+            return
+
+        mode = "all"
+        if hasattr(self, "combo_metadata_mode") and self.combo_metadata_mode is not None:
+            mode = str(self.combo_metadata_mode.currentData() or "all")
+        remove_all = mode != "selected"
+
+        fields = []
+        if not remove_all:
+            fields = [
+                key
+                for key, checkbox in getattr(self, "metadata_field_checkboxes", {}).items()
+                if checkbox.isChecked()
+            ]
+            if not fields:
+                QMessageBox.warning(self, "Ошибка", "Отметьте хотя бы один тип метаданных для удаления.")
+                return
+
+        skipped = max(0, len(candidates) - len(files))
+        mode_text = "все метаданные" if remove_all else "выбранные метаданные"
+        skipped_text = f"\n\nНеподдерживаемых файлов будет пропущено: {skipped}." if skipped else ""
+        reply = self.show_russian_message_box(
+            "Подтверждение",
+            f"Удалить {mode_text} из {len(files)} документов?"
+            f"\n\nДокументы будут изменены без создания копий. Отменить изменения после завершения нельзя."
+            f"{skipped_text}",
+            QMessageBox.Icon.Warning,
+            True,
+        )
+        if not reply:
+            return
+
+        if not self.create_file_worker():
+            return
+
+        self.file_worker.set_metadata_cleanup(files, remove_all=remove_all, fields=fields)
+        self._last_operation = {
+            "op": "metadata",
+            "remove_all": remove_all,
+            "fields": list(fields),
+            "file_paths": [file_item.path for file_item in files],
+        }
+        self.file_worker.start()
+        self.log_event(
+            f"Удаление метаданных: {len(files)} документов "
+            f"({'все' if remove_all else ', '.join(fields)})"
+        )
+        if callable(getattr(self, "_show_progress_dialog", None)):
+            self._show_progress_dialog(f"Удаление метаданных из {len(files)} документов...")
+        self.status_bar.showMessage(f"Удаление метаданных из {len(files)} документов...")
 
     def compress_files(self):
         """Сжатие файлов."""

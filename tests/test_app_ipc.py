@@ -47,6 +47,19 @@ class AppIpcTests(unittest.TestCase):
 
         self.assertEqual(result, [str(source)])
 
+    def test_collect_paths_accepts_more_than_15_files(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            sources = []
+            for index in range(20):
+                source = Path(tmp_dir, f"sample_{index:02d}.png")
+                source.write_bytes(b"sample")
+                sources.append(str(source))
+
+            result = app_ipc._collect_paths_from_args(sources)
+
+        self.assertEqual(result, sources)
+        self.assertGreater(len(result), 15)
+
     def test_normalize_file_url(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             source = Path(tmp_dir, "source file.pdf")

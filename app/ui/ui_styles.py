@@ -1,7 +1,15 @@
 from app.ui.ui_spacing import FIELD_HEIGHT, HEADER_FIELD_HEIGHT
 
 
-def _build_menu_style(*, background: str, foreground: str, border: str, hover: str, separator: str) -> str:
+def _build_menu_style(
+    *,
+    background: str,
+    foreground: str,
+    border: str,
+    hover: str,
+    separator: str,
+    disabled: str,
+) -> str:
     surface_rules = ""
     if background:
         surface_rules = f"background-color: {background};\n        color: {foreground};"
@@ -30,6 +38,10 @@ def _build_menu_style(*, background: str, foreground: str, border: str, hover: s
         background-color: {hover};
         color: {foreground};
     }}
+    QMenu::item:disabled {{
+        background-color: transparent;
+        color: {disabled};
+    }}
     QMenu::separator {{
         height: 1px;
         background: {separator};
@@ -38,11 +50,12 @@ def _build_menu_style(*, background: str, foreground: str, border: str, hover: s
 
 
 MENU_STYLE_LIGHT = _build_menu_style(
-    background="",
+    background="#ffffff",
     foreground="#1f2328",
     border="#c7cfda",
     hover="rgba(61, 116, 179, 0.10)",
     separator="rgba(0, 0, 0, 0.2)",
+    disabled="#6f7785",
 )
 MENU_STYLE_DARK = _build_menu_style(
     background="#383838",
@@ -50,6 +63,7 @@ MENU_STYLE_DARK = _build_menu_style(
     border="#4f4f4f",
     hover="rgba(255, 255, 255, 0.07)",
     separator="rgba(255, 255, 255, 0.18)",
+    disabled="#a8a8a8",
 )
 
 STANDARD_RADIUS = 4
@@ -64,7 +78,7 @@ def standard_palette(theme: str) -> dict[str, str]:
             "hover_border": "#aab5c3",
             "hover_bg": "#f8fafc",
             "disabled_bg": "#f2f4f7",
-            "disabled_fg": "#8b949e",
+            "disabled_fg": "#6f7785",
             "disabled_border": "#d6dbe2",
             "placeholder": "#6f7785",
         }
@@ -97,6 +111,11 @@ def build_standard_field_style(theme: str, kind: str) -> str:
             QLineEdit::placeholder {{
                 color: {p["placeholder"]};
             }}
+            QLineEdit:disabled {{
+                background-color: {p["disabled_bg"]};
+                color: {p["disabled_fg"]};
+                border-color: {p["disabled_border"]};
+            }}
         """
     if kind == "textedit":
         return f"""
@@ -110,6 +129,11 @@ def build_standard_field_style(theme: str, kind: str) -> str:
             }}
             QTextEdit::placeholder {{
                 color: {p["placeholder"]};
+            }}
+            QTextEdit:disabled {{
+                background-color: {p["disabled_bg"]};
+                color: {p["disabled_fg"]};
+                border-color: {p["disabled_border"]};
             }}
         """
     if kind == "spin":
@@ -145,6 +169,16 @@ def build_standard_field_style(theme: str, kind: str) -> str:
             QDoubleSpinBox::down-button {{
                 background-color: {p["bg"]};
                 border: none;
+            }}
+            QSpinBox:disabled,
+            QDoubleSpinBox:disabled,
+            QAbstractSpinBox:disabled,
+            QDateEdit:disabled,
+            QTimeEdit:disabled,
+            QDateTimeEdit:disabled {{
+                background-color: {p["disabled_bg"]};
+                color: {p["disabled_fg"]};
+                border-color: {p["disabled_border"]};
             }}
         """
     if kind == "combo":
@@ -199,6 +233,15 @@ def build_standard_field_style(theme: str, kind: str) -> str:
                 background-color: #3d74b3;
                 color: #ffffff;
             }}
+            QComboBox:disabled {{
+                background-color: {p["disabled_bg"]};
+                color: {p["disabled_fg"]};
+                border-color: {p["disabled_border"]};
+            }}
+            QComboBox:disabled::drop-down {{
+                background-color: {p["disabled_bg"]};
+                border-left-color: {p["disabled_border"]};
+            }}
         """
     if kind == "menu":
         return f"""
@@ -249,6 +292,12 @@ def build_standard_field_style(theme: str, kind: str) -> str:
                 border-radius: {STANDARD_RADIUS}px;
                 text-align: left;
             }}
+            QToolButton#header_cell_tl:hover,
+            QToolButton#header_cell_tr:hover,
+            QToolButton#header_cell_bl:hover {{
+                background-color: {p["hover_bg"]};
+                border-color: {p["hover_border"]};
+            }}
             QToolButton#header_cell_tl[menuOpen="true"],
             QToolButton#header_cell_tr[menuOpen="true"],
             QToolButton#header_cell_bl[menuOpen="true"] {{
@@ -277,22 +326,104 @@ def build_standard_field_style(theme: str, kind: str) -> str:
             QToolButton#header_cell_bl:pressed {{
                 background-color: {p["bg"]};
             }}
+            QToolButton#header_cell_tl:disabled,
+            QToolButton#header_cell_tr:disabled,
+            QToolButton#header_cell_bl:disabled,
+            QLineEdit#header_cell_br:disabled {{
+                background-color: {p["disabled_bg"]};
+                color: {p["disabled_fg"]};
+                border-color: {p["disabled_border"]};
+            }}
         """
     if kind == "surface":
+        alternate_bg = "#f8fafc" if str(theme).lower() == "light" else "#3d3d3d"
+        hover_bg = "rgba(61, 116, 179, 0.10)" if str(theme).lower() == "light" else "rgba(255, 255, 255, 0.07)"
+        selected_bg = "rgba(61, 116, 179, 0.22)" if str(theme).lower() == "light" else "rgba(61, 116, 179, 0.38)"
         return f"""
             QAbstractItemView#files_list,
             QListWidget#files_list,
             QListView#files_list {{
                 background-color: {p["bg"]};
+                alternate-background-color: {alternate_bg};
                 color: {p["fg"]};
                 border: 1px solid {p["border"]};
                 border-radius: {STANDARD_RADIUS}px;
                 outline: 0px;
                 margin: 0px;
                 padding: 0px;
+                show-decoration-selected: 1;
+            }}
+            QAbstractItemView#files_list::item,
+            QListWidget#files_list::item,
+            QListView#files_list::item {{
+                background-color: {p["bg"]};
+                color: {p["fg"]};
+            }}
+            QAbstractItemView#files_list::item:alternate,
+            QListWidget#files_list::item:alternate,
+            QListView#files_list::item:alternate {{
+                background-color: {alternate_bg};
+                color: {p["fg"]};
+            }}
+            QAbstractItemView#files_list::item:hover,
+            QListWidget#files_list::item:hover,
+            QListView#files_list::item:hover {{
+                background-color: {hover_bg};
+                color: {p["fg"]};
+            }}
+            QAbstractItemView#files_list::item:selected,
+            QListWidget#files_list::item:selected,
+            QListView#files_list::item:selected,
+            QAbstractItemView#files_list::item:selected:active,
+            QListWidget#files_list::item:selected:active,
+            QListView#files_list::item:selected:active,
+            QAbstractItemView#files_list::item:selected:!active,
+            QListWidget#files_list::item:selected:!active,
+            QListView#files_list::item:selected:!active {{
+                background-color: {selected_bg};
+                color: {p["fg"]};
+                selection-color: {p["fg"]};
             }}
         """
     return ""
+
+
+def build_operations_tab_bar_style(theme: str) -> str:
+    is_light = str(theme).lower() == "light"
+    foreground = "#202833" if is_light else "#e3e6ea"
+    selected_fg = "#ffffff" if not is_light else "#1d2f45"
+    base_bg = "transparent"
+    hover_bg = "transparent"
+    underline = "#3d74b3"
+    return f"""
+        QTabBar#operations_tab_bar {{
+            background-color: transparent;
+            margin: 0px;
+            padding: 0px;
+            border: none;
+        }}
+        QTabBar#operations_tab_bar::tab {{
+            margin: 0px 12px 0px 0px;
+            padding: 0px 2px;
+            min-width: 24px;
+            min-height: 30px;
+            max-height: 30px;
+            font-weight: 500;
+            color: {foreground};
+            background-color: {base_bg};
+            border: none;
+            border-bottom: 1px solid transparent;
+        }}
+        QTabBar#operations_tab_bar::tab:selected {{
+            color: {selected_fg};
+            border-bottom: 1px solid {underline};
+        }}
+        QTabBar#operations_tab_bar::tab:!selected {{
+            color: {foreground};
+            background-color: transparent;
+            border-bottom: 1px solid transparent;
+        }}
+    """
 
 
 def menu_style_for_theme(theme: str) -> str:

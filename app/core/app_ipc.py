@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import ctypes
 import glob
 import hashlib
@@ -23,12 +25,12 @@ ERROR_ALREADY_EXISTS = 183
 _WINDOWS_OPTION_PREFIXES = ("-", "/")
 
 
-def _get_ipc_token_path():
+def _get_ipc_token_path() -> str:
     """Путь к файлу токена для IPC."""
     return os.path.join(_get_app_data_dir(), "ipc_token.txt")
 
 
-def _load_ipc_token():
+def _load_ipc_token() -> str | None:
     """Считывает IPC токен, если он существует."""
     try:
         token_path = _get_ipc_token_path()
@@ -36,12 +38,12 @@ def _load_ipc_token():
             return None
         with open(token_path, "r", encoding="utf-8") as token_file:
             return token_file.read().strip() or None
-    except Exception as error:
+    except OSError as error:
         _debug_log(f"Ошибка загрузки IPC-токена: {error}")
         return None
 
 
-def _ensure_ipc_token():
+def _ensure_ipc_token() -> str | None:
     """Гарантирует наличие IPC токена и возвращает его."""
     token = _load_ipc_token()
     if token:
@@ -52,38 +54,34 @@ def _ensure_ipc_token():
         with open(_get_ipc_token_path(), "w", encoding="utf-8") as token_file:
             token_file.write(token)
         return token
-    except Exception as error:
+    except OSError as error:
         _debug_log(f"Ошибка создания IPC-токена: {error}")
         return None
 
 
-def _delete_ipc_token():
+def _delete_ipc_token() -> None:
     """Удаляет IPC токен (для уменьшения времени жизни)."""
     try:
         token_path = _get_ipc_token_path()
         if os.path.exists(token_path):
             os.remove(token_path)
-    except Exception as error:
+    except OSError as error:
         _debug_log(f"Ошибка удаления IPC-токена: {error}")
 
 
-def _get_ipc_server_name():
+def _get_ipc_server_name() -> str:
     """Имя IPC сервера (пер-пользователь)."""
-    try:
-        home = os.path.expanduser("~")
-        suffix = hashlib.sha1(home.encode("utf-8", "ignore")).hexdigest()[:8]
-    except Exception as error:
-        _debug_log(f"Ошибка формирования имени IPC-сервера: {error}")
-        suffix = "default"
+    home = os.path.expanduser("~")
+    suffix = hashlib.sha1(home.encode("utf-8", "ignore")).hexdigest()[:8]
     return f"Multifora_IPC_{suffix}"
 
 
-def _get_queue_dir():
+def _get_queue_dir() -> str:
     """Каталог очереди для файлов, пришедших из контекстного меню."""
     queue_dir = os.path.join(_get_app_data_dir(), "queue")
     try:
         os.makedirs(queue_dir, exist_ok=True)
-    except Exception as error:
+    except OSError as error:
         _debug_log(f"Ошибка получения каталога очереди: {error}")
     return queue_dir
 
@@ -94,11 +92,11 @@ def _is_option_argument(argument: str) -> bool:
     return os.name == "nt" and argument.startswith(_WINDOWS_OPTION_PREFIXES[1])
 
 
-def _candidate_arguments(args):
+def _candidate_arguments(args: list[str]) -> list[str]:
     return [argument for argument in args if argument and not _is_option_argument(argument)]
 
 
-def _safe_absolute_path(path: str):
+def _safe_absolute_path(path: str) -> str:
     try:
         return os.path.abspath(path)
     except Exception as error:
@@ -136,7 +134,7 @@ def _add_existing_candidate(candidate, *, excluded_paths, seen, result) -> None:
     result.append(normalized)
 
 
-def _collect_paths_from_args(args):
+def _collect_paths_from_args(args: list[str]) -> list[str]:
     """Нормализует и фильтрует пути из аргументов командной строки."""
     excluded_paths = {
         path
@@ -181,7 +179,7 @@ def _collect_paths_from_args(args):
     return file_paths
 
 
-def _enqueue_files(file_paths):
+def _enqueue_files(file_paths: list[str]) -> None:
     """Кладет файлы в очередь на диске (по одному файлу в отдельной записи)."""
     if not file_paths:
         return
@@ -196,7 +194,7 @@ def _enqueue_files(file_paths):
                 if path:
                     queue_stream.write(f"{path}\n")
         _debug_log(f"Файлы добавлены в очередь: {file_paths!r} -> {queue_file}")
-    except Exception as error:
+    except OSError as error:
         _debug_log(f"Ошибка добавления файлов в очередь: {error}")
 
 
@@ -208,12 +206,12 @@ def _read_queue_file(path: str) -> list[str]:
     finally:
         try:
             os.remove(path)
-        except Exception as error:
+        except OSError as error:
             _debug_log(f"Ошибка удаления файла очереди {path}: {error}")
     return queued_paths
 
 
-def _drain_queued_files():
+def _drain_queued_files() -> list[str]:
     """Забирает все файлы из очереди и очищает ее."""
     queued_paths = []
     try:
@@ -241,7 +239,7 @@ def _drain_queued_files():
 
 
 def is_first_instance() -> bool:
-    """Return True for the first running instance, False for subsequent ones."""
+    """Возвращает True для первого экземпляра приложения и False для следующих."""
     global MUTEX_HANDLE
     if os.name != "nt":
         return True
@@ -261,7 +259,7 @@ def is_first_instance() -> bool:
         return True
 
 
-def _get_command_line_args():
+def _get_command_line_args() -> list[str]:
     """Безопасно парсит сырой командный ряд Windows (с учетом кавычек)."""
     if os.name != "nt":
         return []
@@ -292,7 +290,7 @@ def _get_command_line_args():
         return []
 
 
-def collect_startup_files():
+def collect_startup_files() -> list[str]:
     """Собирает пути к файлам из командной строки."""
     _debug_log(f"Аргументы запуска sys.argv: {sys.argv!r}")
     file_paths = _collect_paths_from_args(sys.argv[1:])
@@ -300,19 +298,20 @@ def collect_startup_files():
         _debug_log(f"Стартовые файлы (sys.argv/shlex): {file_paths!r}")
         return file_paths
 
-    try:
-        raw_arguments = _get_command_line_args()
-        _debug_log(f"Аргументы через CommandLineToArgvW: {raw_arguments!r}")
-        if raw_arguments:
-            file_paths = _collect_paths_from_args(raw_arguments[1:])
-    except Exception as error:
-        _debug_log(f"Ошибка резервного получения аргументов запуска: {error}")
+    raw_arguments = _get_command_line_args()
+    _debug_log(f"Аргументы через CommandLineToArgvW: {raw_arguments!r}")
+    if raw_arguments:
+        file_paths = _collect_paths_from_args(raw_arguments[1:])
 
     _debug_log(f"Стартовые файлы (резервный разбор): {file_paths!r}")
     return file_paths
 
 
-def send_files_to_running_instance(file_paths, retries=50, delay=0.05):
+def send_files_to_running_instance(
+    file_paths: list[str],
+    retries: int = 50,
+    delay: float = 0.05,
+) -> bool:
     """Отправляет файлы запущенному экземпляру через IPC (QLocalSocket)."""
     if not file_paths:
         _debug_log("send_files_to_running_instance: нет файлов для отправки")

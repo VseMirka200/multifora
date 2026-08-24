@@ -1,7 +1,6 @@
 
 from PyQt6.QtCore import Qt
 
-from app.core.deps import HAS_PIL, HAS_PYMUPDF, ensure_ghostscript_detected
 from app.core.app_utils import _log_ignored_error
 
 
@@ -77,14 +76,8 @@ class OperationsCompressUiMixin:
         if hasattr(self, "file_worker") and self.file_worker and self.file_worker.isRunning():
             can_compress = False
 
-        compress_type = self.combo_compress_type.currentText() if hasattr(self, "combo_compress_type") else ""
-        is_pdf_mode = "PDF" in str(compress_type)
-        if is_pdf_mode:
-            has_ghostscript, _ = ensure_ghostscript_detected(getattr(self, "ghostscript_path_override", None))
-            can_compress = can_compress and (has_ghostscript or HAS_PYMUPDF)
-        else:
-            can_compress = can_compress and HAS_PIL
-
+        # Не импортируем библиотеки конвертации при запуске интерфейса.
+        # Наличие конкретного backend проверяется worker-ом только при старте операции.
         self.btn_compress.setEnabled(can_compress)
 
     def on_compress_type_changed(self, compress_type):

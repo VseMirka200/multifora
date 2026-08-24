@@ -275,11 +275,13 @@ class TemplateParamsNumberingMixin:
 
         self.btn_save_template = QPushButton("Сохранить")
         self.btn_save_template.setToolTip("Сохранить шаблон")
+        self.btn_save_template.setProperty("buttonVariant", "secondary")
         setup_standard_action_button(self.btn_save_template)
         self.btn_save_template.clicked.connect(self.save_current_template)
 
         self.btn_manage_templates = QPushButton("Управление")
         self.btn_manage_templates.setToolTip("Управление шаблонов")
+        self.btn_manage_templates.setProperty("buttonVariant", "secondary")
         setup_standard_action_button(self.btn_manage_templates)
         self.btn_manage_templates.clicked.connect(self.show_template_manager)
 

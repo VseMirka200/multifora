@@ -17,13 +17,16 @@ from app.core.app_icons import _get_shortcut_icon_path
 
 
 class WindowsIntegrationMixin:
+    _CONTEXT_MENU_ROOTS = (
+        r"Software\Classes\*\shell\AddToMultifora",
+        r"Software\Classes\Directory\shell\AddToMultifora",
+    )
+    _CONTEXT_MENU_MULTISELECT_MODEL = "Player"
+
     def is_context_menu_registered(self):
         """Проверяет, зарегистрировано ли контекстное меню в реестре (HKCU)."""
         try:
-            for key_path in [
-                r"Software\Classes\*\shell\AddToMultifora",
-                r"Software\Classes\Directory\shell\AddToMultifora",
-            ]:
+            for key_path in self._CONTEXT_MENU_ROOTS:
                 try:
                     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_READ):
                         return True
@@ -55,15 +58,18 @@ class WindowsIntegrationMixin:
 
             self.unregister_context_menu_silent()
             self.log_event("Регистрирую контекстное меню...")
-            roots = [
-                r"Software\Classes\*\shell\AddToMultifora",
-                r"Software\Classes\Directory\shell\AddToMultifora",
-            ]
-            for root in roots:
+            for root in self._CONTEXT_MENU_ROOTS:
                 with winreg.CreateKey(winreg.HKEY_CURRENT_USER, root) as key:
                     winreg.SetValueEx(key, "MUIVerb", 0, winreg.REG_SZ, "Добавить в Мультифору")
-                    # Режим Document передаёт команде всё выделение Проводника, а не один файл.
-                    winreg.SetValueEx(key, "MultiSelectModel", 0, winreg.REG_SZ, "Document")
+                    # Player разрешает legacy-команде работать с большим множественным
+                    # выбором. Document ограничивает пункт контекстного меню 15 элементами.
+                    winreg.SetValueEx(
+                        key,
+                        "MultiSelectModel",
+                        0,
+                        winreg.REG_SZ,
+                        self._CONTEXT_MENU_MULTISELECT_MODEL,
+                    )
                     if icon_value:
                         winreg.SetValueEx(key, "Icon", 0, winreg.REG_SZ, icon_value)
                 cmd_key = root + r"\command"
@@ -83,6 +89,41 @@ class WindowsIntegrationMixin:
                 )
             except Exception as error:
                 _log_ignored_error("WindowsIntegrationMixin.register_context_menu", error)
+            return False
+
+    def ensure_context_menu_registration(self):
+        """Обновляет старую регистрацию контекстного меню, если настройка включена."""
+        if os.name != "nt" or not getattr(self, "windows_context_menu_enabled", False):
+            return False
+        if winreg is None:
+            return False
+
+        try:
+            needs_refresh = False
+            for root in self._CONTEXT_MENU_ROOTS:
+                try:
+                    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, root, 0, winreg.KEY_READ) as key:
+                        value, _value_type = winreg.QueryValueEx(key, "MultiSelectModel")
+                    if str(value).strip().lower() != self._CONTEXT_MENU_MULTISELECT_MODEL.lower():
+                        needs_refresh = True
+                        break
+                except (FileNotFoundError, OSError):
+                    needs_refresh = True
+                    break
+
+            if not needs_refresh:
+                return True
+
+            self.log_event(
+                "Обновляю контекстное меню для выбора более 15 файлов...",
+                "INFO",
+            )
+            success = self.register_context_menu()
+            if success:
+                self.refresh_shell_context_menu()
+            return success
+        except Exception as error:
+            _debug_log(f"Ошибка обновления регистрации контекстного меню: {error}")
             return False
 
     def unregister_context_menu_silent(self):
@@ -309,15 +350,21 @@ class WindowsIntegrationMixin:
             return False
 
     def apply_shortcut_settings(self, silent: bool = False):
-        """Применяет настройки ярлыков без лишних уведомлений."""
+        """Применяет настройки ярлыков без запуска PowerShell без необходимости."""
+        desktop_path = self.get_desktop_shortcut_path()
         if self.desktop_shortcut_enabled:
-            self.create_windows_shortcut(self.get_desktop_shortcut_path(), silent=True)
-        else:
-            self.remove_windows_shortcut(self.get_desktop_shortcut_path(), silent=True)
+            if not os.path.exists(desktop_path):
+                self.create_windows_shortcut(desktop_path, silent=True)
+        elif os.path.exists(desktop_path):
+            self.remove_windows_shortcut(desktop_path, silent=True)
+
+        start_menu_path = self.get_start_menu_shortcut_path()
         if self.start_menu_shortcut_enabled:
-            self.create_windows_shortcut(self.get_start_menu_shortcut_path(), silent=True)
-        else:
-            self.remove_windows_shortcut(self.get_start_menu_shortcut_path(), silent=True)
+            if not os.path.exists(start_menu_path):
+                self.create_windows_shortcut(start_menu_path, silent=True)
+        elif os.path.exists(start_menu_path):
+            self.remove_windows_shortcut(start_menu_path, silent=True)
+
         if not silent:
             self.status_bar.showMessage("Настройки ярлыков применены")
 

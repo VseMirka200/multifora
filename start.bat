@@ -65,7 +65,7 @@ if errorlevel 1 goto error
 set "PYTHONNOUSERSITE=1"
 
 echo Checking required packages...
-"%VENV_PY%" -c "import PyQt6, fitz, PIL, docx, docx2pdf, pdf2docx, pdf2image, odf, imageio_ffmpeg, pythoncom, win32com.client" >nul 2>nul
+"%VENV_PY%" -c "import PyQt6, fitz, PIL, docx, pdf2docx, odf, pythoncom, win32com.client" >nul 2>nul
 if errorlevel 1 goto install_packages
 
 "%VENV_PY%" -m pip check >nul 2>nul
@@ -81,7 +81,11 @@ if errorlevel 1 goto error
 
 :run_program
 echo Starting Multifora...
-"%VENV_PY%" "%~dp0%APP_ENTRY%" %*
+if exist "%VENV_DIR%\Scripts\pythonw.exe" (
+    "%VENV_DIR%\Scripts\pythonw.exe" "%~dp0%APP_ENTRY%" %*
+) else (
+    "%VENV_PY%" "%~dp0%APP_ENTRY%" %*
+)
 if errorlevel 1 goto error
 exit /b 0
 

@@ -5,7 +5,6 @@ import time
 from PyQt6.QtCore import QObject
 
 from app.core.app_utils import _debug_log
-from app.core.deps import _detect_ghostscript
 
 
 _DEFAULT_THEME_MODE = "system"
@@ -315,6 +314,8 @@ def _initialize_settings_defaults(window) -> None:
     window.disable_warning_dialogs = False
     window.auto_update_check_enabled = True
     window.theme_mode = _DEFAULT_THEME_MODE
+    window.conversion_output_mode = "source_subfolder"
+    window.conversion_output_path = ""
     window._pending_template_session_state = None
     window._pending_settings_dialog_geometry = None
     window._pending_settings_nav_row = 0
@@ -380,18 +381,46 @@ def _restore_navigation_state(window, data: dict) -> None:
                 if settings_nav is not None and settings_row < settings_nav.count():
                     settings_nav.setCurrentRow(settings_row)
 
-    if "operations_tab_index" not in data:
+    if "operations_tab_index" not in data and "operations_tab_label" not in data:
         return
     operations_tab_bar = getattr(window, "operations_tab_bar", None)
     if operations_tab_bar is None:
         return
 
     try:
-        index = int(data.get("operations_tab_index"))
-        if index == getattr(window, "_settings_tab_index", -1):
+        settings_index = getattr(window, "_settings_tab_index", -1)
+        saved_label = str(data.get("operations_tab_label") or "").strip()
+        index = None
+
+        if saved_label:
+            for candidate in range(operations_tab_bar.count()):
+                if operations_tab_bar.tabText(candidate) == saved_label:
+                    index = candidate
+                    break
+            if index == settings_index:
+                index = 0
+        elif "operations_tab_index" in data:
+            legacy_index = int(data.get("operations_tab_index"))
+            # До появления вкладки «Метаданные» индексы были:
+            # 0 Переименование, 1 Конвертация, 2 Объединение, 3 Сжатие, 4 Настройки.
+            # Сохраняем поведение старых settings.json после вставки новой вкладки.
+            has_metadata_tab = any(
+                operations_tab_bar.tabText(candidate) == "Метаданные"
+                for candidate in range(operations_tab_bar.count())
+            )
+            if has_metadata_tab and legacy_index == 3:
+                index = next(
+                    (candidate for candidate in range(operations_tab_bar.count())
+                     if operations_tab_bar.tabText(candidate) == "Сжатие"),
+                    0,
+                )
+            elif has_metadata_tab and legacy_index == 4:
+                index = 0
+            else:
+                index = legacy_index
+
+        if index is None or index == settings_index or not 0 <= index < operations_tab_bar.count():
             index = 0
-        if not 0 <= index < operations_tab_bar.count():
-            return
 
         operations_tab_bar.setCurrentIndex(index)
         operations_stack = getattr(window, "operations_stack", None)
@@ -404,6 +433,18 @@ def _restore_navigation_state(window, data: dict) -> None:
 
 def _nonempty_string(value):
     return value if isinstance(value, str) and value else None
+
+
+def _restore_main_splitter_sizes(window, data: dict) -> None:
+    raw_sizes = data.get("main_splitter_sizes")
+    splitter = getattr(window, "main_splitter", None)
+    if splitter is None or not isinstance(raw_sizes, (list, tuple)) or len(raw_sizes) != 2:
+        return
+    try:
+        sizes = [max(1, int(raw_sizes[0])), max(1, int(raw_sizes[1]))]
+        splitter.setSizes(sizes)
+    except (TypeError, ValueError) as error:
+        _log_settings_error("восстановления ширины панелей", error)
 
 
 def _restore_pending_state(window, data: dict) -> None:
@@ -437,6 +478,14 @@ def _restore_theme(window, data: dict) -> None:
     _set_combo_current_data(getattr(window, "theme_mode_combo", None), theme_mode)
 
 
+def _restore_conversion_output_settings(window, data: dict) -> None:
+    # Место сохранения выбирается перед конвертацией. Запоминаем только последнюю
+    # пользовательскую папку, чтобы следующий диалог открывался в том же месте.
+    path = str(data.get("conversion_output_path") or "").strip()
+    window.conversion_output_mode = "source_subfolder"
+    window.conversion_output_path = path
+
+
 def _apply_settings_data(window, data: dict) -> None:
     if "custom_templates" in data:
         window.custom_templates = data["custom_templates"]
@@ -466,6 +515,7 @@ def _apply_settings_data(window, data: dict) -> None:
         )
 
     _restore_navigation_state(window, data)
+    _restore_main_splitter_sizes(window, data)
     _restore_pending_state(window, data)
 
     if "file_list_view_state" in data:
@@ -473,11 +523,13 @@ def _apply_settings_data(window, data: dict) -> None:
     if "expandable_groups" in data:
         _restore_expandable_groups_state(window, data.get("expandable_groups"))
 
+    _restore_conversion_output_settings(window, data)
     _restore_theme(window, data)
 
     if "ghostscript_path" in data:
+        # На старте только восстанавливаем настройку. Проверка Ghostscript
+        # выполняется лениво непосредственно перед PDF-операцией.
         window.ghostscript_path_override = data.get("ghostscript_path") or None
-        _detect_ghostscript(window.ghostscript_path_override)
 
 
 def load_settings(window) -> None:
@@ -591,9 +643,22 @@ def _collect_settings_data(window) -> dict:
             auto_update_checkbox.isChecked() if auto_update_checkbox is not None else True
         ),
         "theme_mode": getattr(window, "theme_mode", _DEFAULT_THEME_MODE),
+        "conversion_output_mode": getattr(window, "conversion_output_mode", "source_subfolder"),
+        "conversion_output_path": getattr(window, "conversion_output_path", ""),
         "current_tab_index": _current_widget_index(window, "tabs"),
         "settings_nav_current_row": settings_nav.currentRow() if settings_nav is not None else 0,
         "operations_tab_index": _current_widget_index(window, "operations_tab_bar"),
+        "main_splitter_sizes": (
+            [int(value) for value in window.main_splitter.sizes()]
+            if getattr(window, "main_splitter", None) is not None
+            else None
+        ),
+        "operations_tab_label": (
+            window.operations_tab_bar.tabText(window.operations_tab_bar.currentIndex())
+            if getattr(window, "operations_tab_bar", None) is not None
+            and window.operations_tab_bar.currentIndex() >= 0
+            else ""
+        ),
         "settings_dialog_geometry": _encoded_geometry(getattr(window, "_settings_dialog", None)),
         "template_session": _collect_template_session_state(window),
         "rename_history": _collect_rename_history_state(window),

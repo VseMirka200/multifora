@@ -28,8 +28,15 @@ class MainWindowSmokeTests(unittest.TestCase):
             try:
                 self.assertIsNotNone(window.tabs)
                 self.assertIsNotNone(window.operations_stack)
-                self.assertGreaterEqual(window.operations_stack.count(), 4)
-                self.assertGreaterEqual(window.operations_tab_bar.count(), 5)
+                self.assertGreaterEqual(window.operations_stack.count(), 5)
+                self.assertGreaterEqual(window.operations_tab_bar.count(), 6)
+                tab_labels = [
+                    window.operations_tab_bar.tabText(index)
+                    for index in range(window.operations_tab_bar.count())
+                ]
+                self.assertIn("Метаданные", tab_labels)
+                self.assertIsNotNone(window.btn_remove_metadata)
+                self.assertTrue(window.metadata_field_checkboxes)
 
                 settings_widget = window._ensure_settings_panel_widget()
                 self.assertIsNotNone(settings_widget)

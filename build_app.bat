@@ -5,15 +5,22 @@ set "PROJECT=%~dp0"
 set "APP_BUILD_NAME=Multifora"
 cd /d "%PROJECT%"
 
-if not exist ".venv" (
-    call "setup_lib.bat"
+if not exist ".venv\Scripts\python.exe" (
+    where py.exe >nul 2>nul
+    if not errorlevel 1 (
+        py.exe -3 -m venv ".venv"
+    ) else (
+        python -m venv ".venv"
+    )
     if errorlevel 1 goto :error
 )
 
 call ".venv\Scripts\activate.bat"
 if errorlevel 1 goto :error
 
-python -m pip install pyinstaller
+python -m pip install -r "requirements.txt"
+if errorlevel 1 goto :error
+python -m pip install "PyInstaller>=6.0.0,<7"
 if errorlevel 1 goto :error
 
 if exist "build" rmdir /s /q "build"

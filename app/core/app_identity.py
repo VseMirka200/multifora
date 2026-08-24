@@ -1,4 +1,4 @@
-"""Centralized application names used by UI and build metadata."""
+"""Централизованные имена приложения для интерфейса и метаданных сборки."""
 
 APP_TECHNICAL_NAME = "Multifora"
 APP_DISPLAY_NAME = "Мультифора"

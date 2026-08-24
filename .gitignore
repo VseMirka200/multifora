@@ -38,6 +38,9 @@ build/
 dist/
 *.egg-info/
 
+# PyInstaller
+*.spec
+
 # IDE/editor settings
 .idea/
 .vscode/
