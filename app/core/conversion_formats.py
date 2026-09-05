@@ -108,6 +108,7 @@ CATEGORY_TARGET_FORMATS: dict[str, tuple[str, ...]] = {
         "HEIC",
         "HEIF",
         "PDF",
+        "SVG",
     ),
 }
 

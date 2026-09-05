@@ -12,6 +12,7 @@ class _SignalLike(Protocol):
 
 
 class WorkerLike(Protocol):
+    # Общим функциям нужны только сигналы и результат, а не зависимость от QThread.
     progress: _SignalLike
     status: _SignalLike
     error: _SignalLike

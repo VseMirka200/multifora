@@ -41,8 +41,8 @@ def _get_app_icon_ico_path():
 
 
 def _get_app_icon_qt_path():
-    """Возвращает лучший путь иконки для QIcon (ICO предпочтительнее PNG)."""
-    return _get_app_icon_ico_path() or _get_app_icon_path()
+    """Возвращает SVG для интерфейса, с резервными ICO и PNG."""
+    return _find_bundled_icon("icon.svg") or _get_app_icon_ico_path() or _get_app_icon_path()
 
 
 def _set_app_user_model_id():

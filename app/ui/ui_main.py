@@ -16,7 +16,6 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QSizePolicy,
     QSplitter,
-    QStyle,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -459,33 +458,6 @@ class MultiforaMainWindow(
         except Exception as error:
             _log_ignored_error("MultiforaMainWindow.refresh_preview_panel", error)
 
-    def update_ghostscript_status(self):
-        """Обновляет информацию о наличии Ghostscript по требованию."""
-        from app.core.deps import ensure_ghostscript_detected
-
-        status_messages = []
-        has_ghostscript, ghostscript_path = ensure_ghostscript_detected(self.ghostscript_path_override)
-
-        if has_ghostscript:
-            status_messages.append(f"✓ Ghostscript доступен: {ghostscript_path}")
-        else:
-            status_messages.append(f"✗ Ghostscript не найден")
-        if status_messages:
-            self.log_event("; ".join(status_messages))
-        
-        if hasattr(self, 'compress_info_label'):
-            current_text = self.compress_info_label.text()
-            new_lines = []
-                
-            if has_ghostscript:
-                new_lines.append("✓ Ghostscript доступен")
-            else:
-                new_lines.append("✗ Ghostscript не найден")
-                
-            new_lines.append("Поддерживаемые форматы: PDF")
-            
-            self.compress_info_label.setText("\n".join(new_lines))
-
     @staticmethod
     def _setup_info_label(label: QLabel) -> QLabel:
         label.setFixedHeight(18)
@@ -893,14 +865,14 @@ class MultiforaMainWindow(
         drop_buttons_row.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         self.btn_add_files = DropActionTile(
-            QIcon(_find_bundled_icon("file.ico") or ""),
+            QIcon(_find_bundled_icon("file.svg") or ""),
             "Добавить\nфайлы",
         )
         self.btn_add_files.clicked.connect(self.select_files)
         drop_buttons_row.addWidget(self.btn_add_files, 0, 0)
 
         self.btn_add_folder = DropActionTile(
-            QIcon(_find_bundled_icon("folder.ico") or ""),
+            QIcon(_find_bundled_icon("folder.svg") or ""),
             "Добавить\nпапку",
         )
         self.btn_add_folder.clicked.connect(self.select_folder)
@@ -1053,7 +1025,7 @@ class MultiforaMainWindow(
 
         self._splitter_grip_label = QLabel()
         self._splitter_grip_label.setPixmap(
-            QIcon(_find_bundled_icon("three-dots.ico") or "").pixmap(20, 20)
+            QIcon(_find_bundled_icon("three-dots.svg") or "").pixmap(20, 20)
         )
         self._splitter_grip_label.setToolTip("Перетащите, чтобы изменить ширину панели разделов")
         self._splitter_grip_label.setObjectName("splitter_grip_label")
@@ -1637,41 +1609,8 @@ class MultiforaMainWindow(
         if callable(getattr(self, "_update_compress_button", None)):
             self._update_compress_button()
 
-    def on_preview_selection_changed(self):
-        """Синхронизирует выделение из окна предпросмотра обратно в список файлов."""
-        if getattr(self, "_syncing_file_selection", False):
-            return
-        self._sync_source_selection_from_preview()
-        self.on_file_selection_changed()
-
-    def _selected_paths_from_view(self, view) -> list[str]:
-        paths = []
-        if view is None:
-            return paths
-        try:
-            for item in view.selectedItems():
-                file_item = item.data(Qt.ItemDataRole.UserRole)
-                file_path = getattr(file_item, "path", None) if file_item else None
-                if file_path:
-                    paths.append(file_path)
-        except Exception:
-            return []
-        return paths
 
 
-    def _sync_source_selection_from_preview(self):
-        if not hasattr(self, "list_files") or self.list_files is None:
-            return
-        if getattr(self, "_syncing_file_selection", False):
-            return
-        self._syncing_file_selection = True
-        try:
-            paths = self._selected_paths_from_view(self.preview_list)
-            self.list_files.clearSelection()
-            if paths:
-                self.list_files.select_paths(paths)
-        finally:
-            self._syncing_file_selection = False
     
     def select_files(self):
         """Выбор файлов для обработки"""

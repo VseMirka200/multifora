@@ -6,6 +6,7 @@ from app.ui.ui_spacing import MARGINS_NONE, SPACE_SM
 
 
 class TemplateParamsTextMixin:
+    # Настраивает текстовые части имени: замену, префикс, суффикс и расширение.
     def create_add_prefix_params(self):
         """Создает параметры для добавления префикса"""
         self.template_prefix = QLineEdit()
@@ -83,5 +84,4 @@ class TemplateParamsTextMixin:
         layout.addWidget(self.template_replace)
         
         self.template_params_layout.addWidget(container)
-
 

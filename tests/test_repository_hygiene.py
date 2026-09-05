@@ -41,7 +41,7 @@ class RepositoryHygieneTests(unittest.TestCase):
         self.assertEqual(offenders, [])
 
     def test_batch_launcher_uses_python_entrypoint(self):
-        launcher = Path("start.bat").read_text(encoding="ascii")
+        launcher = Path("start_multifora.bat").read_text(encoding="ascii")
 
         self.assertTrue(Path("multifora_start.py").is_file())
         self.assertFalse(Path("multifora_start.pyw").exists())
@@ -53,7 +53,8 @@ class RepositoryHygieneTests(unittest.TestCase):
         paths = list(Path("app").rglob("*.py"))
         paths.extend(Path("core").rglob("*.py"))
         paths.append(Path("multifora_start.py"))
-        allowed_globals = {"__file__"}
+        # Python 3.14 добавляет этот символ при отложенной обработке аннотаций.
+        allowed_globals = {"__file__", "__conditional_annotations__"}
         builtin_names = set(dir(builtins))
         offenders = []
 
@@ -109,6 +110,8 @@ class RepositoryHygieneTests(unittest.TestCase):
         offenders = []
         for file_name in tracked_files:
             path = Path(file_name)
+            if not path.exists():
+                continue
             if path.suffix.lower() in binary_suffixes or path.name.endswith(".tar.gz"):
                 continue
 

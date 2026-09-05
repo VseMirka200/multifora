@@ -6,6 +6,7 @@ from app.core.app_utils import _log_ignored_error
 
 
 class RenameHistoryMixin:
+    # Хранит пары старых и новых путей для отмены и повтора переименования.
     def _persist_rename_history_state(self):
         saver = getattr(self, "save_settings", None)
         if callable(saver):

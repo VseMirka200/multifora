@@ -2,6 +2,8 @@ import re
 import unittest
 from pathlib import Path
 
+from app.ui.theme_styles import LIGHT_APPLICATION_STYLE
+
 from app.ui.ui_styles import (
     MENU_STYLE_DARK,
     MENU_STYLE_LIGHT,
@@ -47,8 +49,7 @@ class ThemeStyleAuditTests(unittest.TestCase):
             self.assertNotIn("QTabBar#operations_tab_bar::tab:hover", style)
 
     def test_light_theme_does_not_reintroduce_dark_template_surface(self):
-        source = Path("app/ui/mixins/appearance_mixin.py").read_text(encoding="utf-8")
-        light = source[source.index("    def apply_light_style") : source.index("    def _apply_combo_popup_light_style")]
+        light = LIGHT_APPLICATION_STYLE
         self.assertNotIn("#383838", light)
         self.assertTrue("alternate-background-color: #eef1f5" in light or "alternate-background-color: #f8fafc" in light)
 

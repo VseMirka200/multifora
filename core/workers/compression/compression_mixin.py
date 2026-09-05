@@ -138,6 +138,7 @@ def _stop_process(process: subprocess.Popen) -> None:
 
 
 class CompressionMixin:
+    # Сжимает изображения и PDF, сохраняя исходник до успешного завершения записи.
     def _compress_image_files(self):
         total = len(self.files)
         results = []
@@ -405,7 +406,7 @@ class CompressionMixin:
             self._last_pdf_error = "отменено пользователем"
             return False, "", 0.0
         try:
-            import fitz
+            import pymupdf as fitz
 
             original_size = os.path.getsize(input_path)
             document = fitz.open(input_path)

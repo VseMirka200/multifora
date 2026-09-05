@@ -5,6 +5,7 @@ from app.core.app_utils import _log_ignored_error
 
 
 class OperationsCompressUiMixin:
+    # Согласует параметры сжатия с типами выбранных файлов и доступными средствами.
     def _auto_select_compress_type(self):
         if not hasattr(self, "list_files") or not hasattr(self, "combo_compress_type"):
             return

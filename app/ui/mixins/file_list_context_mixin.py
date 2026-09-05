@@ -8,6 +8,7 @@ from app.ui.ui_components import apply_standard_menu_style, get_russian_text_inp
 
 
 class FileListContextMixin:
+    # Действия контекстного меню работают с текущим выделением списка файлов.
     def _get_selected_file_items(self):
         selected_items = self.list_files.selectedItems()
         file_items = []
@@ -154,31 +155,3 @@ class FileListContextMixin:
         self.list_files.set_files(self.files)
         self.update_file_info()
         self.status_bar.showMessage("Удалено из списка")
-
-    def open_selected_folder(self):
-        """Открытие папки с выбранным файлом"""
-        selected = self.list_files.selectedItems()
-        if not selected:
-            QMessageBox.warning(self, "Ошибка", "Выберите файл")
-            return
-
-        file_item = selected[0].data(Qt.ItemDataRole.UserRole)
-        if file_item:
-            try:
-                os.startfile(file_item.folder)
-                self.log_event(f"Открыта папка: {file_item.folder}")
-            except Exception as e:
-                QMessageBox.information(self, "Информация",
-                    f"Не удалось открыть папку: {file_item.folder}")
-                self.log_event(f"Ошибка открытия папки: {e}", "ERROR")
-
-    def select_all(self):
-        """Выделить все файлы"""
-        self.list_files.clearSelection()
-        self.list_files.select_paths([f.path for f in self.files])
-        self.log_event(f"Выбраны все файлы ({len(self.files)})")
-
-    def deselect_all(self):
-        """Снять выделение со всех файлов"""
-        self.list_files.clearSelection()
-        self.log_event("Снято выделение со всех файлов")

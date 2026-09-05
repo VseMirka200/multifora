@@ -52,6 +52,7 @@ from app.core.app_utils import _log_ignored_error
 
 
 class SettingsPanelMixin:
+    # Создаёт страницы настроек по мере открытия и связывает поля с состоянием окна.
     @staticmethod
     def _setup_settings_checkbox(checkbox: QCheckBox):
         setup_compact_checkbox(checkbox)

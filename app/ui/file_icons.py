@@ -1,4 +1,4 @@
-"""Иконки списка файлов: точное расширение, затем нейтральный значок."""
+"""Общие цветные иконки по типу исходного файла."""
 
 from functools import lru_cache
 import os
@@ -6,24 +6,36 @@ import os
 from PyQt6.QtGui import QIcon
 
 from app.core.app_icons import _find_bundled_icon
+from app.core.conversion_formats import FILE_TYPE_EXTENSIONS
 
 FILE_ICON_SIZE = 28
 
+_CATEGORY_EXTENSIONS = {
+    "document": "docm dot dotx dotm txt md markdown log csv tsv json xml yaml yml ini cfg conf toml sql py pyw js jsx ts tsx css scss html htm bat cmd ps1 sh c h cpp hpp cs java go rs rb php tex rst rtf",
+    "image": "",
+    "spreadsheet": "xls xlsx xlsm xlsb xlt xltx ods",
+    "presentation": "ppt pptx pptm pps ppsx pot potx odp",
+    "audio": "mp3 wav flac aac m4a ogg opus wma aiff aif mid midi",
+    "video": "mp4 mkv avi mov webm wmv m4v mpg mpeg flv 3gp",
+    "archive": "bz2 xz tgz zst cab iso",
+}
+_EXTENSION_CATEGORIES = {
+    extension: category
+    for category, extra in _CATEGORY_EXTENSIONS.items()
+    for extension in (set(FILE_TYPE_EXTENSIONS.get(category, ()))
+                      | {"." + ext for ext in extra.split()})
+}
 
-@lru_cache(maxsize=256)
-def _extension_icon(extension: str, is_file: bool) -> QIcon:
-    if not is_file:
-        return QIcon(_find_bundled_icon("folder.ico") or "")
-    # Не используем тип документа или будущий формат из предпросмотра:
-    # например, DOCX не должен получать значок с надписью DOC или PDF.
-    if extension and extension[1:].isascii() and extension[1:].isalnum():
-        for suffix in ("svg", "ico", "png"):
-            path = _find_bundled_icon(f"files extension/{extension[1:]}.{suffix}")
-            if path:
-                return QIcon(path)
-    return QIcon(_find_bundled_icon("files extension/_unknown.svg") or "")
+
+@lru_cache(maxsize=9)
+def _category_icon(category: str) -> QIcon:
+    if category == "folder":
+        return QIcon(_find_bundled_icon("folder.svg") or "")
+    return QIcon(_find_bundled_icon(f"file_types/{category}.svg") or "")
 
 
 def file_icon(file_item) -> QIcon:
-    extension = os.path.splitext(file_item.path)[1].lower() if file_item.is_file else ""
-    return _extension_icon(extension, file_item.is_file)
+    if not file_item.is_file:
+        return _category_icon("folder")
+    extension = os.path.splitext(file_item.path)[1].lower()
+    return _category_icon(_EXTENSION_CATEGORIES.get(extension, "unknown"))

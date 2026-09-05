@@ -7,7 +7,6 @@ from PyQt6.QtCore import (
     QModelIndex,
     QPointF,
     QRect,
-    QRectF,
     QPropertyAnimation,
     QSize,
     QTimer,
@@ -17,7 +16,6 @@ from PyQt6.QtCore import (
 from PyQt6.QtGui import (
     QAction,
     QColor,
-    QFont,
     QFontMetrics,
     QIcon,
     QPainter,
@@ -30,7 +28,6 @@ from PyQt6.QtWidgets import (
     QAbstractItemView,
     QAbstractSpinBox,
     QApplication,
-    QCheckBox,
     QComboBox,
     QDialog,
     QFrame,
@@ -872,78 +869,6 @@ class ExpandableGroupBox(QGroupBox):
             parent = parent.parentWidget()
 
 
-class ToggleSwitch(QCheckBox):
-    """Флажок в виде переключателя с подвижным ползунком."""
-
-    def __init__(self, text="", parent=None):
-        super().__init__(text, parent)
-        self.setFont(QFont("Segoe UI", 13, QFont.Weight.DemiBold))
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._track_w = 36
-        self._track_h = 18
-        self._thumb_r = 7
-        self._gap = 10
-        self.setMinimumHeight(24)
-
-    def sizeHint(self):
-        fm = self.fontMetrics()
-        text_w = fm.horizontalAdvance(self.text())
-        text_h = fm.height()
-        w = self._track_w + self._gap + text_w + 8
-        h = max(self._track_h, text_h) + 6
-        return QSize(w, h)
-
-    def paintEvent(self, _event):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-
-        track_x = 0
-        track_y = (self.height() - self._track_h) // 2
-        track_rect = QRectF(track_x, track_y, self._track_w, self._track_h)
-
-        theme = _resolve_widget_theme_mode(self)
-
-        if not self.isEnabled():
-            track_color = QColor("#555d64")
-            thumb_color = QColor("#c8cdd1")
-            text_color = QColor("#8ea1ab") if theme != "light" else QColor("#6f7785")
-        elif self.isChecked():
-            track_color = QColor("#3d74b3")
-            thumb_color = QColor("#ffffff")
-            text_color = QColor("#e0e0e0") if theme != "light" else QColor("#1f2328")
-        else:
-            if theme == "light":
-                track_color = QColor("#8b949e")
-                thumb_color = QColor("#ffffff")
-                text_color = QColor("#1f2328")
-            else:
-                track_color = QColor("#626b73")
-                thumb_color = QColor("#f0f0f0")
-                text_color = QColor("#e0e0e0")
-
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(track_color)
-        p.drawRoundedRect(track_rect, self._track_h / 2, self._track_h / 2)
-
-        if self.isChecked():
-            thumb_cx = track_x + self._track_w - 9
-        else:
-            thumb_cx = track_x + 9
-        thumb_cy = track_y + self._track_h / 2
-        p.setBrush(thumb_color)
-        p.drawEllipse(QPointF(thumb_cx, thumb_cy), self._thumb_r, self._thumb_r)
-
-        text_rect = QRect(
-            self._track_w + self._gap,
-            0,
-            max(0, self.width() - self._track_w - self._gap),
-            self.height(),
-        )
-        p.setPen(text_color)
-        p.drawText(text_rect, int(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft), self.text())
-
-
-
 class MenuLikeComboBox(QToolButton):
     """Выпадающий список на QMenu с API, похожим на QComboBox."""
 
@@ -1132,6 +1057,7 @@ class FileListItemAdapter:
 
 
 class FileListModel(QAbstractListModel):
+    # Хранит общий порядок файлов, чтобы выделение и перетаскивание не расходились с UI.
     def __init__(self, parent=None):
         super().__init__(parent)
         self._files = []
@@ -1223,28 +1149,6 @@ class FileListModel(QAbstractListModel):
 
     def files(self):
         return list(self._files)
-
-    def move_rows(self, rows: list[int], target_row: int):
-        if not self._files or not rows:
-            return
-        rows = sorted(set(rows))
-        if target_row < 0:
-            target_row = len(self._files)
-
-        items = [self._files[i] for i in rows if 0 <= i < len(self._files)]
-        if not items:
-            return
-        remaining = [f for i, f in enumerate(self._files) if i not in rows]
-
-        removed_before = sum(1 for r in rows if r < target_row)
-        target_row -= removed_before
-        if target_row < 0:
-            target_row = 0
-        if target_row > len(remaining):
-            target_row = len(remaining)
-
-        new_files = remaining[:target_row] + items + remaining[target_row:]
-        self.set_files(new_files)
 
     def moveRows(self, sourceParent, sourceRow, count, destinationParent, destinationChild):
         if count <= 0:

@@ -39,6 +39,7 @@ from app.ui.ui_spacing import (
 
 
 class OperationsTabLayoutMixin:
+    # Собирает страницы операций; выполнение файловых задач остаётся в обработчиках.
 
     def _apply_operations_tab_bar_theme(self, theme: str | None = None):
         tab_bar = getattr(self, "operations_tab_bar", None)

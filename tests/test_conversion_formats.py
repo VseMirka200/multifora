@@ -17,6 +17,7 @@ from app.core.conversion_formats import (
 
 class ConversionFormatsTests(unittest.TestCase):
     def test_each_category_has_source_and_target_formats(self):
+        self.assertIn("SVG", target_formats_for_category(IMAGE_CATEGORY))
         for category in CONVERSION_CATEGORIES:
             self.assertTrue(source_formats_for_category(category))
             self.assertTrue(target_formats_for_category(category))

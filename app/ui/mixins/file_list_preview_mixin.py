@@ -1,6 +1,3 @@
-
-import webbrowser
-
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QMessageBox
 
@@ -8,6 +5,7 @@ from app.core.conversion_formats import CATEGORY_FILE_TYPES, suffix_for_format
 
 
 class FileListPreviewMixin:
+    # Показывает будущие имена файлов без изменения исходных файлов на диске.
     def _set_preview_names_to_original(self):
         for file_item in getattr(self, "files", []) or []:
             file_item.preview_name = file_item.name
@@ -44,10 +42,6 @@ class FileListPreviewMixin:
             return
         self._set_preview_names_to_original()
         self._refresh_list_preview()
-
-    def preview_rename(self):
-        """Предпросмотр переименования"""
-        self.refresh_rename_preview(show_empty_warning=True)
 
     def refresh_rename_preview(self, show_empty_warning=False):
         """Автоматически обновляет предпросмотр переименования."""
@@ -296,12 +290,3 @@ class FileListPreviewMixin:
         self.list_files.set_files(filtered_files)
         self.list_files.clearSelection()
         self.list_files.select_paths(selected_paths)
-
-    def open_url(self, url):
-        """Открывает URL в браузере по умолчанию"""
-        try:
-            webbrowser.open(url)
-            self.log_event(f"Открыт URL: {url}")
-        except Exception as e:
-            QMessageBox.warning(self, "Ошибка", f"Не удалось открыть ссылку: {str(e)}")
-            self.log_event(f"Ошибка открытия URL: {str(e)}", "ERROR")

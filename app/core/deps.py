@@ -45,7 +45,7 @@ _GHOSTSCRIPT_EXECUTABLES = ("gswin64c.exe", "gs.exe")
 
 
 try:
-    import fitz
+    import pymupdf as fitz
 
     HAS_PYMUPDF = True
     _debug_log("PyMuPDF найден")

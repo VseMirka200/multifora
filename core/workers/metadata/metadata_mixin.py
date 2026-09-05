@@ -105,7 +105,7 @@ class MetadataMixin:
 
     def _remove_pdf_metadata(self, path: str, remove_all: bool, selected_groups: set[str]):
         try:
-            import fitz
+            import pymupdf as fitz
         except Exception as error:  # pragma: no cover - dependency error is environment-specific
             raise RuntimeError(f"PyMuPDF недоступен: {error}") from error
 

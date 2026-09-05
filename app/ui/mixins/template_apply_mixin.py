@@ -9,6 +9,7 @@ from app.core.app_utils import _log_ignored_error
 
 
 class TemplateApplyMixin:
+    # Применяет параметры шаблона к именам для предпросмотра и последующего переименования.
     def on_template_selected(self, template_name):
         """Обработчик выбора шаблона"""
         if template_name == "Выберите шаблон...":

@@ -23,6 +23,7 @@ from app.core.app_utils import _log_ignored_error
 
 
 class FileListActionsMixin:
+    # Добавляет и удаляет файлы, сохраняя согласованность списка и предпросмотра.
     _FILTERABLE_FILE_TYPES = frozenset(("document", "image", "archive", "folder", "other"))
 
     def _manual_sort_mode_text(self) -> str:

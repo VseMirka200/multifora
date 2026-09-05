@@ -10,7 +10,6 @@ from PyQt6.QtWidgets import (
     QDialog,
     QLineEdit,
     QListWidget,
-    QMessageBox,
     QPlainTextEdit,
     QSpinBox,
     QTabBar,
@@ -21,6 +20,7 @@ from app.core.app_utils import _get_app_data_dir, _log_ignored_error
 
 
 class LoggingMixin:
+    # Собирает сообщения приложения и действия пользователя в файл и панель журнала.
     def init_logging(self):
         """Инициализация логирования."""
         self._log_file_path = self.get_log_file_path()
@@ -348,15 +348,3 @@ class LoggingMixin:
                 _log_ignored_error("LoggingMixin.load_logs_into_view", error)
         self.logs_view.setPlainText("\n".join(lines))
         self.logs_view.moveCursor(QTextCursor.MoveOperation.End)
-
-    def open_logs_file(self):
-        log_path = self._log_file_path or self.get_log_file_path()
-        try:
-            if not os.path.exists(log_path):
-                with open(log_path, "a", encoding="utf-8"):
-                    pass
-            os.startfile(log_path)
-            self.log_event(f"Открыт файл логов: {log_path}")
-        except Exception as exc:
-            QMessageBox.warning(self, "Ошибка", f"Не удалось открыть логи: {str(exc)}")
-            self.log_event(f"Ошибка открытия логов: {str(exc)}", "ERROR")

@@ -10,6 +10,7 @@ from app.core.app_utils import _log_ignored_error
 
 
 class LifecycleMixin:
+    # Сохраняет состояние окна и не даёт закрыть его посреди файловой операции.
     def on_status_message_logged(self, message: str):
         self.log_event(message, "STATUS")
 

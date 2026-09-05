@@ -28,6 +28,7 @@ from app.ui.ui_spacing import (
 
 
 class TemplateParamsNumberingMixin:
+    # Собирает параметры нумерации, чтобы порядок файлов учитывался в новых именах.
     def _numbering_mode_items(self):
         return [
             "Простая нумерация",

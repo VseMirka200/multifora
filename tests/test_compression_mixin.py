@@ -82,7 +82,7 @@ class CompressionMixinTests(unittest.TestCase):
             source = Path(tmp_dir, "source.pdf")
             source.write_bytes(b"original")
             output = Path(tmp_dir, "output.pdf")
-            with patch.dict(sys.modules, {"fitz": _Fitz}):
+            with patch.dict(sys.modules, {"pymupdf": _Fitz}):
                 result = worker._compress_pdf_with_pymupdf(
                     str(source),
                     str(output),

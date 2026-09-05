@@ -29,6 +29,7 @@ from app.core.app_utils import _log_ignored_error
 
 
 class TemplateCrudMixin:
+    # Управляет пользовательскими шаблонами и их отображением в менеджере.
     def get_template_session_state(self):
         """Возвращает текущее состояние выбранного шаблона для восстановления сессии."""
         template_name = ""
@@ -497,29 +498,6 @@ class TemplateCrudMixin:
             else:
                 self.templates_table.clearSelection()
                 self.templates_table.setCurrentIndex(QModelIndex())
-    def delete_template_from_manager(self, template_name, parent_window):
-        """Удаление шаблона из менеджера"""
-        if template_name not in self.custom_templates:
-            return
-        
-        reply = self.show_russian_message_box(
-            "Подтверждение",
-            f"Удалить шаблон '{template_name}'?",
-            QMessageBox.Icon.Question,
-            True
-        )
-        
-        if reply:
-            del self.custom_templates[template_name]
-            self.update_templates_table(parent_window)
-            self.save_settings()
-            self.status_bar.showMessage(f"Шаблон '{template_name}' удален")
-    def load_template_from_manager(self, template_name, parent_window):
-        """Загрузка шаблона из менеджера и закрытие окна"""
-        self.load_template(template_name)
-        if parent_window:
-            parent_window.accept()
-
     def _build_template_manager_action_buttons(self, dialog):
         actions_row = QWidget()
         actions_row.setObjectName("template_manager_action_row")

@@ -16,7 +16,7 @@ class MetadataMixinTests(unittest.TestCase):
         self.worker = _MetadataHarness()
 
     def test_pdf_selective_cleanup_preserves_unselected_fields(self):
-        import fitz
+        import pymupdf as fitz
 
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "sample.pdf")

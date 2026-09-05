@@ -17,6 +17,7 @@ from app.core.app_icons import _get_shortcut_icon_path
 
 
 class WindowsIntegrationMixin:
+    # Поддерживает ярлыки и меню Проводника с учётом запуска из исходников или сборки.
     _CONTEXT_MENU_ROOTS = (
         r"Software\Classes\*\shell\AddToMultifora",
         r"Software\Classes\Directory\shell\AddToMultifora",

@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import QGroupBox, QMessageBox
 
 
 class TemplateParamsBaseMixin:
+    # Восстанавливает общие поля шаблона и связывает их с обновлением предпросмотра.
     def apply_template_data(self, template_type, data):
         """Применяет данные шаблона к виджетам"""
         try:

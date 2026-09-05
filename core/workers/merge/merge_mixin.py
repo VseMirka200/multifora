@@ -8,6 +8,7 @@ from app.core.models import FileItem
 
 
 class MergeMixin:
+    # Объединяет документы в порядке очереди и публикует итоговый файл для интерфейса.
     def _merge_files(self):
         try:
             result = self._merge_files_to_target()
@@ -93,7 +94,7 @@ class MergeMixin:
             raise Exception("Установите PyMuPDF для объединения PDF-файлов.")
 
         try:
-            import fitz
+            import pymupdf as fitz
         except Exception:
             raise Exception("PyMuPDF недоступен для объединения PDF-файлов.")
 

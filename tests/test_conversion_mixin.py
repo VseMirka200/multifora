@@ -192,6 +192,71 @@ class ConversionMixinTests(unittest.TestCase):
             self.assertTrue(os.path.exists(first))
             self.assertTrue(os.path.exists(second))
 
+    @unittest.skipUnless(conv_module.HAS_PIL, "Pillow is required")
+    def test_svg_export_embeds_pixels_dimensions_and_transparency(self):
+        import base64
+        from io import BytesIO
+        from xml.etree import ElementTree
+        from PIL import Image
+
+        worker = _DummyConversionWorker()
+        with tempfile.TemporaryDirectory() as directory:
+            for extension, mode, color in (("png", "RGBA", (24, 100, 200, 80)),
+                                           ("jpg", "RGB", (24, 100, 200))):
+                with self.subTest(extension=extension):
+                    source_path = os.path.join(directory, "photo." + extension)
+                    with Image.new(mode, (13, 7), color) as source:
+                        source.save(source_path)
+                    output = worker._convert_image_auto(FileItem(source_path), "SVG")
+                    self.assertTrue(output.endswith(".svg"))
+                    root = ElementTree.parse(output).getroot()
+                    self.assertEqual(root.attrib["viewBox"], "0 0 13 7")
+                    embedded = root.find("{http://www.w3.org/2000/svg}image")
+                    uri = embedded.attrib["{http://www.w3.org/1999/xlink}href"]
+                    self.assertTrue(uri.startswith("data:image/png;base64,"))
+                    with Image.open(BytesIO(base64.b64decode(uri.split(",", 1)[1]))) as result:
+                        with Image.open(source_path) as original:
+                            self.assertEqual(result.size, original.size)
+                            self.assertEqual(result.convert("RGBA").tobytes(),
+                                             original.convert("RGBA").tobytes())
+
+    @unittest.skipUnless(conv_module.HAS_PIL, "Pillow is required")
+    def test_image_encoding_preserves_alpha_or_flattens_to_white(self):
+        from PIL import Image
+
+        worker = _DummyConversionWorker()
+        with tempfile.TemporaryDirectory() as output_dir:
+            with Image.new("RGBA", (16, 16), (255, 0, 0, 0)) as source:
+                for target in ("PNG", "JPG"):
+                    output_path = os.path.join(output_dir, f"image.{target.lower()}")
+                    worker._save_pillow_image(source, output_path, target)
+                    with Image.open(output_path) as result:
+                        if target == "PNG":
+                            self.assertEqual(result.getpixel((0, 0))[3], 0)
+                        else:
+                            self.assertEqual(result.convert("RGB").getpixel((0, 0)), (255, 255, 255))
+                self.assertEqual(source.mode, "RGBA")
+
+    @unittest.skipUnless(conv_module.HAS_PIL, "Pillow is required")
+    def test_image_encoding_preserves_animation_frames(self):
+        from PIL import Image
+
+        worker = _DummyConversionWorker()
+        with tempfile.TemporaryDirectory() as output_dir:
+            source_path = os.path.join(output_dir, "source.gif")
+            output_path = os.path.join(output_dir, "result.gif")
+            with Image.new("RGB", (16, 16), "red") as first, Image.new("RGB", (16, 16), "blue") as second:
+                first.save(source_path, save_all=True, append_images=[second], duration=120, loop=2)
+            with Image.open(source_path) as source:
+                worker._save_pillow_image(source, output_path, "GIF")
+            with Image.open(output_path) as result:
+                self.assertEqual(result.n_frames, 2)
+                self.assertEqual(result.info["loop"], 2)
+                for index, color in enumerate(((255, 0, 0), (0, 0, 255))):
+                    result.seek(index)
+                    self.assertEqual(result.info["duration"], 120)
+                    self.assertEqual(result.convert("RGB").getpixel((0, 0)), color)
+
     def test_auto_document_converts_txt_to_docx(self):
         worker = _DummyConversionWorker()
         with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as output_dir:

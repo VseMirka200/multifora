@@ -6,6 +6,7 @@ from core.workers.common import emit_progress, finish_if_cancelled, get_unique_p
 
 
 class FileOpsMixin:
+    # Выполняет копирование, перемещение и переименование с учётом отмены и конфликтов имён.
     def _copy_files(self):
         self._transfer_files(move=False)
 

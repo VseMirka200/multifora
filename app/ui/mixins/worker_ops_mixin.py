@@ -8,6 +8,7 @@ from app.core.models import FileItem
 
 
 class WorkerOpsMixin:
+    # Передаёт выбранные файлы рабочему потоку и обновляет UI по результатам операций.
     def _get_selected_or_all_file_items(self) -> list[FileItem]:
         selected_items = self.list_files.selectedItems()
         if selected_items:
@@ -86,75 +87,6 @@ class WorkerOpsMixin:
                 self.input_merge_output_path.setCursorPosition(0)
             except Exception as error:
                 _log_ignored_error("WorkerOpsMixin.on_merge_format_changed", error)
-
-    def convert_files(self, conversion_type: str, target_format: str = ""):
-        """Конвертация файлов."""
-        selected_items = self.list_files.selectedItems()
-        if not selected_items:
-            QMessageBox.warning(self, "Ошибка", "Выберите файлы для конвертации!")
-            return
-
-        files = []
-        for item in selected_items:
-            file_item = item.data(Qt.ItemDataRole.UserRole)
-            if file_item and file_item.is_file:
-                if self._check_file_compatibility(file_item, conversion_type):
-                    files.append(file_item)
-
-        if not files:
-            QMessageBox.warning(
-                self,
-                "Ошибка",
-                f"Выберите файлы совместимого формата для конвертации {conversion_type}!",
-            )
-            return
-
-        operation_name = self.get_conversion_operation_name(conversion_type)
-        reply = self.show_russian_message_box(
-            "Подтверждение",
-            f"Конвертировать {len(files)} файлов в {operation_name}?",
-            QMessageBox.Icon.Question,
-            True,
-        )
-        if not reply:
-            return
-
-        if not self.create_file_worker():
-            return
-        output_dir = ""
-        destination_getter = getattr(self, "_selected_conversion_destination", None)
-        if callable(destination_getter):
-            output_dir = destination_getter()
-        self.file_worker.set_conversion(
-            files,
-            conversion_type,
-            target_format,
-            output_dir=output_dir,
-        )
-        self._last_operation = {
-            "op": "convert",
-            "conversion_type": conversion_type,
-            "conversion_format": target_format,
-            "conversion_output_dir": output_dir,
-            "file_paths": [f.path for f in files],
-        }
-        self.file_worker.start()
-        self.log_event(f"Конвертация: {len(files)} файлов в {operation_name}")
-        if callable(getattr(self, "_show_progress_dialog", None)):
-            self._show_progress_dialog(f"Конвертация {len(files)} файлов...")
-
-    def get_conversion_operation_name(self, conversion_type: str) -> str:
-        names = {
-            "word_to_pdf": "PDF",
-            "pdf_to_word": "DOCX",
-            "word_to_odt": "ODT",
-            "odt_to_word": "DOCX",
-            "odt_to_pdf": "PDF",
-            "pdf_to_odt": "ODT",
-            "pdf_to_image": "изображения",
-            "image_to_image": "изображения",
-        }
-        return names.get(conversion_type, conversion_type)
 
     def _update_metadata_controls(self, *_args):
         candidates = self._get_selected_or_all_file_items() if hasattr(self, "list_files") else []
@@ -391,19 +323,6 @@ class WorkerOpsMixin:
         if callable(getattr(self, "_show_progress_dialog", None)):
             self._show_progress_dialog(f"Объединение {len(files)} документов...")
         self.status_bar.showMessage(f"Объединение {len(files)} документов...")
-
-    def _check_file_compatibility(self, file_item: FileItem, conversion_type: str) -> bool:
-        if conversion_type == "word_to_pdf":
-            return file_item.path.lower().endswith((".doc", ".docx"))
-        if conversion_type == "pdf_to_word":
-            return file_item.path.lower().endswith(".pdf")
-        if conversion_type == "odt_to_pdf":
-            return file_item.path.lower().endswith(".odt")
-        if conversion_type == "pdf_to_odt":
-            return file_item.path.lower().endswith(".pdf")
-        if conversion_type == "pdf_to_image":
-            return file_item.path.lower().endswith(".pdf")
-        return False
 
     def on_operation_finished(self, result):
         """Завершение операции."""
