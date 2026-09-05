@@ -26,11 +26,11 @@ if errorlevel 1 goto :error
 if exist "build" rmdir /s /q "build"
 if exist "dist\%APP_BUILD_NAME%" rmdir /s /q "dist\%APP_BUILD_NAME%"
 
-python -m PyInstaller --noconfirm --clean --windowed --name "%APP_BUILD_NAME%" --icon "icons\icon.ico" multifora_start.py
+python -m PyInstaller --noconfirm --clean --windowed --name "%APP_BUILD_NAME%" --icon "assets\icon.ico" --add-data "assets;assets" multifora_start.py
 if errorlevel 1 goto :error
 
-if exist "icons" (
-    robocopy "icons" "dist\%APP_BUILD_NAME%\icons" /E /NFL /NDL /NJH /NJS /NP >nul
+if exist "assets" (
+    robocopy "assets" "dist\%APP_BUILD_NAME%\assets" /E /NFL /NDL /NJH /NJS /NP >nul
 )
 if exist "bin" (
     robocopy "bin" "dist\%APP_BUILD_NAME%\bin" /E /NFL /NDL /NJH /NJS /NP >nul

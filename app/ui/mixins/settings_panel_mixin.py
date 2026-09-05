@@ -2,7 +2,7 @@
 import concurrent.futures
 
 from PyQt6.QtCore import QTimer, Qt, QUrl, QSize
-from PyQt6.QtGui import QAction, QDesktopServices, QFont, QTextCursor
+from PyQt6.QtGui import QAction, QDesktopServices, QFont, QIcon, QTextCursor
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -25,6 +25,9 @@ from PyQt6.QtWidgets import (
 )
 
 from app.core.update_checker import REPO_PAGE, check_for_updates
+from app.core.app_identity import APP_DISPLAY_NAME, APP_TECHNICAL_NAME, APP_VERSION
+from app.core.app_icons import _get_app_icon_qt_path
+from app.core.conversion_formats import CATEGORY_SOURCE_FORMATS
 from app.ui.ui_components import (
     LeftAlignedToolButton,
     MenuLikeComboBox,
@@ -160,18 +163,15 @@ class SettingsPanelMixin:
     def show_settings_modal(self):
         """Показывает панель настроек поверх рабочей области."""
         settings_widget = self._ensure_settings_panel_widget()
+        self.btn_settings.setChecked(True)
         if callable(getattr(self, "_ensure_rename_history_settings_page", None)):
             self._ensure_rename_history_settings_page()
 
         host = getattr(self, "settings_panel_host", None)
-        settings_index = getattr(self, "_settings_tab_index", -1)
         tab_bar = getattr(self, "operations_tab_bar", None)
-        if tab_bar is not None and settings_index >= 0 and tab_bar.currentIndex() != settings_index:
-            tab_bar.blockSignals(True)
-            try:
-                tab_bar.setCurrentIndex(settings_index)
-            finally:
-                tab_bar.blockSignals(False)
+        if tab_bar is not None:
+            tab_bar.setProperty("settingsActive", True)
+            self._apply_operations_tab_bar_theme()
 
         if host is not None:
             host.setVisible(True)
@@ -196,12 +196,69 @@ class SettingsPanelMixin:
             self.settings_nav.setCurrentRow(target_row)
 
     def hide_settings_panel(self):
+        tab_bar = getattr(self, "operations_tab_bar", None)
+        if tab_bar is not None:
+            tab_bar.setProperty("settingsActive", False)
+            self._apply_operations_tab_bar_theme()
+        button = getattr(self, "btn_settings", None)
+        if button is not None:
+            button.setChecked(False)
         host = getattr(self, "settings_panel_host", None)
         if host is not None:
             host.setVisible(False)
         splitter = getattr(self, "main_splitter", None)
         if splitter is not None:
             splitter.setVisible(True)
+
+    def _ensure_about_settings_page(self):
+        if not hasattr(self, "_about_settings_row"):
+            self._about_settings_row = self.settings_stack.count()
+            item = QListWidgetItem("О программе")
+            item.setFont(self.settings_nav.item(0).font())
+            item.setSizeHint(QSize(self._settings_nav_base_width, self._settings_nav_item_height))
+            self.settings_nav.addItem(item)
+            layout = self._add_settings_page()
+            layout.setSpacing(SPACE_SM)
+            layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+            card = layout.parentWidget()
+            card.parentWidget().layout().setAlignment(Qt.AlignmentFlag.AlignTop)
+            self.settings_stack.widget(self._about_settings_row).layout().setAlignment(
+                Qt.AlignmentFlag.AlignTop
+            )
+            icon = QLabel()
+            icon.setPixmap(QIcon(_get_app_icon_qt_path() or "").pixmap(64, 64))
+            layout.addWidget(icon)
+            title = QLabel(f"{APP_DISPLAY_NAME} ({APP_TECHNICAL_NAME})")
+            font = title.font()
+            font.setPointSize(18)
+            font.setBold(True)
+            title.setFont(font)
+            layout.addWidget(title)
+            paragraphs = [
+                f"Версия: {APP_VERSION}",
+                "Приложение для пакетной обработки файлов и папок. "
+                "Добавляйте файлы кнопками или перетаскивайте их в окно.",
+                "Возможности: переименование по шаблонам с предварительным просмотром "
+                "и историей изменений; конвертация документов и изображений; "
+                "объединение документов в PDF и DOCX; удаление метаданных; сжатие файлов.",
+                "Исходные форматы документов: " + ", ".join(CATEGORY_SOURCE_FORMATS["Документы"]) + ".",
+                "Исходные форматы изображений: " + ", ".join(CATEGORY_SOURCE_FORMATS["Изображения"]) + ".",
+                "Доступность преобразований зависит от формата и установленных компонентов. "
+                "Для отдельных операций с документами нужен Microsoft Word, "
+                "для сжатия PDF используется Ghostscript.",
+                "В настройках доступны светлая и тёмная темы, поведение после операций, "
+                "ярлыки и контекстное меню Windows, проверка обновлений, логи и история переименований.",
+            ]
+            for text in paragraphs:
+                label = QLabel(text)
+                label.setWordWrap(True)
+                label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+                layout.addWidget(label)
+            repo = QPushButton("Проект на GitHub")
+            setup_standard_action_button(repo)
+            repo.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(REPO_PAGE)))
+            layout.addWidget(repo, 0, Qt.AlignmentFlag.AlignLeft)
+            layout.addStretch()
 
     def _ensure_rename_history_settings_page(self):
         page = getattr(self, "rename_history_settings_page", None)

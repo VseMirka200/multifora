@@ -69,6 +69,7 @@ from app.ui.ui_styles import (
     build_standard_field_style,
 )
 from app.core.app_utils import _log_ignored_error
+from app.ui.file_icons import FILE_ICON_SIZE, file_icon
 
 _MENU_STYLE_LIGHT = MENU_STYLE_LIGHT
 _MENU_STYLE_DARK = MENU_STYLE_DARK
@@ -1142,11 +1143,11 @@ class FileListModel(QAbstractListModel):
         preview_name = getattr(file_item, "preview_name", None)
         if preview_name and preview_name != file_item.name:
             display_name = f"{file_item.name} -> {preview_name}"
-        return f"{file_item.get_icon()} {display_name}"
+        return display_name
 
     @staticmethod
     def _original_display_name(file_item) -> str:
-        return f"{file_item.get_icon()} {file_item.name}"
+        return file_item.name
 
 
 
@@ -1170,12 +1171,14 @@ class FileListModel(QAbstractListModel):
         file_item = self._files[index.row()]
         if role == Qt.ItemDataRole.DisplayRole:
             return self._original_display_name(file_item)
+        if role == Qt.ItemDataRole.DecorationRole:
+            return file_icon(file_item)
         if role == Qt.ItemDataRole.ToolTipRole:
             return self._full_display_name(file_item)
         if role == Qt.ItemDataRole.SizeHintRole:
             metrics = QFontMetrics(QApplication.font())
-            width = metrics.horizontalAdvance(self._original_display_name(file_item)) + 20
-            return QSize(width, 24)
+            width = metrics.horizontalAdvance(self._original_display_name(file_item)) + FILE_ICON_SIZE + 20
+            return QSize(width, FILE_ICON_SIZE + 8)
         if role == Qt.ItemDataRole.UserRole:
             return file_item
         return None
@@ -1298,10 +1301,9 @@ class FileListItemDelegate(QStyledItemDelegate):
         view = option.widget
         if file_item:
             metrics = QFontMetrics(option.font)
-            icon_text = f"{file_item.get_icon()} "
             text = str(preview_name or file_item.name)
             available_width = self._view_width(view, hint.width())
-            icon_width = metrics.horizontalAdvance(icon_text)
+            icon_width = FILE_ICON_SIZE
             text_width = max(40, available_width - icon_width - 20 - self._right_padding)
             text_rect = metrics.boundingRect(
                 QRect(0, 0, text_width, 10000),
@@ -1309,7 +1311,7 @@ class FileListItemDelegate(QStyledItemDelegate):
                 text,
             )
             width = 6 + icon_width + 8 + text_rect.width() + 6 + self._right_padding
-            height = max(metrics.height(), text_rect.height()) + 8
+            height = max(icon_width, metrics.height(), text_rect.height()) + 8
             hint.setWidth(max(hint.width(), width))
             hint.setHeight(max(hint.height(), height))
         return hint
@@ -1344,12 +1346,12 @@ class FileListItemDelegate(QStyledItemDelegate):
 
             painter.fillRect(view_option.rect, background)
 
+            painter.setFont(view_option.font)
             metrics = painter.fontMetrics()
             left_padding = 6
             top_padding = 2
-            icon_text = f"{file_item.get_icon()} "
             text = str(preview_name or file_item.name)
-            icon_width = metrics.horizontalAdvance(icon_text)
+            icon_width = FILE_ICON_SIZE
             available_width = self._view_width(view, view_option.rect.width())
             text_width = max(40, available_width - icon_width - 20 - self._right_padding)
             text_rect_size = metrics.boundingRect(
@@ -1362,15 +1364,15 @@ class FileListItemDelegate(QStyledItemDelegate):
             y = view_option.rect.y() + top_padding
             h = max(view_option.rect.height() - top_padding * 2, metrics.height())
 
-            icon_rect = QRect(x, y, icon_width, h)
+            icon_rect = QRect(x, y + (h - icon_width) // 2, icon_width, icon_width)
             text_rect = QRect(x + icon_width + 8, y, text_rect_size.width(), max(h, text_rect_size.height()))
 
             painter.setPen(text_color)
             painter.setFont(view_option.font)
-            painter.drawText(icon_rect, int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop), icon_text)
+            file_icon(file_item).paint(painter, icon_rect, Qt.AlignmentFlag.AlignCenter)
             painter.drawText(
                 text_rect,
-                int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap),
+                int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap),
                 text,
             )
             painter.restore()

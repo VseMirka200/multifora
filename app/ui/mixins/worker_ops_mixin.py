@@ -157,23 +157,29 @@ class WorkerOpsMixin:
         return names.get(conversion_type, conversion_type)
 
     def _update_metadata_controls(self, *_args):
-        mode = "all"
-        combo = getattr(self, "combo_metadata_mode", None)
-        if combo is not None:
-            mode = str(combo.currentData() or "all")
-        selective = mode == "selected"
-        for checkbox in getattr(self, "metadata_field_checkboxes", {}).values():
-            checkbox.setEnabled(selective)
+        candidates = self._get_selected_or_all_file_items() if hasattr(self, "list_files") else []
+        has_documents = bool(self._metadata_documents(candidates))
+        all_button = getattr(self, "btn_remove_all_metadata", None)
+        if all_button is not None:
+            all_button.setEnabled(has_documents)
+        button = getattr(self, "btn_remove_metadata", None)
+        if button is not None:
+            button.setEnabled(has_documents and any(
+                checkbox.isChecked()
+                for checkbox in getattr(self, "metadata_field_checkboxes", {}).values()
+            ))
 
-    def remove_document_metadata(self):
+    @staticmethod
+    def _metadata_documents(candidates):
+        return [
+            file_item for file_item in candidates
+            if str(getattr(file_item, "path", "")).lower().endswith((".pdf", ".docx", ".odt", ".doc"))
+        ]
+
+    def remove_document_metadata(self, *, remove_all: bool = False):
         """Удаляет все или выбранные группы метаданных из документов."""
         candidates = self._get_selected_or_all_file_items()
-        supported_extensions = (".pdf", ".docx", ".odt", ".doc")
-        files = [
-            file_item
-            for file_item in candidates
-            if str(getattr(file_item, "path", "")).lower().endswith(supported_extensions)
-        ]
+        files = self._metadata_documents(candidates)
         if not files:
             QMessageBox.warning(
                 self,
@@ -181,11 +187,6 @@ class WorkerOpsMixin:
                 "Добавьте или выберите документы PDF, DOCX, ODT или DOC.",
             )
             return
-
-        mode = "all"
-        if hasattr(self, "combo_metadata_mode") and self.combo_metadata_mode is not None:
-            mode = str(self.combo_metadata_mode.currentData() or "all")
-        remove_all = mode != "selected"
 
         fields = []
         if not remove_all:

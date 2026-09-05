@@ -52,6 +52,15 @@ class OperationsTabLayoutMixin:
                 else "dark"
             )
         tab_bar.setStyleSheet(build_operations_tab_bar_style(effective))
+        foreground = "#202833" if effective == "light" else "#e3e6ea"
+        button = getattr(self, "btn_settings", None)
+        if button is not None:
+            button.setStyleSheet(f"""
+                QPushButton {{ color: {foreground}; background: transparent;
+                    border: none; border-bottom: 1px solid transparent;
+                    border-radius: 0px; padding: 0px 2px; font-weight: 500; }}
+                QPushButton:checked {{ border-bottom: 1px solid #3d74b3; }}
+            """)
 
     def _build_rename_action_row(
         self,
@@ -208,7 +217,17 @@ class OperationsTabLayoutMixin:
         self._create_metadata_operation_page()
         self._create_compression_operation_page()
 
-        self._settings_tab_index = self.operations_tab_bar.addTab("Настройки")
+        self.operations_tab_bar.tabBarClicked.connect(self._on_operation_tab_clicked)
+        self.operations_tab_bar.setUsesScrollButtons(True)
+        self.operations_tab_bar.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+
+        self.btn_settings = QPushButton("Настройки")
+        self.btn_settings.setCheckable(True)
+        self.btn_settings.setFixedHeight(TAB_BAR_HEIGHT)
+        self.btn_settings.setCursor(Qt.CursorShape.PointingHandCursor)
+        operations_header_layout.addWidget(self.btn_settings)
+        self.btn_settings.clicked.connect(self.show_settings_modal)
+        self._apply_operations_tab_bar_theme()
 
         self._update_operations_narrow_layout()
 
@@ -342,14 +361,6 @@ class OperationsTabLayoutMixin:
         metadata_card, metadata_layout = self._create_operation_card(align_top=True)
         metadata_layout.setContentsMargins(SPACE_SM, SPACE_NONE, SPACE_NONE, SPACE_NONE)
 
-        self.combo_metadata_mode = MenuLikeComboBox()
-        self.combo_metadata_mode.addItem("Удалить все метаданные", "all")
-        self.combo_metadata_mode.addItem("Выборочно", "selected")
-        setup_standard_dropdown(self.combo_metadata_mode)
-        self.combo_metadata_mode.currentIndexChanged.connect(self._update_metadata_controls)
-        self._add_labeled_field(metadata_layout, "Режим очистки:", self.combo_metadata_mode)
-
-        metadata_layout.addSpacing(SPACE_SM)
         metadata_layout.addWidget(self._create_operation_label("Что удалить:"))
 
         self.metadata_field_checkboxes = {}
@@ -366,7 +377,7 @@ class OperationsTabLayoutMixin:
         for field_key, field_label in metadata_fields:
             checkbox = QCheckBox(field_label)
             setup_compact_checkbox(checkbox)
-            checkbox.setEnabled(False)
+            checkbox.stateChanged.connect(self._update_metadata_controls)
             if field_key == "custom":
                 checkbox.setToolTip("Дополнительные / пользовательские свойства")
             self.metadata_field_checkboxes[field_key] = checkbox
@@ -381,11 +392,19 @@ class OperationsTabLayoutMixin:
         metadata_layout.addWidget(metadata_hint)
         metadata_layout.addSpacing(SPACE_SM)
 
-        self.btn_remove_metadata = QPushButton("Удалить метаданные")
+        self.btn_remove_metadata = QPushButton("Удалить выбранные")
         setup_standard_danger_button(self.btn_remove_metadata, height=28)
         self._make_action_button_fill_width(self.btn_remove_metadata)
-        self.btn_remove_metadata.clicked.connect(self.remove_document_metadata)
+        self.btn_remove_metadata.clicked.connect(lambda: self.remove_document_metadata(remove_all=False))
         metadata_layout.addWidget(self.btn_remove_metadata)
+        metadata_layout.addSpacing(SPACE_SM)
+
+        self.btn_remove_all_metadata = QPushButton("Удалить все метаданные")
+        setup_standard_danger_button(self.btn_remove_all_metadata, height=28)
+        self._make_action_button_fill_width(self.btn_remove_all_metadata)
+        self.btn_remove_all_metadata.clicked.connect(lambda: self.remove_document_metadata(remove_all=True))
+        metadata_layout.addWidget(self.btn_remove_all_metadata)
+        self._update_metadata_controls()
 
         self._add_operations_page(
             self._wrap_operations_page(metadata_card, "metadata_page"),
@@ -547,6 +566,11 @@ class OperationsTabLayoutMixin:
             self.operations_stack.setCurrentIndex(0)
             self._current_operations_tab_index = 0
 
+    def _on_operation_tab_clicked(self, index: int) -> None:
+        host = getattr(self, "settings_panel_host", None)
+        if host is not None and not host.isHidden() and index == self.operations_tab_bar.currentIndex():
+            self._on_operations_tab_changed(index)
+
     def _on_operations_tab_changed(self, index: int) -> None:
         if index == getattr(self, "_settings_tab_index", -1):
             if callable(getattr(self, "show_settings_modal", None)):
@@ -620,4 +644,3 @@ class OperationsTabLayoutMixin:
                 rename_layout.setColumnStretch(0, 1)
                 rename_layout.setHorizontalSpacing(SPACE_NONE)
                 rename_layout.setVerticalSpacing(SPACE_NONE)
-

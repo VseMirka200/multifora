@@ -33,7 +33,7 @@ from app.core.app_ipc import (
     _get_ipc_server_name,
     _normalize_path_candidate,
 )
-from app.core.app_icons import _get_app_icon_qt_path
+from app.core.app_icons import _get_app_icon_qt_path, _find_bundled_icon
 from app.core.message_boxes import install_warning_suppression_hook
 from app.core.models import FileItem
 from app.core.conversion_formats import (
@@ -539,7 +539,7 @@ class MultiforaMainWindow(
         """Создаёт изменяемый разделитель рабочих панелей."""
         splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter = splitter
-        splitter.setHandleWidth(max(12, SPACE_SM * 2))
+        splitter.setHandleWidth(max(6, SPACE_SM))
         splitter.setStyleSheet(
             """
             QSplitter::handle:horizontal {
@@ -601,6 +601,7 @@ class MultiforaMainWindow(
         )
         if callable(ensure_history_page):
             ensure_history_page()
+        self._ensure_about_settings_page()
 
         self.tabs.tabBar().hide()
         main_layout.addWidget(self.settings_panel_host)
@@ -749,8 +750,18 @@ class MultiforaMainWindow(
             "Размер ↑",
             "Размер ↓",
         ]
+        self._sort_labels = {
+            "Без сортировки (ручной порядок)": "Ручной порядок",
+            "Имя A→Z": "Имя: А → Я",
+            "Имя Z→A": "Имя: Я → А",
+            "Расширение A→Z": "Расширение: А → Я",
+            "Размер ↑": "Размер: сначала маленькие",
+            "Размер ↓": "Размер: сначала большие",
+        }
         for index, mode in enumerate(self._sort_modes):
-            action = QAction(mode, self._sort_filter_menu)
+            if index in (1, 3, 4):
+                self._sort_filter_menu.addSeparator()
+            action = QAction(self._sort_labels[mode], self._sort_filter_menu)
             action.setCheckable(True)
             action.setChecked(index == 0)
             action.triggered.connect(
@@ -763,13 +774,11 @@ class MultiforaMainWindow(
             self._sort_filter_actions[mode] = action
 
         self._sort_current_mode = self._sort_modes[0]
-        self.combo_sort.setText(self._sort_current_mode)
+        self.combo_sort.setText(self._sort_labels[self._sort_current_mode])
+        self.combo_sort.setToolTip("Сортировка: ручной порядок. Перетаскивайте файлы в списке.")
         self.combo_sort.setMenu(self._sort_filter_menu)
         self._sort_filter_menu.aboutToShow.connect(
-            lambda: sync_standard_menu_width(
-                self._sort_filter_menu,
-                self.combo_sort,
-            )
+            self._sync_sort_menu_width
         )
         self._bind_header_menu_state(self.combo_sort, self._sort_filter_menu)
 
@@ -884,15 +893,15 @@ class MultiforaMainWindow(
         drop_buttons_row.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         self.btn_add_files = DropActionTile(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton),
+            QIcon(_find_bundled_icon("file.ico") or ""),
             "Добавить\nфайлы",
         )
         self.btn_add_files.clicked.connect(self.select_files)
         drop_buttons_row.addWidget(self.btn_add_files, 0, 0)
 
         self.btn_add_folder = DropActionTile(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogNewFolder),
-            "Добавить\nпапки",
+            QIcon(_find_bundled_icon("folder.ico") or ""),
+            "Добавить\nпапку",
         )
         self.btn_add_folder.clicked.connect(self.select_folder)
         drop_buttons_row.addWidget(self.btn_add_folder, 0, 1)
@@ -914,6 +923,9 @@ class MultiforaMainWindow(
 
     def _connect_drop_zone_updates(self, files_panel: QWidget) -> None:
         model = self.list_files.model()
+        model.rowsInserted.connect(self._update_metadata_controls)
+        model.rowsRemoved.connect(self._update_metadata_controls)
+        model.modelReset.connect(self._update_metadata_controls)
         model.rowsInserted.connect(lambda *_args: self._update_drop_zone_controls())
         model.rowsRemoved.connect(lambda *_args: self._update_drop_zone_controls())
         model.modelReset.connect(lambda *_args: self._update_drop_zone_controls())
@@ -1039,10 +1051,14 @@ class MultiforaMainWindow(
         grip_layout.setSpacing(SPACE_NONE)
         grip_layout.addStretch(1)
 
-        self._splitter_grip_label = QLabel("⋮")
+        self._splitter_grip_label = QLabel()
+        self._splitter_grip_label.setPixmap(
+            QIcon(_find_bundled_icon("three-dots.ico") or "").pixmap(20, 20)
+        )
+        self._splitter_grip_label.setToolTip("Перетащите, чтобы изменить ширину панели разделов")
         self._splitter_grip_label.setObjectName("splitter_grip_label")
         self._splitter_grip_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._splitter_grip_label.setFixedSize(8, 56)
+        self._splitter_grip_label.setFixedSize(6, 56)
         self._splitter_grip_label.setAttribute(
             Qt.WidgetAttribute.WA_TransparentForMouseEvents,
             True,
@@ -1281,14 +1297,9 @@ class MultiforaMainWindow(
         except Exception as error:
             _log_ignored_error("MultiforaMainWindow._apply_theme_runtime_widgets", error)
         if hasattr(self, "_splitter_grip_label") and self._splitter_grip_label is not None:
-            if mode == "light":
-                self._splitter_grip_label.setStyleSheet(
-                    "color: rgba(95, 108, 122, 0.92); background-color: rgba(222, 229, 238, 0.95); border: 1px solid rgba(189, 199, 210, 0.95); border-radius: 4px; font-size: 14px; font-weight: 600; padding: 0px;"
-                )
-            else:
-                self._splitter_grip_label.setStyleSheet(
-                    "color: rgba(255, 255, 255, 0.78); background-color: rgba(63, 63, 63, 0.96); border: 1px solid rgba(92, 92, 92, 0.96); border-radius: 4px; font-size: 14px; font-weight: 600; padding: 0px;"
-                )
+            self._splitter_grip_label.setStyleSheet(
+                "background-color: transparent; border: none; padding: 0px;"
+            )
         if hasattr(self, "files_panel") and self.files_panel is not None:
             if mode == "light":
                 self.files_panel.setStyleSheet(
@@ -1385,6 +1396,15 @@ class MultiforaMainWindow(
     def _on_sort_mode_selected(self, mode: str):
         self.set_sort_mode(mode, notify=True)
 
+    def _sync_sort_menu_width(self):
+        menu = self._sort_filter_menu
+        apply_standard_menu_style(menu)
+        text_width = max(
+            menu.fontMetrics().horizontalAdvance(action.text())
+            for action in self._sort_filter_actions.values()
+        )
+        menu.setFixedWidth(max(self.combo_sort.width(), text_width + 56))
+
     def get_sort_mode(self) -> str:
         if hasattr(self, "_sort_current_mode") and self._sort_current_mode:
             return self._sort_current_mode
@@ -1404,7 +1424,12 @@ class MultiforaMainWindow(
         if not action.isChecked():
             action.setChecked(True)
         if hasattr(self, "combo_sort") and self.combo_sort is not None:
-            self.combo_sort.setText(mode)
+            label = self._sort_labels.get(mode, mode)
+            self.combo_sort.setText(label)
+            self.combo_sort.setToolTip(
+                "Сортировка: ручной порядок. Перетаскивайте файлы в списке."
+                if mode == self._sort_modes[0] else f"Сортировка: {label}"
+            )
         if notify:
             self.on_sort_changed()
 
@@ -1601,6 +1626,7 @@ class MultiforaMainWindow(
 
     def on_file_selection_changed(self):
         """Обработчик изменения выбора файлов"""
+        self._update_metadata_controls()
         self.update_converter_from_format()
         if callable(getattr(self, "refresh_active_file_preview", None)):
             self.refresh_active_file_preview()
@@ -1673,8 +1699,3 @@ class MultiforaMainWindow(
         
         if folder:
             self.add_files([folder])
-
-
-
-
-

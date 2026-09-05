@@ -16,11 +16,18 @@ def _application_base_dir():
 
 
 def _find_bundled_icon(filename: str):
-    base_dir = _application_base_dir()
-    if not base_dir:
-        return None
-    icon_path = os.path.join(base_dir, "icons", filename)
-    return icon_path if os.path.exists(icon_path) else None
+    base_dirs = [
+        getattr(sys, "_MEIPASS", None),
+        _application_base_dir(),
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    ]
+    for directory in ("assets", "icons"):
+        for base_dir in base_dirs:
+            if base_dir:
+                icon_path = os.path.join(base_dir, directory, filename)
+                if os.path.isfile(icon_path):
+                    return icon_path
+    return None
 
 
 def _get_app_icon_path():

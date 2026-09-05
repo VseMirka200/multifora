@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <path fill="#d92d7c" d="M64 0H155L226 70V222Q226 256 192 256H64Q30 256 30 222V34Q30 0 64 0Z"/>
+  <path fill="#fff" fill-opacity=".35" d="M155 0L226 70H155Z"/>
+  <text x="128" y="186" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-weight="700" font-size="62">WMA</text>
+</svg>

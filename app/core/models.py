@@ -2,12 +2,7 @@ from __future__ import annotations
 
 import os
 
-from app.core.conversion_formats import FILE_TYPE_EXTENSIONS, format_for_path
-
-_FILE_TYPE_ICONS: dict[str, str] = {
-    "image": "🖼️",
-    "archive": "📦",
-}
+from app.core.conversion_formats import FILE_TYPE_EXTENSIONS
 
 
 class FileItem:
@@ -43,16 +38,6 @@ class FileItem:
             if extension in extensions:
                 return file_type
         return "other"
-
-    def get_icon(self) -> str:
-        """Возвращает иконку, соответствующую типу элемента."""
-        if not self.is_file:
-            return "📁"
-        if self.file_type in _FILE_TYPE_ICONS:
-            return _FILE_TYPE_ICONS[self.file_type]
-        if format_for_path(self.path) == "DOCX":
-            return "📝"
-        return "📄"
 
     def update_info(self) -> bool:
         """Повторно считывает метаданные пути, если он ещё существует."""

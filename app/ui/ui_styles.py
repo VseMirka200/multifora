@@ -423,6 +423,10 @@ def build_operations_tab_bar_style(theme: str) -> str:
             background-color: transparent;
             border-bottom: 1px solid transparent;
         }}
+        QTabBar#operations_tab_bar[settingsActive="true"]::tab:selected {{
+            color: {foreground};
+            border-bottom: 1px solid transparent;
+        }}
     """
 
 
