@@ -1,7 +1,7 @@
 import os
 
 from PyQt6.QtCore import (
-    QAbstractListModel,
+    QAbstractTableModel,
     QEasingCurve,
     QItemSelectionModel,
     QModelIndex,
@@ -35,6 +35,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QListView,
+    QHeaderView,
     QMenu,
     QPushButton,
     QHBoxLayout,
@@ -46,6 +47,7 @@ from PyQt6.QtWidgets import (
     QStyleOptionToolButton,
     QStylePainter,
     QTextEdit,
+    QTableView,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -66,7 +68,6 @@ from app.ui.ui_styles import (
     build_standard_field_style,
 )
 from app.core.app_utils import _log_ignored_error
-from app.ui.file_icons import FILE_ICON_SIZE, file_icon
 
 _MENU_STYLE_LIGHT = MENU_STYLE_LIGHT
 _MENU_STYLE_DARK = MENU_STYLE_DARK
@@ -1051,12 +1052,23 @@ class FileListItemAdapter:
 
     def setSelected(self, selected: bool):
         if selected:
-            self._view.selectionModel().select(self._index, QItemSelectionModel.SelectionFlag.Select)
+            self._view.selectionModel().select(
+                self._index,
+                QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
+            )
         else:
-            self._view.selectionModel().select(self._index, QItemSelectionModel.SelectionFlag.Deselect)
+            self._view.selectionModel().select(
+                self._index,
+                QItemSelectionModel.SelectionFlag.Deselect | QItemSelectionModel.SelectionFlag.Rows,
+            )
 
 
-class FileListModel(QAbstractListModel):
+class FileListModel(QAbstractTableModel):
+    COLUMN_NAME = 0
+    COLUMN_TYPE = 1
+    COLUMN_PATH = 2
+    HEADERS = ("Имя", "Тип файла", "Путь")
+
     # Хранит общий порядок файлов, чтобы выделение и перетаскивание не расходились с UI.
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1082,6 +1094,25 @@ class FileListModel(QAbstractListModel):
             return 0
         return len(self._files) if self._files else 1
 
+    def columnCount(self, parent=QModelIndex()):
+        return 0 if parent.isValid() else len(self.HEADERS)
+
+    def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
+        if (
+            orientation == Qt.Orientation.Horizontal
+            and role == Qt.ItemDataRole.DisplayRole
+            and 0 <= section < len(self.HEADERS)
+        ):
+            return self.HEADERS[section]
+        return super().headerData(section, orientation, role)
+
+    @staticmethod
+    def _file_type(file_item) -> str:
+        if not getattr(file_item, "is_file", True):
+            return "Папка"
+        extension = os.path.splitext(str(getattr(file_item, "path", "")))[1]
+        return extension[1:].upper() if extension else "Файл"
+
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid():
             return None
@@ -1096,15 +1127,22 @@ class FileListModel(QAbstractListModel):
 
         file_item = self._files[index.row()]
         if role == Qt.ItemDataRole.DisplayRole:
-            return self._original_display_name(file_item)
-        if role == Qt.ItemDataRole.DecorationRole:
-            return file_icon(file_item)
+            if index.column() == self.COLUMN_NAME:
+                return getattr(file_item, "preview_name", None) or self._original_display_name(file_item)
+            if index.column() == self.COLUMN_TYPE:
+                return self._file_type(file_item)
+            if index.column() == self.COLUMN_PATH:
+                return str(getattr(file_item, "path", ""))
         if role == Qt.ItemDataRole.ToolTipRole:
-            return self._full_display_name(file_item)
+            if index.column() == self.COLUMN_NAME:
+                return self._full_display_name(file_item)
+            if index.column() == self.COLUMN_PATH:
+                return str(getattr(file_item, "path", ""))
         if role == Qt.ItemDataRole.SizeHintRole:
             metrics = QFontMetrics(QApplication.font())
-            width = metrics.horizontalAdvance(self._original_display_name(file_item)) + FILE_ICON_SIZE + 20
-            return QSize(width, FILE_ICON_SIZE + 8)
+            text = self.data(index, Qt.ItemDataRole.DisplayRole) or ""
+            width = metrics.horizontalAdvance(str(text)) + 12
+            return QSize(width, metrics.height() + 8)
         if role == Qt.ItemDataRole.UserRole:
             return file_item
         return None
@@ -1174,7 +1212,7 @@ class FileListModel(QAbstractListModel):
         if not self._files:
             return
         top_left = self.index(0, 0)
-        bottom_right = self.index(len(self._files) - 1, 0)
+        bottom_right = self.index(len(self._files) - 1, self.columnCount() - 1)
         self.dataChanged.emit(
             top_left,
             bottom_right,
@@ -1187,104 +1225,24 @@ class FileListItemDelegate(QStyledItemDelegate):
         super().__init__(parent)
         self._right_padding = max(0, int(right_padding))
 
-    @staticmethod
-    def _view_width(view, fallback: int = 260) -> int:
-        if view is None:
-            return fallback
-        try:
-            widget = view.viewport() if hasattr(view, "viewport") else view
-            width = widget.width()
-        except Exception:
-            width = fallback
-        return max(fallback, int(width))
-
     def sizeHint(self, option, index):
         hint = super().sizeHint(option, index)
-        file_item = index.data(Qt.ItemDataRole.UserRole)
-        preview_name = getattr(file_item, "preview_name", None) if file_item else None
-        view = option.widget
-        if file_item:
-            metrics = QFontMetrics(option.font)
-            text = str(preview_name or file_item.name)
-            available_width = self._view_width(view, hint.width())
-            icon_width = FILE_ICON_SIZE
-            text_width = max(40, available_width - icon_width - 20 - self._right_padding)
-            text_rect = metrics.boundingRect(
-                QRect(0, 0, text_width, 10000),
-                int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap),
-                text,
-            )
-            width = 6 + icon_width + 8 + text_rect.width() + 6 + self._right_padding
-            height = max(icon_width, metrics.height(), text_rect.height()) + 8
-            hint.setWidth(max(hint.width(), width))
-            hint.setHeight(max(hint.height(), height))
+        hint.setHeight(max(hint.height(), QFontMetrics(option.font).height() + 8))
         return hint
 
     def paint(self, painter, option, index):
         view_option = QStyleOptionViewItem(option)
         self.initStyleOption(view_option, index)
-        file_item = index.data(Qt.ItemDataRole.UserRole)
-        preview_name = getattr(file_item, "preview_name", None) if file_item else None
-        view = view_option.widget
-        if file_item:
-            painter.save()
-            base_color = view_option.palette.color(QPalette.ColorRole.Base)
-            alt_color = view_option.palette.color(QPalette.ColorRole.AlternateBase)
-            if base_color == alt_color:
-                if base_color.lightness() < 128:
-                    alt_color = base_color.lighter(124)
-                else:
-                    alt_color = base_color.darker(118)
-            background = alt_color if (index.row() % 2) else base_color
-            if view_option.state & QStyle.StateFlag.State_Selected:
-                if base_color.lightness() < 128:
-                    background = QColor(255, 255, 255, 46)
-                else:
-                    background = QColor(61, 116, 179, 56)
-            if view_option.state & QStyle.StateFlag.State_MouseOver:
-                if base_color.lightness() < 128:
-                    background = QColor(255, 255, 255, 18)
-                else:
-                    background = QColor(61, 116, 179, 26)
-            text_color = view_option.palette.color(QPalette.ColorRole.Text)
-
-            painter.fillRect(view_option.rect, background)
-
-            painter.setFont(view_option.font)
-            metrics = painter.fontMetrics()
-            left_padding = 6
-            top_padding = 2
-            text = str(preview_name or file_item.name)
-            icon_width = FILE_ICON_SIZE
-            available_width = self._view_width(view, view_option.rect.width())
-            text_width = max(40, available_width - icon_width - 20 - self._right_padding)
-            text_rect_size = metrics.boundingRect(
-                QRect(0, 0, text_width, 10000),
-                int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap),
-                text,
-            )
-
-            x = view_option.rect.x() + left_padding
-            y = view_option.rect.y() + top_padding
-            h = max(view_option.rect.height() - top_padding * 2, metrics.height())
-
-            icon_rect = QRect(x, y + (h - icon_width) // 2, icon_width, icon_width)
-            text_rect = QRect(x + icon_width + 8, y, text_rect_size.width(), max(h, text_rect_size.height()))
-
-            painter.setPen(text_color)
-            painter.setFont(view_option.font)
-            file_icon(file_item).paint(painter, icon_rect, Qt.AlignmentFlag.AlignCenter)
-            painter.drawText(
-                text_rect,
-                int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap),
-                text,
-            )
-            painter.restore()
-            return
+        available_width = max(0, view_option.rect.width() - 12 - self._right_padding)
+        view_option.text = view_option.fontMetrics.elidedText(
+            view_option.text,
+            Qt.TextElideMode.ElideRight,
+            available_width,
+        )
         super().paint(painter, view_option, index)
 
 
-class FileListWidget(QListView):
+class FileListWidget(QTableView):
     filesDropped = pyqtSignal(list)
     emptyAreaClicked = pyqtSignal()
     itemDoubleClicked = pyqtSignal(object)
@@ -1297,10 +1255,22 @@ class FileListWidget(QListView):
         self.setModel(FileListModel(self))
         self.setItemDelegate(FileListItemDelegate(self))
         self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self.setSelectionRectVisible(True)
+        self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.setAlternatingRowColors(True)
-        self.setWordWrap(True)
-        self.setUniformItemSizes(False)
+        self.setWordWrap(False)
+        self.setTextElideMode(Qt.TextElideMode.ElideRight)
+        self.setShowGrid(False)
+        self.verticalHeader().hide()
+        header = self.horizontalHeader()
+        header.setStyleSheet(
+            "QHeaderView::section {"
+            "background: transparent;"
+            "border: none;"
+            "padding: 4px 6px;"
+            "}"
+        )
+        header.setStretchLastSection(True)
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.setMouseTracking(True)
         self.viewport().setMouseTracking(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
@@ -1339,7 +1309,7 @@ class FileListWidget(QListView):
 
     def selectedItems(self):
         items = []
-        for index in self.selectionModel().selectedIndexes():
+        for index in self.selectionModel().selectedRows(self.model().COLUMN_NAME):
             items.append(FileListItemAdapter(self, index))
         return items
 
@@ -1348,12 +1318,19 @@ class FileListWidget(QListView):
 
     def set_files(self, files: list):
         self.model().set_files(files)
+        self._resize_columns_to_contents()
 
     def add_files(self, files: list):
         self.model().append_files(files)
+        self._resize_columns_to_contents()
 
     def refresh(self):
         self.model().refresh()
+        self._resize_columns_to_contents()
+
+    def _resize_columns_to_contents(self):
+        self.resizeColumnToContents(self.model().COLUMN_NAME)
+        self.resizeColumnToContents(self.model().COLUMN_TYPE)
 
     def set_manual_sorting(self, enabled: bool):
         self.setDragEnabled(enabled)
@@ -1383,7 +1360,10 @@ class FileListWidget(QListView):
             index = self.model().index(row, 0)
             file_item = self.model().data(index, Qt.ItemDataRole.UserRole)
             if file_item and getattr(file_item, "path", None) in path_set:
-                self.selectionModel().select(index, QItemSelectionModel.SelectionFlag.Select)
+                self.selectionModel().select(
+                    index,
+                    QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
+                )
 
     def dragEnterEvent(self, event):
         if event.source() == self and self.dragEnabled():
@@ -1391,7 +1371,7 @@ class FileListWidget(QListView):
         elif event.mimeData().hasUrls():
             self.setStyleSheet(
                 """
-                QListView {
+                QTableView {
                     border: 2px dashed #3d74b3;
                 }
                 """

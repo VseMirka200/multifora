@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 
-set "PROJECT=%~dp0"
+set "PROJECT=%~dp0.."
 set "APP_BUILD_NAME=Multifora"
 cd /d "%PROJECT%"
 
@@ -21,9 +21,6 @@ if errorlevel 1 goto :error
 python -m pip install -r "requirements.txt"
 if errorlevel 1 goto :error
 python -m pip install "PyInstaller>=6.0.0,<7"
-if errorlevel 1 goto :error
-
-python scripts\generate_app_icon.py
 if errorlevel 1 goto :error
 
 if exist "build" rmdir /s /q "build"

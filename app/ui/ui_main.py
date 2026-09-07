@@ -800,9 +800,8 @@ class MultiforaMainWindow(
         self.list_files = FileListWidget()
         self.list_files.setObjectName("files_list")
         self.list_files.setFrameShape(QFrame.Shape.NoFrame)
-        self.list_files.setWordWrap(True)
-        self.list_files.setTextElideMode(Qt.TextElideMode.ElideNone)
-        self.list_files.setUniformItemSizes(False)
+        self.list_files.setWordWrap(False)
+        self.list_files.setTextElideMode(Qt.TextElideMode.ElideRight)
         self.list_files.setVerticalScrollMode(
             QAbstractItemView.ScrollMode.ScrollPerPixel
         )
@@ -812,7 +811,7 @@ class MultiforaMainWindow(
         list_palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
         self.list_files.setPalette(list_palette)
         self.list_files.setStyleSheet(
-            "QListWidget#files_list, QListView#files_list {"
+            "QListWidget#files_list, QListView#files_list, QTableView#files_list {"
             "border: none;"
             "border-radius: 4px;"
             "margin: 0px;"
