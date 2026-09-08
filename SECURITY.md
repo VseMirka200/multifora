@@ -1,24 +1,24 @@
-# Security Policy
+# Политика безопасности
 
-## Supported versions
+## Поддерживаемые версии
 
-Security fixes are provided for the latest release of Multifora. Older releases and development snapshots may not receive security updates.
+Исправления безопасности выпускаются для последней версии Multifora. Старые релизы и промежуточные версии разработки могут не получать обновления безопасности.
 
-| Version | Supported |
+| Версия | Поддержка |
 | --- | --- |
-| Latest release | Yes |
-| Older releases | No |
+| Последний релиз | Да |
+| Старые релизы | Нет |
 
-## Reporting a vulnerability
+## Сообщение об уязвимости
 
-Please do not disclose a suspected vulnerability in a public issue, discussion, or pull request.
+Не публикуйте предполагаемую уязвимость в открытом Issue, обсуждении или Pull Request.
 
-Use GitHub's private vulnerability reporting page for this repository:
+Используйте приватное сообщение об уязвимости GitHub для этого репозитория:
 
 https://github.com/VseMirka200/multifora/security/advisories/new
 
-Include the affected version, the type and impact of the issue, reproducible steps or a proof of concept, and any suggested mitigation. Remove unrelated personal data from files and logs before attaching them.
+Укажите затронутую версию, тип и возможные последствия проблемы, шаги воспроизведения или безопасный proof of concept, а также возможный способ исправления, если он известен. Перед прикреплением файлов и журналов удалите из них посторонние персональные данные.
 
-If private vulnerability reporting is unavailable, contact the maintainer through the contact information on the [maintainer's GitHub profile](https://github.com/VseMirka200) and request a private channel before sharing technical details.
+Если приватные отчёты об уязвимостях недоступны, свяжитесь с владельцем проекта через контактные данные в его [профиле GitHub](https://github.com/VseMirka200) и запросите приватный канал до передачи технических подробностей.
 
-The project aims to acknowledge a report within seven days. Updates will be provided as investigation and remediation progress. Please allow time for a fix and release before publishing details.
+Проект старается подтвердить получение отчёта в течение семи дней. По мере проверки и исправления будут предоставляться обновления. Пожалуйста, дождитесь подготовки исправления и релиза перед публичным раскрытием технических деталей.

@@ -1,41 +1,41 @@
-# Code of Conduct
+# Кодекс поведения
 
-## Our commitment
+## Наши принципы
 
-We are committed to making participation in Multifora a welcoming and harassment-free experience for everyone, regardless of age, body size, disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socioeconomic status, nationality, personal appearance, race, caste, color, religion, sexual identity and orientation, or technology choices.
+Мы стремимся сделать участие в проекте Multifora уважительным, безопасным и свободным от травли для всех участников независимо от возраста, опыта, происхождения, состояния здоровья, внешности, гендерной идентичности, национальности, религии, социального положения и других личных особенностей.
 
-## Expected behavior
+## Ожидаемое поведение
 
-Examples of behavior that contributes to a positive community include:
+Примеры поведения, которое помогает проекту развиваться:
 
-- Showing empathy and respect toward other people and their experiences.
-- Giving and accepting constructive feedback gracefully.
-- Focusing discussion on the technical problem and the needs of users.
-- Taking responsibility for mistakes, apologizing when appropriate, and learning from the experience.
-- Respecting privacy and avoiding the publication of personal or confidential information.
+- уважительное отношение к другим людям и их опыту;
+- спокойное обсуждение и принятие конструктивной обратной связи;
+- сосредоточенность на технической задаче и потребностях пользователей;
+- признание ошибок и готовность их исправлять;
+- уважение к приватности и отказ от публикации личной или конфиденциальной информации.
 
-## Unacceptable behavior
+## Недопустимое поведение
 
-Unacceptable behavior includes:
+В проекте недопустимы:
 
-- Harassment, intimidation, discrimination, or derogatory comments.
-- Sexualized language, imagery, or unwanted attention.
-- Trolling, insults, personal or political attacks, and sustained disruption.
-- Publishing another person's private information without explicit permission.
-- Any conduct that would reasonably be considered inappropriate in a professional setting.
+- травля, запугивание, дискриминация и унизительные комментарии;
+- сексуализированные высказывания, изображения или нежелательное внимание;
+- троллинг, оскорбления, личные и политические нападки, намеренный срыв обсуждений;
+- публикация чужой личной информации без явного разрешения;
+- любое поведение, которое разумно считать неприемлемым в профессиональной среде.
 
-## Scope
+## Область действия
 
-This Code of Conduct applies in all project spaces, including issues, pull requests, discussions, reviews, and other public or private communication related to Multifora. It also applies when a person officially represents the project elsewhere.
+Кодекс действует во всех пространствах проекта: Issues, Pull Requests, обсуждениях, ревью и других публичных или приватных коммуникациях, связанных с Multifora. Он также применяется, когда участник официально представляет проект на других площадках.
 
-## Enforcement
+## Применение правил
 
-Project maintainers are responsible for clarifying and enforcing these standards. They may edit or remove contributions that violate this Code of Conduct and may issue warnings, temporary restrictions, or permanent bans when necessary.
+Владелец проекта отвечает за разъяснение и соблюдение этих правил. Материалы, нарушающие кодекс, могут быть отредактированы или удалены, а к участникам могут применяться предупреждения, временные ограничения или постоянная блокировка.
 
-Report abusive or unacceptable behavior privately using the contact information on the [maintainer's GitHub profile](https://github.com/VseMirka200). Do not include sensitive details in a public issue. Reports will be reviewed promptly and handled as confidentially as reasonably possible.
+О неприемлемом поведении сообщайте владельцу проекта через контактные данные в его [профиле GitHub](https://github.com/VseMirka200). Не публикуйте чувствительные сведения в открытых Issues. Такие обращения рассматриваются конфиденциально настолько, насколько это возможно.
 
-Anyone enforcing this Code of Conduct must avoid conflicts of interest and protect the privacy and safety of reporters and affected people.
+При рассмотрении жалоб необходимо избегать конфликта интересов и защищать приватность и безопасность заявителей и затронутых участников.
 
-## Attribution
+## Основа документа
 
-This policy is based on the [Contributor Covenant, version 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct.html).
+Кодекс основан на [Contributor Covenant, версия 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct.html).

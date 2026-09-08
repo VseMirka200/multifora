@@ -1,18 +1,18 @@
-# Contributing to Multifora
+# Участие в разработке Multifora
 
-Thank you for helping improve Multifora. Bug reports, documentation fixes, usability improvements, and focused code changes are welcome.
+Спасибо за помощь в развитии Multifora. Приветствуются сообщения об ошибках, исправления документации, улучшения удобства и небольшие целевые изменения кода.
 
-## Before you start
+## Перед началом
 
-Search the [issue tracker](https://github.com/VseMirka200/multifora/issues) before opening a new issue. For a bug, include the Multifora version, Windows version, steps to reproduce the problem, the expected result, and the actual result. Add logs or a minimal sample file when they help reproduce the issue, but remove personal or confidential data first.
+Перед созданием нового Issue проверьте [существующие задачи](https://github.com/VseMirka200/multifora/issues). Для сообщения об ошибке укажите версию Multifora и Windows, шаги воспроизведения, ожидаемый и фактический результат. При необходимости приложите журнал или небольшой пример файла, предварительно удалив персональные и конфиденциальные данные.
 
-For a substantial feature or behavior change, open an issue before investing in the implementation so the intended behavior and scope can be discussed.
+Для крупной функции или заметного изменения поведения сначала создайте Issue, чтобы заранее согласовать назначение и объём работы.
 
-Do not report security vulnerabilities in public issues. Follow [SECURITY.md](SECURITY.md) instead.
+Не публикуйте сведения об уязвимостях в открытых Issues. Используйте порядок из [SECURITY.md](SECURITY.md).
 
-## Development setup
+## Подготовка окружения
 
-Multifora is developed for Windows and requires Python 3.11 or newer.
+Multifora разрабатывается для Windows и требует Python 3.11 или новее.
 
 ```powershell
 git clone https://github.com/VseMirka200/multifora.git
@@ -21,29 +21,29 @@ py -3 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Start the application with:
+Запуск приложения:
 
 ```powershell
 .\.venv\Scripts\python.exe multifora_start.py
 ```
 
-Some document operations require Microsoft Word. PDF compression requires Ghostscript. Changes unrelated to those integrations can be developed and tested without them.
+Для некоторых операций с документами требуется Microsoft Word, а для сжатия PDF — Ghostscript. Изменения, не связанные с этими интеграциями, можно разрабатывать и тестировать без них.
 
-## Making a change
+## Внесение изменений
 
-1. Fork the repository and create a focused branch from `main`.
-2. Keep the change limited to one clear purpose.
-3. Follow the existing Python and PyQt patterns in the surrounding code.
-4. Add or update tests when behavior changes or a regression needs protection.
-5. Update user-facing documentation when installation, behavior, or supported formats change.
-6. Run the relevant tests and then the complete suite.
+1. Создайте fork репозитория и отдельную ветку от `main`.
+2. Ограничьте изменение одной понятной задачей.
+3. Следуйте существующим подходам Python и PyQt в соседнем коде.
+4. Добавляйте или обновляйте тесты при изменении поведения и исправлении регрессий.
+5. Обновляйте пользовательскую документацию, если меняются установка, поведение или поддерживаемые форматы.
+6. Запустите связанные тесты, а затем полный набор.
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests
 ```
 
-## Pull requests
+## Pull Request
 
-In the pull request description, explain the problem, the resulting behavior, and how the change was tested. Include screenshots for visible interface changes. Keep generated build output, virtual environments, caches, local settings, and personal files out of commits.
+В описании Pull Request укажите исходную проблему, итоговое поведение и выполненные проверки. Для заметных изменений интерфейса приложите скриншоты. Не добавляйте в коммиты результаты сборки, виртуальные окружения, кэши, локальные настройки и личные файлы.
 
-By participating, you agree to follow the project [Code of Conduct](CODE_OF_CONDUCT.md).
+Участвуя в проекте, вы соглашаетесь соблюдать [Кодекс поведения](CODE_OF_CONDUCT.md).
