@@ -1,6 +1,13 @@
 
-from PyQt6.QtWidgets import QLabel, QLineEdit, QSpinBox, QVBoxLayout, QWidget
-from app.ui.ui_components import setup_standard_form_label, setup_standard_line_input, setup_standard_spin_input
+from PyQt6.QtWidgets import QCheckBox, QLabel, QLineEdit, QSpinBox, QVBoxLayout, QWidget
+from app.ui.ui_components import (
+    MenuLikeComboBox,
+    setup_compact_checkbox,
+    setup_standard_dropdown,
+    setup_standard_form_label,
+    setup_standard_line_input,
+    setup_standard_spin_input,
+)
 from app.ui.ui_helpers import create_param_block, create_spin_param_block
 from app.ui.ui_spacing import MARGINS_NONE, SPACE_SM
 
@@ -85,3 +92,42 @@ class TemplateParamsTextMixin:
         
         self.template_params_layout.addWidget(container)
 
+    def create_regex_replace_params(self):
+        """Создаёт поля замены по регулярному выражению."""
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setSpacing(SPACE_SM)
+        layout.setContentsMargins(*MARGINS_NONE)
+
+        self.template_regex_pattern = QLineEdit()
+        self.template_regex_pattern.setPlaceholderText(r"например: ^IMG_(\d+)$")
+        self.template_regex_pattern.setProperty("renameTemplateField", True)
+        setup_standard_line_input(self.template_regex_pattern)
+        layout.addWidget(create_param_block("Регулярное выражение:", self.template_regex_pattern))
+
+        self.template_regex_replace = QLineEdit()
+        self.template_regex_replace.setPlaceholderText(r"например: Фото_\1")
+        self.template_regex_replace.setProperty("renameTemplateField", True)
+        setup_standard_line_input(self.template_regex_replace)
+        layout.addWidget(create_param_block("Заменить на:", self.template_regex_replace))
+
+        self.template_regex_ignore_case = QCheckBox("Не учитывать регистр")
+        setup_compact_checkbox(self.template_regex_ignore_case)
+        layout.addWidget(self.template_regex_ignore_case)
+        self.template_params_layout.addWidget(container)
+
+    def create_case_params(self):
+        """Создаёт выбор преобразования регистра имени файла."""
+        self.template_case_mode = MenuLikeComboBox()
+        for mode, label in (
+            ("lower", "нижний регистр"),
+            ("upper", "ВЕРХНИЙ РЕГИСТР"),
+            ("title", "Каждое Слово С Заглавной"),
+            ("sentence", "Первая буква заглавная"),
+            ("swap", "иНВЕРТИРОВАТЬ РЕГИСТР"),
+        ):
+            self.template_case_mode.addItem(label, mode)
+        setup_standard_dropdown(self.template_case_mode)
+        self.template_params_layout.addWidget(
+            create_param_block("Преобразование:", self.template_case_mode)
+        )

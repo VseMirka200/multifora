@@ -1,4 +1,6 @@
+import os
 import re
+from datetime import datetime
 
 
 _DATE_FORMAT_PATTERNS = (
@@ -12,6 +14,89 @@ _DATE_FORMAT_PATTERNS = (
 )
 _CUSTOM_NUM_TOKEN_RE = re.compile(r"\{num([^}]*)\}")
 _WIDTH_FORMAT_RE = re.compile(r"0?(\d+)d")
+
+
+CASE_MODES = {
+    "lower": "нижний регистр",
+    "upper": "ВЕРХНИЙ РЕГИСТР",
+    "title": "Каждое Слово С Заглавной",
+    "sentence": "Первая буква заглавная",
+    "swap": "иНВЕРТИРОВАТЬ РЕГИСТР",
+}
+
+
+def apply_case_mode(value: str, mode: str) -> str:
+    """Преобразует регистр имени без привязки к UI."""
+    text = str(value or "")
+    if mode == "lower":
+        return text.lower()
+    if mode == "upper":
+        return text.upper()
+    if mode == "title":
+        return text.title()
+    if mode == "sentence":
+        return text[:1].upper() + text[1:].lower()
+    if mode == "swap":
+        return text.swapcase()
+    return text
+
+
+def regex_replace(value: str, pattern: str, replacement: str, *, ignore_case: bool = False) -> str:
+    """Выполняет regex-замену и оставляет сообщения об ошибках вызывающему коду."""
+    flags = re.IGNORECASE if ignore_case else 0
+    return re.sub(pattern, replacement, value, flags=flags)
+
+
+def _formatted_timestamp(timestamp: float | int | None) -> str:
+    if timestamp is None:
+        return ""
+    try:
+        return datetime.fromtimestamp(float(timestamp)).strftime("%Y-%m-%d")
+    except (OSError, OverflowError, TypeError, ValueError):
+        return ""
+
+
+def _image_metadata_tokens(file_path: str) -> dict[str, str]:
+    values = {"exif_date": "", "width": "", "height": ""}
+    if not file_path or not os.path.isfile(file_path):
+        return values
+
+    try:
+        from PIL import Image
+
+        with Image.open(file_path) as image:
+            values["width"] = str(image.width)
+            values["height"] = str(image.height)
+            exif = image.getexif()
+            raw_date = exif.get(36867) or exif.get(36868) or exif.get(306)
+            if raw_date:
+                parsed = datetime.strptime(str(raw_date), "%Y:%m:%d %H:%M:%S")
+                values["exif_date"] = parsed.strftime("%Y-%m-%d")
+    except (ImportError, OSError, TypeError, ValueError):
+        # Неизображения и повреждённый EXIF не должны ломать предпросмотр.
+        pass
+    return values
+
+
+def build_file_token_values(file_path: str) -> dict[str, str]:
+    """Возвращает безопасные значения токенов файловой системы и EXIF."""
+    values = {
+        "created": "",
+        "modified": "",
+        "file_date": "",
+        "exif_date": "",
+        "width": "",
+        "height": "",
+    }
+    if file_path:
+        try:
+            values["created"] = _formatted_timestamp(os.path.getctime(file_path))
+            values["modified"] = _formatted_timestamp(os.path.getmtime(file_path))
+            values["file_date"] = values["modified"]
+        except OSError:
+            pass
+    values.update(_image_metadata_tokens(file_path))
+    return values
 
 
 def get_date_format(format_name: str) -> str:
@@ -88,10 +173,17 @@ def apply_custom_template(
     step: int = 1,
     use_numbering: bool = True,
     num_digits: int = 3,
+    file_path: str = "",
+    token_values: dict[str, object] | None = None,
 ):
     new_name = template.replace("{name}", name_without_ext)
     new_name = new_name.replace("{date}", date_str)
     new_name = new_name.replace("{ext}", ext[1:] if ext.startswith(".") else ext)
+    metadata_tokens = ("created", "modified", "file_date", "exif_date", "width", "height")
+    if any(f"{{{token}}}" in new_name for token in metadata_tokens):
+        metadata = build_file_token_values(file_path) if token_values is None else token_values
+        for token in metadata_tokens:
+            new_name = new_name.replace(f"{{{token}}}", str(metadata.get(token, "") or ""))
 
     if use_numbering:
         num_token_match = _CUSTOM_NUM_TOKEN_RE.search(new_name)

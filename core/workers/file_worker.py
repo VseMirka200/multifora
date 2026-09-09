@@ -38,6 +38,7 @@ class FileWorker(
         self.conversion_format = ""
         self.conversion_output_dir = ""
         self.new_names: list[str] = []
+        self.rename_conflict_policy = "unique"
         self.compression_level = 85
         self.compression_type = "image"
         self.pdf_method = "auto"
@@ -112,9 +113,11 @@ class FileWorker(
         self,
         files: list[FileItem],
         new_names: list[str],
+        conflict_policy: str = "unique",
     ) -> None:
         self._prepare_operation("rename", files)
         self.new_names = new_names
+        self.rename_conflict_policy = conflict_policy if conflict_policy in {"unique", "skip"} else "unique"
 
     def set_compression(
         self,

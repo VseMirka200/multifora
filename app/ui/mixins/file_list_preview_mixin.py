@@ -2,6 +2,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QMessageBox
 
 from app.core.conversion_formats import CATEGORY_FILE_TYPES, suffix_for_format
+from app.core.rename_validation import analyze_rename_plan, format_rename_plan_issues
 
 
 class FileListPreviewMixin:
@@ -64,11 +65,43 @@ class FileListPreviewMixin:
 
         self.apply_template_logic()
         self._refresh_list_preview()
+        if getattr(self, "_rename_template_error", ""):
+            self._rename_plan_issues = []
+            self.btn_apply_rename.setEnabled(False)
+            validation_label = getattr(self, "rename_validation_label", None)
+            if validation_label is not None:
+                validation_label.setText(self._rename_template_error)
+            self.status_bar.showMessage(self._rename_template_error)
+            return
+
         has_changes = any(
             hasattr(file_item, "preview_name") and file_item.name != file_item.preview_name
             for file_item in self.files
         )
-        self.btn_apply_rename.setEnabled(has_changes)
+        changed_pairs = [
+            (file_item, file_item.preview_name)
+            for file_item in self.files
+            if getattr(file_item, "preview_name", file_item.name) != file_item.name
+        ]
+        self._rename_plan_issues = analyze_rename_plan(
+            [item for item, _name in changed_pairs],
+            [name for _item, name in changed_pairs],
+        )
+        blocking = any(issue.blocking for issue in self._rename_plan_issues)
+        self.btn_apply_rename.setEnabled(has_changes and not blocking)
+        validation_label = getattr(self, "rename_validation_label", None)
+        if validation_label is not None:
+            if blocking:
+                validation_label.setText(format_rename_plan_issues(self._rename_plan_issues, limit=3))
+            elif self._rename_plan_issues:
+                policy_widget = getattr(self, "rename_conflict_policy", None)
+                policy = policy_widget.currentData() if policy_widget is not None else "unique"
+                action = "будут пропущены" if policy == "skip" else "получат свободный номер"
+                validation_label.setText(
+                    f"Найдено конфликтов: {len(self._rename_plan_issues)}; файлы {action}."
+                )
+            else:
+                validation_label.setText("Конфликты не обнаружены.")
         if has_changes:
             self.status_bar.showMessage("Предпросмотр обновлен автоматически.")
         else:
@@ -253,9 +286,26 @@ class FileListPreviewMixin:
             self.log_event("Переименование: нет изменений для применения", "INFO")
             return
 
+        issues = analyze_rename_plan(files_to_rename, new_names)
+        blocking_issues = [issue for issue in issues if issue.blocking]
+        if blocking_issues:
+            QMessageBox.warning(
+                self,
+                "Некорректные имена",
+                format_rename_plan_issues(blocking_issues),
+            )
+            return
+
+        policy_widget = getattr(self, "rename_conflict_policy", None)
+        conflict_policy = str(policy_widget.currentData() or "unique") if policy_widget else "unique"
+        conflict_details = ""
+        if issues:
+            action = "будут пропущены" if conflict_policy == "skip" else "получат свободный номер"
+            conflict_details = f"\n\n{format_rename_plan_issues(issues)}\nКонфликтующие файлы {action}."
+
         reply = self.show_russian_message_box(
             "Подтверждение",
-            f"Переименовать {len(files_to_rename)} файлов?",
+            f"Переименовать {len(files_to_rename)} файлов?{conflict_details}",
             QMessageBox.Icon.Question,
             True
         )
@@ -263,10 +313,15 @@ class FileListPreviewMixin:
         if reply:
             if not self.create_file_worker():
                 return
-            self.file_worker.set_rename(files_to_rename, new_names)
+            self.file_worker.set_rename(
+                files_to_rename,
+                new_names,
+                conflict_policy=conflict_policy,
+            )
             self._last_operation = {
                 "op": "rename",
                 "new_names_by_path": {f.path: name for f, name in zip(files_to_rename, new_names)},
+                "conflict_policy": conflict_policy,
             }
             self.file_worker.start()
             self.log_event(f"Переименование: {len(files_to_rename)} файлов")

@@ -205,6 +205,27 @@ class OperationsTabLayoutMixin:
         operations_header_layout.addWidget(self.operations_tab_bar, 0, Qt.AlignmentFlag.AlignLeft)
         operations_header_layout.addStretch(1)
 
+        self.operation_profile_combo = MenuLikeComboBox()
+        self.operation_profile_combo.setToolTip("Выбрать и применить сохранённый профиль")
+        self.operation_profile_combo.setMinimumWidth(150)
+        setup_standard_dropdown(self.operation_profile_combo)
+        self.operation_profile_combo.currentIndexChanged.connect(
+            self.apply_selected_operation_profile
+        )
+        operations_header_layout.addWidget(self.operation_profile_combo)
+
+        self.btn_save_operation_profile = QPushButton("Сохранить профиль")
+        self.btn_save_operation_profile.setToolTip("Сохранить все параметры текущей операции")
+        self.btn_save_operation_profile.setFixedHeight(TAB_BAR_HEIGHT)
+        self.btn_save_operation_profile.clicked.connect(self.save_current_operation_profile)
+        operations_header_layout.addWidget(self.btn_save_operation_profile)
+
+        self.btn_delete_operation_profile = QPushButton("Удалить")
+        self.btn_delete_operation_profile.setToolTip("Удалить выбранный профиль")
+        self.btn_delete_operation_profile.setFixedHeight(TAB_BAR_HEIGHT)
+        self.btn_delete_operation_profile.clicked.connect(self.delete_selected_operation_profile)
+        operations_header_layout.addWidget(self.btn_delete_operation_profile)
+
         self.operations_stack = QStackedWidget()
         self.operations_stack.setObjectName("operations_stack")
         self._settings_tab_index = -1
@@ -245,6 +266,26 @@ class OperationsTabLayoutMixin:
         self.combo_templates.currentTextChanged.connect(self.on_template_selected)
         setup_standard_dropdown(self.combo_templates)
         self._add_labeled_field(rename_layout, "Шаблон:", self.combo_templates)
+        rename_layout.addSpacing(SPACE_SM)
+
+        self.rename_conflict_policy = MenuLikeComboBox()
+        self.rename_conflict_policy.addItem("Добавлять номер к конфликтующим именам", "unique")
+        self.rename_conflict_policy.addItem("Пропускать конфликтующие файлы", "skip")
+        setup_standard_dropdown(self.rename_conflict_policy)
+        self.rename_conflict_policy.currentIndexChanged.connect(
+            lambda *_args: self.refresh_rename_preview(show_empty_warning=False)
+        )
+        self._add_labeled_field(
+            rename_layout,
+            "Если имя уже занято:",
+            self.rename_conflict_policy,
+        )
+
+        self.rename_validation_label = self._create_operation_hint_label(
+            "Проверка имён будет выполнена перед запуском."
+        )
+        self.rename_validation_label.setWordWrap(True)
+        rename_layout.addWidget(self.rename_validation_label)
         rename_layout.addSpacing(SPACE_SM)
         
         self.template_params_widget = QWidget()

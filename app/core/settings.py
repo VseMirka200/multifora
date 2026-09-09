@@ -233,6 +233,7 @@ def _initialize_settings_defaults(window) -> None:
     window.conversion_output_mode = "source_subfolder"
     window.conversion_output_path = ""
     window._pending_template_session_state = None
+    window.operation_profiles = {}
     window._pending_settings_dialog_geometry = None
     window._pending_settings_nav_row = 0
     window._rename_history = []
@@ -405,6 +406,11 @@ def _restore_conversion_output_settings(window, data: dict) -> None:
 def _apply_settings_data(window, data: dict) -> None:
     if "custom_templates" in data:
         window.custom_templates = data["custom_templates"]
+    if isinstance(data.get("operation_profiles"), dict):
+        window.operation_profiles = data["operation_profiles"]
+        refresher = getattr(window, "_refresh_operation_profiles_combo", None)
+        if callable(refresher):
+            refresher()
     if "auto_clear" in data:
         _set_checkbox_state(getattr(window, "auto_clear_checkbox", None), data["auto_clear"])
 
@@ -547,6 +553,7 @@ def _collect_settings_data(window) -> dict:
 
     return {
         "custom_templates": window.custom_templates,
+        "operation_profiles": getattr(window, "operation_profiles", {}),
         "auto_clear": window.auto_clear_checkbox.isChecked(),
         "windows_context_menu": window.windows_context_menu_enabled,
         "ghostscript_path": window.ghostscript_path_override,

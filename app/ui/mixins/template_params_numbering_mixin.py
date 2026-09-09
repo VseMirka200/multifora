@@ -291,6 +291,11 @@ class TemplateParamsNumberingMixin:
             ("{num}", "Порядковый номер (можно настроить: {num:03d,start=1,step=1})"),
             ("{date}", "Текущая дата"),
             ("{ext}", "Расширение файла без точки"),
+            ("{created}", "Дата создания файла"),
+            ("{modified}", "Дата изменения файла"),
+            ("{exif_date}", "Дата съёмки из EXIF"),
+            ("{width}", "Ширина изображения"),
+            ("{height}", "Высота изображения"),
         )
         self.template_quick_insert_buttons = {}
         quick_buttons = []
@@ -304,10 +309,11 @@ class TemplateParamsNumberingMixin:
             self.template_quick_insert_buttons[token] = button
             quick_buttons.append(button)
 
-        quick_buttons_container, _quick_buttons_layout = self._build_rename_action_row(
-            quick_buttons
-        )
-        layout.addWidget(quick_buttons_container)
+        for start in range(0, len(quick_buttons), 3):
+            quick_buttons_container, _quick_buttons_layout = self._build_rename_action_row(
+                quick_buttons[start : start + 3]
+            )
+            layout.addWidget(quick_buttons_container)
 
         self.btn_save_template = QPushButton("Сохранить")
         self.btn_save_template.setToolTip("Сохранить шаблон")

@@ -39,6 +39,23 @@ class _DummyFileWorker(FileOpsMixin):
 
 
 class FileOpsMixinTests(unittest.TestCase):
+    def test_rename_can_skip_existing_target(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source = Path(tmpdir, "source.txt")
+            target = Path(tmpdir, "target.txt")
+            source.write_text("source", encoding="utf-8")
+            target.write_text("target", encoding="utf-8")
+            worker = _DummyFileWorker([FileItem(str(source))], tmpdir)
+            worker.new_names = [target.name]
+            worker.rename_conflict_policy = "skip"
+
+            worker._rename_files()
+
+            self.assertTrue(source.exists())
+            self.assertEqual(target.read_text(encoding="utf-8"), "target")
+            self.assertEqual(worker.finished, [([], [])])
+            self.assertIn("Пропущен конфликт имён", worker.status.emitted[0])
+
     def test_copy_file_preserves_source_and_reports_new_file(self):
         with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as destination_dir:
             source_path = Path(source_dir, "document.txt")

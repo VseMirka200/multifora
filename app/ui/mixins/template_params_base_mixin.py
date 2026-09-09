@@ -32,6 +32,17 @@ class TemplateParamsBaseMixin:
                     self.template_find.setText(data.get('find', ''))
                     self.template_replace.setText(data.get('replace', ''))
 
+            elif template_type == "Регулярное выражение":
+                if hasattr(self, "template_regex_pattern"):
+                    self.template_regex_pattern.setText(str(data.get("pattern", "")))
+                    self.template_regex_replace.setText(str(data.get("replacement", "")))
+                    self.template_regex_ignore_case.setChecked(bool(data.get("ignore_case", False)))
+
+            elif template_type == "Изменить регистр":
+                if hasattr(self, "template_case_mode"):
+                    index = self.template_case_mode.findData(data.get("case_mode", "lower"))
+                    self.template_case_mode.setCurrentIndex(max(0, index))
+
             elif template_type in ("Нумерация", "Простая нумерация", "Нумерация с префиксом", "Нумерация с датой"):
                 numbering_mode = data.get('numbering_mode', template_type)
                 if hasattr(self, "set_numbering_mode"):

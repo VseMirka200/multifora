@@ -63,7 +63,15 @@ class FileOpsMixin:
             new_path = os.path.join(file_item.folder, new_name)
 
             try:
-                if os.path.exists(new_path) and old_path != new_path:
+                same_path = (
+                    os.path.normcase(os.path.abspath(old_path)).casefold()
+                    == os.path.normcase(os.path.abspath(new_path)).casefold()
+                )
+                if os.path.exists(new_path) and not same_path:
+                    if getattr(self, "rename_conflict_policy", "unique") == "skip":
+                        self.status.emit(f"Пропущен конфликт имён: {file_item.name}")
+                        emit_progress(self, index, total)
+                        continue
                     new_path = self._get_unique_path(new_path)
                 os.rename(old_path, new_path)
                 updated_files.append((file_item, new_path))

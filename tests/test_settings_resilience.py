@@ -69,3 +69,21 @@ class SettingsResilienceTests(unittest.TestCase):
         data = settings._collect_settings_data(window)
 
         self.assertNotIn("rename_history", data)
+
+    def test_operation_profiles_are_loaded_and_collected(self):
+        window = _DummyWindow()
+        settings._initialize_settings_defaults(window)
+        profile = {
+            "Фото": {
+                "operation": "Переименование",
+                "data": {"template": "Изменить регистр"},
+            }
+        }
+        settings._apply_settings_data(window, {"operation_profiles": profile})
+        self.assertEqual(window.operation_profiles, profile)
+
+        window.custom_templates = {}
+        window.auto_clear_checkbox = _DummyCheckbox()
+        window.ghostscript_path_override = None
+        data = settings._collect_settings_data(window)
+        self.assertEqual(data["operation_profiles"], profile)

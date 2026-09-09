@@ -1,9 +1,67 @@
 import unittest
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
+
+from PIL import Image
 
 import app.core.rename_templates as rt
 
 
 class RenameTemplateTests(unittest.TestCase):
+    def test_regex_replace_supports_groups_and_ignore_case(self):
+        self.assertEqual(
+            rt.regex_replace("IMG_0042", r"^img_(\d+)$", r"Фото_\1", ignore_case=True),
+            "Фото_0042",
+        )
+
+    def test_case_modes(self):
+        self.assertEqual(rt.apply_case_mode("my FILE", "lower"), "my file")
+        self.assertEqual(rt.apply_case_mode("my FILE", "upper"), "MY FILE")
+        self.assertEqual(rt.apply_case_mode("my FILE", "sentence"), "My file")
+        self.assertEqual(rt.apply_case_mode("my FILE", "swap"), "MY file")
+
+    def test_custom_template_supports_file_and_exif_tokens(self):
+        name, nxt = rt.apply_custom_template(
+            "{created}_{modified}_{exif_date}_{width}x{height}_{name}",
+            "photo",
+            ".jpg",
+            1,
+            "2026-09-09",
+            use_numbering=False,
+            token_values={
+                "created": "2026-01-02",
+                "modified": "2026-03-04",
+                "exif_date": "2025-05-06",
+                "width": 1920,
+                "height": 1080,
+            },
+        )
+        self.assertEqual(name, "2026-01-02_2026-03-04_2025-05-06_1920x1080_photo.jpg")
+        self.assertEqual(nxt, 1)
+
+    def test_build_file_tokens_uses_file_timestamps(self):
+        with patch("app.core.rename_templates.os.path.isfile", return_value=False), \
+            patch("app.core.rename_templates.os.path.getctime", return_value=0), \
+            patch("app.core.rename_templates.os.path.getmtime", return_value=86400):
+            values = rt.build_file_token_values("sample.txt")
+        self.assertTrue(values["created"])
+        self.assertTrue(values["modified"])
+        self.assertEqual(values["file_date"], values["modified"])
+
+    def test_build_file_tokens_reads_exif_date_and_dimensions(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir, "photo.jpg")
+            exif = Image.Exif()
+            exif[36867] = "2024:02:03 10:20:30"
+            Image.new("RGB", (16, 9), "white").save(path, exif=exif)
+
+            values = rt.build_file_token_values(str(path))
+
+        self.assertEqual(values["exif_date"], "2024-02-03")
+        self.assertEqual(values["width"], "16")
+        self.assertEqual(values["height"], "9")
+
     def test_get_date_format_known(self):
         self.assertEqual(rt.get_date_format("ГГГГММДД (20240115)"), "%Y%m%d")
 

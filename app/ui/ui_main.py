@@ -95,6 +95,7 @@ from app.ui.mixins import (
     OperationsTabLayoutMixin,
     OperationsCompressUiMixin,
     ConversionActionsMixin,
+    OperationProfilesMixin,
 )
 
 
@@ -103,6 +104,7 @@ class MultiforaMainWindow(
     LoggingMixin,
     RenameHistoryMixin,
     WorkerOpsMixin,
+    OperationProfilesMixin,
     WindowsIntegrationMixin,
     TemplateCrudMixin,
     TemplateParamsBaseMixin,
@@ -133,6 +135,7 @@ class MultiforaMainWindow(
         self.file_worker = None
         self.current_template = ""
         self.custom_templates = {}
+        self.operation_profiles = {}
         self.windows_context_menu_enabled = False
         self.desktop_shortcut_enabled = False
         self.start_menu_shortcut_enabled = False
@@ -177,6 +180,7 @@ class MultiforaMainWindow(
         self.load_settings()
         self.ensure_context_menu_registration()
         self.update_template_combo()
+        self._refresh_operation_profiles_combo()
         pending_template_session = getattr(self, "_pending_template_session_state", None)
         if pending_template_session:
             try:
@@ -422,7 +426,11 @@ class MultiforaMainWindow(
                     new_names.append(new_name)
             if not valid_files:
                 return
-            self.file_worker.set_rename(valid_files, new_names)
+            self.file_worker.set_rename(
+                valid_files,
+                new_names,
+                conflict_policy=self._last_operation.get("conflict_policy", "unique"),
+            )
         elif op == "convert":
             self.file_worker.set_conversion(
                 files,

@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements.txt
+          python -m pip install "PyInstaller>=6.0.0,<7"
+
+      - name: Run tests
+        run: python -m unittest discover -s tests
+
+      - name: Build application
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --windowed `
+            --name Multifora `
+            --icon assets/icon.ico `
+            --add-data "assets;assets" `
+            --add-data "app/ui/checkbox_checked.svg;app/ui" `
+            multifora_start.py
+          if (Test-Path bin) {
+            Copy-Item -Path bin -Destination dist/Multifora/bin -Recurse -Force
+          }
+
+      - name: Package and generate release metadata
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME
+          $archive = "dist/Multifora-$version-windows-x64.zip"
+          Compress-Archive -Path dist/Multifora/* -DestinationPath $archive -Force
+
+          $hash = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          "$hash  $(Split-Path $archive -Leaf)" | Set-Content -Encoding ascii "dist/Multifora-$version-windows-x64.sha256"
+
+          $previousTag = (& git describe --tags --abbrev=0 "$version^" 2>$null)
+          if ($LASTEXITCODE -ne 0) { $previousTag = $null }
+          $range = if ($previousTag) { "$previousTag..HEAD" } else { "HEAD" }
+          $changes = @(git log $range --pretty=format:"- %s (%h)" --no-merges)
+          if (-not $changes) { $changes = @("- Технический релиз") }
+          @(
+            "# Изменения $version"
+            ""
+            "Изменения после $($previousTag ?? 'начала истории'):"
+            ""
+            $changes
+          ) | Set-Content -Encoding utf8 dist/CHANGELOG.md
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Multifora-${{ github.ref_name }}-windows-x64
+          path: |
+            dist/Multifora-${{ github.ref_name }}-windows-x64.zip
+            dist/Multifora-${{ github.ref_name }}-windows-x64.sha256
+            dist/CHANGELOG.md
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = $env:GITHUB_REF_NAME
+          gh release create $version `
+            "dist/Multifora-$version-windows-x64.zip" `
+            "dist/Multifora-$version-windows-x64.sha256" `
+            --title "Мультифора $version" `
+            --notes-file dist/CHANGELOG.md

@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime
 
 from PyQt6.QtWidgets import QCheckBox, QComboBox, QLineEdit, QSpinBox, QTextEdit
@@ -37,6 +38,10 @@ class TemplateApplyMixin:
             self.create_remove_text_params()
         elif template_name == "Заменить текст другим":
             self.create_replace_text_params()
+        elif template_name == "Регулярное выражение":
+            self.create_regex_replace_params()
+        elif template_name == "Изменить регистр":
+            self.create_case_params()
         elif template_name == "Нумерация":
             self.create_numbering_params()
         elif template_name == "Дата в начале названия":
@@ -58,6 +63,7 @@ class TemplateApplyMixin:
 
     def apply_template_logic(self):
         """Логика применения шаблона"""
+        self._rename_template_error = ""
         current_num = 1
         step = 1
         use_numbering = True
@@ -125,6 +131,33 @@ class TemplateApplyMixin:
                 replace_text = getattr(self, "template_replace", QLineEdit("")).text()
                 new_name = old_name.replace(find_text, replace_text) if find_text else old_name
 
+            elif self.current_template == "Регулярное выражение":
+                pattern = getattr(self, "template_regex_pattern", QLineEdit("")).text()
+                replacement = getattr(self, "template_regex_replace", QLineEdit("")).text()
+                ignore_case = bool(
+                    getattr(
+                        getattr(self, "template_regex_ignore_case", None),
+                        "isChecked",
+                        lambda: False,
+                    )()
+                )
+                if pattern:
+                    try:
+                        new_stem = rt.regex_replace(
+                            name_without_ext,
+                            pattern,
+                            replacement,
+                            ignore_case=ignore_case,
+                        )
+                        new_name = f"{new_stem}{ext}"
+                    except re.error as error:
+                        self._rename_template_error = f"Ошибка регулярного выражения: {error}"
+
+            elif self.current_template == "Изменить регистр":
+                mode_widget = getattr(self, "template_case_mode", None)
+                mode = str(mode_widget.currentData() or "") if mode_widget is not None else ""
+                new_name = f"{rt.apply_case_mode(name_without_ext, mode)}{ext}"
+
             elif numbering_mode == "Простая нумерация":
                 num_str = f"{current_num:0{num_digits}d}"
                 sep = getattr(self, "template_num_sep", QLineEdit("_")).text()
@@ -163,6 +196,7 @@ class TemplateApplyMixin:
                             step,
                             use_numbering,
                             num_digits,
+                            file_path=file_item.path,
                         )
 
             file_item.preview_name = new_name

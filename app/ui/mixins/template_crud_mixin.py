@@ -368,6 +368,20 @@ class TemplateCrudMixin:
                 template_data['replace'] = self.template_replace.text()
             else:
                 return None
+
+        elif self.current_template == "Регулярное выражение":
+            if hasattr(self, "template_regex_pattern"):
+                template_data["pattern"] = self.template_regex_pattern.text()
+                template_data["replacement"] = self.template_regex_replace.text()
+                template_data["ignore_case"] = self.template_regex_ignore_case.isChecked()
+            else:
+                return None
+
+        elif self.current_template == "Изменить регистр":
+            if hasattr(self, "template_case_mode"):
+                template_data["case_mode"] = self.template_case_mode.currentData() or "lower"
+            else:
+                return None
                 
         elif self.current_template == "Нумерация":
             if hasattr(self, "get_numbering_mode"):
@@ -632,6 +646,8 @@ class TemplateCrudMixin:
             "Удалить символы с конца",
             "Удалить определенный текст",
             "Заменить текст другим",
+            "Регулярное выражение",
+            "Изменить регистр",
             "Нумерация",
             "Дата в начале названия",
             "Пользовательский шаблон"

@@ -103,7 +103,10 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.on_template_selected("Пользовательский шаблон")
                 self.assertEqual(
                     set(window.template_quick_insert_buttons),
-                    {"{name}", "{num}", "{date}", "{ext}"},
+                    {
+                        "{name}", "{num}", "{date}", "{ext}",
+                        "{created}", "{modified}", "{exif_date}", "{width}", "{height}",
+                    },
                 )
 
                 window.template_custom.setText("AB")
@@ -114,6 +117,86 @@ class MainWindowSmokeTests(unittest.TestCase):
 
                 self.assertEqual(window.template_custom.text(), "A{name}B")
                 self.assertEqual(window.template_custom.textCursor().position(), 7)
+            finally:
+                if hasattr(window, "queue_timer"):
+                    window.queue_timer.stop()
+                if hasattr(window, "_settings_save_timer"):
+                    window._settings_save_timer.stop()
+                window.deleteLater()
+
+    def test_regex_case_conflict_controls_and_profiles_exist(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings_path = os.path.join(tmp_dir, "settings.json")
+            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+                window = MultiforaMainWindow()
+
+            try:
+                source = os.path.join(tmp_dir, "IMG_0042.JPG")
+                with open(source, "wb") as stream:
+                    stream.write(b"not-an-image")
+                window.files = [FileItem(source)]
+                window.update_file_list()
+
+                window.on_template_selected("Регулярное выражение")
+                window.template_regex_pattern.setText(r"^img_(\d+)$")
+                window.template_regex_replace.setText(r"Фото_\1")
+                window.template_regex_ignore_case.setChecked(True)
+                window.refresh_rename_preview()
+                self.assertEqual(window.files[0].preview_name, "Фото_0042.JPG")
+
+                window.template_regex_pattern.setText("[")
+                window.refresh_rename_preview()
+                self.assertFalse(window.btn_apply_rename.isEnabled())
+                self.assertIn("Ошибка регулярного выражения", window.rename_validation_label.text())
+
+                window.on_template_selected("Изменить регистр")
+                window.template_case_mode.setCurrentIndex(
+                    window.template_case_mode.findData("lower")
+                )
+                window.refresh_rename_preview()
+                self.assertEqual(window.files[0].preview_name, "img_0042.JPG")
+
+                self.assertEqual(window.rename_conflict_policy.currentData(), "unique")
+                self.assertIsNotNone(window.rename_validation_label)
+                self.assertIsNotNone(window.operation_profile_combo)
+            finally:
+                if hasattr(window, "queue_timer"):
+                    window.queue_timer.stop()
+                if hasattr(window, "_settings_save_timer"):
+                    window._settings_save_timer.stop()
+                window.deleteLater()
+
+    def test_operation_profile_round_trip(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings_path = os.path.join(tmp_dir, "settings.json")
+            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+                window = MultiforaMainWindow()
+
+            try:
+                window.on_template_selected("Изменить регистр")
+                window.template_case_mode.setCurrentIndex(
+                    window.template_case_mode.findData("upper")
+                )
+                window.rename_conflict_policy.setCurrentIndex(
+                    window.rename_conflict_policy.findData("skip")
+                )
+                window.operation_profiles["Верхний регистр"] = window._collect_operation_profile()
+                window._refresh_operation_profiles_combo("Верхний регистр")
+
+                window.template_case_mode.setCurrentIndex(
+                    window.template_case_mode.findData("lower")
+                )
+                window.rename_conflict_policy.setCurrentIndex(0)
+                window.apply_selected_operation_profile()
+
+                self.assertEqual(window.template_case_mode.currentData(), "upper")
+                self.assertEqual(window.rename_conflict_policy.currentData(), "skip")
             finally:
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()
