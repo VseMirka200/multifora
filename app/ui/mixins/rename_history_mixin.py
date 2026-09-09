@@ -2,26 +2,10 @@ import os
 import time
 
 from PyQt6.QtWidgets import QMessageBox
-from app.core.app_utils import _log_ignored_error
 
 
 class RenameHistoryMixin:
     # Хранит пары старых и новых путей для отмены и повтора переименования.
-    def _persist_rename_history_state(self):
-        saver = getattr(self, "save_settings", None)
-        if callable(saver):
-            try:
-                saver()
-                return
-            except Exception as error:
-                _log_ignored_error("RenameHistoryMixin._persist_rename_history_state", error)
-        scheduler = getattr(self, "_schedule_settings_save", None)
-        if callable(scheduler):
-            try:
-                scheduler()
-            except Exception as error:
-                _log_ignored_error("RenameHistoryMixin._persist_rename_history_state", error)
-
     def on_history_row_changed(self, row: int):
         if getattr(self, "_is_history_refresh", False):
             return
@@ -49,7 +33,6 @@ class RenameHistoryMixin:
         if hasattr(self, "btn_history_redo"):
             self.btn_history_redo.setEnabled(can_redo)
         self._refresh_rename_history_view()
-        self._persist_rename_history_state()
 
     def _refresh_rename_history_view(self):
         if not hasattr(self, "rename_history_list"):
@@ -84,7 +67,6 @@ class RenameHistoryMixin:
             self._rename_history = self._rename_history[-self._max_rename_history :]
         self._rename_redo_history.clear()
         self._refresh_rename_history_view()
-        self._persist_rename_history_state()
 
     def _push_rename_redo(self, entry: dict):
         entry = dict(entry)
@@ -93,7 +75,6 @@ class RenameHistoryMixin:
         self._rename_redo_history.append(entry)
         if len(self._rename_redo_history) > self._max_rename_history:
             self._rename_redo_history = self._rename_redo_history[-self._max_rename_history :]
-        self._persist_rename_history_state()
 
     def _start_rename_from_pairs(self, pairs, direction: str):
         if not pairs:
@@ -134,7 +115,6 @@ class RenameHistoryMixin:
             entry = self._rename_history.pop()
         pairs = entry.get("pairs", [])
         if not pairs:
-            self._persist_rename_history_state()
             self._update_undo_button()
             return
 
@@ -149,7 +129,6 @@ class RenameHistoryMixin:
                 self._rename_history.insert(entry_index, entry)
             else:
                 self._rename_history.append(entry)
-            self._persist_rename_history_state()
             self._update_undo_button()
             return
 
@@ -162,7 +141,6 @@ class RenameHistoryMixin:
                 self._rename_history.insert(entry_index, entry)
             else:
                 self._rename_history.append(entry)
-            self._persist_rename_history_state()
             self._update_undo_button()
             return
 

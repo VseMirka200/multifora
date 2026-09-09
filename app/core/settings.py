@@ -1,6 +1,5 @@
 import json
 import os
-import time
 
 from PyQt6.QtCore import QObject
 
@@ -114,89 +113,6 @@ def _collect_template_session_state(window) -> dict:
         except Exception as error:
             _log_settings_error("сохранения состояния шаблона", error)
     return {"selected_template": "", "template_data": {}}
-
-
-def _normalize_rename_history_entry(
-    entry,
-    *,
-    fallback_timestamp: float | None = None,
-) -> dict | None:
-    if not isinstance(entry, dict):
-        return None
-
-    normalized = dict(entry)
-    pairs = normalized.get("pairs", [])
-    if isinstance(pairs, tuple):
-        pairs = list(pairs)
-    if not isinstance(pairs, list):
-        return None
-
-    clean_pairs = []
-    for pair in pairs:
-        if not isinstance(pair, (list, tuple)) or len(pair) != 2:
-            continue
-        left, right = pair
-        clean_pairs.append([str(left), str(right)])
-
-    if not clean_pairs:
-        return None
-    normalized["pairs"] = clean_pairs
-
-    default_timestamp = fallback_timestamp or time.time()
-    try:
-        normalized["timestamp"] = float(normalized.get("timestamp", default_timestamp))
-    except (TypeError, ValueError):
-        normalized["timestamp"] = float(default_timestamp)
-
-    try:
-        normalized["count"] = int(normalized.get("count", len(clean_pairs)))
-    except (TypeError, ValueError):
-        normalized["count"] = len(clean_pairs)
-
-    if normalized.get("label") is not None:
-        normalized["label"] = str(normalized["label"])
-
-    return normalized
-
-
-def _normalized_history(entries, max_items: int) -> list[dict]:
-    if not isinstance(entries, list):
-        return []
-    return [
-        normalized
-        for entry in entries[-max_items:]
-        if (normalized := _normalize_rename_history_entry(entry)) is not None
-    ]
-
-
-def _history_limit(window) -> int:
-    try:
-        return int(getattr(window, "_max_rename_history", 20) or 20)
-    except (TypeError, ValueError):
-        return 20
-
-
-def _collect_rename_history_state(window) -> dict:
-    max_items = _history_limit(window)
-    return {
-        "history": _normalized_history(getattr(window, "_rename_history", []), max_items),
-        "redo_history": _normalized_history(
-            getattr(window, "_rename_redo_history", []),
-            max_items,
-        ),
-    }
-
-
-def _restore_rename_history_state(window, state: dict) -> None:
-    if not isinstance(state, dict):
-        return
-
-    max_items = _history_limit(window)
-    window._rename_history = _normalized_history(state.get("history", []), max_items)
-    window._rename_redo_history = _normalized_history(
-        state.get("redo_history", []),
-        max_items,
-    )
 
 
 def _restore_filter_actions(actions, selected_values) -> None:
@@ -489,8 +405,6 @@ def _restore_conversion_output_settings(window, data: dict) -> None:
 def _apply_settings_data(window, data: dict) -> None:
     if "custom_templates" in data:
         window.custom_templates = data["custom_templates"]
-    if "rename_history" in data:
-        _restore_rename_history_state(window, data.get("rename_history"))
     if "auto_clear" in data:
         _set_checkbox_state(getattr(window, "auto_clear_checkbox", None), data["auto_clear"])
 
@@ -661,7 +575,6 @@ def _collect_settings_data(window) -> dict:
         ),
         "settings_dialog_geometry": _encoded_geometry(getattr(window, "_settings_dialog", None)),
         "template_session": _collect_template_session_state(window),
-        "rename_history": _collect_rename_history_state(window),
         "file_list_view_state": _collect_file_list_view_state(window),
         "window_geometry": _encoded_geometry(window),
         "window_pos": saved_position,

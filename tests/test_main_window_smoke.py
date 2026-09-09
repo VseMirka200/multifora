@@ -90,6 +90,37 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window._settings_save_timer.stop()
                 window.deleteLater()
 
+    def test_custom_template_quick_commands_insert_at_cursor(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings_path = os.path.join(tmp_dir, "settings.json")
+            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+                window = MultiforaMainWindow()
+
+            try:
+                window.on_template_selected("Пользовательский шаблон")
+                self.assertEqual(
+                    set(window.template_quick_insert_buttons),
+                    {"{name}", "{num}", "{date}", "{ext}"},
+                )
+
+                window.template_custom.setText("AB")
+                cursor = window.template_custom.textCursor()
+                cursor.setPosition(1)
+                window.template_custom.setTextCursor(cursor)
+                window.template_quick_insert_buttons["{name}"].click()
+
+                self.assertEqual(window.template_custom.text(), "A{name}B")
+                self.assertEqual(window.template_custom.textCursor().position(), 7)
+            finally:
+                if hasattr(window, "queue_timer"):
+                    window.queue_timer.stop()
+                if hasattr(window, "_settings_save_timer"):
+                    window._settings_save_timer.stop()
+                window.deleteLater()
+
     def test_metadata_buttons_dispatch_selected_and_all_fields(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             with patch("app.core.settings.get_settings_file_path", return_value=os.path.join(tmp_dir, "settings.json")), \

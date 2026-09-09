@@ -279,7 +279,7 @@ class SettingsPanelMixin:
             content_layout.setSpacing(SPACE_NONE)
             content_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
-            history_label = QLabel("История переименований")
+            history_label = QLabel("История переименований за текущую сессию")
             history_label.setObjectName("settings_page_title_plain")
             setup_standard_form_label(history_label)
             history_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)

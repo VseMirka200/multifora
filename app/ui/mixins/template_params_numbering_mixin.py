@@ -251,6 +251,18 @@ class TemplateParamsNumberingMixin:
         setup_standard_dropdown(self.template_original_date_format)
         layout.addWidget(create_param_block("Дата в начале:", self.template_original_date_format))
         self.template_params_layout.addWidget(container)
+
+    def _insert_custom_template_token(self, token: str):
+        """Вставляет команду шаблона в текущую позицию курсора."""
+        field = getattr(self, "template_custom", None)
+        if field is None:
+            return
+
+        cursor = field.textCursor()
+        cursor.insertText(token)
+        field.setTextCursor(cursor)
+        field.setFocus()
+
     def create_custom_template_params(self):
         """Создает параметры для пользовательского шаблона"""
         container = QWidget()
@@ -273,6 +285,29 @@ class TemplateParamsNumberingMixin:
         input_layout.addWidget(self.template_custom, 1)
         
         layout.addWidget(input_container)
+
+        quick_tokens = (
+            ("{name}", "Исходное имя файла"),
+            ("{num}", "Порядковый номер (можно настроить: {num:03d,start=1,step=1})"),
+            ("{date}", "Текущая дата"),
+            ("{ext}", "Расширение файла без точки"),
+        )
+        self.template_quick_insert_buttons = {}
+        quick_buttons = []
+        for token, tooltip in quick_tokens:
+            button = QPushButton(token)
+            button.setToolTip(tooltip)
+            button.setProperty("buttonVariant", "secondary")
+            button.clicked.connect(
+                lambda _checked=False, value=token: self._insert_custom_template_token(value)
+            )
+            self.template_quick_insert_buttons[token] = button
+            quick_buttons.append(button)
+
+        quick_buttons_container, _quick_buttons_layout = self._build_rename_action_row(
+            quick_buttons
+        )
+        layout.addWidget(quick_buttons_container)
 
         self.btn_save_template = QPushButton("Сохранить")
         self.btn_save_template.setToolTip("Сохранить шаблон")
