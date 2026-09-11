@@ -139,6 +139,20 @@ def _stop_process(process: subprocess.Popen) -> None:
 
 class CompressionMixin:
     # Сжимает изображения и PDF, сохраняя исходник до успешного завершения записи.
+    def _image_compression_target_path(self, file, extension: str) -> str:
+        mode = str(getattr(self, "image_output_mode", "alongside") or "alongside")
+        source_stem = os.path.splitext(file.name)[0]
+        output_folder = os.path.dirname(file.path)
+
+        if mode == "custom":
+            output_folder = str(getattr(self, "image_output_dir", "") or "").strip()
+            if not output_folder:
+                raise Exception("Не указана папка для сжатых изображений.")
+            os.makedirs(output_folder, exist_ok=True)
+
+        target_path = os.path.join(output_folder, f"{source_stem}_compressed{extension}")
+        return self._get_unique_path(target_path)
+
     def _compress_image_files(self):
         total = len(self.files)
         results = []
@@ -150,8 +164,7 @@ class CompressionMixin:
             try:
                 if file.is_file and file.file_type == "image":
                     ext = os.path.splitext(file.name)[1].lower()
-                    compressed_path = file.path.rsplit(".", 1)[0] + "_compressed" + ext
-                    compressed_path = self._get_unique_path(compressed_path)
+                    compressed_path = self._image_compression_target_path(file, ext)
 
                     if deps.HAS_PIL:
                         try:
@@ -184,7 +197,7 @@ class CompressionMixin:
 
                                 if compressed_size < original_size:
                                     ratio = (1 - compressed_size / original_size) * 100
-                                    if getattr(self, "replace_image", False):
+                                    if getattr(self, "image_output_mode", "alongside") == "replace":
                                         try:
                                             os.replace(compressed_path, file.path)
                                             updated.append((file, file.path))

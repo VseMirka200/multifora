@@ -430,10 +430,6 @@ def build_operations_tab_bar_style(theme: str) -> str:
     """
 
 
-def menu_style_for_theme(theme: str) -> str:
-    return MENU_STYLE_LIGHT if str(theme).lower() == "light" else MENU_STYLE_DARK
-
-
 def build_tab_content_style_block(theme: str) -> str:
     is_light = str(theme).lower() == "light"
     base_text = "#1f2328" if is_light else "#e0e0e0"

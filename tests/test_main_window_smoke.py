@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QDialog, QSizePolicy
 
 from app.core.models import FileItem
 from app.ui.ui_main import MultiforaMainWindow
@@ -30,6 +30,10 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertIsNotNone(window.operations_stack)
                 self.assertGreaterEqual(window.operations_stack.count(), 5)
                 self.assertEqual(window.operations_tab_bar.count(), 5)
+                self.assertEqual(len(window.combo_merge_format._items), 2)
+                self.assertEqual(window.combo_merge_format.findData("auto"), -1)
+                self.assertEqual(window.combo_merge_format._items[0], ("PDF (только PDF)", "pdf"))
+                self.assertFalse(hasattr(window, "checkbox_replace_image"))
                 tab_labels = [
                     window.operations_tab_bar.tabText(index)
                     for index in range(window.operations_tab_bar.count())
@@ -40,6 +44,8 @@ class MainWindowSmokeTests(unittest.TestCase):
 
                 settings_widget = window._ensure_settings_panel_widget()
                 self.assertIsNotNone(settings_widget)
+                self.assertEqual(window.btn_download_logs.text(), "Скачать логи")
+                self.assertEqual(window.btn_download_logs.property("buttonVariant"), "secondary")
                 self.assertGreaterEqual(window.settings_stack.count(), 4)
                 original_index = window.operations_tab_bar.currentIndex()
                 window.btn_settings.click()
@@ -52,6 +58,42 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.operations_tab_bar.tabBarClicked.emit(original_index)
                 self.assertTrue(window.settings_panel_host.isHidden())
                 self.assertFalse(window.btn_settings.isChecked())
+            finally:
+                if hasattr(window, "queue_timer"):
+                    window.queue_timer.stop()
+                if hasattr(window, "_settings_save_timer"):
+                    window._settings_save_timer.stop()
+                window.deleteLater()
+
+    def test_download_logs_saves_current_filtered_view(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings_path = os.path.join(tmp_dir, "settings.json")
+            export_path = os.path.join(tmp_dir, "filtered_logs.txt")
+            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+                window = MultiforaMainWindow()
+
+            try:
+                window._ensure_settings_panel_widget()
+                window._log_lines = [
+                    "[2026-01-01 10:00:00] [INFO] Запуск",
+                    "[2026-01-01 10:00:01] [ERROR] Тестовая ошибка",
+                ]
+                window.logs_search_input.setText("ошибка")
+                window._apply_logs_filters()
+
+                with patch(
+                    "app.ui.mixins.logging_mixin.QFileDialog.getSaveFileName",
+                    return_value=(export_path, "Текстовые файлы (*.txt)"),
+                ):
+                    window.download_visible_logs()
+
+                with open(export_path, "r", encoding="utf-8") as exported:
+                    content = exported.read()
+                self.assertIn("Тестовая ошибка", content)
+                self.assertNotIn("Запуск", content)
             finally:
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()
@@ -83,6 +125,93 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.to_convert_combo.setCurrentText("PDF")
 
                 self.assertTrue(window.btn_convert.isEnabled())
+            finally:
+                if hasattr(window, "queue_timer"):
+                    window.queue_timer.stop()
+                if hasattr(window, "_settings_save_timer"):
+                    window._settings_save_timer.stop()
+                window.deleteLater()
+
+    def test_merge_button_follows_format_and_output_selection(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            pdf_paths = [os.path.join(tmp_dir, name) for name in ("first.pdf", "second.pdf")]
+            for path in pdf_paths:
+                with open(path, "wb") as stream:
+                    stream.write(b"pdf")
+
+            settings_path = os.path.join(tmp_dir, "settings.json")
+            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+                window = MultiforaMainWindow()
+
+            try:
+                self.assertEqual(window.btn_merge.property("buttonVariant"), "primary")
+                self.assertFalse(window.btn_merge.isEnabled())
+
+                window.files = [FileItem(path) for path in pdf_paths]
+                window.update_file_list()
+                self.assertFalse(window.btn_merge.isEnabled())
+
+                window.input_merge_output_path.setText(os.path.join(tmp_dir, "merged.pdf"))
+                self.assertTrue(window.btn_merge.isEnabled())
+
+                window.combo_merge_format.setCurrentIndex(
+                    window.combo_merge_format.findData("docx")
+                )
+                self.assertFalse(window.btn_merge.isEnabled())
+                self.assertTrue(window.input_merge_output_path.text().endswith(".docx"))
+            finally:
+                if hasattr(window, "queue_timer"):
+                    window.queue_timer.stop()
+                if hasattr(window, "_settings_save_timer"):
+                    window._settings_save_timer.stop()
+                window.deleteLater()
+
+    def test_compression_type_follows_selected_files(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            image_path = os.path.join(tmp_dir, "photo.png")
+            pdf_path = os.path.join(tmp_dir, "document.pdf")
+            for path in (image_path, pdf_path):
+                with open(path, "wb") as stream:
+                    stream.write(b"test")
+
+            settings_path = os.path.join(tmp_dir, "settings.json")
+            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+                window = MultiforaMainWindow()
+
+            try:
+                window.files = [FileItem(image_path), FileItem(pdf_path)]
+                window.update_file_list()
+
+                window.list_files.select_paths([pdf_path])
+                window.on_file_selection_changed()
+                self.assertEqual(window.combo_compress_type.currentText(), "PDF документы")
+
+                window.list_files.clearSelection()
+                window.list_files.select_paths([image_path])
+                window.on_file_selection_changed()
+                self.assertEqual(window.combo_compress_type.currentText(), "Изображения")
+                self.assertEqual(window.combo_image_output_mode.currentData(), "alongside")
+                self.assertFalse(window.input_image_output_path.isEnabled())
+                self.assertFalse(window.btn_select_image_output_path.isEnabled())
+                self.assertTrue(window.btn_compress.isEnabled())
+
+                window.combo_image_output_mode.setCurrentIndex(
+                    window.combo_image_output_mode.findData("custom")
+                )
+                self.assertTrue(window.input_image_output_path.isEnabled())
+                self.assertTrue(window.btn_select_image_output_path.isEnabled())
+                self.assertFalse(window.btn_compress.isEnabled())
+
+                window.input_image_output_path.setText(tmp_dir)
+                window.image_compression_output_path = tmp_dir
+                window._update_compress_button()
+                self.assertTrue(window.btn_compress.isEnabled())
             finally:
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()
@@ -124,7 +253,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window._settings_save_timer.stop()
                 window.deleteLater()
 
-    def test_regex_case_conflict_controls_and_profiles_exist(self):
+    def test_regex_case_and_conflict_controls_exist(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             settings_path = os.path.join(tmp_dir, "settings.json")
             with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
@@ -161,7 +290,7 @@ class MainWindowSmokeTests(unittest.TestCase):
 
                 self.assertEqual(window.rename_conflict_policy.currentData(), "unique")
                 self.assertIsNotNone(window.rename_validation_label)
-                self.assertIsNotNone(window.operation_profile_combo)
+                self.assertFalse(hasattr(window, "operation_profile_combo"))
             finally:
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()
@@ -169,7 +298,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window._settings_save_timer.stop()
                 window.deleteLater()
 
-    def test_operation_profile_round_trip(self):
+    def test_template_manager_actions_are_full_width_and_apply_selection(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             settings_path = os.path.join(tmp_dir, "settings.json")
             with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
@@ -178,26 +307,42 @@ class MainWindowSmokeTests(unittest.TestCase):
                 patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
                 window = MultiforaMainWindow()
 
+            dialog = None
             try:
-                window.on_template_selected("Изменить регистр")
-                window.template_case_mode.setCurrentIndex(
-                    window.template_case_mode.findData("upper")
-                )
-                window.rename_conflict_policy.setCurrentIndex(
-                    window.rename_conflict_policy.findData("skip")
-                )
-                window.operation_profiles["Верхний регистр"] = window._collect_operation_profile()
-                window._refresh_operation_profiles_combo("Верхний регистр")
+                window.custom_templates["Тест"] = {
+                    "type": "Изменить регистр",
+                    "data": {"case_mode": "upper"},
+                }
+                with patch.object(QDialog, "exec", return_value=0):
+                    window.show_template_manager()
 
-                window.template_case_mode.setCurrentIndex(
-                    window.template_case_mode.findData("lower")
-                )
-                window.rename_conflict_policy.setCurrentIndex(0)
-                window.apply_selected_operation_profile()
+                dialog = window.templates_table.window()
+                card_layout = window.templates_table.parentWidget().layout()
+                actions_row = window.btn_apply_template.parentWidget()
+                self.assertGreater(card_layout.indexOf(actions_row), card_layout.indexOf(window.templates_table))
 
-                self.assertEqual(window.template_case_mode.currentData(), "upper")
-                self.assertEqual(window.rename_conflict_policy.currentData(), "skip")
+                for button in (
+                    window.btn_export_templates,
+                    window.btn_import_templates,
+                    window.btn_apply_template,
+                ):
+                    self.assertEqual(
+                        button.sizePolicy().horizontalPolicy(),
+                        QSizePolicy.Policy.Expanding,
+                    )
+                    self.assertTrue(button.property("buttonVariant"))
+
+                self.assertFalse(window.btn_apply_template.isEnabled())
+                window.templates_table.selectRow(0)
+                self.app.processEvents()
+                self.assertTrue(window.btn_apply_template.isEnabled())
+
+                with patch.object(window, "load_selected_template") as apply_template:
+                    window.btn_apply_template.click()
+                    apply_template.assert_called_once_with(dialog)
             finally:
+                if dialog is not None:
+                    dialog.deleteLater()
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()
                 if hasattr(window, "_settings_save_timer"):

@@ -545,6 +545,20 @@ class SettingsPanelMixin:
         self.logs_search_input.textChanged.connect(lambda _v: self._apply_logs_filters())
         logs_filters_layout.addWidget(self.logs_search_input, 1)
 
+        self.btn_download_logs = QPushButton("Скачать логи")
+        self.btn_download_logs.setToolTip("Сохранить отображаемые логи в текстовый файл")
+        setup_standard_action_button(
+            self.btn_download_logs,
+            height=HEADER_FIELD_HEIGHT,
+            variant="secondary",
+        )
+        self.btn_download_logs.setSizePolicy(
+            QSizePolicy.Policy.Fixed,
+            QSizePolicy.Policy.Fixed,
+        )
+        self.btn_download_logs.clicked.connect(self.download_visible_logs)
+        logs_filters_layout.addWidget(self.btn_download_logs)
+
         logs_card_layout.addWidget(logs_filters_row)
 
         self.logs_view = QPlainTextEdit()

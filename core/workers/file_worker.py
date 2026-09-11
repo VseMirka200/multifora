@@ -7,15 +7,14 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from app.core.models import FileItem
 
 from .compression import CompressionMixin
+from .common import get_unique_path
 from .conversion import ConversionMixin
 from .merge import MergeMixin
 from .metadata import MetadataMixin
-from .operations import FileOpsMixin
 from .result import OperationResult
 
 
 class FileWorker(
-    FileOpsMixin,
     ConversionMixin,
     CompressionMixin,
     MergeMixin,
@@ -28,12 +27,12 @@ class FileWorker(
     status = pyqtSignal(str)
     finished = pyqtSignal(object)
     error = pyqtSignal(str)
+    _get_unique_path = staticmethod(get_unique_path)
 
     def __init__(self) -> None:
         super().__init__()
         self.operation: str | None = None
         self.files: list[FileItem] = []
-        self.destination = ""
         self.conversion_type = ""
         self.conversion_format = ""
         self.conversion_output_dir = ""
@@ -43,7 +42,8 @@ class FileWorker(
         self.compression_type = "image"
         self.pdf_method = "auto"
         self.replace_pdf = False
-        self.replace_image = False
+        self.image_output_mode = "alongside"
+        self.image_output_dir = ""
         self.merge_output_format = "pdf"
         self.merge_output_path = ""
         self.metadata_remove_all = True
@@ -86,15 +86,6 @@ class FileWorker(
         self._cancel_requested = False
         self.errors = []
 
-    def set_copy_move(
-        self,
-        files: list[FileItem],
-        destination: str,
-        move: bool = False,
-    ) -> None:
-        self._prepare_operation("move" if move else "copy", files)
-        self.destination = destination
-
     def set_conversion(
         self,
         files: list[FileItem],
@@ -126,14 +117,20 @@ class FileWorker(
         compression_type: str = "image",
         pdf_method: str = "auto",
         replace_pdf: bool = False,
-        replace_image: bool = False,
+        image_output_mode: str = "alongside",
+        image_output_dir: str = "",
     ) -> None:
         self._prepare_operation("compress", files)
         self.compression_level = compression_level
         self.compression_type = compression_type
         self.pdf_method = pdf_method
         self.replace_pdf = replace_pdf
-        self.replace_image = replace_image
+        self.image_output_mode = (
+            image_output_mode
+            if image_output_mode in {"replace", "alongside", "custom"}
+            else "alongside"
+        )
+        self.image_output_dir = str(image_output_dir or "").strip()
 
     def set_merge(
         self,
@@ -162,8 +159,6 @@ class FileWorker(
 
     def _operation_handlers(self) -> dict[str, Callable[[], None]]:
         return {
-            "copy": self._copy_files,
-            "move": self._move_files,
             "convert": self._convert_files,
             "rename": self._rename_files,
             "compress": self._compression_handler(),

@@ -124,7 +124,7 @@ class TemplateParamsNumberingMixin:
         container.setObjectName("template_numbering_card")
         layout = QVBoxLayout(container)
         layout.setSpacing(SPACE_SM)
-        layout.setContentsMargins(MARGINS_NONE[0], SPACE_SM, SPACE_SM, SPACE_SM)
+        layout.setContentsMargins(SPACE_NONE, SPACE_SM, SPACE_NONE, SPACE_SM)
 
         self.template_numbering_mode = MenuLikeComboBox()
         self.template_numbering_mode.addItems(self._numbering_mode_items())

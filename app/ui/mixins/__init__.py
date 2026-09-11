@@ -16,7 +16,6 @@ from .settings_panel_mixin import SettingsPanelMixin
 from .operations_tab_layout_mixin import OperationsTabLayoutMixin
 from .operations_compress_ui_mixin import OperationsCompressUiMixin
 from .conversion_actions_mixin import ConversionActionsMixin
-from .operation_profiles_mixin import OperationProfilesMixin
 
 __all__ = [
     "LifecycleMixin",
@@ -37,5 +36,4 @@ __all__ = [
     "OperationsTabLayoutMixin",
     "OperationsCompressUiMixin",
     "ConversionActionsMixin",
-    "OperationProfilesMixin",
 ]

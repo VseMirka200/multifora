@@ -1,5 +1,8 @@
 
+import os
+
 from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QFileDialog
 
 from app.core.app_utils import _log_ignored_error
 
@@ -11,15 +14,21 @@ class OperationsCompressUiMixin:
             return
 
         selected_items = self.list_files.selectedItems()
-        if not selected_items:
-            return
+        candidates = []
+        for item in selected_items:
+            file_item = item.data(Qt.ItemDataRole.UserRole)
+            if file_item and file_item.is_file:
+                candidates.append(file_item)
+        if not candidates:
+            candidates = [
+                file_item
+                for file_item in getattr(self, "files", [])
+                if getattr(file_item, "is_file", False)
+            ]
 
         has_pdf = False
         has_image = False
-        for item in selected_items:
-            file_item = item.data(Qt.ItemDataRole.UserRole)
-            if not file_item or not file_item.is_file:
-                continue
+        for file_item in candidates:
             if str(getattr(file_item, "path", "")).lower().endswith(".pdf"):
                 has_pdf = True
             elif getattr(file_item, "file_type", "") == "image":
@@ -74,12 +83,73 @@ class OperationsCompressUiMixin:
 
         can_compress = self._has_selected_files_for_current_compress_type()
 
+        if (
+            hasattr(self, "combo_compress_type")
+            and self.combo_compress_type.currentText() == "Изображения"
+            and self._image_output_mode() == "custom"
+        ):
+            can_compress = can_compress and bool(self._image_output_path())
+
         if hasattr(self, "file_worker") and self.file_worker and self.file_worker.isRunning():
             can_compress = False
 
         # Не импортируем библиотеки конвертации при запуске интерфейса.
         # Наличие конкретного backend проверяется worker-ом только при старте операции.
         self.btn_compress.setEnabled(can_compress)
+
+    def _image_output_mode(self) -> str:
+        combo = getattr(self, "combo_image_output_mode", None)
+        mode = str(combo.currentData() or "alongside") if combo is not None else "alongside"
+        return mode if mode in {"replace", "alongside", "custom"} else "alongside"
+
+    def _image_output_path(self) -> str:
+        field = getattr(self, "input_image_output_path", None)
+        if field is not None:
+            return str(field.text() or "").strip()
+        return str(getattr(self, "image_compression_output_path", "") or "").strip()
+
+    def on_image_output_mode_changed(self, *_args):
+        mode = self._image_output_mode()
+        self.image_compression_output_mode = mode
+        custom_enabled = mode == "custom"
+
+        path_field = getattr(self, "input_image_output_path", None)
+        if path_field is not None:
+            path_field.setEnabled(custom_enabled)
+        select_button = getattr(self, "btn_select_image_output_path", None)
+        if select_button is not None:
+            select_button.setEnabled(custom_enabled)
+
+        self._update_compress_button()
+        callback = getattr(self, "_schedule_settings_save", None)
+        if callable(callback):
+            callback()
+        self._refresh_compression_preview_if_available()
+
+    def select_image_output_folder(self):
+        initial_path = self._image_output_path()
+        if not initial_path or not os.path.isdir(initial_path):
+            selected_items = self.list_files.selectedItems() if hasattr(self, "list_files") else []
+            if selected_items:
+                file_item = selected_items[0].data(Qt.ItemDataRole.UserRole)
+                initial_path = os.path.dirname(str(getattr(file_item, "path", "") or ""))
+
+        folder = QFileDialog.getExistingDirectory(
+            self,
+            "Выберите папку для сжатых изображений",
+            initial_path,
+            options=QFileDialog.Option.ShowDirsOnly,
+        )
+        if not folder:
+            return
+
+        normalized_path = os.path.normpath(folder)
+        self.image_compression_output_path = normalized_path
+        self.input_image_output_path.setText(normalized_path)
+        self._update_compress_button()
+        callback = getattr(self, "_schedule_settings_save", None)
+        if callable(callback):
+            callback()
 
     def on_compress_type_changed(self, compress_type):
         # Пустые подсказки не должны увеличивать высоту панели сжатия.
@@ -120,9 +190,6 @@ class OperationsCompressUiMixin:
             refresh_preview(show_empty_warning=False)
 
     def on_replace_pdf_checked(self, _state):
-        self._refresh_compression_preview_if_available()
-
-    def on_replace_image_checked(self, _state):
         self._refresh_compression_preview_if_available()
 
     def on_pdf_method_changed(self, method_text: str):

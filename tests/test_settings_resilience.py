@@ -55,7 +55,6 @@ class SettingsResilienceTests(unittest.TestCase):
                 settings.load_settings(window)
 
         self.assertEqual(window._rename_history, [])
-        self.assertEqual(window._rename_redo_history, [])
 
     def test_collected_settings_exclude_rename_history(self):
         window = _DummyWindow()
@@ -64,26 +63,27 @@ class SettingsResilienceTests(unittest.TestCase):
         window.auto_clear_checkbox = _DummyCheckbox()
         window.ghostscript_path_override = None
         window._rename_history = [{"pairs": [["new.txt", "old.txt"]]}]
-        window._rename_redo_history = [{"pairs": [["old.txt", "new.txt"]]}]
 
         data = settings._collect_settings_data(window)
 
         self.assertNotIn("rename_history", data)
 
-    def test_operation_profiles_are_loaded_and_collected(self):
+    def test_image_compression_destination_is_persisted(self):
         window = _DummyWindow()
         settings._initialize_settings_defaults(window)
-        profile = {
-            "Фото": {
-                "operation": "Переименование",
-                "data": {"template": "Изменить регистр"},
-            }
-        }
-        settings._apply_settings_data(window, {"operation_profiles": profile})
-        self.assertEqual(window.operation_profiles, profile)
+        settings._apply_settings_data(
+            window,
+            {
+                "image_compression_output_mode": "custom",
+                "image_compression_output_path": r"C:\output",
+            },
+        )
+        self.assertEqual(window.image_compression_output_mode, "custom")
+        self.assertEqual(window.image_compression_output_path, r"C:\output")
 
         window.custom_templates = {}
         window.auto_clear_checkbox = _DummyCheckbox()
         window.ghostscript_path_override = None
         data = settings._collect_settings_data(window)
-        self.assertEqual(data["operation_profiles"], profile)
+        self.assertEqual(data["image_compression_output_mode"], "custom")
+        self.assertEqual(data["image_compression_output_path"], r"C:\output")

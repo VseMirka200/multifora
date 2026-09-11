@@ -1,4 +1,5 @@
 import os
+import os
 import time
 
 from PyQt6.QtWidgets import QMessageBox
@@ -24,14 +25,10 @@ class RenameHistoryMixin:
 
     def _update_undo_button(self):
         can_undo = bool(self._rename_history)
-        can_redo = bool(self._rename_redo_history)
         if self.file_worker and self.file_worker.isRunning():
             can_undo = False
-            can_redo = False
         if hasattr(self, "btn_history_undo"):
             self.btn_history_undo.setEnabled(can_undo)
-        if hasattr(self, "btn_history_redo"):
-            self.btn_history_redo.setEnabled(can_redo)
         self._refresh_rename_history_view()
 
     def _refresh_rename_history_view(self):
@@ -65,28 +62,15 @@ class RenameHistoryMixin:
         self._rename_history.append(entry)
         if len(self._rename_history) > self._max_rename_history:
             self._rename_history = self._rename_history[-self._max_rename_history :]
-        self._rename_redo_history.clear()
         self._refresh_rename_history_view()
 
-    def _push_rename_redo(self, entry: dict):
-        entry = dict(entry)
-        entry.setdefault("timestamp", time.time())
-        entry.setdefault("count", len(entry.get("pairs", [])))
-        self._rename_redo_history.append(entry)
-        if len(self._rename_redo_history) > self._max_rename_history:
-            self._rename_redo_history = self._rename_redo_history[-self._max_rename_history :]
-
-    def _start_rename_from_pairs(self, pairs, direction: str):
+    def _start_rename_from_pairs(self, pairs):
         if not pairs:
             return False
         if not self.create_file_worker():
             return False
-        if direction == "undo":
-            paths = [new_path for new_path, _ in pairs]
-            new_names = [os.path.basename(old_path) for _, old_path in pairs]
-        else:
-            paths = [old_path for _, old_path in pairs]
-            new_names = [os.path.basename(new_path) for new_path, _ in pairs]
+        paths = [new_path for new_path, _ in pairs]
+        new_names = [os.path.basename(old_path) for _, old_path in pairs]
 
         files = self._collect_file_items_by_paths(paths)
         self._last_operation = {
@@ -134,7 +118,7 @@ class RenameHistoryMixin:
 
         self._is_undo_operation = True
         self._pending_undo_entry = entry
-        if not self._start_rename_from_pairs(pairs, "undo"):
+        if not self._start_rename_from_pairs(pairs):
             self._is_undo_operation = False
             self._pending_undo_entry = None
             if selected:
@@ -146,39 +130,4 @@ class RenameHistoryMixin:
 
         self.log_event(f"Откат переименования: {len(pairs)} файлов")
         self.status_bar.showMessage(f"Откат переименования {len(pairs)} файлов...")
-        self._update_undo_button()
-
-    def redo_last_rename(self):
-        if self.file_worker and self.file_worker.isRunning():
-            QMessageBox.warning(self, "Операция выполняется", "Дождитесь завершения текущей операции.")
-            return
-        if not self._rename_redo_history:
-            QMessageBox.information(self, "Информация", "Нет операций для повтора.")
-            return
-
-        entry = self._rename_redo_history.pop()
-        pairs = entry.get("pairs", [])
-        if not pairs:
-            return
-
-        reply = self.show_russian_message_box(
-            "Подтверждение",
-            f"Повторить переименование {len(pairs)} файлов?",
-            QMessageBox.Icon.Question,
-            True,
-        )
-        if not reply:
-            self._rename_redo_history.append(entry)
-            return
-
-        self._is_redo_operation = True
-        self._pending_redo_entry = entry
-        if not self._start_rename_from_pairs(pairs, "redo"):
-            self._is_redo_operation = False
-            self._pending_redo_entry = None
-            self._rename_redo_history.append(entry)
-            return
-
-        self.log_event(f"Повтор переименования: {len(pairs)} файлов")
-        self.status_bar.showMessage(f"Повтор переименования {len(pairs)} файлов...")
         self._update_undo_button()

@@ -48,7 +48,6 @@ from app.ui.ui_components import (
     apply_standard_menu_style,
     apply_standard_field_style,
     DropActionTile,
-    ExpandableGroupBox,
     FileListWidget,
     LeftAlignedToolButton,
     LoggingStatusBar,
@@ -95,7 +94,6 @@ from app.ui.mixins import (
     OperationsTabLayoutMixin,
     OperationsCompressUiMixin,
     ConversionActionsMixin,
-    OperationProfilesMixin,
 )
 
 
@@ -104,7 +102,6 @@ class MultiforaMainWindow(
     LoggingMixin,
     RenameHistoryMixin,
     WorkerOpsMixin,
-    OperationProfilesMixin,
     WindowsIntegrationMixin,
     TemplateCrudMixin,
     TemplateParamsBaseMixin,
@@ -131,11 +128,9 @@ class MultiforaMainWindow(
         except Exception as e:
             _debug_log(f"Ошибка установки иконки окна: {e}")
         self.files = []
-        self.destination_folder = None
         self.file_worker = None
         self.current_template = ""
         self.custom_templates = {}
-        self.operation_profiles = {}
         self.windows_context_menu_enabled = False
         self.desktop_shortcut_enabled = False
         self.start_menu_shortcut_enabled = False
@@ -151,12 +146,9 @@ class MultiforaMainWindow(
         self._operation_errors = []
         self._last_operation = None
         self._rename_history = []
-        self._rename_redo_history = []
         self._max_rename_history = 20
         self._is_undo_operation = False
-        self._is_redo_operation = False
         self._pending_undo_entry = None
-        self._pending_redo_entry = None
         self._pending_window_geometry = None
         self._pending_window_pos = None
         self._pending_window_size = None
@@ -180,7 +172,6 @@ class MultiforaMainWindow(
         self.load_settings()
         self.ensure_context_menu_registration()
         self.update_template_combo()
-        self._refresh_operation_profiles_combo()
         pending_template_session = getattr(self, "_pending_template_session_state", None)
         if pending_template_session:
             try:
@@ -445,7 +436,8 @@ class MultiforaMainWindow(
                 self._last_operation.get("compression_type", "image"),
                 self._last_operation.get("pdf_method", "auto"),
                 self._last_operation.get("replace_pdf", False),
-                self._last_operation.get("replace_image", False),
+                self._last_operation.get("image_output_mode", "alongside"),
+                self._last_operation.get("image_output_dir", ""),
             )
         elif op == "metadata":
             self.file_worker.set_metadata_cleanup(
@@ -1179,14 +1171,6 @@ class MultiforaMainWindow(
                 self.main_splitter.splitterMoved,
                 lambda _pos, _index: self._update_drop_zone_controls(),
             )
-        try:
-            for group in self.findChildren(ExpandableGroupBox):
-                self._safe_connect_signal(
-                    group.toggledExpanded,
-                    lambda _expanded: self._schedule_settings_save(),
-                )
-        except Exception as error:
-            _log_ignored_error("MultiforaMainWindow._connect_ui_state_autosave", error)
 
     def _configure_right_panel_spacing(self, right_layout, list_header):
         """Выравнивает единый шаг промежутков для правой панели."""
@@ -1267,12 +1251,6 @@ class MultiforaMainWindow(
             refresh_standard_button_styles(self)
             refresh_standard_field_styles(self)
             refresh_standard_surface_styles(self)
-        except Exception as error:
-            _log_ignored_error("MultiforaMainWindow._apply_theme_runtime_widgets", error)
-        try:
-            for group in self.findChildren(ExpandableGroupBox):
-                if callable(getattr(group, "refresh_theme_icon", None)):
-                    group.refresh_theme_icon()
         except Exception as error:
             _log_ignored_error("MultiforaMainWindow._apply_theme_runtime_widgets", error)
         if hasattr(self, "_splitter_grip_label") and self._splitter_grip_label is not None:
@@ -1606,6 +1584,7 @@ class MultiforaMainWindow(
     def on_file_selection_changed(self):
         """Обработчик изменения выбора файлов"""
         self._update_metadata_controls()
+        self._update_merge_button_state()
         self.update_converter_from_format()
         if callable(getattr(self, "refresh_active_file_preview", None)):
             self.refresh_active_file_preview()

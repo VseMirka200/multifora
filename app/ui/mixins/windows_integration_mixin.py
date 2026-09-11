@@ -24,19 +24,6 @@ class WindowsIntegrationMixin:
     )
     _CONTEXT_MENU_MULTISELECT_MODEL = "Player"
 
-    def is_context_menu_registered(self):
-        """Проверяет, зарегистрировано ли контекстное меню в реестре (HKCU)."""
-        try:
-            for key_path in self._CONTEXT_MENU_ROOTS:
-                try:
-                    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_READ):
-                        return True
-                except FileNotFoundError:
-                    continue
-            return False
-        except Exception:
-            return False
-
     def register_context_menu(self):
         """Регистрирует пункт контекстного меню Windows (HKCU, без админа)."""
         try:

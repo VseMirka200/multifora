@@ -241,7 +241,10 @@ class FileListPreviewMixin:
 
         compress_type = str(compress_type_combo.currentText() or "")
         replace_pdf = bool(getattr(getattr(self, "checkbox_replace_pdf", None), "isChecked", lambda: False)())
-        replace_image = bool(getattr(getattr(self, "checkbox_replace_image", None), "isChecked", lambda: False)())
+        replace_image = (
+            callable(getattr(self, "_image_output_mode", None))
+            and self._image_output_mode() == "replace"
+        )
 
         for file_item in self.files:
             file_item.preview_name = file_item.name
@@ -333,6 +336,8 @@ class FileListPreviewMixin:
         """Обновление отображения списка"""
         if not self.files:
             self.list_files.clear()
+            if callable(getattr(self, "_update_merge_button_state", None)):
+                self._update_merge_button_state()
             return
 
         selected_paths = []
@@ -345,3 +350,7 @@ class FileListPreviewMixin:
         self.list_files.set_files(filtered_files)
         self.list_files.clearSelection()
         self.list_files.select_paths(selected_paths)
+        if callable(getattr(self, "_auto_select_compress_type", None)):
+            self._auto_select_compress_type()
+        if callable(getattr(self, "_update_merge_button_state", None)):
+            self._update_merge_button_state()

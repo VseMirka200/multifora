@@ -1,8 +1,6 @@
 import json
 import os
 
-from PyQt6.QtCore import QObject
-
 from app.core.app_utils import _debug_log
 
 
@@ -61,46 +59,6 @@ def _set_combo_current_data(combo, value) -> None:
         lambda: combo.setCurrentIndex(index),
         "выбора значения в списке",
     )
-
-
-def _collect_expandable_groups_state(window) -> dict:
-    states = {}
-    try:
-        groups = window.findChildren(QObject)
-    except Exception as error:
-        _log_settings_error("получения сворачиваемых групп", error)
-        return states
-
-    for group in groups:
-        try:
-            if not callable(getattr(group, "isExpanded", None)):
-                continue
-            title = getattr(group, "_title", "")
-            if isinstance(title, str) and title.strip():
-                states[title] = bool(group.isExpanded())
-        except Exception as error:
-            _log_settings_error("чтения состояния сворачиваемой группы", error)
-    return states
-
-
-def _restore_expandable_groups_state(window, states: dict) -> None:
-    if not isinstance(states, dict) or not states:
-        return
-    try:
-        groups = window.findChildren(QObject)
-    except Exception as error:
-        _log_settings_error("получения сворачиваемых групп", error)
-        return
-
-    for group in groups:
-        try:
-            if not callable(getattr(group, "setChecked", None)):
-                continue
-            title = getattr(group, "_title", "")
-            if title in states:
-                group.setChecked(bool(states[title]))
-        except Exception as error:
-            _log_settings_error("восстановления сворачиваемой группы", error)
 
 
 def _collect_template_session_state(window) -> dict:
@@ -232,12 +190,12 @@ def _initialize_settings_defaults(window) -> None:
     window.theme_mode = _DEFAULT_THEME_MODE
     window.conversion_output_mode = "source_subfolder"
     window.conversion_output_path = ""
+    window.image_compression_output_mode = "alongside"
+    window.image_compression_output_path = ""
     window._pending_template_session_state = None
-    window.operation_profiles = {}
     window._pending_settings_dialog_geometry = None
     window._pending_settings_nav_row = 0
     window._rename_history = []
-    window._rename_redo_history = []
 
     checkbox_defaults = {
         "auto_clear_checkbox": False,
@@ -403,14 +361,33 @@ def _restore_conversion_output_settings(window, data: dict) -> None:
     window.conversion_output_path = path
 
 
+def _restore_image_compression_output_settings(window, data: dict) -> None:
+    mode = str(data.get("image_compression_output_mode") or "alongside").strip()
+    if mode not in {"replace", "alongside", "custom"}:
+        mode = "alongside"
+    path = str(data.get("image_compression_output_path") or "").strip()
+
+    window.image_compression_output_mode = mode
+    window.image_compression_output_path = path
+
+    combo = getattr(window, "combo_image_output_mode", None)
+    if combo is not None:
+        index = combo.findData(mode)
+        if index >= 0:
+            combo.blockSignals(True)
+            combo.setCurrentIndex(index)
+            combo.blockSignals(False)
+    path_field = getattr(window, "input_image_output_path", None)
+    if path_field is not None:
+        path_field.setText(path)
+    updater = getattr(window, "on_image_output_mode_changed", None)
+    if callable(updater):
+        updater()
+
+
 def _apply_settings_data(window, data: dict) -> None:
     if "custom_templates" in data:
         window.custom_templates = data["custom_templates"]
-    if isinstance(data.get("operation_profiles"), dict):
-        window.operation_profiles = data["operation_profiles"]
-        refresher = getattr(window, "_refresh_operation_profiles_combo", None)
-        if callable(refresher):
-            refresher()
     if "auto_clear" in data:
         _set_checkbox_state(getattr(window, "auto_clear_checkbox", None), data["auto_clear"])
 
@@ -440,10 +417,9 @@ def _apply_settings_data(window, data: dict) -> None:
 
     if "file_list_view_state" in data:
         _restore_file_list_view_state(window, data.get("file_list_view_state"))
-    if "expandable_groups" in data:
-        _restore_expandable_groups_state(window, data.get("expandable_groups"))
 
     _restore_conversion_output_settings(window, data)
+    _restore_image_compression_output_settings(window, data)
     _restore_theme(window, data)
 
     if "ghostscript_path" in data:
@@ -553,7 +529,6 @@ def _collect_settings_data(window) -> dict:
 
     return {
         "custom_templates": window.custom_templates,
-        "operation_profiles": getattr(window, "operation_profiles", {}),
         "auto_clear": window.auto_clear_checkbox.isChecked(),
         "windows_context_menu": window.windows_context_menu_enabled,
         "ghostscript_path": window.ghostscript_path_override,
@@ -566,6 +541,12 @@ def _collect_settings_data(window) -> dict:
         "theme_mode": getattr(window, "theme_mode", _DEFAULT_THEME_MODE),
         "conversion_output_mode": getattr(window, "conversion_output_mode", "source_subfolder"),
         "conversion_output_path": getattr(window, "conversion_output_path", ""),
+        "image_compression_output_mode": getattr(
+            window, "image_compression_output_mode", "alongside"
+        ),
+        "image_compression_output_path": getattr(
+            window, "image_compression_output_path", ""
+        ),
         "current_tab_index": _current_widget_index(window, "tabs"),
         "settings_nav_current_row": settings_nav.currentRow() if settings_nav is not None else 0,
         "operations_tab_index": _current_widget_index(window, "operations_tab_bar"),
@@ -587,7 +568,6 @@ def _collect_settings_data(window) -> dict:
         "window_pos": saved_position,
         "window_size": saved_size,
         "window_maximized": is_maximized,
-        "expandable_groups": _collect_expandable_groups_state(window),
     }
 
 

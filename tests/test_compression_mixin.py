@@ -1,4 +1,3 @@
-import os
 import sys
 import tempfile
 import unittest
@@ -19,8 +18,32 @@ class _DummyCompressionWorker(CompressionMixin):
     def _should_cancel(self):
         return self.cancelled
 
+    @staticmethod
+    def _get_unique_path(path):
+        return path
+
 
 class CompressionMixinTests(unittest.TestCase):
+    def test_image_output_path_uses_selected_destination(self):
+        worker = _DummyCompressionWorker()
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            source_dir = Path(tmp_dir, "source")
+            output_dir = Path(tmp_dir, "output")
+            source_dir.mkdir()
+            source = source_dir / "photo.jpg"
+            source.write_bytes(b"image")
+            file_item = FileItem(str(source))
+
+            worker.image_output_mode = "alongside"
+            alongside = worker._image_compression_target_path(file_item, ".jpg")
+            self.assertEqual(alongside, str(source_dir / "photo_compressed.jpg"))
+
+            worker.image_output_mode = "custom"
+            worker.image_output_dir = str(output_dir)
+            custom = worker._image_compression_target_path(file_item, ".jpg")
+            self.assertEqual(custom, str(output_dir / "photo_compressed.jpg"))
+            self.assertTrue(output_dir.is_dir())
+
     def test_ghostscript_profiles_preserve_existing_settings(self):
         expected = {
             "max": ("/screen", 72, 40, "Максимальное сжатие"),
