@@ -1,4 +1,5 @@
 import builtins
+import shutil
 import subprocess
 import symtable
 from pathlib import Path
@@ -90,6 +91,8 @@ class RepositoryHygieneTests(unittest.TestCase):
         self.assertEqual(offenders, [])
 
     def test_tracked_text_files_are_utf8_without_bom(self):
+        if shutil.which("git") is None:
+            self.skipTest("Git не установлен или не доступен в PATH")
         tracked_files = subprocess.check_output(["git", "ls-files"], text=True, encoding="utf-8").splitlines()
         binary_suffixes = (
             ".png",

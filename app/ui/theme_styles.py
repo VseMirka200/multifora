@@ -205,38 +205,6 @@ QGroupBox::title {
     color: #e0e0e0;
 }
 
-ExpandableGroupBox {
-    font-weight: bold;
-    font-size: 13px;
-    margin-top: 0px;
-    padding-top: 0px;
-    margin: 0px;
-    padding: 0px;
-    background-color: transparent;
-    border: none;
-    border-radius: 0px;
-    color: #e0e0e0;
-}
-QPushButton[buttonVariant="section"] {
-    text-align: left;
-    padding: 2px 10px;
-    font-size: 14px;
-    font-weight: bold;
-    border: none;
-    border-radius: 0px;
-    min-height: 34px;
-    max-height: 34px;
-    background-color: transparent;
-}
-QPushButton[buttonVariant="section"]:hover {
-    background-color: rgba(255, 255, 255, 0.06);
-}
-QPushButton[buttonVariant="section"]:checked {
-    border: none;
-    border-bottom-left-radius: 0px;
-    border-bottom-right-radius: 0px;
-}
-
 QLabel {
     font-size: 14px;
     color: #e0e0e0;
@@ -917,18 +885,6 @@ QGroupBox {
     border-radius: 0px;
     color: #1f2328;
 }
-ExpandableGroupBox {
-    font-weight: bold;
-    font-size: 14px;
-    margin-top: 0px;
-    padding-top: 0px;
-    margin: 0px;
-    padding: 0px;
-    background-color: transparent;
-    border: none;
-    border-radius: 0px;
-    color: #1f2328;
-}
 QLabel {
     color: #1f2328;
 }
@@ -971,21 +927,6 @@ QPushButton#cancel_operation_btn {
     border: none;
     border-radius: 4px;
     min-width: 84px;
-}
-QPushButton[buttonVariant="section"] {
-    text-align: left;
-    padding: 2px 10px;
-    font-size: 14px;
-    font-weight: bold;
-    border: none;
-    border-radius: 0px;
-    min-height: 34px;
-    max-height: 34px;
-}
-QPushButton[buttonVariant="section"]:checked {
-    border: none;
-    border-bottom-left-radius: 0px;
-    border-bottom-right-radius: 0px;
 }
 QLineEdit,
 QPlainTextEdit,

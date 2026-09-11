@@ -1,4 +1,3 @@
-import re
 import unittest
 from pathlib import Path
 
@@ -60,11 +59,6 @@ class ThemeStyleAuditTests(unittest.TestCase):
         light_block = source[start:dark_return]
         self.assertIn("alternate-background-color: #eef1f5", light_block)
         self.assertNotIn("alternate-background-color: #454545", light_block)
-
-    def test_disclosure_icon_uses_current_theme(self):
-        source = Path("app/ui/ui_components.py").read_text(encoding="utf-8")
-        self.assertRegex(source, re.compile(r'QColor\("#1f2328" if theme == "light" else "#f0f0f0"\)'))
-        self.assertIn("def refresh_theme_icon", source)
 
     def test_runtime_refreshes_buttons_and_operation_tabs(self):
         source = Path("app/ui/ui_main.py").read_text(encoding="utf-8")

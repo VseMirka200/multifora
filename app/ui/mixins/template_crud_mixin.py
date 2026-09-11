@@ -21,10 +21,11 @@ from PyQt6.QtWidgets import (
 from app.ui.ui_components import (
     apply_standard_menu_style,
     get_russian_text_input,
+    setup_standard_primary_button,
     setup_standard_secondary_button,
     setup_standard_dialog,
 )
-from app.ui.ui_spacing import MARGINS_NONE, SPACE_NONE
+from app.ui.ui_spacing import MARGINS_NONE, SPACE_NONE, SPACE_SM
 from app.core.app_utils import _log_ignored_error
 
 
@@ -519,39 +520,30 @@ class TemplateCrudMixin:
 
         actions_layout = QHBoxLayout(actions_row)
         actions_layout.setContentsMargins(*MARGINS_NONE)
-        actions_layout.setSpacing(0)
+        actions_layout.setSpacing(SPACE_SM)
 
         export_btn = QPushButton("Экспорт шаблонов")
         setup_standard_secondary_button(export_btn)
-        export_btn.setStyleSheet(
-            export_btn.styleSheet()
-            + """
-            QPushButton {
-                border-radius: 0px;
-            }
-            QPushButton:hover {
-                border-radius: 0px;
-            }
-            """
-        )
+        export_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         export_btn.clicked.connect(self.export_templates)
         actions_layout.addWidget(export_btn, 1)
 
         import_btn = QPushButton("Импорт шаблонов")
         setup_standard_secondary_button(import_btn)
-        import_btn.setStyleSheet(
-            import_btn.styleSheet()
-            + """
-            QPushButton {
-                border-radius: 0px;
-            }
-            QPushButton:hover {
-                border-radius: 0px;
-            }
-            """
-        )
+        import_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         import_btn.clicked.connect(lambda: self.import_templates(dialog))
         actions_layout.addWidget(import_btn, 1)
+
+        apply_btn = QPushButton("Применить")
+        setup_standard_primary_button(apply_btn)
+        apply_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        apply_btn.setEnabled(False)
+        apply_btn.clicked.connect(lambda: self.load_selected_template(dialog))
+        actions_layout.addWidget(apply_btn, 1)
+
+        self.btn_export_templates = export_btn
+        self.btn_import_templates = import_btn
+        self.btn_apply_template = apply_btn
 
         return actions_row
 
@@ -577,9 +569,6 @@ class TemplateCrudMixin:
         card_layout.setContentsMargins(0, 0, 0, 0)
         card_layout.setSpacing(0)
 
-        actions_row = self._build_template_manager_action_buttons(dialog)
-        card_layout.addWidget(actions_row)
-        
         self.templates_table = QTableWidget()
         self.templates_table.setColumnCount(1)
         self.templates_table.setHorizontalHeaderLabels(["Название шаблона"])
@@ -605,6 +594,14 @@ class TemplateCrudMixin:
             lambda pos: self._show_templates_context_menu(pos, dialog)
         )
         card_layout.addWidget(self.templates_table)
+
+        actions_row = self._build_template_manager_action_buttons(dialog)
+        self.templates_table.itemSelectionChanged.connect(
+            lambda: self.btn_apply_template.setEnabled(
+                bool(self.templates_table.selectionModel().selectedRows())
+            )
+        )
+        card_layout.addWidget(actions_row)
 
         self._templates_apply_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Return), dialog)
         self._templates_apply_shortcut.activated.connect(lambda: self.load_selected_template(dialog))

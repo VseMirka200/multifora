@@ -112,9 +112,6 @@ CATEGORY_TARGET_FORMATS: dict[str, tuple[str, ...]] = {
     ),
 }
 
-# Сохраняем старое имя как совместимый псевдоним для внешнего кода.
-CATEGORY_FORMATS = CATEGORY_SOURCE_FORMATS
-
 FORMAT_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "DOC": (".doc",),
     "DOCX": (".docx",),
@@ -198,11 +195,6 @@ FILE_TYPE_EXTENSIONS: dict[str, frozenset[str]] = {
 KNOWN_FILE_EXTENSIONS = frozenset().union(*FILE_TYPE_EXTENSIONS.values())
 
 
-def formats_for_category(category: str) -> list[str]:
-    """Возвращает форматы, доступные как источник."""
-    return source_formats_for_category(category)
-
-
 def source_formats_for_category(category: str) -> list[str]:
     """Возвращает поддерживаемые входные форматы категории."""
     return list(CATEGORY_SOURCE_FORMATS.get(_normalize_label(category), ()))
@@ -266,20 +258,6 @@ def extensions_for_category(category: str) -> tuple[str, ...]:
     """Возвращает все входные расширения категории."""
     formats = CATEGORY_SOURCE_FORMATS.get(_normalize_label(category), ())
     return _extensions_for_formats(formats)
-
-
-def is_source_format_for_category(category: str, format_label: str) -> bool:
-    """Проверяет, разрешён ли формат как источник категории."""
-    return _normalize_label(format_label) in CATEGORY_SOURCE_FORMATS.get(
-        _normalize_label(category), ()
-    )
-
-
-def is_target_format_for_category(category: str, format_label: str) -> bool:
-    """Проверяет, разрешён ли формат как цель категории."""
-    return _normalize_label(format_label) in CATEGORY_TARGET_FORMATS.get(
-        _normalize_label(category), ()
-    )
 
 
 def build_file_dialog_filter() -> str:

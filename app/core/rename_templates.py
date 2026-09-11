@@ -16,15 +16,6 @@ _CUSTOM_NUM_TOKEN_RE = re.compile(r"\{num([^}]*)\}")
 _WIDTH_FORMAT_RE = re.compile(r"0?(\d+)d")
 
 
-CASE_MODES = {
-    "lower": "нижний регистр",
-    "upper": "ВЕРХНИЙ РЕГИСТР",
-    "title": "Каждое Слово С Заглавной",
-    "sentence": "Первая буква заглавная",
-    "swap": "иНВЕРТИРОВАТЬ РЕГИСТР",
-}
-
-
 def apply_case_mode(value: str, mode: str) -> str:
     """Преобразует регистр имени без привязки к UI."""
     text = str(value or "")

@@ -20,12 +20,8 @@ class WorkerOpsMixin:
             return files
         return [file_item for file_item in self.files if getattr(file_item, "is_file", False)]
 
-    def _resolve_merge_output_format(self, files: list[FileItem], selected_format: str) -> str:
-        if selected_format == "auto":
-            if all(file.path.lower().endswith(".docx") for file in files):
-                return "docx"
-            return "pdf"
-        return selected_format or "pdf"
+    def _resolve_merge_output_format(self, selected_format: str) -> str:
+        return selected_format if selected_format in {"pdf", "docx"} else "pdf"
 
     def _select_merge_output_path_for_format(self, output_format: str, files: list[FileItem]) -> str:
         extension = "docx" if output_format == "docx" else "pdf"
@@ -64,21 +60,20 @@ class WorkerOpsMixin:
         selected_format = "pdf"
         if hasattr(self, "combo_merge_format") and self.combo_merge_format is not None:
             selected_format = str(self.combo_merge_format.currentData() or "pdf")
-        output_format = self._resolve_merge_output_format(files, selected_format)
+        output_format = self._resolve_merge_output_format(selected_format)
         self._select_merge_output_path_for_format(output_format, files)
 
     def on_merge_format_changed(self):
         if not hasattr(self, "input_merge_output_path") or self.input_merge_output_path is None:
+            self._update_merge_button_state()
             return
         current_path = self.input_merge_output_path.text().strip()
         if not current_path:
+            self._update_merge_button_state()
             return
         selected_format = "pdf"
         if hasattr(self, "combo_merge_format") and self.combo_merge_format is not None:
             selected_format = str(self.combo_merge_format.currentData() or "pdf")
-        if selected_format == "auto":
-            self.input_merge_output_path.clear()
-            return
         extension = ".docx" if selected_format == "docx" else ".pdf"
         base, _ext = os.path.splitext(current_path)
         if base:
@@ -87,6 +82,32 @@ class WorkerOpsMixin:
                 self.input_merge_output_path.setCursorPosition(0)
             except Exception as error:
                 _log_ignored_error("WorkerOpsMixin.on_merge_format_changed", error)
+        self._update_merge_button_state()
+
+    def _update_merge_button_state(self, *_args):
+        button = getattr(self, "btn_merge", None)
+        if button is None:
+            return
+
+        files = (
+            self._get_selected_or_all_file_items()
+            if hasattr(self, "list_files")
+            else []
+        )
+        selected_format = "pdf"
+        combo = getattr(self, "combo_merge_format", None)
+        if combo is not None:
+            selected_format = str(combo.currentData() or "pdf")
+
+        expected_extension = ".docx" if selected_format == "docx" else ".pdf"
+        valid_files = len(files) >= 2 and all(
+            str(getattr(file, "path", "")).lower().endswith(expected_extension)
+            for file in files
+        )
+        output_field = getattr(self, "input_merge_output_path", None)
+        output_path = output_field.text().strip() if output_field is not None else ""
+        valid_output = output_path.lower().endswith(expected_extension)
+        button.setEnabled(valid_files and valid_output)
 
     def _update_metadata_controls(self, *_args):
         candidates = self._get_selected_or_all_file_items() if hasattr(self, "list_files") else []
@@ -190,7 +211,8 @@ class WorkerOpsMixin:
 
         pdf_method = "auto"
         replace_pdf = False
-        replace_image = False
+        image_output_mode = "alongside"
+        image_output_dir = ""
         method_text = ""
         if compress_type == "PDF документы":
             method_text = self.combo_pdf_method.currentText()
@@ -202,11 +224,12 @@ class WorkerOpsMixin:
                 pdf_method = "optimize"
             replace_pdf = self.checkbox_replace_pdf.isChecked() if hasattr(self, "checkbox_replace_pdf") else False
         elif compress_type == "Изображения":
-            replace_image = (
-            self.checkbox_replace_image.isChecked()
-            if hasattr(self, "checkbox_replace_image")
-            else False
-        )
+            image_output_mode = self._image_output_mode()
+            if image_output_mode == "custom":
+                image_output_dir = self._image_output_path()
+                if not image_output_dir:
+                    QMessageBox.warning(self, "Ошибка", "Выберите папку для сжатых изображений.")
+                    return
 
         compression_level = 85
         if compress_type == "Изображения" and hasattr(self, "combo_compression_level"):
@@ -222,8 +245,15 @@ class WorkerOpsMixin:
         if compress_type == "PDF документы":
             details = method_info
         else:
-            replace_note = ", с заменой оригинала" if replace_image else ", с копией"
-            details = f" (уровень: {compression_level}%{replace_note})"
+            destination_labels = {
+                "replace": "с заменой исходников",
+                "alongside": "рядом с исходниками",
+                "custom": f"в папку {image_output_dir}",
+            }
+            details = (
+                f" (уровень: {compression_level}%, "
+                f"{destination_labels[image_output_mode]})"
+            )
         reply = self.show_russian_message_box(
             "Подтверждение",
             f"Сжать {len(files)} {file_type}{details}?",
@@ -243,7 +273,8 @@ class WorkerOpsMixin:
             compression_type,
             pdf_method,
             replace_pdf,
-            replace_image,
+            image_output_mode,
+            image_output_dir,
         )
         self._last_operation = {
             "op": "compress",
@@ -251,15 +282,15 @@ class WorkerOpsMixin:
             "compression_type": compression_type,
             "pdf_method": pdf_method,
             "replace_pdf": replace_pdf,
-            "replace_image": replace_image,
+            "image_output_mode": image_output_mode,
+            "image_output_dir": image_output_dir,
             "file_paths": [f.path for f in files],
         }
         self.file_worker.start()
         if compress_type == "PDF документы":
             self.log_event(f"Сжатие: {len(files)} файлов ({file_type}{method_info})")
         else:
-            replace_note = "с заменой оригинала" if replace_image else "с копией"
-            self.log_event(f"Сжатие: {len(files)} файлов ({file_type}, {compression_level}%, {replace_note})")
+            self.log_event(f"Сжатие: {len(files)} файлов{details}")
         if callable(getattr(self, "_show_progress_dialog", None)):
             self._show_progress_dialog(f"Сжатие {len(files)} файлов...")
         if callable(getattr(self, "_update_compress_button", None)):
@@ -267,7 +298,7 @@ class WorkerOpsMixin:
         self.status_bar.showMessage(f"Сжатие {len(files)} файлов...")
 
     def merge_files(self):
-        """Объединение Word/PDF документов в один файл."""
+        """Объединение документов одинакового формата в один файл."""
         files = self._get_selected_or_all_file_items()
         if len(files) < 2:
             QMessageBox.warning(self, "Ошибка", "Добавьте или выберите минимум два документа для объединения!")
@@ -278,7 +309,7 @@ class WorkerOpsMixin:
             selected_data = self.combo_merge_format.currentData()
             if selected_data:
                 selected_format = str(selected_data)
-        output_format = self._resolve_merge_output_format(files, selected_format)
+        output_format = self._resolve_merge_output_format(selected_format)
 
         if output_format == "docx":
             if not all(file.path.lower().endswith(".docx") for file in files):
@@ -286,8 +317,8 @@ class WorkerOpsMixin:
                 return
             format_label = "DOCX"
         else:
-            if not all(file.path.lower().endswith((".doc", ".docx", ".pdf")) for file in files):
-                QMessageBox.warning(self, "Ошибка", "Для объединения выберите документы Word или PDF.")
+            if not all(file.path.lower().endswith(".pdf") for file in files):
+                QMessageBox.warning(self, "Ошибка", "Для результа PDF выберите только файлы PDF.")
                 return
             format_label = "PDF"
 
@@ -343,18 +374,7 @@ class WorkerOpsMixin:
             if errors:
                 if self._pending_undo_entry:
                     self._rename_history.append(self._pending_undo_entry)
-            else:
-                if self._pending_undo_entry:
-                    self._push_rename_redo(self._pending_undo_entry)
             self._pending_undo_entry = None
-        elif self._is_redo_operation:
-            if errors:
-                if self._pending_redo_entry:
-                    self._rename_redo_history.append(self._pending_redo_entry)
-            else:
-                if self._pending_redo_entry:
-                    self._push_rename_history(self._pending_redo_entry)
-            self._pending_redo_entry = None
         else:
             if self._last_operation and self._last_operation.get("op") == "rename" and updated_files:
                 undo_pairs = []
@@ -371,7 +391,6 @@ class WorkerOpsMixin:
                         }
                     )
         self._is_undo_operation = False
-        self._is_redo_operation = False
 
         self.log_event(
             f"Операция завершена. Получено {self._ru_files_label(len(new_files))} новых, "

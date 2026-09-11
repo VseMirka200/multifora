@@ -2,12 +2,8 @@ import os
 
 from PyQt6.QtCore import (
     QAbstractTableModel,
-    QEasingCurve,
     QItemSelectionModel,
     QModelIndex,
-    QPointF,
-    QRect,
-    QPropertyAnimation,
     QSize,
     QTimer,
     Qt,
@@ -18,10 +14,6 @@ from PyQt6.QtGui import (
     QColor,
     QFontMetrics,
     QIcon,
-    QPainter,
-    QPalette,
-    QPixmap,
-    QPolygonF,
     QTextOption,
 )
 from PyQt6.QtWidgets import (
@@ -31,7 +23,6 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
     QFrame,
-    QGroupBox,
     QLabel,
     QLineEdit,
     QListView,
@@ -57,7 +48,6 @@ from app.ui.ui_spacing import (
     FIELD_HEIGHT,
     HEADER_FIELD_HEIGHT,
     MARGINS_NONE,
-    SPACE_NONE,
     SPACE_XS,
     SPACE_SM,
     SPACE_MD,
@@ -121,16 +111,6 @@ def _build_standard_button_style(theme: str, role: str) -> str:
                 "disabled_border": "#4a4a4a",
                 "disabled_fg": "#8d8d8d",
             },
-            "section": {
-                "bg": "#363636",
-                "hover": "#404040",
-                "pressed": "#2f2f2f",
-                "border": "#4d4d4d",
-                "fg": "#f2f2f2",
-                "disabled_bg": "#303030",
-                "disabled_border": "#404040",
-                "disabled_fg": "#7f7f7f",
-            },
             "secondary": {
                 "bg": "#303030",
                 "hover": "#3a3a3a",
@@ -162,16 +142,6 @@ def _build_standard_button_style(theme: str, role: str) -> str:
                 "fg": "#ffffff",
                 "disabled_bg": "#eef2f7",
                 "disabled_border": "#d7dee8",
-                "disabled_fg": "#9aa4b2",
-            },
-            "section": {
-                "bg": "#f3f5f8",
-                "hover": "#e9edf3",
-                "pressed": "#dde5ee",
-                "border": "#d2dbe6",
-                "fg": "#1f2933",
-                "disabled_bg": "#f8fafc",
-                "disabled_border": "#e4eaf2",
                 "disabled_fg": "#9aa4b2",
             },
             "secondary": {
@@ -524,11 +494,6 @@ def setup_standard_secondary_button(widget, *, height: int = ACTION_BUTTON_HEIGH
     return setup_standard_action_button(widget, height=height)
 
 
-def setup_standard_section_button(widget, *, height: int = 34):
-    widget.setCursor(Qt.CursorShape.PointingHandCursor)
-    return setup_standard_action_button(widget, height=height, variant="section")
-
-
 def setup_standard_form_label(widget, *, align: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignLeft):
     widget.setAlignment(align | Qt.AlignmentFlag.AlignVCenter)
     widget.setWordWrap(True)
@@ -650,224 +615,6 @@ def sync_standard_menu_width(menu: QMenu, anchor_widget: QWidget):
     menu.setMinimumWidth(width)
     menu.setMaximumWidth(width)
     menu.setFixedWidth(width)
-
-
-class ExpandableGroupBox(QGroupBox):
-    toggledExpanded = pyqtSignal(bool)
-
-    def __init__(self, title="", parent=None):
-        super().__init__("", parent)
-        self.setCheckable(False)
-        self._expanded = False
-        self._title = title
-        self.content_widget = None
-        self.main_layout = None
-        self.header_button = None
-        self._is_animating = False
-        self._content_animation = None
-        self._animation_duration_ms = 180
-        self._init_header()
-
-    def _init_header(self):
-        self.header_button = QPushButton(self._format_header_text())
-        self.header_button.setObjectName("expand_header")
-        self.header_button.setCheckable(True)
-        self.header_button.setChecked(False)
-        self.header_button.setIcon(self._build_disclosure_icon(pointing_down=False))
-        self.header_button.setIconSize(QSize(10, 10))
-        self.header_button.clicked.connect(self._toggle)
-        setup_standard_section_button(self.header_button, height=34)
-
-    def _format_header_text(self):
-        return self._title
-
-    def _build_disclosure_icon(self, pointing_down: bool) -> QIcon:
-        pix = QPixmap(10, 10)
-        pix.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(pix)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        painter.setPen(Qt.PenStyle.NoPen)
-        theme = _resolve_widget_theme_mode(self)
-        painter.setBrush(QColor("#1f2328" if theme == "light" else "#f0f0f0"))
-        if pointing_down:
-            triangle = QPolygonF([QPointF(2.0, 3.0), QPointF(8.0, 3.0), QPointF(5.0, 7.5)])
-        else:
-            triangle = QPolygonF([QPointF(3.0, 2.0), QPointF(7.5, 5.0), QPointF(3.0, 8.0)])
-        painter.drawPolygon(triangle)
-        painter.end()
-        return QIcon(pix)
-
-    def refresh_theme_icon(self):
-        if self.header_button is None:
-            return
-        self.header_button.setIcon(self._build_disclosure_icon(pointing_down=self._expanded))
-        self.header_button.update()
-
-    def _toggle(self):
-        self._set_expanded_state(self.header_button.isChecked(), animated=True)
-
-    def setChecked(self, checked: bool):
-        self._set_expanded_state(bool(checked), animated=False)
-
-    def isExpanded(self) -> bool:
-        return self._expanded
-
-    def _apply_size_policy(self):
-        if self._is_animating:
-            self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
-            self.setMinimumHeight(0)
-            self.setMaximumHeight(16777215)
-            return
-        header_h = self.header_button.sizeHint().height()
-        if self._expanded:
-            self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
-            self.setMinimumHeight(0)
-            self.setMaximumHeight(16777215)
-            if self.content_widget:
-                self.content_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
-        else:
-            self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            # В свёрнутом виде оставляем только заголовок, иначе layout сохраняет пустой зазор.
-            self.setMinimumHeight(header_h)
-            self.setMaximumHeight(header_h)
-            self.resize(self.width(), header_h)
-            if self.content_widget:
-                self.content_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-
-    def setFixedContentHeight(self, height: int):
-        self._fixed_content_height = max(0, int(height))
-        if not self._expanded and self.content_widget:
-            self.content_widget.setFixedHeight(0)
-        elif self.content_widget:
-            self.content_widget.setFixedHeight(self._fixed_content_height)
-        self.updateGeometry()
-
-    def sizeHint(self):
-        if self._is_animating:
-            return super().sizeHint()
-        if not self._expanded:
-            h = self.header_button.sizeHint().height()
-            return QSize(0, h)
-        return super().sizeHint()
-
-    def minimumSizeHint(self):
-        if self._is_animating:
-            return super().minimumSizeHint()
-        if not self._expanded:
-            h = self.header_button.sizeHint().height()
-            return QSize(0, h)
-        return super().minimumSizeHint()
-
-    def setContentLayout(self, layout):
-        self.content_widget = QWidget()
-        self.content_widget.setLayout(layout)
-        self.content_widget.setVisible(self._expanded)
-        self.content_widget.setMaximumHeight(0 if not self._expanded else 16777215)
-        self.content_widget.setMinimumHeight(0)
-        self.content_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-
-        self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(*MARGINS_NONE)
-        self.main_layout.setSpacing(SPACE_NONE)
-        self.main_layout.addWidget(self.header_button)
-        self.main_layout.addWidget(self.content_widget)
-        self._content_animation = QPropertyAnimation(self.content_widget, b"maximumHeight", self)
-        self._content_animation.setDuration(self._animation_duration_ms)
-        self._content_animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
-        self._content_animation.valueChanged.connect(lambda _v: self._refresh_parent_layouts())
-        self._content_animation.finished.connect(self._on_content_animation_finished)
-        # Фиксируем собранную высоту, чтобы дальнейшее изменение окна не растягивало группу.
-        self._apply_size_policy()
-
-    def _target_content_height(self) -> int:
-        if not self.content_widget:
-            return 0
-        if hasattr(self, "_fixed_content_height"):
-            return int(self._fixed_content_height)
-        lay = self.content_widget.layout()
-        if lay is not None:
-            return max(0, int(lay.sizeHint().height()))
-        return max(0, int(self.content_widget.sizeHint().height()))
-
-    def _set_expanded_state(self, expanded: bool, animated: bool):
-        self._expanded = bool(expanded)
-        self.header_button.setChecked(self._expanded)
-        self.header_button.setText(self._format_header_text())
-        self.header_button.setIcon(self._build_disclosure_icon(pointing_down=self._expanded))
-
-        if not self.content_widget:
-            self.toggledExpanded.emit(self._expanded)
-            self.updateGeometry()
-            self._refresh_parent_layouts()
-            return
-
-        self.content_widget.setMinimumHeight(0)
-        target_h = self._target_content_height() if self._expanded else 0
-
-        if animated and self._content_animation is not None:
-            self._is_animating = True
-            self.content_widget.setVisible(True)
-            # Перед анимацией снимаем ограничение, иначе высота не сможет плавно изменяться.
-            self.content_widget.setMinimumHeight(0)
-            self.content_widget.setMaximumHeight(16777215)
-            self._apply_size_policy()
-            try:
-                self._content_animation.stop()
-            except Exception as error:
-                _log_ignored_error("ExpandableGroupBox._set_expanded_state", error)
-            # Берём фактическую высоту: maximumHeight может содержать служебное значение 16777215.
-            start_h = max(0, int(self.content_widget.height()))
-            self._content_animation.setStartValue(start_h)
-            self._content_animation.setEndValue(target_h)
-            self._content_animation.start()
-        else:
-            self._is_animating = False
-            self.content_widget.setVisible(self._expanded)
-            if hasattr(self, "_fixed_content_height"):
-                if self._expanded:
-                    self.content_widget.setFixedHeight(int(self._fixed_content_height))
-                else:
-                    self.content_widget.setFixedHeight(0)
-            else:
-                self.content_widget.setMaximumHeight(16777215 if self._expanded else 0)
-            self._apply_size_policy()
-            self.updateGeometry()
-            self._refresh_parent_layouts()
-
-        self.toggledExpanded.emit(self._expanded)
-
-    def _on_content_animation_finished(self):
-        self._is_animating = False
-        if not self.content_widget:
-            return
-        if self._expanded:
-            if hasattr(self, "_fixed_content_height"):
-                self.content_widget.setFixedHeight(int(self._fixed_content_height))
-            else:
-                self.content_widget.setMaximumHeight(16777215)
-            self.content_widget.setVisible(True)
-        else:
-            if hasattr(self, "_fixed_content_height"):
-                self.content_widget.setFixedHeight(0)
-            else:
-                self.content_widget.setMaximumHeight(0)
-            self.content_widget.setVisible(False)
-        self._apply_size_policy()
-        self.updateGeometry()
-        self._refresh_parent_layouts()
-
-    def _refresh_parent_layouts(self):
-        parent = self.parentWidget()
-        while parent is not None:
-            try:
-                lay = parent.layout()
-                if lay is not None:
-                    lay.invalidate()
-                    lay.activate()
-                parent.updateGeometry()
-            except Exception as error:
-                _log_ignored_error("ExpandableGroupBox._refresh_parent_layouts", error)
-            parent = parent.parentWidget()
 
 
 class MenuLikeComboBox(QToolButton):
@@ -1411,19 +1158,6 @@ class FileListWidget(QTableView):
             event.ignore()
 
 
-class ClickableLabel(QLabel):
-    clicked = pyqtSignal()
-
-    def __init__(self, text="", parent=None):
-        super().__init__(text, parent)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-
-    def mouseReleaseEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.clicked.emit()
-        super().mouseReleaseEvent(event)
-
-
 class DropActionTile(QFrame):
     clicked = pyqtSignal()
 
@@ -1508,9 +1242,7 @@ class LoggingStatusBar(QStatusBar):
 
 
 __all__ = [
-    "ClickableLabel",
     "DropActionTile",
-    "ExpandableGroupBox",
     "FileListItemAdapter",
     "FileListModel",
     "FileListWidget",

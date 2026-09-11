@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from unittest.mock import Mock
 
 from app.core.models import FileItem
 from core.workers.merge.merge_mixin import MergeMixin
@@ -44,6 +45,18 @@ class _DummyMergeWorker(MergeMixin):
 
 
 class MergeMixinTests(unittest.TestCase):
+    def test_pdf_output_rejects_word_and_mixed_inputs(self):
+        worker = _DummyMergeWorker()
+        worker.merge_output_format = "pdf"
+
+        for paths in (
+            ("first.docx", "second.docx"),
+            ("first.pdf", "second.docx"),
+        ):
+            worker.files = [Mock(path=path, is_file=True) for path in paths]
+            with self.assertRaisesRegex(Exception, "только файлы PDF"):
+                worker._merge_files_to_target()
+
     def test_merge_docx_files(self):
         from docx import Document
 

@@ -8,9 +8,11 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
+    QFileDialog,
     QLineEdit,
     QListWidget,
     QPlainTextEdit,
+    QMessageBox,
     QSpinBox,
     QTabBar,
     QWidget,
@@ -45,6 +47,33 @@ class LoggingMixin:
     def get_log_file_path(self):
         """Возвращает путь к файлу логов."""
         return os.path.join(self.get_logs_dir(), "multifora_logs.txt")
+
+    def download_visible_logs(self):
+        """Сохраняет отображаемые с учётом фильтров логи в TXT-файл."""
+        logs_view = getattr(self, "logs_view", None)
+        visible_logs = logs_view.toPlainText().strip() if logs_view is not None else ""
+        if not visible_logs:
+            QMessageBox.warning(self, "Логи", "Нет логов для сохранения.")
+            return
+
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        file_path, _selected_filter = QFileDialog.getSaveFileName(
+            self,
+            "Сохранить логи",
+            f"multifora_logs_{timestamp}.txt",
+            "Текстовые файлы (*.txt)",
+        )
+        if not file_path:
+            return
+        if not file_path.lower().endswith(".txt"):
+            file_path += ".txt"
+
+        try:
+            with open(file_path, "w", encoding="utf-8") as log_export:
+                log_export.write(visible_logs + "\n")
+            self.status_bar.showMessage(f"Логи сохранены: {file_path}")
+        except OSError as error:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить логи: {error}")
 
     def log_event(self, message: str, level: str = "INFO"):
         if not message:

@@ -23,7 +23,9 @@ from app.ui.ui_components import (
     setup_standard_dropdown,
     setup_standard_danger_button,
     setup_standard_form_label,
+    setup_standard_line_input,
     setup_standard_primary_button,
+    setup_standard_secondary_button,
 )
 from app.core.conversion_formats import CONVERSION_CATEGORIES
 from app.ui.ui_styles import build_operations_tab_bar_style
@@ -205,27 +207,6 @@ class OperationsTabLayoutMixin:
         operations_header_layout.addWidget(self.operations_tab_bar, 0, Qt.AlignmentFlag.AlignLeft)
         operations_header_layout.addStretch(1)
 
-        self.operation_profile_combo = MenuLikeComboBox()
-        self.operation_profile_combo.setToolTip("Выбрать и применить сохранённый профиль")
-        self.operation_profile_combo.setMinimumWidth(150)
-        setup_standard_dropdown(self.operation_profile_combo)
-        self.operation_profile_combo.currentIndexChanged.connect(
-            self.apply_selected_operation_profile
-        )
-        operations_header_layout.addWidget(self.operation_profile_combo)
-
-        self.btn_save_operation_profile = QPushButton("Сохранить профиль")
-        self.btn_save_operation_profile.setToolTip("Сохранить все параметры текущей операции")
-        self.btn_save_operation_profile.setFixedHeight(TAB_BAR_HEIGHT)
-        self.btn_save_operation_profile.clicked.connect(self.save_current_operation_profile)
-        operations_header_layout.addWidget(self.btn_save_operation_profile)
-
-        self.btn_delete_operation_profile = QPushButton("Удалить")
-        self.btn_delete_operation_profile.setToolTip("Удалить выбранный профиль")
-        self.btn_delete_operation_profile.setFixedHeight(TAB_BAR_HEIGHT)
-        self.btn_delete_operation_profile.clicked.connect(self.delete_selected_operation_profile)
-        operations_header_layout.addWidget(self.btn_delete_operation_profile)
-
         self.operations_stack = QStackedWidget()
         self.operations_stack.setObjectName("operations_stack")
         self._settings_tab_index = -1
@@ -250,8 +231,6 @@ class OperationsTabLayoutMixin:
         operations_header_layout.addWidget(self.btn_settings)
         self.btn_settings.clicked.connect(self.show_settings_modal)
         self._apply_operations_tab_bar_theme()
-
-        self._update_operations_narrow_layout()
 
         self._update_operations_narrow_layout()
         return tab
@@ -363,9 +342,8 @@ class OperationsTabLayoutMixin:
         merge_layout.setContentsMargins(SPACE_SM, SPACE_NONE, SPACE_NONE, SPACE_NONE)
 
         self.combo_merge_format = MenuLikeComboBox()
-        self.combo_merge_format.addItem("PDF (Word и PDF)", "pdf")
+        self.combo_merge_format.addItem("PDF (только PDF)", "pdf")
         self.combo_merge_format.addItem("DOCX (только DOCX)", "docx")
-        self.combo_merge_format.addItem("Авто", "auto")
         setup_standard_dropdown(self.combo_merge_format)
         self.combo_merge_format.currentIndexChanged.connect(self.on_merge_format_changed)
         self._add_labeled_field(merge_layout, "Формат результата:", self.combo_merge_format)
@@ -382,15 +360,18 @@ class OperationsTabLayoutMixin:
         self.input_merge_output_path.setPlaceholderText("Выберите файл сохранения")
         self.input_merge_output_path.setCursor(Qt.CursorShape.PointingHandCursor)
         self.input_merge_output_path.installEventFilter(self)
+        self.input_merge_output_path.textChanged.connect(self._update_merge_button_state)
         merge_output_row_layout.addWidget(self.input_merge_output_path, 1)
         merge_layout.addWidget(merge_output_row)
         merge_layout.addSpacing(SPACE_SM)
 
         self.btn_merge = QPushButton("Объединить")
-        setup_standard_primary_button(self.btn_merge, height=24)
+        setup_standard_primary_button(self.btn_merge)
         self._make_action_button_fill_width(self.btn_merge)
         self.btn_merge.clicked.connect(self.merge_files)
+        self.btn_merge.setEnabled(False)
         merge_layout.addWidget(self.btn_merge)
+        self._update_merge_button_state()
 
         self._add_operations_page(
             self._wrap_operations_page(merge_card, "merge_page"),
@@ -531,13 +512,43 @@ class OperationsTabLayoutMixin:
         )
         image_mode_layout.addWidget(self.compression_level_widget)
 
-        self.checkbox_replace_image = QCheckBox()
-        self.replace_image_row = self._create_replace_row(
-            self.checkbox_replace_image,
-            "Исходное изображение будет перезаписано сжатой версией",
-            self.on_replace_image_checked,
+        self.combo_image_output_mode = MenuLikeComboBox()
+        self.combo_image_output_mode.addItem("Заменять исходные файлы", "replace")
+        self.combo_image_output_mode.addItem("Рядом с исходными файлами", "alongside")
+        self.combo_image_output_mode.addItem("В отдельную папку", "custom")
+        self.combo_image_output_mode.setCurrentIndex(1)
+        setup_standard_dropdown(self.combo_image_output_mode)
+        self.combo_image_output_mode.currentIndexChanged.connect(
+            self.on_image_output_mode_changed
         )
-        image_mode_layout.addWidget(self.replace_image_row)
+        self._add_labeled_field(
+            image_mode_layout,
+            "Способ сохранения:",
+            self.combo_image_output_mode,
+        )
+
+        self.image_output_path_widget = QWidget()
+        image_output_path_layout = QHBoxLayout(self.image_output_path_widget)
+        image_output_path_layout.setContentsMargins(*MARGINS_NONE)
+        image_output_path_layout.setSpacing(SPACE_SM)
+
+        self.input_image_output_path = QLineEdit()
+        self.input_image_output_path.setReadOnly(True)
+        self.input_image_output_path.setPlaceholderText("Выберите папку сохранения")
+        setup_standard_line_input(self.input_image_output_path)
+        image_output_path_layout.addWidget(self.input_image_output_path, 1)
+
+        self.btn_select_image_output_path = QPushButton("Выбрать папку")
+        setup_standard_secondary_button(self.btn_select_image_output_path)
+        self.btn_select_image_output_path.clicked.connect(self.select_image_output_folder)
+        image_output_path_layout.addWidget(self.btn_select_image_output_path)
+
+        self._add_labeled_field(
+            image_mode_layout,
+            "Папка сохранения:",
+            self.image_output_path_widget,
+        )
+        self.on_image_output_mode_changed()
         return self.image_mode_widget
 
     def _create_compression_operation_page(self) -> None:
