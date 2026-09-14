@@ -1,4 +1,5 @@
 import os
+import tempfile
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -35,6 +36,30 @@ class FileWorkerOperationTests(unittest.TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].updated_files[0][1], expected_target)
         self.assertEqual(results[0].errors, [])
+
+    def test_rename_operation_renames_real_file(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            source_path = os.path.join(tmp_dir, "source.txt")
+            target_path = os.path.join(tmp_dir, "renamed.txt")
+            with open(source_path, "w", encoding="utf-8") as stream:
+                stream.write("test")
+
+            source = SimpleNamespace(
+                path=source_path,
+                folder=tmp_dir,
+                name="source.txt",
+            )
+            worker = FileWorker()
+            results = []
+            worker.finished.connect(results.append)
+            worker.set_rename([source], ["renamed.txt"])
+
+            worker.run()
+
+            self.assertFalse(os.path.exists(source_path))
+            self.assertTrue(os.path.exists(target_path))
+            self.assertEqual(results[0].updated_files, [(source, target_path)])
+            self.assertEqual(results[0].errors, [])
 
 
 if __name__ == "__main__":

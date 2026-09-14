@@ -811,10 +811,13 @@ class FileListItemAdapter:
 
 
 class FileListModel(QAbstractTableModel):
-    COLUMN_NAME = 0
-    COLUMN_TYPE = 1
-    COLUMN_PATH = 2
-    HEADERS = ("Имя", "Тип файла", "Путь")
+    COLUMN_OLD_NAME = 0
+    COLUMN_NEW_NAME = 1
+    COLUMN_TYPE = 2
+    COLUMN_PATH = 3
+    # Совместимость с кодом, которому нужна любая колонка для выбора строки.
+    COLUMN_NAME = COLUMN_OLD_NAME
+    HEADERS = ("Старое имя", "Новое имя", "Тип файла", "Путь")
 
     # Хранит общий порядок файлов, чтобы выделение и перетаскивание не расходились с UI.
     def __init__(self, parent=None):
@@ -874,15 +877,19 @@ class FileListModel(QAbstractTableModel):
 
         file_item = self._files[index.row()]
         if role == Qt.ItemDataRole.DisplayRole:
-            if index.column() == self.COLUMN_NAME:
+            if index.column() == self.COLUMN_OLD_NAME:
+                return self._original_display_name(file_item)
+            if index.column() == self.COLUMN_NEW_NAME:
                 return getattr(file_item, "preview_name", None) or self._original_display_name(file_item)
             if index.column() == self.COLUMN_TYPE:
                 return self._file_type(file_item)
             if index.column() == self.COLUMN_PATH:
                 return str(getattr(file_item, "path", ""))
         if role == Qt.ItemDataRole.ToolTipRole:
-            if index.column() == self.COLUMN_NAME:
-                return self._full_display_name(file_item)
+            if index.column() == self.COLUMN_OLD_NAME:
+                return self._original_display_name(file_item)
+            if index.column() == self.COLUMN_NEW_NAME:
+                return getattr(file_item, "preview_name", None) or self._original_display_name(file_item)
             if index.column() == self.COLUMN_PATH:
                 return str(getattr(file_item, "path", ""))
         if role == Qt.ItemDataRole.SizeHintRole:
@@ -1076,7 +1083,8 @@ class FileListWidget(QTableView):
         self._resize_columns_to_contents()
 
     def _resize_columns_to_contents(self):
-        self.resizeColumnToContents(self.model().COLUMN_NAME)
+        self.resizeColumnToContents(self.model().COLUMN_OLD_NAME)
+        self.resizeColumnToContents(self.model().COLUMN_NEW_NAME)
         self.resizeColumnToContents(self.model().COLUMN_TYPE)
 
     def set_manual_sorting(self, enabled: bool):

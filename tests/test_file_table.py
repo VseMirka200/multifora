@@ -15,7 +15,7 @@ class FileTableTests(unittest.TestCase):
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication([])
 
-    def test_model_exposes_name_type_and_path_without_icons(self):
+    def test_model_exposes_old_name_new_name_type_and_path_without_icons(self):
         item = SimpleNamespace(
             path=r"C:\Users\User\Pictures\image.png",
             name="image.png",
@@ -24,16 +24,22 @@ class FileTableTests(unittest.TestCase):
         )
         model = FileListModel()
         model.set_files([item])
-        name_index = model.index(0, model.COLUMN_NAME)
+        old_name_index = model.index(0, model.COLUMN_OLD_NAME)
+        new_name_index = model.index(0, model.COLUMN_NEW_NAME)
         type_index = model.index(0, model.COLUMN_TYPE)
         path_index = model.index(0, model.COLUMN_PATH)
-        self.assertEqual(model.columnCount(), 3)
-        self.assertEqual(name_index.data(Qt.ItemDataRole.DisplayRole), "image.pdf")
-        self.assertEqual(name_index.data(Qt.ItemDataRole.ToolTipRole), "image.png -> image.pdf")
+        self.assertEqual(model.columnCount(), 4)
+        self.assertEqual(model.headerData(model.COLUMN_OLD_NAME, Qt.Orientation.Horizontal), "Старое имя")
+        self.assertEqual(model.headerData(model.COLUMN_NEW_NAME, Qt.Orientation.Horizontal), "Новое имя")
+        self.assertEqual(old_name_index.data(Qt.ItemDataRole.DisplayRole), "image.png")
+        self.assertEqual(old_name_index.data(Qt.ItemDataRole.ToolTipRole), "image.png")
+        self.assertEqual(new_name_index.data(Qt.ItemDataRole.DisplayRole), "image.pdf")
+        self.assertEqual(new_name_index.data(Qt.ItemDataRole.ToolTipRole), "image.pdf")
         self.assertEqual(type_index.data(Qt.ItemDataRole.DisplayRole), "PNG")
         self.assertEqual(path_index.data(Qt.ItemDataRole.DisplayRole), item.path)
         self.assertEqual(path_index.data(Qt.ItemDataRole.ToolTipRole), item.path)
-        self.assertIsNone(name_index.data(Qt.ItemDataRole.DecorationRole))
+        self.assertIsNone(old_name_index.data(Qt.ItemDataRole.DecorationRole))
+        self.assertIsNone(new_name_index.data(Qt.ItemDataRole.DecorationRole))
 
     def test_file_type_handles_uppercase_extension_folder_and_extensionless_file(self):
         model = FileListModel()
@@ -56,7 +62,11 @@ class FileTableTests(unittest.TestCase):
         self.assertTrue(widget.horizontalHeader().stretchLastSection())
         header = widget.horizontalHeader()
         self.assertEqual(
-            header.sectionResizeMode(widget.model().COLUMN_NAME),
+            header.sectionResizeMode(widget.model().COLUMN_OLD_NAME),
+            QHeaderView.ResizeMode.Interactive,
+        )
+        self.assertEqual(
+            header.sectionResizeMode(widget.model().COLUMN_NEW_NAME),
             QHeaderView.ResizeMode.Interactive,
         )
         self.assertEqual(
