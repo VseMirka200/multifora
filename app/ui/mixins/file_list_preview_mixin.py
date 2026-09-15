@@ -301,6 +301,12 @@ class FileListPreviewMixin:
 
         policy_widget = getattr(self, "rename_conflict_policy", None)
         conflict_policy = str(policy_widget.currentData() or "unique") if policy_widget else "unique"
+        folder_mode_widget = getattr(self, "rename_folder_mode_combo", None)
+        folder_mode = (
+            str(folder_mode_widget.currentData() or "sequential")
+            if folder_mode_widget is not None
+            else "sequential"
+        )
         conflict_details = ""
         if issues:
             action = "будут пропущены" if conflict_policy == "skip" else "получат свободный номер"
@@ -320,11 +326,13 @@ class FileListPreviewMixin:
                 files_to_rename,
                 new_names,
                 conflict_policy=conflict_policy,
+                folder_mode=folder_mode,
             )
             self._last_operation = {
                 "op": "rename",
                 "new_names_by_path": {f.path: name for f, name in zip(files_to_rename, new_names)},
                 "conflict_policy": conflict_policy,
+                "folder_mode": folder_mode,
             }
             self.file_worker.start()
             self.log_event(f"Переименование: {len(files_to_rename)} файлов")

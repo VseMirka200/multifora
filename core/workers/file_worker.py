@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import os
+import threading
 from collections.abc import Callable, Iterable
+from concurrent.futures import ThreadPoolExecutor
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
 from app.core.models import FileItem
 
 from .compression import CompressionMixin
-from .common import emit_progress, finish_if_cancelled, get_unique_path, record_file_error
+from .common import emit_progress, get_unique_path, record_file_error
 from .conversion import ConversionMixin
 from .merge import MergeMixin
 from .metadata import MetadataMixin
@@ -39,6 +41,7 @@ class FileWorker(
         self.conversion_output_dir = ""
         self.new_names: list[str] = []
         self.rename_conflict_policy = "unique"
+        self.rename_folder_mode = "sequential"
         self.compression_level = 85
         self.compression_type = "image"
         self.pdf_method = "auto"
@@ -106,10 +109,16 @@ class FileWorker(
         files: list[FileItem],
         new_names: list[str],
         conflict_policy: str = "unique",
+        folder_mode: str = "sequential",
     ) -> None:
         self._prepare_operation("rename", files)
         self.new_names = new_names
         self.rename_conflict_policy = conflict_policy if conflict_policy in {"unique", "skip"} else "unique"
+        self.rename_folder_mode = (
+            folder_mode
+            if folder_mode in {"sequential", "parallel_by_folder"}
+            else "sequential"
+        )
 
     def set_compression(
         self,
@@ -166,36 +175,81 @@ class FileWorker(
             return
 
         total = len(self.files)
-        updated_files = []
+        updated_files: list[tuple[FileItem, str]] = []
+        completed = 0
+        result_lock = threading.Lock()
 
+        # Внутри одной папки имена меняются строго последовательно. Разные папки
+        # не пересекаются по целевым путям, поэтому их можно безопасно выполнять
+        # параллельно, сохранив исходный порядок итогового результата.
+        folder_groups: dict[str, list[tuple[int, FileItem, str]]] = {}
         for index, (file_item, new_name) in enumerate(zip(self.files, self.new_names)):
-            if finish_if_cancelled(self, [], updated_files):
-                return
+            folder_key = os.path.normcase(os.path.abspath(file_item.folder))
+            folder_groups.setdefault(folder_key, []).append((index, file_item, new_name))
 
-            old_path = file_item.path
-            new_path = os.path.join(file_item.folder, new_name)
+        indexed_updates: list[tuple[int, FileItem, str]] = []
 
-            try:
-                same_path = (
-                    os.path.normcase(os.path.abspath(old_path)).casefold()
-                    == os.path.normcase(os.path.abspath(new_path)).casefold()
-                )
-                if os.path.exists(new_path) and not same_path:
-                    if self.rename_conflict_policy == "skip":
-                        self.status.emit(f"Пропущен конфликт имён: {file_item.name}")
-                        emit_progress(self, index, total)
-                        continue
-                    new_path = self._get_unique_path(new_path)
+        def rename_group(entries: list[tuple[int, FileItem, str]]) -> None:
+            nonlocal completed
+            for index, file_item, new_name in entries:
+                if self._should_cancel():
+                    return
 
-                os.rename(old_path, new_path)
-                updated_files.append((file_item, new_path))
-            except Exception as error:
-                message = f"Ошибка переименования {file_item.name}: {error}"
-                record_file_error(self, file_item, message)
+                old_name = file_item.name
+                old_path = file_item.path
+                new_path = os.path.join(file_item.folder, new_name)
+                renamed_path = None
+                error_message = None
+                skipped = False
 
-            emit_progress(self, index, total)
-            self.status.emit(f"Переименование: {file_item.name}")
+                try:
+                    same_path = (
+                        os.path.normcase(os.path.abspath(old_path)).casefold()
+                        == os.path.normcase(os.path.abspath(new_path)).casefold()
+                    )
+                    if os.path.exists(new_path) and not same_path:
+                        if self.rename_conflict_policy == "skip":
+                            skipped = True
+                        else:
+                            new_path = self._get_unique_path(new_path)
 
+                    if not skipped:
+                        os.rename(old_path, new_path)
+                        renamed_path = new_path
+                except Exception as error:
+                    error_message = f"Ошибка переименования {old_name}: {error}"
+
+                with result_lock:
+                    if renamed_path is not None:
+                        indexed_updates.append((index, file_item, renamed_path))
+                    if error_message is not None:
+                        record_file_error(self, file_item, error_message)
+                    if skipped:
+                        self.status.emit(f"Пропущен конфликт имён: {old_name}")
+                    else:
+                        self.status.emit(f"Переименование: {old_name}")
+                    completed += 1
+                    emit_progress(self, completed - 1, total)
+
+        groups = list(folder_groups.values())
+        if self.rename_folder_mode == "parallel_by_folder" and len(groups) > 1:
+            with ThreadPoolExecutor(
+                max_workers=min(len(groups), 32),
+                thread_name_prefix="rename-folder",
+            ) as executor:
+                futures = [executor.submit(rename_group, group) for group in groups]
+                for future in futures:
+                    future.result()
+        else:
+            for group in groups:
+                if self._should_cancel():
+                    break
+                rename_group(group)
+
+        indexed_updates.sort(key=lambda item: item[0])
+        updated_files.extend((file_item, path) for _, file_item, path in indexed_updates)
+        if self._should_cancel():
+            self.status.emit("Операция отменена пользователем")
         self._emit_finished([], updated_files)
 
     def _operation_handlers(self) -> dict[str, Callable[[], None]]:

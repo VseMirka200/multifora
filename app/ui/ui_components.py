@@ -817,7 +817,7 @@ class FileListModel(QAbstractTableModel):
     COLUMN_PATH = 3
     # Совместимость с кодом, которому нужна любая колонка для выбора строки.
     COLUMN_NAME = COLUMN_OLD_NAME
-    HEADERS = ("Старое имя", "Новое имя", "Тип файла", "Путь")
+    HEADERS = ("Старое имя", "Новое имя", "Тип файла", "Исходная папка")
 
     # Хранит общий порядок файлов, чтобы выделение и перетаскивание не расходились с UI.
     def __init__(self, parent=None):
@@ -863,6 +863,13 @@ class FileListModel(QAbstractTableModel):
         extension = os.path.splitext(str(getattr(file_item, "path", "")))[1]
         return extension[1:].upper() if extension else "Файл"
 
+    @staticmethod
+    def _source_folder(file_item) -> str:
+        path = str(getattr(file_item, "path", ""))
+        if not getattr(file_item, "is_file", True):
+            return path
+        return str(getattr(file_item, "folder", "") or os.path.dirname(path))
+
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid():
             return None
@@ -884,7 +891,7 @@ class FileListModel(QAbstractTableModel):
             if index.column() == self.COLUMN_TYPE:
                 return self._file_type(file_item)
             if index.column() == self.COLUMN_PATH:
-                return str(getattr(file_item, "path", ""))
+                return self._source_folder(file_item)
         if role == Qt.ItemDataRole.ToolTipRole:
             if index.column() == self.COLUMN_OLD_NAME:
                 return self._original_display_name(file_item)

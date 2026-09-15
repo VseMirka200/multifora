@@ -260,6 +260,53 @@ class OperationsTabLayoutMixin:
             self.rename_conflict_policy,
         )
 
+        self.rename_folder_mode_combo = MenuLikeComboBox()
+        self.rename_folder_mode_combo.addItem("Папка за папкой", "sequential")
+        self.rename_folder_mode_combo.addItem(
+            "Разные папки параллельно",
+            "parallel_by_folder",
+        )
+        self.rename_folder_mode_combo.setToolTip(
+            "Внутри каждой папки файлы всегда переименовываются по порядку. "
+            "Параллельный режим запускает разные папки в отдельных потоках."
+        )
+        setup_standard_dropdown(self.rename_folder_mode_combo)
+        self.rename_folder_mode_combo.currentIndexChanged.connect(
+            lambda *_args: self._schedule_settings_save()
+            if callable(getattr(self, "_schedule_settings_save", None))
+            else None
+        )
+        self._add_labeled_field(
+            rename_layout,
+            "Обработка содержимого папок:",
+            self.rename_folder_mode_combo,
+        )
+
+        self.rename_numbering_scope_combo = MenuLikeComboBox()
+        self.rename_numbering_scope_combo.addItem("Общая для всех папок", "global")
+        self.rename_numbering_scope_combo.addItem(
+            "Начинать заново в каждой папке",
+            "per_folder",
+        )
+        self.rename_numbering_scope_combo.setToolTip(
+            "Определяет, продолжать ли счётчик {num} между папками."
+        )
+        setup_standard_dropdown(self.rename_numbering_scope_combo)
+
+        def on_numbering_scope_changed(*_args):
+            self.refresh_rename_preview(show_empty_warning=False)
+            if callable(getattr(self, "_schedule_settings_save", None)):
+                self._schedule_settings_save()
+
+        self.rename_numbering_scope_combo.currentIndexChanged.connect(
+            on_numbering_scope_changed
+        )
+        self._add_labeled_field(
+            rename_layout,
+            "Нумерация содержимого папок:",
+            self.rename_numbering_scope_combo,
+        )
+
         self.rename_validation_label = self._create_operation_hint_label(
             "Проверка имён будет выполнена перед запуском."
         )
