@@ -1,21 +1,47 @@
+from __future__ import annotations
+
+from collections.abc import Iterable
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFontMetrics
-from PyQt6.QtWidgets import QDialog, QHBoxLayout, QLabel, QMessageBox, QPushButton, QStyle, QVBoxLayout
+from PyQt6.QtWidgets import (
+    QDialog,
+    QHBoxLayout,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QSizePolicy,
+    QStyle,
+    QVBoxLayout,
+)
+
 from app.core.app_utils import _log_ignored_error
 
 
 _MESSAGE_BOX_HOOKS_INSTALLED = False
 _DIALOG_MIN_WIDTH = 420
-_DIALOG_MAX_WIDTH = 560
+_DIALOG_MAX_WIDTH = 760
 _ICON_SIZE = 32
-_ICON_SLOT_SIZE = 40
+_BUTTON_HEIGHT = 22
 _BUTTON_MIN_WIDTH = 84
 
 
-def _setup_message_box_button(button: QPushButton, *, height: int = 22) -> QPushButton:
-    button.setFixedHeight(height)
+def _setup_message_box_button(
+    button: QPushButton,
+    *,
+    variant: str = "secondary",
+) -> QPushButton:
+    button.setFixedHeight(_BUTTON_HEIGHT)
     button.setCursor(Qt.CursorShape.PointingHandCursor)
-    button.setProperty("buttonVariant", "secondary")
+    button.setProperty("buttonVariant", variant)
+    button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+    try:
+        button.style().unpolish(button)
+        button.style().polish(button)
+        button.updateGeometry()
+    except Exception as error:
+        _log_ignored_error("_setup_message_box_button", error)
+    button.setFixedWidth(max(_BUTTON_MIN_WIDTH, button.sizeHint().width()))
     return button
 
 
@@ -37,7 +63,7 @@ def _resolve_message_box_icon(widget, icon: QMessageBox.Icon):
 
 
 def tune_message_box_layout(msg_box: QMessageBox, icon: QMessageBox.Icon):
-    """Приводит layout системного QMessageBox к единому виду (иконка + текст)."""
+    """Приводит системный QMessageBox к общему виду приложения."""
     resolved_icon = _resolve_message_box_icon(msg_box, icon)
     if resolved_icon is not None:
         msg_box.setIconPixmap(resolved_icon.pixmap(_ICON_SIZE, _ICON_SIZE))
@@ -46,7 +72,7 @@ def tune_message_box_layout(msg_box: QMessageBox, icon: QMessageBox.Icon):
         try:
             if label.pixmap() is not None:
                 label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
-                label.setFixedSize(_ICON_SLOT_SIZE, _ICON_SLOT_SIZE)
+                label.setFixedSize(_ICON_SIZE, _ICON_SIZE)
                 continue
         except Exception as error:
             _log_ignored_error("tune_message_box_layout", error)
@@ -56,9 +82,19 @@ def tune_message_box_layout(msg_box: QMessageBox, icon: QMessageBox.Icon):
             label.setMinimumHeight(36)
 
 
-def _show_localized_message_box(parent, title, text, icon, default_button=QMessageBox.StandardButton.Ok):
-    """Показывает локализованное модальное сообщение приложения."""
+def show_app_choice(
+    parent,
+    title: str,
+    text: str,
+    choices: Iterable[tuple[str, str, str]],
+    *,
+    icon: QMessageBox.Icon = QMessageBox.Icon.Question,
+    default_key: str | None = None,
+    cancel_key: str | None = None,
+) -> str | None:
+    """Показывает единый диалог приложения и возвращает ключ выбранной кнопки."""
     dialog = QDialog(parent)
+    dialog.setObjectName("appMessageDialog")
     dialog.setWindowTitle(str(title))
     dialog.setModal(True)
     dialog.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
@@ -66,7 +102,7 @@ def _show_localized_message_box(parent, title, text, icon, default_button=QMessa
         dialog._effective_theme_mode = getattr(parent, "_effective_theme_mode", "dark")
         dialog.setStyleSheet(parent.styleSheet())
     except Exception as error:
-        _log_ignored_error("_show_localized_message_box", error)
+        _log_ignored_error("show_app_choice", error)
 
     layout = QVBoxLayout(dialog)
     layout.setContentsMargins(14, 12, 14, 12)
@@ -77,6 +113,7 @@ def _show_localized_message_box(parent, title, text, icon, default_button=QMessa
     content_row.setSpacing(10)
 
     icon_label = QLabel()
+    icon_label.setObjectName("appMessageIcon")
     icon_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
     icon_label.setFixedSize(_ICON_SIZE, _ICON_SIZE)
     resolved_icon = _resolve_message_box_icon(dialog, icon)
@@ -85,6 +122,7 @@ def _show_localized_message_box(parent, title, text, icon, default_button=QMessa
     content_row.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignVCenter)
 
     text_label = QLabel(str(text))
+    text_label.setObjectName("appMessageText")
     text_label.setWordWrap(True)
     text_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
     text_label.setMinimumHeight(36)
@@ -96,26 +134,74 @@ def _show_localized_message_box(parent, title, text, icon, default_button=QMessa
     button_row.setSpacing(8)
     button_row.addStretch()
 
-    ok_button = QPushButton("Хорошо")
-    _setup_message_box_button(ok_button, height=22)
-    ok_button.setSizePolicy(ok_button.sizePolicy().Policy.Fixed, ok_button.sizePolicy().Policy.Fixed)
-    try:
-        ok_button.style().unpolish(ok_button)
-        ok_button.style().polish(ok_button)
-        ok_button.updateGeometry()
-    except Exception as error:
-        _log_ignored_error("_show_localized_message_box", error)
-    ok_button.setFixedWidth(max(_BUTTON_MIN_WIDTH, ok_button.sizeHint().width()))
-    button_row.addWidget(ok_button)
+    selected = {"key": None}
+    buttons: list[QPushButton] = []
+
+    def select(key: str) -> None:
+        selected["key"] = key
+        dialog.accept()
+
+    for key, label, variant in choices:
+        button = _setup_message_box_button(QPushButton(label), variant=variant)
+        button.setObjectName(f"appMessageButton_{key}")
+        button.clicked.connect(lambda _checked=False, choice_key=key: select(choice_key))
+        if key == default_key:
+            button.setDefault(True)
+            button.setFocus()
+        button_row.addWidget(button)
+        buttons.append(button)
+
     layout.addLayout(button_row)
 
-    ok_button.clicked.connect(dialog.accept)
-
     metrics = QFontMetrics(text_label.font())
-    width = max(_DIALOG_MIN_WIDTH, min(_DIALOG_MAX_WIDTH, metrics.horizontalAdvance(str(text)) + 150))
-    dialog.setMinimumWidth(width)
-    dialog.resize(max(width, dialog.sizeHint().width()), dialog.sizeHint().height())
+    longest_line = max((metrics.horizontalAdvance(line) for line in str(text).splitlines()), default=0)
+    content_width = max(_DIALOG_MIN_WIDTH, min(_DIALOG_MAX_WIDTH, longest_line + 90))
+    buttons_width = sum(button.width() for button in buttons) + max(0, len(buttons) - 1) * 8 + 28
+    dialog_width = min(_DIALOG_MAX_WIDTH, max(content_width, buttons_width, dialog.sizeHint().width()))
+    dialog.setMinimumWidth(dialog_width)
+    dialog.resize(dialog_width, dialog.sizeHint().height())
+
     dialog.exec()
+    return selected["key"] if selected["key"] is not None else cancel_key
+
+
+def show_app_confirmation(
+    parent,
+    title: str,
+    text: str,
+    *,
+    icon: QMessageBox.Icon = QMessageBox.Icon.Question,
+    default_no: bool = True,
+    yes_text: str = "Да",
+    no_text: str = "Нет",
+    destructive: bool = False,
+) -> bool:
+    result = show_app_choice(
+        parent,
+        title,
+        text,
+        (
+            ("yes", yes_text, "danger" if destructive else "secondary"),
+            ("no", no_text, "secondary"),
+        ),
+        icon=icon,
+        default_key="no" if default_no else "yes",
+        cancel_key="no",
+    )
+    return result == "yes"
+
+
+def _show_localized_message_box(parent, title, text, icon, default_button=QMessageBox.StandardButton.Ok):
+    """Показывает локализованное модальное сообщение приложения."""
+    show_app_choice(
+        parent,
+        str(title),
+        str(text),
+        (("ok", "Хорошо", "secondary"),),
+        icon=icon,
+        default_key="ok",
+        cancel_key="ok",
+    )
     return QMessageBox.StandardButton.Ok
 
 
@@ -146,7 +232,20 @@ def install_warning_suppression_hook():
     def _critical(parent, title, text, *args, **kwargs):
         return _show_localized_message_box(parent, title, text, QMessageBox.Icon.Critical)
 
+    def _question(parent, title, text, *args, **kwargs):
+        default_button = kwargs.get("defaultButton", QMessageBox.StandardButton.No)
+        if len(args) >= 2:
+            default_button = args[1]
+        accepted = show_app_confirmation(
+            parent,
+            str(title),
+            str(text),
+            default_no=default_button != QMessageBox.StandardButton.Yes,
+        )
+        return QMessageBox.StandardButton.Yes if accepted else QMessageBox.StandardButton.No
+
     QMessageBox.warning = staticmethod(_warning)
     QMessageBox.information = staticmethod(_information)
     QMessageBox.critical = staticmethod(_critical)
+    QMessageBox.question = staticmethod(_question)
     _MESSAGE_BOX_HOOKS_INSTALLED = True

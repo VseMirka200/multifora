@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtWidgets import QApplication, QDialog, QSizePolicy
+from PyQt6.QtWidgets import QApplication, QDialog, QLabel, QSizePolicy
 from PyQt6.QtCore import Qt
 
 from app.core.models import FileItem
@@ -27,6 +27,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window = MultiforaMainWindow()
 
             try:
+                self.assertEqual(window.windowTitle(), "Мультифора")
                 self.assertIsNotNone(window.tabs)
                 self.assertIsNotNone(window.operations_stack)
                 self.assertGreaterEqual(window.operations_stack.count(), 5)
@@ -35,27 +36,59 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(window.combo_merge_format.findData("auto"), -1)
                 self.assertEqual(window.combo_merge_format._items[0], ("PDF (только PDF)", "pdf"))
                 self.assertFalse(hasattr(window, "checkbox_replace_image"))
-                self.assertFalse(hasattr(window, "btn_ext_filter"))
-                self.assertFalse(hasattr(window, "btn_type_filter"))
+                self.assertTrue(hasattr(window, "btn_ext_filter"))
+                self.assertTrue(hasattr(window, "btn_type_filter"))
                 self.assertFalse(hasattr(window, "combo_sort"))
-                self.assertFalse(hasattr(window, "input_search"))
+                self.assertTrue(hasattr(window, "input_search"))
+                header_positions = [
+                    window._list_header_layout.getItemPosition(
+                        window._list_header_layout.indexOf(widget)
+                    )
+                    for widget in (
+                        window.input_search,
+                        window.btn_ext_filter,
+                        window.btn_type_filter,
+                    )
+                ]
+                self.assertEqual([position[0] for position in header_positions], [0, 0, 0])
+                self.assertEqual([position[1] for position in header_positions], [2, 0, 1])
+                self.assertFalse(window.progress_dialog.isModal())
+                self.assertEqual(
+                    window.progress_dialog.windowModality(),
+                    Qt.WindowModality.NonModal,
+                )
                 tab_labels = [
                     window.operations_tab_bar.tabText(index)
                     for index in range(window.operations_tab_bar.count())
                 ]
-                self.assertIn("Метаданные", tab_labels)
+                self.assertEqual(
+                    tab_labels,
+                    [
+                        "Переименование",
+                        "Конвертация",
+                        "Сжатие",
+                        "Объединение",
+                        "Удаление метаданных",
+                    ],
+                )
                 self.assertIsNotNone(window.btn_remove_metadata)
                 self.assertTrue(window.metadata_field_checkboxes)
 
                 settings_widget = window._ensure_settings_panel_widget()
                 self.assertIsNotNone(settings_widget)
+                window._ensure_about_settings_page()
+                about_page = window.settings_stack.widget(window._about_settings_row)
+                about_texts = [label.text() for label in about_page.findChildren(QLabel)]
+                self.assertIn("Версия: 0.9.0", about_texts)
                 self.assertEqual(window.conversion_output_mode_combo.currentData(), "ask")
+                self.assertTrue(window.conversion_output_path_row.isHidden())
                 self.assertFalse(window.conversion_output_path_input.isEnabled())
                 window.conversion_output_mode_combo.setCurrentIndex(
                     window.conversion_output_mode_combo.findData("custom")
                 )
                 self.assertTrue(window.conversion_output_path_input.isEnabled())
                 self.assertTrue(window.btn_select_conversion_output_path.isEnabled())
+                self.assertFalse(window.conversion_output_path_row.isHidden())
                 self.assertEqual(window.btn_download_logs.text(), "Скачать логи")
                 self.assertEqual(window.btn_download_logs.property("buttonVariant"), "secondary")
                 self.assertGreaterEqual(window.settings_stack.count(), 4)
@@ -70,6 +103,22 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.operations_tab_bar.tabBarClicked.emit(original_index)
                 self.assertTrue(window.settings_panel_host.isHidden())
                 self.assertFalse(window.btn_settings.isChecked())
+
+                running_worker = Mock()
+                running_worker.isRunning.return_value = True
+                window.file_worker = running_worker
+                with patch("app.ui.ui_main.QMessageBox.warning") as warning:
+                    self.assertFalse(window.create_file_worker())
+                    for callback in (
+                        window.apply_rename,
+                        window.convert_files_dual_combo,
+                        window.compress_files,
+                        window.merge_files,
+                        window.remove_document_metadata,
+                    ):
+                        callback()
+                    self.assertEqual(warning.call_count, 6)
+                self.assertIs(window.file_worker, running_worker)
             finally:
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()
@@ -105,10 +154,12 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual([item.name for item in window.files], ["alpha.pdf", "zeta.txt"])
                 self.assertTrue(window.list_files.horizontalHeader().isSortIndicatorShown())
                 self.assertEqual(window._column_sort_order, Qt.SortOrder.AscendingOrder)
+                self.assertTrue(window.list_files.dragEnabled())
 
                 window.on_file_header_clicked(column)
                 self.assertEqual([item.name for item in window.files], ["zeta.txt", "alpha.pdf"])
                 self.assertEqual(window._column_sort_order, Qt.SortOrder.DescendingOrder)
+                self.assertTrue(window.list_files.dragEnabled())
 
                 window.on_file_header_clicked(column)
                 self.assertIsNone(window._column_sort_section)
@@ -118,6 +169,53 @@ class MainWindowSmokeTests(unittest.TestCase):
                 folder_column = window.list_files.model().COLUMN_PATH
                 window.on_file_header_clicked(folder_column)
                 self.assertEqual([item.name for item in window.files], ["alpha.pdf", "zeta.txt"])
+            finally:
+                if hasattr(window, "queue_timer"):
+                    window.queue_timer.stop()
+                if hasattr(window, "_settings_save_timer"):
+                    window._settings_save_timer.stop()
+                window.deleteLater()
+
+    def test_filtered_rows_can_be_reordered_without_losing_hidden_files(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            paths = [
+                os.path.join(tmp_dir, "first.txt"),
+                os.path.join(tmp_dir, "hidden.pdf"),
+                os.path.join(tmp_dir, "second.txt"),
+            ]
+            for path in paths:
+                with open(path, "wb") as stream:
+                    stream.write(b"test")
+
+            settings_path = os.path.join(tmp_dir, "settings.json")
+            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+                window = MultiforaMainWindow()
+
+            try:
+                window.files = [FileItem(path) for path in paths]
+                window.update_file_list()
+                window.input_search.setText(".txt")
+                self.app.processEvents()
+
+                self.assertTrue(window.list_files.dragEnabled())
+                self.assertEqual(window.list_files.model().rowCount(), 2)
+                self.assertTrue(window.list_files.model().moveRows(
+                    window.list_files.rootIndex(),
+                    0,
+                    1,
+                    window.list_files.rootIndex(),
+                    2,
+                ))
+                window.on_list_order_changed()
+
+                self.assertEqual(
+                    [item.name for item in window.files],
+                    ["second.txt", "hidden.pdf", "first.txt"],
+                )
+                self.assertEqual(len(window.files), 3)
             finally:
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()
@@ -257,6 +355,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.on_file_selection_changed()
                 self.assertEqual(window.combo_compress_type.currentText(), "Изображения")
                 self.assertEqual(window.combo_image_output_mode.currentData(), "alongside")
+                self.assertTrue(window.image_output_path_section.isHidden())
                 self.assertFalse(window.input_image_output_path.isEnabled())
                 self.assertFalse(window.btn_select_image_output_path.isEnabled())
                 self.assertTrue(window.btn_compress.isEnabled())
@@ -266,6 +365,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 )
                 self.assertTrue(window.input_image_output_path.isEnabled())
                 self.assertTrue(window.btn_select_image_output_path.isEnabled())
+                self.assertFalse(window.image_output_path_section.isHidden())
                 self.assertFalse(window.btn_compress.isEnabled())
 
                 window.input_image_output_path.setText(tmp_dir)
@@ -431,7 +531,18 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window.show_template_manager()
 
                 dialog = window.templates_table.window()
+                dialog_margins = dialog.layout().contentsMargins()
+                self.assertEqual(
+                    (
+                        dialog_margins.left(),
+                        dialog_margins.top(),
+                        dialog_margins.right(),
+                        dialog_margins.bottom(),
+                    ),
+                    (6, 6, 6, 6),
+                )
                 card_layout = window.templates_table.parentWidget().layout()
+                self.assertEqual(card_layout.spacing(), 4)
                 actions_row = window.btn_apply_template.parentWidget()
                 self.assertGreater(card_layout.indexOf(actions_row), card_layout.indexOf(window.templates_table))
 
@@ -475,6 +586,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     self.assertFalse(window.btn_remove_all_metadata.isEnabled())
                     document = Mock(path=os.path.join(tmp_dir, "document.pdf"))
                     window.file_worker = Mock()
+                    window.file_worker.isRunning.return_value = False
                     with patch.object(window, "_get_selected_or_all_file_items", return_value=[document]), \
                         patch.object(window, "show_russian_message_box", return_value=True), \
                         patch.object(window, "_show_progress_dialog"):

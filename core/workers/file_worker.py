@@ -57,6 +57,7 @@ class FileWorker(
         self._cancel_requested = False
         self.errors: list[dict[str, object]] = []
         self._word_warmup_done = False
+        self._word_pdf_unavailable = False
         self._conversion_reserved_paths: set[str] = set()
 
     def request_cancel(self) -> None:
@@ -112,6 +113,7 @@ class FileWorker(
         )
         self._conversion_reserved_paths = set()
         self._word_warmup_done = False
+        self._word_pdf_unavailable = False
 
     def set_rename(
         self,

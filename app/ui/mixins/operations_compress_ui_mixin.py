@@ -90,9 +90,6 @@ class OperationsCompressUiMixin:
         ):
             can_compress = can_compress and bool(self._image_output_path())
 
-        if hasattr(self, "file_worker") and self.file_worker and self.file_worker.isRunning():
-            can_compress = False
-
         # Не импортируем библиотеки конвертации при запуске интерфейса.
         # Наличие конкретного backend проверяется worker-ом только при старте операции.
         self.btn_compress.setEnabled(can_compress)
@@ -113,6 +110,9 @@ class OperationsCompressUiMixin:
         self.image_compression_output_mode = mode
         custom_enabled = mode == "custom"
 
+        path_section = getattr(self, "image_output_path_section", None)
+        if path_section is not None:
+            path_section.setVisible(custom_enabled)
         path_field = getattr(self, "input_image_output_path", None)
         if path_field is not None:
             path_field.setEnabled(custom_enabled)

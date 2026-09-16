@@ -424,25 +424,6 @@ QToolButton#header_cell_bl::menu-indicator {
     subcontrol-position: right center;
     right: 6px;
 }
-/* Single grid lines between adjacent controls (no doubled borders). */
-QToolButton#header_cell_tl {
-    border-right: 0px;
-}
-QToolButton#header_cell_tr {
-    border-left: 0px;
-}
-QToolButton#header_cell_bl {
-    border-right: 0px;
-}
-QToolButton#header_cell_bl {
-    border-top: 0px;
-    border-bottom: 0px;
-}
-QLineEdit#header_cell_br {
-    border-left: 0px;
-    border-top: 0px;
-    border-bottom: 0px;
-}
 QLineEdit {
     font-size: 14px;
     padding: 3px;
@@ -1043,22 +1024,6 @@ QLineEdit#header_cell_br {
     color: #1f2328;
     border: 1px solid #c7cfda;
     border-radius: 4px;
-}
-QToolButton#header_cell_tr {
-    border-left: 0px;
-}
-QToolButton#header_cell_tl {
-    border-right: 0px;
-}
-QToolButton#header_cell_bl {
-    border-right: 0px;
-    border-top: 0px;
-    border-bottom: 0px;
-}
-QLineEdit#header_cell_br {
-    border-left: 0px;
-    border-top: 0px;
-    border-bottom: 0px;
 }
 QListWidget#settings_nav {
     background-color: transparent;

@@ -15,6 +15,7 @@ from app.core.conversion_formats import (
     target_formats_for_category,
 )
 from app.core.models import FileItem
+from app.core.message_boxes import show_app_choice
 
 _CATEGORY_PLACEHOLDER = "Выберите тип файла:"
 _TARGET_PLACEHOLDER = "Выберите целевой формат:"
@@ -95,45 +96,32 @@ class ConversionActionsMixin:
         Возвращает ``(подтверждено, режим, папка)``.
         """
         while True:
-            box = QMessageBox(self)
-            box.setWindowTitle("Сохранение конвертации")
-            box.setIcon(QMessageBox.Icon.Question)
-            box.setText("Куда сохранить сконвертированные файлы?")
-            box.setInformativeText(
+            prompt = "Куда сохранить сконвертированные файлы?"
+            selected = show_app_choice(
+                self,
+                "Сохранение конвертации",
+                f"{prompt}\n\n"
                 f"Файлов: {file_count}\n"
                 f"Конвертация: {source_label} → {target_label}\n\n"
                 "Можно сохранить результат рядом с исходным файлом, создать "
-                "папку «Конвертированные» рядом с ним или выбрать общую папку."
+                "папку «Конвертированные» рядом с ним или выбрать общую папку.",
+                (
+                    ("alongside", "Рядом с файлом", "secondary"),
+                    ("source_subfolder", "В папку «Конвертированные»", "secondary"),
+                    ("custom", "Выбрать папку…", "secondary"),
+                    ("cancel", "Отмена", "secondary"),
+                ),
+                icon=QMessageBox.Icon.Question,
+                default_key="alongside",
+                cancel_key="cancel",
             )
-
-            source_button = box.addButton(
-                "Рядом с файлом",
-                QMessageBox.ButtonRole.AcceptRole,
-            )
-            subfolder_button = box.addButton(
-                "В папку «Конвертированные»",
-                QMessageBox.ButtonRole.AcceptRole,
-            )
-            custom_button = box.addButton(
-                "Выбрать папку…",
-                QMessageBox.ButtonRole.ActionRole,
-            )
-            cancel_button = box.addButton(
-                "Отмена",
-                QMessageBox.ButtonRole.RejectRole,
-            )
-            box.setDefaultButton(source_button)
-            box.setEscapeButton(cancel_button)
-            box.exec()
-
-            clicked_button = box.clickedButton()
-            if clicked_button is source_button:
+            if selected == "alongside":
                 return True, "alongside", ""
 
-            if clicked_button is subfolder_button:
+            if selected == "source_subfolder":
                 return True, "source_subfolder", ""
 
-            if clicked_button is custom_button:
+            if selected == "custom":
                 folder = self.select_conversion_output_folder()
                 if folder:
                     return True, "custom", folder
@@ -334,6 +322,8 @@ class ConversionActionsMixin:
 
     def convert_files_dual_combo(self) -> None:
         """Конвертирует один или несколько исходных форматов в общий целевой."""
+        if not self._ensure_operation_can_start():
+            return
         source_combo = getattr(self, "from_convert_combo", None)
         target_combo = getattr(self, "to_convert_combo", None)
         if source_combo is None or target_combo is None:

@@ -546,13 +546,23 @@ class ConversionMixin(ImageEncodingMixin):
                 return candidate
         return None
 
-    def _write_text_pdf(self, file: FileItem, content: str) -> str:
+    def _write_text_pdf(
+        self,
+        file: FileItem,
+        content: str,
+        *,
+        output_reference: FileItem | None = None,
+    ) -> str:
         if not HAS_PYMUPDF:
             raise Exception("Установите PyMuPDF для создания PDF")
 
         import pymupdf as fitz
 
-        output_path = self._conversion_output_path(file, ".pdf")
+        output_path = self._conversion_output_path(
+            file,
+            ".pdf",
+            reference_file=output_reference,
+        )
         document = fitz.open()
         try:
             font_path = self._find_unicode_font()
@@ -893,7 +903,11 @@ class ConversionMixin(ImageEncodingMixin):
         if total == 0:
             return results
 
-        if os.name != "nt":
+        if (
+            os.name != "nt"
+            or not HAS_WORD_TO_PDF
+            or getattr(self, "_word_pdf_unavailable", False)
+        ):
             return self._convert_sequential_batch(
                 list(self.files),
                 self._convert_word_to_pdf,
@@ -903,17 +917,27 @@ class ConversionMixin(ImageEncodingMixin):
             import pythoncom
             import win32com.client as win32
         except (ImportError, OSError) as error:
-            msg = f"Скрытая конвертация Word недоступна (нужен pywin32): {error}"
-            self._record_error(None, msg)
-            self.error.emit(msg)
-            return results
+            _debug_log(f"Скрытая конвертация Word недоступна: {error}")
+            self._word_pdf_unavailable = True
+            return self._convert_sequential_batch(
+                list(self.files),
+                self._convert_word_to_pdf,
+            )
 
         self._warmup_word()
         word_app = None
         pythoncom.CoInitialize()
         try:
             # Один COM-экземпляр Word на всю пачку файлов заметно ускоряет конвертацию.
-            word_app = win32.DispatchEx("Word.Application")
+            try:
+                word_app = win32.DispatchEx("Word.Application")
+            except Exception as error:
+                _debug_log(f"Microsoft Word не запустился, включён внутренний конвертер: {error}")
+                self._word_pdf_unavailable = True
+                return self._convert_sequential_batch(
+                    list(self.files),
+                    self._convert_word_to_pdf,
+                )
             word_app.Visible = False
             word_app.DisplayAlerts = 0
 
@@ -929,7 +953,14 @@ class ConversionMixin(ImageEncodingMixin):
                     pdf_path = self._convert_word_file_with_application(word_app, file)
                     results.append(FileItem(pdf_path))
                 except Exception as error:
-                    self._report_file_conversion_error(file, error)
+                    if file.path.lower().endswith(".docx"):
+                        try:
+                            pdf_path = self._convert_docx_to_pdf_internal(file)
+                            results.append(FileItem(pdf_path))
+                        except Exception as fallback_error:
+                            self._report_file_conversion_error(file, fallback_error)
+                    else:
+                        self._report_file_conversion_error(file, error)
                 self.progress.emit(int((index + 1) / total * 100))
         finally:
             _quit_word_application(word_app)
@@ -1018,10 +1049,15 @@ class ConversionMixin(ImageEncodingMixin):
     ) -> str:
         if not file.path.lower().endswith((".doc", ".docx")):
             return None
-        if not HAS_WORD_TO_PDF:
-            raise Exception(
-                "Конвертация Word в PDF недоступна. "
-                "Установите pywin32 и убедитесь, что Microsoft Word установлен и активирован."
+        can_use_word = (
+            HAS_WORD_TO_PDF
+            and os.name == "nt"
+            and not getattr(self, "_word_pdf_unavailable", False)
+        )
+        if not can_use_word:
+            return self._convert_docx_to_pdf_internal(
+                file,
+                output_reference=output_reference,
             )
 
         pdf_path = self._conversion_output_path(
@@ -1039,14 +1075,41 @@ class ConversionMixin(ImageEncodingMixin):
                 raise Exception("Конвертация отменена пользователем")
             return pdf_path
         except Exception as error:
-            err_text = str(error)
-            if "could not start Microsoft Word" in err_text:
-                err_text = (
-                    "Не удалось запустить Microsoft Word. Убедитесь, что Word "
-                    "установлен и активирован, хотя бы один раз запускался вручную "
-                    "и не осталось зависших процессов WINWORD.EXE."
-                )
-            raise Exception(f"Ошибка конвертации Word в PDF: {err_text}") from error
+            self._discard_conversion_output(pdf_path)
+            if self._should_cancel():
+                raise Exception("Конвертация отменена пользователем") from error
+            self._word_pdf_unavailable = True
+            _debug_log(
+                f"Microsoft Word не смог создать PDF, включён внутренний конвертер: {error}"
+            )
+            return self._convert_docx_to_pdf_internal(
+                file,
+                output_reference=output_reference,
+            )
+
+    def _convert_docx_to_pdf_internal(
+        self,
+        file: FileItem,
+        *,
+        output_reference: FileItem | None = None,
+    ) -> str:
+        """Резервный DOCX -> PDF без внешнего офисного приложения."""
+        if not file.path.lower().endswith(".docx"):
+            raise Exception(
+                "Для старого формата DOC требуется Microsoft Word. "
+                "Внутренний конвертер поддерживает DOCX."
+            )
+        if self._should_cancel():
+            raise Exception("Конвертация отменена пользователем")
+        self.status.emit(f"Внутренняя конвертация DOCX в PDF: {file.name}")
+        content = self._extract_document_text(file)
+        if self._should_cancel():
+            raise Exception("Конвертация отменена пользователем")
+        return self._write_text_pdf(
+            file,
+            content,
+            output_reference=output_reference,
+        )
 
     def _convert_word_to_pdf_hidden_com(self, src_path: str, dst_pdf_path: str) -> bool:
         if os.name != "nt":

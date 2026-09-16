@@ -1,39 +1,21 @@
 from pathlib import Path
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import (
-    QFontMetrics,
-    QGuiApplication,
-)
+from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import (
     QComboBox,
-    QDialog,
-    QHBoxLayout,
-    QLabel,
     QMessageBox,
-    QPushButton,
-    QSizePolicy,
-    QStyle,
-    QVBoxLayout,
 )
 from app.ui.ui_components import (
     setup_standard_dropdown,
-    setup_standard_secondary_button,
     refresh_standard_button_styles,
     refresh_standard_field_styles,
     refresh_standard_surface_styles,
 )
 from app.ui.ui_styles import build_tab_content_style_block
 from app.ui.theme_styles import APPLICATION_STYLES
-from app.ui.ui_spacing import (
-    LINK_BUTTON_HEIGHT,
-    MARGINS_NONE,
-    MESSAGE_DIALOG_MARGINS,
-    SPACE_LG,
-    SPACE_XL,
-    SPACE_2XL,
-)
 from app.core.app_utils import _log_ignored_error
+from app.core.message_boxes import show_app_confirmation
 
 
 class AppearanceMixin:
@@ -153,90 +135,10 @@ class AppearanceMixin:
         
     def show_russian_message_box(self, title, text, icon=QMessageBox.Icon.Question, default_no=True):
         """Показывает диалог подтверждения с русскими кнопками Да/Нет."""
-        dialog = QDialog(self)
-        dialog.setWindowTitle(str(title))
-        dialog.setModal(True)
-        dialog.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        try:
-            dialog._effective_theme_mode = getattr(self, "_effective_theme_mode", "dark")
-            dialog.setStyleSheet(self.styleSheet())
-        except Exception as error:
-            _log_ignored_error("AppearanceMixin.show_russian_message_box", error)
-
-        layout = QVBoxLayout(dialog)
-        layout.setContentsMargins(*MESSAGE_DIALOG_MARGINS)
-        layout.setSpacing(SPACE_2XL)
-
-        content_row = QHBoxLayout()
-        content_row.setContentsMargins(*MARGINS_NONE)
-        content_row.setSpacing(SPACE_XL)
-
-        icon_label = QLabel()
-        icon_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
-        icon_label.setFixedSize(32, 32)
-        icon_map = {
-            QMessageBox.Icon.Information: QStyle.StandardPixmap.SP_MessageBoxInformation,
-            QMessageBox.Icon.Warning: QStyle.StandardPixmap.SP_MessageBoxWarning,
-            QMessageBox.Icon.Critical: QStyle.StandardPixmap.SP_MessageBoxCritical,
-            QMessageBox.Icon.Question: QStyle.StandardPixmap.SP_MessageBoxQuestion,
-        }
-        try:
-            standard_icon = dialog.style().standardIcon(
-            icon_map.get(icon, QStyle.StandardPixmap.SP_MessageBoxQuestion)
+        return show_app_confirmation(
+            self,
+            title,
+            text,
+            icon=icon,
+            default_no=default_no,
         )
-            icon_label.setPixmap(standard_icon.pixmap(32, 32))
-        except Exception as error:
-            _log_ignored_error("AppearanceMixin.show_russian_message_box", error)
-        content_row.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignVCenter)
-
-        text_label = QLabel(str(text))
-        text_label.setWordWrap(True)
-        text_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        text_label.setMinimumHeight(36)
-        content_row.addWidget(text_label, 1, Qt.AlignmentFlag.AlignVCenter)
-
-        layout.addLayout(content_row)
-
-        buttons_row = QHBoxLayout()
-        buttons_row.setContentsMargins(*MARGINS_NONE)
-        buttons_row.setSpacing(SPACE_LG)
-        buttons_row.addStretch()
-
-        yes_button = QPushButton("Да")
-        setup_standard_secondary_button(yes_button, height=LINK_BUTTON_HEIGHT)
-        yes_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        no_button = QPushButton("Нет")
-        setup_standard_secondary_button(no_button, height=LINK_BUTTON_HEIGHT)
-        no_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        for button in (yes_button, no_button):
-            try:
-                button.style().unpolish(button)
-                button.style().polish(button)
-                button.updateGeometry()
-            except Exception as error:
-                _log_ignored_error("AppearanceMixin.show_russian_message_box", error)
-        button_width = max(84, yes_button.sizeHint().width(), no_button.sizeHint().width())
-        for button in (yes_button, no_button):
-            button.setFixedWidth(button_width)
-        buttons_row.addWidget(yes_button)
-        buttons_row.addWidget(no_button)
-        layout.addLayout(buttons_row)
-
-        try:
-            metrics = QFontMetrics(text_label.font())
-            content_width = max(420, min(560, metrics.horizontalAdvance(str(text)) + 150))
-            dialog.setMinimumWidth(content_width)
-            dialog.resize(max(content_width, dialog.sizeHint().width()), dialog.sizeHint().height())
-        except Exception as error:
-            _log_ignored_error("AppearanceMixin.show_russian_message_box", error)
-
-        yes_button.clicked.connect(dialog.accept)
-        no_button.clicked.connect(dialog.reject)
-
-        if default_no:
-            no_button.setFocus()
-        else:
-            yes_button.setFocus()
-
-        return dialog.exec() == int(QDialog.DialogCode.Accepted)
-

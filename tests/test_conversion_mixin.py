@@ -31,6 +31,7 @@ class _DummyConversionWorker(ConversionMixin):
         self.finished = _SignalStub()
         self.error = _SignalStub()
         self._word_warmup_done = False
+        self._word_pdf_unavailable = False
         self._cancel_requested = False
 
     def _should_cancel(self):
@@ -85,7 +86,7 @@ class ConversionMixinTests(unittest.TestCase):
         self.assertEqual(len(worker.finished.emitted), 1)
         self.assertEqual(worker.finished.emitted[0].get("new_files"), [])
 
-    def test_word_to_pdf_reports_error_when_hidden_com_is_unavailable(self):
+    def test_word_to_pdf_uses_internal_fallback_when_hidden_com_is_unavailable(self):
         worker = _DummyConversionWorker()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -97,9 +98,66 @@ class ConversionMixinTests(unittest.TestCase):
 
             with patch.object(worker, "_warmup_word", return_value=None):
                 with patch.object(worker, "_convert_word_to_pdf_hidden_com", return_value=False):
-                    with patch.object(conv_module, "HAS_WORD_TO_PDF", True):
-                        with self.assertRaisesRegex(Exception, "Microsoft Word не создал"):
-                            worker._convert_word_to_pdf(source_item)
+                    with patch.object(
+                        worker,
+                        "_convert_docx_to_pdf_internal",
+                        return_value=os.path.join(tmpdir, "source.pdf"),
+                    ) as fallback_mock:
+                        with patch.object(conv_module, "HAS_WORD_TO_PDF", True):
+                            result = worker._convert_word_to_pdf(source_item)
+
+            self.assertEqual(result, os.path.join(tmpdir, "source.pdf"))
+            fallback_mock.assert_called_once_with(source_item, output_reference=None)
+            self.assertTrue(worker._word_pdf_unavailable)
+
+    def test_word_to_pdf_uses_internal_fallback_when_word_dependency_is_missing(self):
+        worker = _DummyConversionWorker()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source_path = os.path.join(tmpdir, "source.docx")
+            with open(source_path, "wb") as stream:
+                stream.write(b"x")
+            source_item = FileItem(source_path)
+
+            with patch.object(
+                worker,
+                "_convert_docx_to_pdf_internal",
+                return_value=os.path.join(tmpdir, "source.pdf"),
+            ) as fallback_mock:
+                with patch.object(conv_module, "HAS_WORD_TO_PDF", False):
+                    result = worker._convert_word_to_pdf(source_item)
+
+            self.assertEqual(result, os.path.join(tmpdir, "source.pdf"))
+            fallback_mock.assert_called_once_with(source_item, output_reference=None)
+
+    def test_internal_fallback_explains_that_legacy_doc_needs_word(self):
+        worker = _DummyConversionWorker()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source_path = os.path.join(tmpdir, "source.doc")
+            with open(source_path, "wb") as stream:
+                stream.write(b"x")
+
+            with self.assertRaisesRegex(Exception, "Внутренний конвертер поддерживает DOCX"):
+                worker._convert_docx_to_pdf_internal(FileItem(source_path))
+
+    def test_internal_fallback_extracts_docx_text_and_writes_pdf(self):
+        worker = _DummyConversionWorker()
+        source_item = FileItem(r"C:\temp\source.docx")
+        reference_item = FileItem(r"C:\temp\original.odt")
+
+        with patch.object(worker, "_extract_document_text", return_value="Текст") as extract_mock:
+            with patch.object(worker, "_write_text_pdf", return_value=r"C:\temp\source.pdf") as write_mock:
+                result = worker._convert_docx_to_pdf_internal(
+                    source_item,
+                    output_reference=reference_item,
+                )
+
+        self.assertEqual(result, r"C:\temp\source.pdf")
+        extract_mock.assert_called_once_with(source_item)
+        write_mock.assert_called_once_with(
+            source_item,
+            "Текст",
+            output_reference=reference_item,
+        )
 
     def test_default_conversion_output_goes_to_sibling_converted_folder(self):
         worker = _DummyConversionWorker()

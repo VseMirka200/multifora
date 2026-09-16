@@ -2,23 +2,11 @@
 import os
 import re
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (
-    QDialog,
-    QHBoxLayout,
-    QLabel,
-    QMessageBox,
-    QPushButton,
-    QStyle,
-    QVBoxLayout,
-)
+from PyQt6.QtWidgets import QMessageBox
 
 from app.core.models import FileItem
 from app.core.conversion_formats import KNOWN_FILE_EXTENSIONS
-from app.ui.ui_components import (
-    setup_standard_dialog,
-    setup_standard_secondary_button,
-)
-from app.ui.ui_spacing import DIALOG_MARGINS, MARGINS_NONE, SPACE_MD, SPACE_XL
+from app.core.message_boxes import show_app_choice
 from app.core.app_utils import _log_ignored_error
 
 
@@ -128,85 +116,38 @@ class FileListActionsMixin:
         return result
 
     def on_search_text_changed(self, _text):
-        if self._is_any_filter_active() and self._get_sort_mode_index() == 0:
-            self.list_files.set_manual_sorting(False)
+        self.list_files.set_manual_sorting(True)
         self.update_file_list()
 
     def on_file_type_filter_changed(self, _checked=False):
         if hasattr(self, "_update_type_filter_button_text"):
             self._update_type_filter_button_text()
-        if self._is_any_filter_active() and self._get_sort_mode_index() == 0:
-            self.list_files.set_manual_sorting(False)
+        self.list_files.set_manual_sorting(True)
         self.update_file_list()
 
     def on_extension_filter_changed(self, _checked=False):
         if hasattr(self, "_update_ext_filter_button_text"):
             self._update_ext_filter_button_text()
-        if self._is_any_filter_active() and self._get_sort_mode_index() == 0:
-            self.list_files.set_manual_sorting(False)
+        self.list_files.set_manual_sorting(True)
         self.update_file_list()
 
     def _ask_folder_add_mode(self):
-        dialog = QDialog(self)
-        setup_standard_dialog(dialog, title="Добавление папки", min_width=520)
-        try:
-            dialog._effective_theme_mode = getattr(self, "_effective_theme_mode", "dark")
-            dialog.setStyleSheet(self.styleSheet())
-        except Exception as error:
-            _log_ignored_error("FileListActionsMixin._ask_folder_add_mode", error)
+        selected = show_app_choice(
+            self,
+            "Добавление папки",
+            "Выберите способ добавления:\n"
+            "добавить папку целиком или только её содержимое?",
+            (
+                ("folder", "Добавить папку", "secondary"),
+                ("contents", "Добавить содержимое", "secondary"),
+                ("cancel", "Отмена", "secondary"),
+            ),
+            icon=QMessageBox.Icon.Question,
+            default_key="folder",
+            cancel_key="cancel",
+        )
+        return None if selected == "cancel" else selected
 
-        layout = QVBoxLayout(dialog)
-        layout.setContentsMargins(*DIALOG_MARGINS)
-        layout.setSpacing(SPACE_XL)
-
-        content_row = QHBoxLayout()
-        content_row.setContentsMargins(*MARGINS_NONE)
-        content_row.setSpacing(SPACE_XL)
-
-        icon_label = QLabel()
-        icon_label.setFixedSize(32, 32)
-        icon_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
-        try:
-            icon = dialog.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxQuestion)
-            icon_label.setPixmap(icon.pixmap(32, 32))
-        except Exception as error:
-            _log_ignored_error("FileListActionsMixin._ask_folder_add_mode", error)
-        content_row.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignTop)
-
-        text_label = QLabel("Выберите способ добавления:\nдобавить папку целиком или только её содержимое?")
-        text_label.setWordWrap(True)
-        text_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        content_row.addWidget(text_label, 1)
-        layout.addLayout(content_row)
-
-        buttons_row = QHBoxLayout()
-        buttons_row.setContentsMargins(*MARGINS_NONE)
-        buttons_row.setSpacing(SPACE_MD)
-
-        btn_folder = QPushButton("Добавить папку")
-        btn_contents = QPushButton("Добавить содержимое")
-        btn_cancel = QPushButton("Отмена")
-        setup_standard_secondary_button(btn_folder, height=22)
-        setup_standard_secondary_button(btn_contents, height=22)
-        setup_standard_secondary_button(btn_cancel, height=22)
-        buttons_row.addWidget(btn_folder)
-        buttons_row.addWidget(btn_contents)
-        buttons_row.addWidget(btn_cancel)
-        layout.addLayout(buttons_row)
-
-        selected_mode = {"value": None}
-
-        def _accept_with(mode: str):
-            selected_mode["value"] = mode
-            dialog.accept()
-
-        btn_folder.clicked.connect(lambda: _accept_with("folder"))
-        btn_contents.clicked.connect(lambda: _accept_with("contents"))
-        btn_cancel.clicked.connect(dialog.reject)
-
-        if dialog.exec() == int(QDialog.DialogCode.Accepted):
-            return selected_mode["value"]
-        return None
     def add_files(self, file_paths):
         """Добавление файлов в список"""
         if not isinstance(file_paths, list):
@@ -300,14 +241,10 @@ class FileListActionsMixin:
     def on_sort_changed(self):
         mode = self._get_sort_mode()
         if self._get_sort_mode_index() == 0:
-            if self._is_any_filter_active():
-                self.list_files.set_manual_sorting(False)
-                self.status_bar.showMessage("Ручная сортировка недоступна при активных фильтрах.")
-                return
             self.list_files.set_manual_sorting(True)
             return
-        self.list_files.set_manual_sorting(False)
         self.sort_files(mode)
+        self.list_files.set_manual_sorting(True)
 
     def on_file_header_clicked(self, section: int):
         """Сортирует общий список по выбранной колонке таблицы."""
@@ -386,7 +323,7 @@ class FileListActionsMixin:
         )
         self._column_sort_section = section
         self._column_sort_order = order
-        self.list_files.set_manual_sorting(False)
+        self.list_files.set_manual_sorting(True)
         header = self.list_files.horizontalHeader()
         header.setSortIndicator(section, order)
         header.setSortIndicatorShown(True)
@@ -435,13 +372,20 @@ class FileListActionsMixin:
         self.list_files.clearSelection()
         self.list_files.select_paths(selected_paths)
     def on_list_order_changed(self):
+        visible_files = self.list_files.model().files()
         if self._is_any_filter_active():
-            self.status_bar.showMessage("Отключите фильтры, чтобы менять порядок перетаскиванием.")
-            self.update_file_list()
-            return
-        self.files = self.list_files.model().files()
+            visible_ids = {id(file_item) for file_item in visible_files}
+            visible_iterator = iter(visible_files)
+            self.files = [
+                next(visible_iterator) if id(file_item) in visible_ids else file_item
+                for file_item in self.files
+            ]
+        else:
+            self.files = visible_files
         self._column_sort_section = None
         self.list_files.horizontalHeader().setSortIndicatorShown(False)
         if self._get_sort_mode() != self._manual_sort_mode_text():
             self._set_sort_mode(self._manual_sort_mode_text(), notify=False)
         self.list_files.set_manual_sorting(True)
+        if callable(getattr(self, "_schedule_settings_save", None)):
+            self._schedule_settings_save()

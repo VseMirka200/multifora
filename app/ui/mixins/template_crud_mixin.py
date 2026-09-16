@@ -25,7 +25,7 @@ from app.ui.ui_components import (
     setup_standard_secondary_button,
     setup_standard_dialog,
 )
-from app.ui.ui_spacing import MARGINS_NONE, SPACE_NONE, SPACE_SM
+from app.ui.ui_spacing import MARGINS_NONE, SPACE_MD, SPACE_SM
 from app.core.app_utils import _log_ignored_error
 
 
@@ -558,8 +558,8 @@ class TemplateCrudMixin:
             _log_ignored_error("TemplateCrudMixin.show_template_manager", error)
         
         layout = QVBoxLayout(dialog)
-        layout.setContentsMargins(*MARGINS_NONE)
-        layout.setSpacing(SPACE_NONE)
+        layout.setContentsMargins(SPACE_MD, SPACE_MD, SPACE_MD, SPACE_MD)
+        layout.setSpacing(SPACE_SM)
         
         card = QFrame()
         card.setObjectName("settings_card")
@@ -567,7 +567,7 @@ class TemplateCrudMixin:
         card.setFrameShape(QFrame.Shape.NoFrame)
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(0, 0, 0, 0)
-        card_layout.setSpacing(0)
+        card_layout.setSpacing(SPACE_SM)
 
         self.templates_table = QTableWidget()
         self.templates_table.setColumnCount(1)

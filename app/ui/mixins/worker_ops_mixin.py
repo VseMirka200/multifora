@@ -131,6 +131,8 @@ class WorkerOpsMixin:
 
     def remove_document_metadata(self, *, remove_all: bool = False):
         """Удаляет все или выбранные группы метаданных из документов."""
+        if not self._ensure_operation_can_start():
+            return
         candidates = self._get_selected_or_all_file_items()
         files = self._metadata_documents(candidates)
         if not files:
@@ -187,6 +189,8 @@ class WorkerOpsMixin:
 
     def compress_files(self):
         """Сжатие файлов."""
+        if not self._ensure_operation_can_start():
+            return
         selected_items = self.list_files.selectedItems()
         if not selected_items:
             QMessageBox.warning(self, "Ошибка", "Выберите файлы для сжатия!")
@@ -299,6 +303,8 @@ class WorkerOpsMixin:
 
     def merge_files(self):
         """Объединение документов одинакового формата в один файл."""
+        if not self._ensure_operation_can_start():
+            return
         files = self._get_selected_or_all_file_items()
         if len(files) < 2:
             QMessageBox.warning(self, "Ошибка", "Добавьте или выберите минимум два документа для объединения!")

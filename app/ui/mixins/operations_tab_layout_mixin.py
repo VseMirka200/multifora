@@ -216,9 +216,9 @@ class OperationsTabLayoutMixin:
         
         self._create_rename_operation_page()
         self._create_conversion_operation_page()
+        self._create_compression_operation_page()
         self._create_merge_operation_page()
         self._create_metadata_operation_page()
-        self._create_compression_operation_page()
 
         self.operations_tab_bar.tabBarClicked.connect(self._on_operation_tab_clicked)
         self.operations_tab_bar.setUsesScrollButtons(True)
@@ -478,7 +478,7 @@ class OperationsTabLayoutMixin:
 
         self._add_operations_page(
             self._wrap_operations_page(metadata_card, "metadata_page"),
-            "Метаданные",
+            "Удаление метаданных",
         )
 
 
@@ -590,11 +590,15 @@ class OperationsTabLayoutMixin:
         self.btn_select_image_output_path.clicked.connect(self.select_image_output_folder)
         image_output_path_layout.addWidget(self.btn_select_image_output_path)
 
-        self._add_labeled_field(
-            image_mode_layout,
-            "Папка сохранения:",
-            self.image_output_path_widget,
+        self.image_output_path_section = QWidget()
+        image_output_section_layout = QVBoxLayout(self.image_output_path_section)
+        image_output_section_layout.setContentsMargins(*MARGINS_NONE)
+        image_output_section_layout.setSpacing(SPACE_SM)
+        image_output_section_layout.addWidget(
+            self._create_operation_label("Папка сохранения:")
         )
+        image_output_section_layout.addWidget(self.image_output_path_widget)
+        image_mode_layout.addWidget(self.image_output_path_section)
         self.on_image_output_mode_changed()
         return self.image_mode_widget
 

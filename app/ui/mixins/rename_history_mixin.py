@@ -25,8 +25,6 @@ class RenameHistoryMixin:
 
     def _update_undo_button(self):
         can_undo = bool(self._rename_history)
-        if self.file_worker and self.file_worker.isRunning():
-            can_undo = False
         if hasattr(self, "btn_history_undo"):
             self.btn_history_undo.setEnabled(can_undo)
         self._refresh_rename_history_view()
@@ -84,8 +82,7 @@ class RenameHistoryMixin:
         return True
 
     def undo_last_rename(self):
-        if self.file_worker and self.file_worker.isRunning():
-            QMessageBox.warning(self, "Операция выполняется", "Дождитесь завершения текущей операции.")
+        if not self._ensure_operation_can_start():
             return
         if not self._rename_history:
             QMessageBox.information(self, "Информация", "Нет операций для отката.")

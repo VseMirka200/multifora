@@ -305,8 +305,7 @@ class MultiforaMainWindow(
 
     def create_file_worker(self):
         """Создает новый экземпляр FileWorker и подключает сигналы."""
-        if self.file_worker and self.file_worker.isRunning():
-            QMessageBox.warning(self, "Операция выполняется", "Дождитесь завершения текущей операции.")
+        if not self._ensure_operation_can_start():
             return False
         if self.file_worker:
             try:
@@ -329,6 +328,21 @@ class MultiforaMainWindow(
         self.file_worker.error.connect(self.on_operation_error)
         return True
 
+    def _operation_is_running(self) -> bool:
+        worker = getattr(self, "file_worker", None)
+        is_running = getattr(worker, "isRunning", None)
+        return bool(worker is not None and callable(is_running) and is_running())
+
+    def _ensure_operation_can_start(self) -> bool:
+        if not self._operation_is_running():
+            return True
+        QMessageBox.warning(
+            self,
+            "Операция уже выполняется",
+            "Дождитесь завершения текущей операции, прежде чем запускать другую.",
+        )
+        return False
+
     def cancel_operation(self):
         """Запрашивает отмену текущей операции."""
         if self.file_worker and self.file_worker.isRunning():
@@ -342,6 +356,8 @@ class MultiforaMainWindow(
         dialog = QDialog(self)
         dialog.setObjectName("progress_dialog")
         setup_standard_dialog(dialog, title="Выполнение операции", fixed_width=360)
+        dialog.setModal(False)
+        dialog.setWindowModality(Qt.WindowModality.NonModal)
         dialog.setWindowFlag(Qt.WindowType.WindowCloseButtonHint, False)
 
         layout = QVBoxLayout(dialog)
@@ -760,6 +776,46 @@ class MultiforaMainWindow(
         )
         self._bind_header_menu_state(self.combo_sort, self._sort_filter_menu)
 
+    def _create_list_header(self) -> QGridLayout:
+        """Создаёт поиск и фильтры списка файлов без отдельного поля сортировки."""
+        list_header = QGridLayout()
+        self._list_header_layout = list_header
+        list_header.setContentsMargins(*MARGINS_NONE)
+        list_header.setHorizontalSpacing(SPACE_SM)
+        list_header.setVerticalSpacing(SPACE_NONE)
+
+        self._create_extension_filter()
+        self._create_type_filter()
+
+        self._list_header_search_label = QLabel("Поиск:")
+        self._list_header_search_label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+        self._list_header_search_label.setFixedWidth(90)
+        self._list_header_search_label.setVisible(False)
+        self.input_search = QLineEdit()
+        self.input_search.setObjectName("header_cell_br")
+        self.input_search.setPlaceholderText("Поиск")
+        self.input_search.setClearButtonEnabled(True)
+        setup_standard_line_input(self.input_search)
+        self.input_search.setMinimumWidth(0)
+        self.input_search.textChanged.connect(self.on_search_text_changed)
+
+        for widget in (
+            self.btn_ext_filter,
+            self.btn_type_filter,
+            self.input_search,
+        ):
+            widget.setMinimumHeight(HEADER_FIELD_HEIGHT)
+
+        list_header.addWidget(self.btn_ext_filter, 0, 0)
+        list_header.addWidget(self.btn_type_filter, 0, 1)
+        list_header.addWidget(self.input_search, 0, 2)
+        list_header.setColumnStretch(0, 1)
+        list_header.setColumnStretch(1, 1)
+        list_header.setColumnStretch(2, 2)
+        return list_header
+
     def _create_file_list_widget(self, files_panel_layout: QVBoxLayout) -> None:
         self.list_files = FileListWidget()
         self.list_files.setObjectName("files_list")
@@ -911,7 +967,7 @@ class MultiforaMainWindow(
         self._connect_drop_zone_updates(files_panel)
 
         files_preview_layout.addWidget(files_panel, 1)
-        self._configure_right_panel_spacing(right_layout)
+        self._configure_right_panel_spacing(right_layout, self._list_header_layout)
         right_layout.addWidget(files_preview_row, 1)
 
     def _create_file_info_layout(self) -> QHBoxLayout:
@@ -955,6 +1011,8 @@ class MultiforaMainWindow(
         right_layout.setContentsMargins(*MARGINS_NONE)
         right_layout.setSpacing(SPACE_NONE)
 
+        list_header = self._create_list_header()
+        right_layout.addLayout(list_header)
         self._create_files_preview(right_layout)
         self._create_progress_dialog()
         self.on_sort_changed()
@@ -1137,10 +1195,14 @@ class MultiforaMainWindow(
                 lambda _pos, _index: self._update_drop_zone_controls(),
             )
 
-    def _configure_right_panel_spacing(self, right_layout):
+    def _configure_right_panel_spacing(self, right_layout, list_header):
         """Выравнивает единый шаг промежутков для правой панели."""
         right_layout.setContentsMargins(*MARGINS_NONE)
         right_layout.setSpacing(SPACE_NONE)
+
+        list_header.setContentsMargins(SPACE_NONE, SPACE_XS, SPACE_NONE, SPACE_SM)
+        list_header.setHorizontalSpacing(SPACE_SM)
+        list_header.setVerticalSpacing(SPACE_SM)
 
     @staticmethod
     def _safe_connect_signal(signal, callback) -> None:
@@ -1370,6 +1432,7 @@ class MultiforaMainWindow(
             try:
                 layout.setColumnStretch(0, 1)
                 layout.setColumnStretch(1, 1)
+                layout.setColumnStretch(2, 2)
             except Exception as error:
                 _log_ignored_error("MultiforaMainWindow._update_header_compact_mode", error)
 

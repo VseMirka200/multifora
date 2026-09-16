@@ -107,7 +107,7 @@ def _restore_file_list_view_state(window, state: dict) -> None:
             header = file_list.horizontalHeader()
             header.setSortIndicator(section, order)
             header.setSortIndicatorShown(True)
-            file_list.set_manual_sorting(False)
+            file_list.set_manual_sorting(True)
     except Exception as error:
         _log_settings_error("восстановления сортировки таблицы", error)
 

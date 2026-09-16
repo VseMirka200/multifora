@@ -150,6 +150,9 @@ class SettingsPanelMixin:
             self, "conversion_output_mode", "ask"
         )
         custom_enabled = mode == "custom"
+        path_row = getattr(self, "conversion_output_path_row", None)
+        if path_row is not None:
+            path_row.setVisible(custom_enabled)
         path_field = getattr(self, "conversion_output_path_input", None)
         select_button = getattr(self, "btn_select_conversion_output_path", None)
         if path_field is not None:
@@ -490,8 +493,8 @@ class SettingsPanelMixin:
         )
         main_card_layout.addWidget(output_mode_row)
 
-        output_path_row = QWidget()
-        output_path_layout = QHBoxLayout(output_path_row)
+        self.conversion_output_path_row = QWidget()
+        output_path_layout = QHBoxLayout(self.conversion_output_path_row)
         output_path_layout.setContentsMargins(*MARGINS_NONE)
         output_path_layout.setSpacing(SPACE_SM)
         output_path_label = QLabel("Папка:")
@@ -517,7 +520,7 @@ class SettingsPanelMixin:
             self._select_conversion_output_path_from_settings
         )
         output_path_layout.addWidget(self.btn_select_conversion_output_path)
-        main_card_layout.addWidget(output_path_row)
+        main_card_layout.addWidget(self.conversion_output_path_row)
         self._update_conversion_output_controls()
 
         _add_settings_section_divider(main_card_layout)

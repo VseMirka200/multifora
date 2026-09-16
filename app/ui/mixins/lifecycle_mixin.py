@@ -1,11 +1,10 @@
 import json
 
-from PyQt6.QtWidgets import QFileDialog, QMessageBox, QPushButton
+from PyQt6.QtWidgets import QFileDialog, QMessageBox
 
 import app.core.settings as app_settings
 from app.core.app_ipc import _delete_ipc_token
-from app.core.message_boxes import tune_message_box_layout
-from app.ui.ui_components import setup_standard_danger_button, setup_standard_secondary_button
+from app.core.message_boxes import show_app_choice
 from app.core.app_utils import _log_ignored_error
 
 
@@ -93,21 +92,19 @@ class LifecycleMixin:
                 event.ignore()
                 return
 
-            msg_box = QMessageBox(self)
-            msg_box.setWindowTitle("Операция выполняется")
-            msg_box.setText("Дождаться завершения операции перед закрытием?")
-            msg_box.setIcon(QMessageBox.Icon.Question)
-            wait_button = QPushButton("Подождать")
-            cancel_button = QPushButton("Отменить")
-            setup_standard_secondary_button(wait_button, height=22)
-            setup_standard_danger_button(cancel_button, height=22)
-            msg_box.addButton(wait_button, QMessageBox.ButtonRole.YesRole)
-            msg_box.addButton(cancel_button, QMessageBox.ButtonRole.NoRole)
-            tune_message_box_layout(msg_box, QMessageBox.Icon.Question)
-            msg_box.setDefaultButton(wait_button)
-            msg_box.exec()
-            clicked = msg_box.clickedButton()
-            if clicked == wait_button:
+            selected = show_app_choice(
+                self,
+                "Операция выполняется",
+                "Дождаться завершения операции перед закрытием?",
+                (
+                    ("wait", "Подождать", "secondary"),
+                    ("cancel", "Отменить", "secondary"),
+                ),
+                icon=QMessageBox.Icon.Question,
+                default_key="wait",
+                cancel_key="cancel",
+            )
+            if selected == "wait":
                 self._pending_close = True
                 self.status_bar.showMessage("Закрытие запланировано после завершения операции.")
             event.ignore()

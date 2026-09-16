@@ -273,6 +273,8 @@ class FileListPreviewMixin:
 
     def apply_rename(self):
         """Применение переименования"""
+        if not self._ensure_operation_can_start():
+            return
         if not self.files:
             return
 
@@ -338,7 +340,6 @@ class FileListPreviewMixin:
             self.log_event(f"Переименование: {len(files_to_rename)} файлов")
             if callable(getattr(self, "_show_progress_dialog", None)):
                 self._show_progress_dialog(f"Переименование {len(files_to_rename)} файлов...")
-            self.btn_apply_rename.setEnabled(False)
 
     def update_file_list(self):
         """Обновление отображения списка"""
