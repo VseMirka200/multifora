@@ -4,6 +4,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from PyQt6.QtCore import Qt
+
 from app.core import settings
 
 
@@ -107,3 +109,54 @@ class SettingsResilienceTests(unittest.TestCase):
         data = settings._collect_settings_data(window)
         self.assertEqual(data["conversion_output_mode"], "custom")
         self.assertEqual(data["conversion_output_path"], r"C:\converted")
+
+    def test_rename_folder_mode_is_persisted(self):
+        window = _DummyWindow()
+        settings._initialize_settings_defaults(window)
+        settings._apply_settings_data(window, {"rename_folder_mode": "parallel_by_folder"})
+        self.assertEqual(window.rename_folder_mode, "parallel_by_folder")
+
+        window.custom_templates = {}
+        window.auto_clear_checkbox = _DummyCheckbox()
+        window.ghostscript_path_override = None
+        data = settings._collect_settings_data(window)
+        self.assertEqual(data["rename_folder_mode"], "parallel_by_folder")
+
+    def test_column_sort_state_is_persisted(self):
+        window = _DummyWindow()
+        settings._initialize_settings_defaults(window)
+        settings._apply_settings_data(
+            window,
+            {
+                "file_list_view_state": {
+                    "sort_column": 3,
+                    "sort_order": "descending",
+                }
+            },
+        )
+        self.assertEqual(window._column_sort_section, 3)
+        self.assertEqual(window._column_sort_order, Qt.SortOrder.DescendingOrder)
+
+        window.custom_templates = {}
+        window.auto_clear_checkbox = _DummyCheckbox()
+        window.ghostscript_path_override = None
+        data = settings._collect_settings_data(window)
+        self.assertEqual(
+            data["file_list_view_state"],
+            {"sort_column": 3, "sort_order": "descending"},
+        )
+
+    def test_per_folder_numbering_scope_is_persisted(self):
+        window = _DummyWindow()
+        settings._initialize_settings_defaults(window)
+        settings._apply_settings_data(
+            window,
+            {"rename_numbering_scope": "per_folder"},
+        )
+        self.assertEqual(window.rename_numbering_scope, "per_folder")
+
+        window.custom_templates = {}
+        window.auto_clear_checkbox = _DummyCheckbox()
+        window.ghostscript_path_override = None
+        data = settings._collect_settings_data(window)
+        self.assertEqual(data["rename_numbering_scope"], "per_folder")

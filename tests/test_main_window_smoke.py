@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt6.QtWidgets import QApplication, QDialog, QSizePolicy
+from PyQt6.QtCore import Qt
 
 from app.core.models import FileItem
 from app.ui.ui_main import MultiforaMainWindow
@@ -34,6 +35,10 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(window.combo_merge_format.findData("auto"), -1)
                 self.assertEqual(window.combo_merge_format._items[0], ("PDF (только PDF)", "pdf"))
                 self.assertFalse(hasattr(window, "checkbox_replace_image"))
+                self.assertFalse(hasattr(window, "btn_ext_filter"))
+                self.assertFalse(hasattr(window, "btn_type_filter"))
+                self.assertFalse(hasattr(window, "combo_sort"))
+                self.assertFalse(hasattr(window, "input_search"))
                 tab_labels = [
                     window.operations_tab_bar.tabText(index)
                     for index in range(window.operations_tab_bar.count())
@@ -65,6 +70,54 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.operations_tab_bar.tabBarClicked.emit(original_index)
                 self.assertTrue(window.settings_panel_host.isHidden())
                 self.assertFalse(window.btn_settings.isChecked())
+            finally:
+                if hasattr(window, "queue_timer"):
+                    window.queue_timer.stop()
+                if hasattr(window, "_settings_save_timer"):
+                    window._settings_save_timer.stop()
+                window.deleteLater()
+
+    def test_file_columns_sort_in_both_directions(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            first_dir = os.path.join(tmp_dir, "01")
+            second_dir = os.path.join(tmp_dir, "02")
+            os.makedirs(first_dir)
+            os.makedirs(second_dir)
+            first_path = os.path.join(second_dir, "zeta.txt")
+            second_path = os.path.join(first_dir, "alpha.pdf")
+            for path in (first_path, second_path):
+                with open(path, "wb") as stream:
+                    stream.write(b"test")
+
+            settings_path = os.path.join(tmp_dir, "settings.json")
+            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+                window = MultiforaMainWindow()
+
+            try:
+                window.files = [FileItem(first_path), FileItem(second_path)]
+                window.update_file_list()
+                column = window.list_files.model().COLUMN_OLD_NAME
+
+                window.on_file_header_clicked(column)
+                self.assertEqual([item.name for item in window.files], ["alpha.pdf", "zeta.txt"])
+                self.assertTrue(window.list_files.horizontalHeader().isSortIndicatorShown())
+                self.assertEqual(window._column_sort_order, Qt.SortOrder.AscendingOrder)
+
+                window.on_file_header_clicked(column)
+                self.assertEqual([item.name for item in window.files], ["zeta.txt", "alpha.pdf"])
+                self.assertEqual(window._column_sort_order, Qt.SortOrder.DescendingOrder)
+
+                window.on_file_header_clicked(column)
+                self.assertIsNone(window._column_sort_section)
+                self.assertFalse(window.list_files.horizontalHeader().isSortIndicatorShown())
+                self.assertTrue(window.list_files.dragEnabled())
+
+                folder_column = window.list_files.model().COLUMN_PATH
+                window.on_file_header_clicked(folder_column)
+                self.assertEqual([item.name for item in window.files], ["alpha.pdf", "zeta.txt"])
             finally:
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()
@@ -260,6 +313,54 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window._settings_save_timer.stop()
                 window.deleteLater()
 
+    def test_custom_numbering_can_restart_in_each_folder(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            folders = [os.path.join(tmp_dir, name) for name in ("first", "second")]
+            for folder in folders:
+                os.makedirs(folder)
+            paths = []
+            for folder in folders:
+                for name in ("a.docx", "b.docx"):
+                    path = os.path.join(folder, name)
+                    with open(path, "wb") as stream:
+                        stream.write(b"test")
+                    paths.append(path)
+
+            settings_path = os.path.join(tmp_dir, "settings.json")
+            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+                window = MultiforaMainWindow()
+
+            try:
+                window.files = [FileItem(path) for path in paths]
+                window.update_file_list()
+                window.on_template_selected("Пользовательский шаблон")
+                window.template_custom.setText("ПР {num:1d,start=1,step=1}")
+
+                scope_index = window.rename_numbering_scope_combo.findData("per_folder")
+                window.rename_numbering_scope_combo.setCurrentIndex(scope_index)
+                window.refresh_rename_preview()
+                self.assertEqual(
+                    [item.preview_name for item in window.files],
+                    ["ПР 1.docx", "ПР 2.docx", "ПР 1.docx", "ПР 2.docx"],
+                )
+
+                global_index = window.rename_numbering_scope_combo.findData("global")
+                window.rename_numbering_scope_combo.setCurrentIndex(global_index)
+                window.refresh_rename_preview()
+                self.assertEqual(
+                    [item.preview_name for item in window.files],
+                    ["ПР 1.docx", "ПР 2.docx", "ПР 3.docx", "ПР 4.docx"],
+                )
+            finally:
+                if hasattr(window, "queue_timer"):
+                    window.queue_timer.stop()
+                if hasattr(window, "_settings_save_timer"):
+                    window._settings_save_timer.stop()
+                window.deleteLater()
+
     def test_regex_case_and_conflict_controls_exist(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             settings_path = os.path.join(tmp_dir, "settings.json")
@@ -296,6 +397,12 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(window.files[0].preview_name, "img_0042.JPG")
 
                 self.assertEqual(window.rename_conflict_policy.currentData(), "unique")
+                self.assertEqual(window.rename_folder_mode_combo.currentData(), "sequential")
+                self.assertEqual(window.rename_numbering_scope_combo.currentData(), "global")
+                self.assertGreaterEqual(
+                    window.rename_folder_mode_combo.findData("parallel_by_folder"),
+                    0,
+                )
                 self.assertIsNotNone(window.rename_validation_label)
                 self.assertFalse(hasattr(window, "operation_profile_combo"))
             finally:

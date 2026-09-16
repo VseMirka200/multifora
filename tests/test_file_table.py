@@ -15,7 +15,7 @@ class FileTableTests(unittest.TestCase):
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication([])
 
-    def test_model_exposes_old_name_new_name_type_and_path_without_icons(self):
+    def test_model_exposes_names_type_and_source_folder_without_icons(self):
         item = SimpleNamespace(
             path=r"C:\Users\User\Pictures\image.png",
             name="image.png",
@@ -31,12 +31,19 @@ class FileTableTests(unittest.TestCase):
         self.assertEqual(model.columnCount(), 4)
         self.assertEqual(model.headerData(model.COLUMN_OLD_NAME, Qt.Orientation.Horizontal), "Старое имя")
         self.assertEqual(model.headerData(model.COLUMN_NEW_NAME, Qt.Orientation.Horizontal), "Новое имя")
+        self.assertEqual(
+            model.headerData(model.COLUMN_PATH, Qt.Orientation.Horizontal),
+            "Исходная папка",
+        )
         self.assertEqual(old_name_index.data(Qt.ItemDataRole.DisplayRole), "image.png")
         self.assertEqual(old_name_index.data(Qt.ItemDataRole.ToolTipRole), "image.png")
         self.assertEqual(new_name_index.data(Qt.ItemDataRole.DisplayRole), "image.pdf")
         self.assertEqual(new_name_index.data(Qt.ItemDataRole.ToolTipRole), "image.pdf")
         self.assertEqual(type_index.data(Qt.ItemDataRole.DisplayRole), "PNG")
-        self.assertEqual(path_index.data(Qt.ItemDataRole.DisplayRole), item.path)
+        self.assertEqual(
+            path_index.data(Qt.ItemDataRole.DisplayRole),
+            os.path.dirname(item.path),
+        )
         self.assertEqual(path_index.data(Qt.ItemDataRole.ToolTipRole), item.path)
         self.assertIsNone(old_name_index.data(Qt.ItemDataRole.DecorationRole))
         self.assertIsNone(new_name_index.data(Qt.ItemDataRole.DecorationRole))
@@ -52,6 +59,26 @@ class FileTableTests(unittest.TestCase):
         self.assertEqual(model.index(1, model.COLUMN_TYPE).data(), "Папка")
         self.assertEqual(model.index(2, model.COLUMN_TYPE).data(), "Файл")
 
+    def test_source_folder_distinguishes_files_from_different_directories(self):
+        model = FileListModel()
+        model.set_files([
+            SimpleNamespace(
+                path=r"C:\One\report.pdf",
+                folder=r"C:\One",
+                name="report.pdf",
+                is_file=True,
+            ),
+            SimpleNamespace(
+                path=r"D:\Two\report.pdf",
+                folder=r"D:\Two",
+                name="report.pdf",
+                is_file=True,
+            ),
+        ])
+
+        self.assertEqual(model.index(0, model.COLUMN_PATH).data(), r"C:\One")
+        self.assertEqual(model.index(1, model.COLUMN_PATH).data(), r"D:\Two")
+
     def test_widget_uses_row_selection_and_elides_long_text_on_the_right(self):
         widget = FileListWidget()
         self.assertEqual(
@@ -61,6 +88,8 @@ class FileTableTests(unittest.TestCase):
         self.assertEqual(widget.textElideMode(), Qt.TextElideMode.ElideRight)
         self.assertTrue(widget.horizontalHeader().stretchLastSection())
         header = widget.horizontalHeader()
+        self.assertTrue(header.sectionsClickable())
+        self.assertFalse(header.isSortIndicatorShown())
         self.assertEqual(
             header.sectionResizeMode(widget.model().COLUMN_OLD_NAME),
             QHeaderView.ResizeMode.Interactive,

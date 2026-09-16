@@ -267,9 +267,12 @@ class FileListActionsMixin:
                 QMessageBox.warning(self, "Ошибка", f"Не удалось добавить файл {os.path.basename(file_path)}: {e}")
 
         if new_items:
-            mode = self._get_sort_mode()
-            if not mode.startswith("Без сортировки"):
-                self.sort_files(mode)
+            column = getattr(self, "_column_sort_section", None)
+            if column is not None:
+                self.sort_files_by_column(
+                    column,
+                    getattr(self, "_column_sort_order", Qt.SortOrder.AscendingOrder),
+                )
             else:
                 self.update_file_list()
         
@@ -305,6 +308,93 @@ class FileListActionsMixin:
             return
         self.list_files.set_manual_sorting(False)
         self.sort_files(mode)
+
+    def on_file_header_clicked(self, section: int):
+        """Сортирует общий список по выбранной колонке таблицы."""
+        current_section = getattr(self, "_column_sort_section", None)
+        current_order = getattr(
+            self,
+            "_column_sort_order",
+            Qt.SortOrder.AscendingOrder,
+        )
+        if current_section == section and current_order == Qt.SortOrder.DescendingOrder:
+            self._column_sort_section = None
+            self.list_files.horizontalHeader().setSortIndicatorShown(False)
+            self.list_files.set_manual_sorting(True)
+            if callable(getattr(self, "_schedule_settings_save", None)):
+                self._schedule_settings_save()
+            return
+        order = (
+            Qt.SortOrder.DescendingOrder
+            if current_section == section
+            else Qt.SortOrder.AscendingOrder
+        )
+        self.sort_files_by_column(section, order)
+
+    def sort_files_by_column(self, section: int, order=Qt.SortOrder.AscendingOrder):
+        if not hasattr(self, "list_files"):
+            return
+        model = self.list_files.model()
+        valid_columns = {
+            model.COLUMN_OLD_NAME,
+            model.COLUMN_NEW_NAME,
+            model.COLUMN_TYPE,
+            model.COLUMN_PATH,
+        }
+        if section not in valid_columns:
+            return
+
+        selected_paths = []
+        for item in self.list_files.selectedItems():
+            data = item.data(Qt.ItemDataRole.UserRole)
+            if data and getattr(data, "path", None):
+                selected_paths.append(data.path)
+
+        def natural_key(text: str):
+            return tuple(
+                int(part) if part.isdigit() else part.casefold()
+                for part in re.split(r"(\d+)", str(text))
+            )
+
+        def type_key(file_item):
+            if not getattr(file_item, "is_file", True):
+                return "папка"
+            extension = os.path.splitext(str(getattr(file_item, "name", "")))[1]
+            return extension[1:].casefold() if extension else "файл"
+
+        def folder_key(file_item):
+            path = str(getattr(file_item, "path", ""))
+            if not getattr(file_item, "is_file", True):
+                return path
+            return str(getattr(file_item, "folder", "") or os.path.dirname(path))
+
+        if section == model.COLUMN_OLD_NAME:
+            key_func = lambda f: (natural_key(getattr(f, "name", "")), str(f.path).casefold())
+        elif section == model.COLUMN_NEW_NAME:
+            key_func = lambda f: (
+                natural_key(getattr(f, "preview_name", None) or getattr(f, "name", "")),
+                str(f.path).casefold(),
+            )
+        elif section == model.COLUMN_TYPE:
+            key_func = lambda f: (natural_key(type_key(f)), natural_key(getattr(f, "name", "")))
+        else:
+            key_func = lambda f: (natural_key(folder_key(f)), natural_key(getattr(f, "name", "")))
+
+        self.files.sort(
+            key=key_func,
+            reverse=order == Qt.SortOrder.DescendingOrder,
+        )
+        self._column_sort_section = section
+        self._column_sort_order = order
+        self.list_files.set_manual_sorting(False)
+        header = self.list_files.horizontalHeader()
+        header.setSortIndicator(section, order)
+        header.setSortIndicatorShown(True)
+        self.update_file_list()
+        self.list_files.clearSelection()
+        self.list_files.select_paths(selected_paths)
+        if callable(getattr(self, "_schedule_settings_save", None)):
+            self._schedule_settings_save()
     def sort_files(self, mode: str):
         if not self.files:
             return
@@ -350,6 +440,8 @@ class FileListActionsMixin:
             self.update_file_list()
             return
         self.files = self.list_files.model().files()
+        self._column_sort_section = None
+        self.list_files.horizontalHeader().setSortIndicatorShown(False)
         if self._get_sort_mode() != self._manual_sort_mode_text():
             self._set_sort_mode(self._manual_sort_mode_text(), notify=False)
         self.list_files.set_manual_sorting(True)

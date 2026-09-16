@@ -1,6 +1,8 @@
 import json
 import os
 
+from PyQt6.QtCore import Qt
+
 from app.core.app_utils import _debug_log
 
 
@@ -88,49 +90,26 @@ def _restore_filter_actions(actions, selected_values) -> None:
 def _restore_file_list_view_state(window, state: dict) -> None:
     if not isinstance(state, dict):
         return
-
-    sort_mode = str(state.get("sort_mode") or "").strip()
-    set_sort_mode = getattr(window, "set_sort_mode", None)
-    if sort_mode and callable(set_sort_mode):
-        try:
-            set_sort_mode(sort_mode, notify=False)
-        except Exception as error:
-            _log_settings_error("восстановления сортировки", error)
-
-    search_input = getattr(window, "input_search", None)
-    if search_input is not None:
-        search_query = str(state.get("search_query") or "")
-        _set_widget_value_without_signals(
-            search_input,
-            lambda: search_input.setText(search_query),
-            "восстановления поискового запроса",
-        )
-
-    _restore_filter_actions(
-        getattr(window, "_type_filter_actions", None),
-        state.get("type_filters"),
-    )
-    _restore_filter_actions(
-        getattr(window, "_ext_filter_actions", None),
-        state.get("extension_filters"),
-    )
-
     try:
-        update_type_filter = getattr(window, "_update_type_filter_button_text", None)
-        if callable(update_type_filter):
-            update_type_filter()
-        update_extension_filter = getattr(window, "_update_ext_filter_button_text", None)
-        if callable(update_extension_filter):
-            update_extension_filter()
-
-        refresh_sort = getattr(window, "on_sort_changed", None)
-        refresh_list = getattr(window, "update_file_list", None)
-        if callable(refresh_sort):
-            refresh_sort()
-        elif callable(refresh_list):
-            refresh_list()
+        section = state.get("sort_column")
+        if section is None:
+            return
+        section = int(section)
+        order = (
+            Qt.SortOrder.DescendingOrder
+            if state.get("sort_order") == "descending"
+            else Qt.SortOrder.AscendingOrder
+        )
+        window._column_sort_section = section
+        window._column_sort_order = order
+        file_list = getattr(window, "list_files", None)
+        if file_list is not None and 0 <= section < file_list.model().columnCount():
+            header = file_list.horizontalHeader()
+            header.setSortIndicator(section, order)
+            header.setSortIndicatorShown(True)
+            file_list.set_manual_sorting(False)
     except Exception as error:
-        _log_settings_error("обновления списка после загрузки фильтров", error)
+        _log_settings_error("восстановления сортировки таблицы", error)
 
 
 def _legacy_settings_candidates() -> tuple[str, ...]:
@@ -192,6 +171,8 @@ def _initialize_settings_defaults(window) -> None:
     window.conversion_output_path = ""
     window.image_compression_output_mode = "alongside"
     window.image_compression_output_path = ""
+    window.rename_folder_mode = "sequential"
+    window.rename_numbering_scope = "global"
     window._pending_template_session_state = None
     window._pending_settings_dialog_geometry = None
     window._pending_settings_nav_row = 0
@@ -400,6 +381,25 @@ def _restore_image_compression_output_settings(window, data: dict) -> None:
         updater()
 
 
+def _restore_rename_folder_mode(window, data: dict) -> None:
+    mode = str(data.get("rename_folder_mode") or "sequential").strip()
+    if mode not in {"sequential", "parallel_by_folder"}:
+        mode = "sequential"
+    window.rename_folder_mode = mode
+    _set_combo_current_data(getattr(window, "rename_folder_mode_combo", None), mode)
+
+
+def _restore_rename_numbering_scope(window, data: dict) -> None:
+    scope = str(data.get("rename_numbering_scope") or "global").strip()
+    if scope not in {"global", "per_folder"}:
+        scope = "global"
+    window.rename_numbering_scope = scope
+    _set_combo_current_data(
+        getattr(window, "rename_numbering_scope_combo", None),
+        scope,
+    )
+
+
 def _apply_settings_data(window, data: dict) -> None:
     if "custom_templates" in data:
         window.custom_templates = data["custom_templates"]
@@ -435,6 +435,8 @@ def _apply_settings_data(window, data: dict) -> None:
 
     _restore_conversion_output_settings(window, data)
     _restore_image_compression_output_settings(window, data)
+    _restore_rename_folder_mode(window, data)
+    _restore_rename_numbering_scope(window, data)
     _restore_theme(window, data)
 
     if "ghostscript_path" in data:
@@ -513,20 +515,13 @@ def _current_widget_index(window, attribute_name: str, default: int = 0) -> int:
 
 
 def _collect_file_list_view_state(window) -> dict:
-    get_sort_mode = getattr(window, "get_sort_mode", None)
-    search_input = getattr(window, "input_search", None)
+    order = getattr(window, "_column_sort_order", Qt.SortOrder.AscendingOrder)
     return {
-        "sort_mode": get_sort_mode() if callable(get_sort_mode) else "",
-        "search_query": search_input.text() if search_input is not None else "",
-        "type_filters": sorted(
-            key
-            for key, action in getattr(window, "_type_filter_actions", {}).items()
-            if action.isChecked()
-        ),
-        "extension_filters": sorted(
-            key
-            for key, action in getattr(window, "_ext_filter_actions", {}).items()
-            if action.isChecked()
+        "sort_column": getattr(window, "_column_sort_section", None),
+        "sort_order": (
+            "descending"
+            if order == Qt.SortOrder.DescendingOrder
+            else "ascending"
         ),
     }
 
@@ -561,6 +556,16 @@ def _collect_settings_data(window) -> dict:
         ),
         "image_compression_output_path": getattr(
             window, "image_compression_output_path", ""
+        ),
+        "rename_folder_mode": (
+            getattr(window, "rename_folder_mode_combo", None).currentData()
+            if getattr(window, "rename_folder_mode_combo", None) is not None
+            else getattr(window, "rename_folder_mode", "sequential")
+        ),
+        "rename_numbering_scope": (
+            getattr(window, "rename_numbering_scope_combo", None).currentData()
+            if getattr(window, "rename_numbering_scope_combo", None) is not None
+            else getattr(window, "rename_numbering_scope", "global")
         ),
         "current_tab_index": _current_widget_index(window, "tabs"),
         "settings_nav_current_row": settings_nav.currentRow() if settings_nav is not None else 0,
