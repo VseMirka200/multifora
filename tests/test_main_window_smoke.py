@@ -44,6 +44,13 @@ class MainWindowSmokeTests(unittest.TestCase):
 
                 settings_widget = window._ensure_settings_panel_widget()
                 self.assertIsNotNone(settings_widget)
+                self.assertEqual(window.conversion_output_mode_combo.currentData(), "ask")
+                self.assertFalse(window.conversion_output_path_input.isEnabled())
+                window.conversion_output_mode_combo.setCurrentIndex(
+                    window.conversion_output_mode_combo.findData("custom")
+                )
+                self.assertTrue(window.conversion_output_path_input.isEnabled())
+                self.assertTrue(window.btn_select_conversion_output_path.isEnabled())
                 self.assertEqual(window.btn_download_logs.text(), "Скачать логи")
                 self.assertEqual(window.btn_download_logs.property("buttonVariant"), "secondary")
                 self.assertGreaterEqual(window.settings_stack.count(), 4)

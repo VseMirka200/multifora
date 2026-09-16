@@ -127,12 +127,20 @@ class ConversionMixin(ImageEncodingMixin):
     CONVERTED_FOLDER_NAME = "Конвертированные"
 
     def _conversion_output_directory(self, file: FileItem) -> str:
+        mode = str(
+            getattr(self, "conversion_output_mode", "source_subfolder")
+            or "source_subfolder"
+        ).strip()
         custom_dir = str(getattr(self, "conversion_output_dir", "") or "").strip()
-        if custom_dir:
+        if mode == "custom" and custom_dir:
             output_dir = os.path.abspath(os.path.expanduser(custom_dir))
         else:
             source_dir = os.path.dirname(os.path.abspath(file.path))
-            output_dir = os.path.join(source_dir, self.CONVERTED_FOLDER_NAME)
+            output_dir = (
+                source_dir
+                if mode == "alongside"
+                else os.path.join(source_dir, self.CONVERTED_FOLDER_NAME)
+            )
         os.makedirs(output_dir, exist_ok=True)
         return output_dir
 
@@ -1240,4 +1248,3 @@ class ConversionMixin(ImageEncodingMixin):
                     image.close()
                 except Exception as close_error:
                     _debug_log(f"Не удалось закрыть изображение {file.path}: {close_error}")
-

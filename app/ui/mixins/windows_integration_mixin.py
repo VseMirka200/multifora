@@ -16,6 +16,15 @@ from app.core.app_utils import _debug_log, _log_ignored_error
 from app.core.app_icons import _get_shortcut_icon_path
 
 
+def _gui_python_executable() -> str:
+    """Возвращает pythonw.exe, когда он доступен, чтобы не показывать консоль."""
+    executable = os.path.abspath(sys.executable)
+    if os.name != "nt" or os.path.basename(executable).lower() != "python.exe":
+        return executable
+    pythonw = os.path.join(os.path.dirname(executable), "pythonw.exe")
+    return pythonw if os.path.isfile(pythonw) else executable
+
+
 class WindowsIntegrationMixin:
     # Поддерживает ярлыки и меню Проводника с учётом запуска из исходников или сборки.
     _CONTEXT_MENU_ROOTS = (
@@ -29,13 +38,13 @@ class WindowsIntegrationMixin:
         try:
             exe_path = os.path.abspath(sys.argv[0])
             if exe_path.lower().endswith(".py"):
-                base_cmd = f"\"{sys.executable}\" \"{exe_path}\""
+                base_cmd = f"\"{_gui_python_executable()}\" \"{exe_path}\""
             else:
                 base_cmd = f"\"{exe_path}\""
 
             icon_path = _get_shortcut_icon_path()
             if not icon_path:
-                icon_path = sys.executable if exe_path.lower().endswith(".py") else exe_path
+                icon_path = _gui_python_executable() if exe_path.lower().endswith(".py") else exe_path
             if icon_path:
                 if icon_path.lower().endswith((".exe", ".dll")):
                     icon_value = f"\"{icon_path}\",0"
@@ -274,7 +283,7 @@ class WindowsIntegrationMixin:
             except Exception as error:
                 _log_ignored_error("WindowsIntegrationMixin.create_windows_shortcut", error)
             shortcut_exists = os.path.exists(shortcut_path)
-            target_path = sys.executable
+            target_path = _gui_python_executable()
             args = ""
             try:
                 if not getattr(sys, "frozen", False):
@@ -312,6 +321,7 @@ class WindowsIntegrationMixin:
                 capture_output=True,
                 text=True,
                 timeout=15,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
             )
             if result.returncode != 0:
                 if not silent:

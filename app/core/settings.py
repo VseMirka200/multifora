@@ -188,7 +188,7 @@ def _initialize_settings_defaults(window) -> None:
     window.disable_warning_dialogs = False
     window.auto_update_check_enabled = True
     window.theme_mode = _DEFAULT_THEME_MODE
-    window.conversion_output_mode = "source_subfolder"
+    window.conversion_output_mode = "ask"
     window.conversion_output_path = ""
     window.image_compression_output_mode = "alongside"
     window.image_compression_output_path = ""
@@ -354,11 +354,26 @@ def _restore_theme(window, data: dict) -> None:
 
 
 def _restore_conversion_output_settings(window, data: dict) -> None:
-    # Место сохранения выбирается перед конвертацией. Запоминаем только последнюю
-    # пользовательскую папку, чтобы следующий диалог открывался в том же месте.
+    mode = str(data.get("conversion_output_mode") or "ask").strip()
+    if mode not in {"ask", "alongside", "source_subfolder", "custom"}:
+        mode = "ask"
     path = str(data.get("conversion_output_path") or "").strip()
-    window.conversion_output_mode = "source_subfolder"
+    window.conversion_output_mode = mode
     window.conversion_output_path = path
+
+    combo = getattr(window, "conversion_output_mode_combo", None)
+    if combo is not None:
+        _set_combo_current_data(combo, mode)
+    path_field = getattr(window, "conversion_output_path_input", None)
+    if path_field is not None:
+        _set_widget_value_without_signals(
+            path_field,
+            lambda: path_field.setText(path),
+            "восстановления папки конвертации",
+        )
+    updater = getattr(window, "_update_conversion_output_controls", None)
+    if callable(updater):
+        updater()
 
 
 def _restore_image_compression_output_settings(window, data: dict) -> None:
@@ -539,7 +554,7 @@ def _collect_settings_data(window) -> dict:
             auto_update_checkbox.isChecked() if auto_update_checkbox is not None else True
         ),
         "theme_mode": getattr(window, "theme_mode", _DEFAULT_THEME_MODE),
-        "conversion_output_mode": getattr(window, "conversion_output_mode", "source_subfolder"),
+        "conversion_output_mode": getattr(window, "conversion_output_mode", "ask"),
         "conversion_output_path": getattr(window, "conversion_output_path", ""),
         "image_compression_output_mode": getattr(
             window, "image_compression_output_mode", "alongside"

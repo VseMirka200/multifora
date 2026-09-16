@@ -12,7 +12,8 @@ class ConversionOutputWiringTests(unittest.TestCase):
     def test_conversion_action_asks_destination_at_run_time(self):
         source = Path("app/ui/mixins/conversion_actions_mixin.py").read_text(encoding="utf-8")
         self.assertIn("_ask_conversion_output_destination", source)
-        self.assertIn('"Рядом с исходником"', source)
+        self.assertIn('"Рядом с файлом"', source)
+        self.assertIn('"В папку «Конвертированные»"', source)
         self.assertIn('"Выбрать папку…"', source)
         self.assertIn("output_dir=output_dir", source)
         self.assertIn('"conversion_output_dir": output_dir', source)
@@ -20,10 +21,12 @@ class ConversionOutputWiringTests(unittest.TestCase):
     def test_retry_preserves_conversion_output_dir(self):
         source = Path("app/ui/ui_main.py").read_text(encoding="utf-8")
         self.assertIn('output_dir=self._last_operation.get("conversion_output_dir", "")', source)
+        self.assertIn('"conversion_output_mode", "source_subfolder"', source)
 
     def test_last_custom_conversion_folder_is_persisted(self):
         source = Path("app/core/settings.py").read_text(encoding="utf-8")
         self.assertIn('"conversion_output_path"', source)
+        self.assertIn('"conversion_output_mode"', source)
 
 
 if __name__ == "__main__":

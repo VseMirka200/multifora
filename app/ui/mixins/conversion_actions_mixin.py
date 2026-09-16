@@ -89,11 +89,10 @@ class ConversionActionsMixin:
         file_count: int,
         source_label: str,
         target_label: str,
-    ) -> tuple[bool, str]:
+    ) -> tuple[bool, str, str]:
         """Запрашивает место сохранения результатов конвертации.
 
-        Возвращает пару ``(подтверждено, папка)``. Пустая папка означает режим
-        ``Конвертированные`` рядом с каждым исходным файлом.
+        Возвращает ``(подтверждено, режим, папка)``.
         """
         while True:
             box = QMessageBox(self)
@@ -103,12 +102,16 @@ class ConversionActionsMixin:
             box.setInformativeText(
                 f"Файлов: {file_count}\n"
                 f"Конвертация: {source_label} → {target_label}\n\n"
-                "Можно создать папку «Конвертированные» рядом с каждым "
-                "исходным файлом или выбрать общую папку."
+                "Можно сохранить результат рядом с исходным файлом, создать "
+                "папку «Конвертированные» рядом с ним или выбрать общую папку."
             )
 
             source_button = box.addButton(
-                "Рядом с исходником",
+                "Рядом с файлом",
+                QMessageBox.ButtonRole.AcceptRole,
+            )
+            subfolder_button = box.addButton(
+                "В папку «Конвертированные»",
                 QMessageBox.ButtonRole.AcceptRole,
             )
             custom_button = box.addButton(
@@ -125,21 +128,43 @@ class ConversionActionsMixin:
 
             clicked_button = box.clickedButton()
             if clicked_button is source_button:
-                self.conversion_output_mode = "source_subfolder"
-                self._schedule_conversion_settings_save()
-                return True, ""
+                return True, "alongside", ""
+
+            if clicked_button is subfolder_button:
+                return True, "source_subfolder", ""
 
             if clicked_button is custom_button:
                 folder = self.select_conversion_output_folder()
                 if folder:
-                    self.conversion_output_mode = "custom"
-                    self._schedule_conversion_settings_save()
-                    return True, folder
+                    return True, "custom", folder
                 # Возвращаемся к выбору назначения, чтобы отмена системного
                 # диалога папки не запускала и не отменяла конвертацию сама.
                 continue
 
-            return False, ""
+            return False, "", ""
+
+    def _resolve_conversion_output_destination(
+        self,
+        *,
+        file_count: int,
+        source_label: str,
+        target_label: str,
+    ) -> tuple[bool, str, str]:
+        mode = str(getattr(self, "conversion_output_mode", "ask") or "ask").strip()
+        if mode == "ask":
+            return self._ask_conversion_output_destination(
+                file_count=file_count,
+                source_label=source_label,
+                target_label=target_label,
+            )
+        if mode == "custom":
+            folder = self._conversion_custom_output_path()
+            if not folder:
+                folder = self.select_conversion_output_folder()
+            return (bool(folder), "custom", folder)
+        if mode in {"alongside", "source_subfolder"}:
+            return True, mode, ""
+        return True, "source_subfolder", ""
 
     @staticmethod
     def _display_category_for_file(file_item: FileItem) -> str:
@@ -343,7 +368,7 @@ class ConversionActionsMixin:
             )
             return
 
-        accepted, output_dir = self._ask_conversion_output_destination(
+        accepted, output_mode, output_dir = self._resolve_conversion_output_destination(
             file_count=len(files),
             source_label=source_label,
             target_label=target_label,
@@ -360,6 +385,7 @@ class ConversionActionsMixin:
             files,
             conversion_type,
             target_label,
+            output_mode=output_mode,
             output_dir=output_dir,
         )
         self._last_operation = {
@@ -367,6 +393,7 @@ class ConversionActionsMixin:
             "file_category": category_label,
             "conversion_type": conversion_type,
             "conversion_format": target_label,
+            "conversion_output_mode": output_mode,
             "conversion_output_dir": output_dir,
             "file_paths": [file_item.path for file_item in files],
         }

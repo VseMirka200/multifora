@@ -19,7 +19,8 @@ class ConversionAdaptiveLayoutTests(unittest.TestCase):
         action_source = Path("app/ui/mixins/conversion_actions_mixin.py").read_text(encoding="utf-8")
         self.assertNotIn('"Сохранение:"', layout_source)
         self.assertIn('"Куда сохранить сконвертированные файлы?"', action_source)
-        self.assertIn('"Рядом с исходником"', action_source)
+        self.assertIn('"Рядом с файлом"', action_source)
+        self.assertIn('"В папку «Конвертированные»"', action_source)
         self.assertIn('"Выбрать папку…"', action_source)
 
 

@@ -47,7 +47,10 @@ class RepositoryHygieneTests(unittest.TestCase):
         self.assertTrue(Path("multifora_start.py").is_file())
         self.assertFalse(Path("multifora_start.pyw").exists())
         self.assertIn('set "APP_ENTRY=multifora_start.py"', launcher)
-        self.assertIn('"%VENV_PY%" "%~dp0%APP_ENTRY%" %*', launcher)
+        self.assertIn(
+            'start "" /b "%VENV_DIR%\\Scripts\\pythonw.exe" "%~dp0%APP_ENTRY%" %*',
+            launcher,
+        )
         self.assertNotIn(".pyw", launcher)
 
     def test_python_modules_have_no_unresolved_global_names(self):

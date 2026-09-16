@@ -82,7 +82,8 @@ if errorlevel 1 goto error
 :run_program
 echo Starting Multifora...
 if exist "%VENV_DIR%\Scripts\pythonw.exe" (
-    "%VENV_DIR%\Scripts\pythonw.exe" "%~dp0%APP_ENTRY%" %*
+    start "" /b "%VENV_DIR%\Scripts\pythonw.exe" "%~dp0%APP_ENTRY%" %*
+    exit /b 0
 ) else (
     "%VENV_PY%" "%~dp0%APP_ENTRY%" %*
 )

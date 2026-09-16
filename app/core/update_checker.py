@@ -12,6 +12,7 @@ RELEASES_LATEST_API = f"https://api.github.com/repos/{REPO}/releases/latest"
 TAGS_API = f"https://api.github.com/repos/{REPO}/tags"
 RELEASES_PAGE = f"https://github.com/{REPO}/releases/latest"
 REPO_PAGE = f"https://github.com/{REPO}"
+_NO_WINDOW = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 
 
 def _parse_version(version: str) -> tuple[int, ...]:
@@ -64,6 +65,7 @@ def get_local_version() -> str:
             text=True,
             timeout=2,
             check=False,
+            creationflags=_NO_WINDOW,
         )
         tag = (res.stdout or "").strip()
         if res.returncode == 0 and tag:
@@ -79,6 +81,7 @@ def get_local_version() -> str:
             text=True,
             timeout=2,
             check=False,
+            creationflags=_NO_WINDOW,
         )
         commit = (res.stdout or "").strip()
         if res.returncode == 0 and commit:

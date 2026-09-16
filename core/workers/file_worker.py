@@ -36,6 +36,7 @@ class FileWorker(
         self.files: list[FileItem] = []
         self.conversion_type = ""
         self.conversion_format = ""
+        self.conversion_output_mode = "source_subfolder"
         self.conversion_output_dir = ""
         self.new_names: list[str] = []
         self.rename_conflict_policy = "unique"
@@ -93,11 +94,19 @@ class FileWorker(
         conversion_type: str,
         conversion_format: str = "",
         output_dir: str = "",
+        output_mode: str | None = None,
     ) -> None:
         self._prepare_operation("convert", files)
         self.conversion_type = conversion_type
         self.conversion_format = conversion_format
         self.conversion_output_dir = str(output_dir or "").strip()
+        if output_mode is None:
+            output_mode = "custom" if self.conversion_output_dir else "source_subfolder"
+        self.conversion_output_mode = (
+            output_mode
+            if output_mode in {"alongside", "source_subfolder", "custom"}
+            else "source_subfolder"
+        )
         self._conversion_reserved_paths = set()
         self._word_warmup_done = False
 

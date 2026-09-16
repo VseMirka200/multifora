@@ -23,6 +23,7 @@ class _DummyConversionWorker(ConversionMixin):
         self.errors = []
         self.conversion_type = ""
         self.conversion_format = ""
+        self.conversion_output_mode = "source_subfolder"
         self.conversion_output_dir = ""
         self._conversion_reserved_paths = set()
         self.status = _SignalStub()
@@ -119,6 +120,7 @@ class ConversionMixinTests(unittest.TestCase):
     def test_custom_conversion_output_uses_selected_folder(self):
         worker = _DummyConversionWorker()
         with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as output_dir:
+            worker.conversion_output_mode = "custom"
             worker.conversion_output_dir = output_dir
             source_path = os.path.join(source_dir, "photo.png")
             with open(source_path, "wb") as stream:
@@ -129,9 +131,23 @@ class ConversionMixinTests(unittest.TestCase):
 
             self.assertEqual(output_path, os.path.join(output_dir, "photo.jpg"))
 
+    def test_alongside_conversion_output_uses_source_folder(self):
+        worker = _DummyConversionWorker()
+        worker.conversion_output_mode = "alongside"
+        with tempfile.TemporaryDirectory() as source_dir:
+            source_path = os.path.join(source_dir, "photo.png")
+            with open(source_path, "wb") as stream:
+                stream.write(b"x")
+
+            output_path = worker._conversion_output_path(FileItem(source_path), ".jpg")
+
+            self.assertEqual(output_path, os.path.join(source_dir, "photo.jpg"))
+            self.assertFalse(os.path.isdir(os.path.join(source_dir, "Конвертированные")))
+
     def test_conversion_output_reserves_unique_names_before_files_exist(self):
         worker = _DummyConversionWorker()
         with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as output_dir:
+            worker.conversion_output_mode = "custom"
             worker.conversion_output_dir = output_dir
             first_source = os.path.join(source_dir, "a", "same.png")
             second_source = os.path.join(source_dir, "b", "same.png")
@@ -178,6 +194,7 @@ class ConversionMixinTests(unittest.TestCase):
 
         worker = _DummyConversionWorker()
         with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as output_dir:
+            worker.conversion_output_mode = "custom"
             worker.conversion_output_dir = output_dir
             png_path = os.path.join(source_dir, "first.png")
             jpg_path = os.path.join(source_dir, "second.jpg")
@@ -260,6 +277,7 @@ class ConversionMixinTests(unittest.TestCase):
     def test_auto_document_converts_txt_to_docx(self):
         worker = _DummyConversionWorker()
         with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as output_dir:
+            worker.conversion_output_mode = "custom"
             worker.conversion_output_dir = output_dir
             source_path = os.path.join(source_dir, "note.txt")
             with open(source_path, "w", encoding="utf-8") as stream:
@@ -282,6 +300,7 @@ class ConversionMixinTests(unittest.TestCase):
     def test_text_to_pdf_reserves_output_name_only_once(self):
         worker = _DummyConversionWorker()
         with tempfile.TemporaryDirectory() as source_dir, tempfile.TemporaryDirectory() as output_dir:
+            worker.conversion_output_mode = "custom"
             worker.conversion_output_dir = output_dir
             source_path = os.path.join(source_dir, "note.txt")
             with open(source_path, "w", encoding="utf-8") as stream:

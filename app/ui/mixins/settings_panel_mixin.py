@@ -144,6 +144,36 @@ class SettingsPanelMixin:
         scroll.setWidget(content)
         return page, card_layout
 
+    def _update_conversion_output_controls(self) -> None:
+        combo = getattr(self, "conversion_output_mode_combo", None)
+        mode = combo.currentData() if combo is not None else getattr(
+            self, "conversion_output_mode", "ask"
+        )
+        custom_enabled = mode == "custom"
+        path_field = getattr(self, "conversion_output_path_input", None)
+        select_button = getattr(self, "btn_select_conversion_output_path", None)
+        if path_field is not None:
+            path_field.setEnabled(custom_enabled)
+        if select_button is not None:
+            select_button.setEnabled(custom_enabled)
+
+    def _on_conversion_output_mode_changed(self, _index: int = 0) -> None:
+        combo = getattr(self, "conversion_output_mode_combo", None)
+        if combo is None:
+            return
+        self.conversion_output_mode = str(combo.currentData() or "ask")
+        self._update_conversion_output_controls()
+        self._schedule_settings_save()
+
+    def _on_conversion_output_path_changed(self, path: str) -> None:
+        self.conversion_output_path = str(path or "").strip()
+        self._schedule_settings_save()
+
+    def _select_conversion_output_path_from_settings(self) -> None:
+        folder = self.select_conversion_output_folder()
+        if folder:
+            self.conversion_output_path_input.setText(folder)
+
     def _add_settings_page(self) -> QVBoxLayout:
         page, card_layout = self._create_settings_page_card()
         self.settings_stack.addWidget(page)
@@ -437,6 +467,58 @@ class SettingsPanelMixin:
         self.disable_warning_dialogs_checkbox.stateChanged.connect(self._on_disable_warning_dialogs_changed)
         self.disable_warning_dialogs_checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
         main_card_layout.addWidget(disable_warning_row)
+
+        _add_settings_section_divider(main_card_layout)
+        _add_settings_section_title(main_card_layout, "Конвертация")
+
+        self.conversion_output_mode_combo = MenuLikeComboBox()
+        setup_standard_dropdown(self.conversion_output_mode_combo, fixed_width=290)
+        self.conversion_output_mode_combo.addItem("Спрашивать каждый раз", "ask")
+        self.conversion_output_mode_combo.addItem("Рядом с исходным файлом", "alongside")
+        self.conversion_output_mode_combo.addItem(
+            "В папку «Конвертированные» рядом", "source_subfolder"
+        )
+        self.conversion_output_mode_combo.addItem("В указанную папку", "custom")
+        output_mode = str(getattr(self, "conversion_output_mode", "ask") or "ask")
+        output_mode_index = self.conversion_output_mode_combo.findData(output_mode)
+        self.conversion_output_mode_combo.setCurrentIndex(max(0, output_mode_index))
+        self.conversion_output_mode_combo.currentIndexChanged.connect(
+            self._on_conversion_output_mode_changed
+        )
+        output_mode_row = self._create_settings_select_row(
+            "Сохранять:", self.conversion_output_mode_combo, label_width=110
+        )
+        main_card_layout.addWidget(output_mode_row)
+
+        output_path_row = QWidget()
+        output_path_layout = QHBoxLayout(output_path_row)
+        output_path_layout.setContentsMargins(*MARGINS_NONE)
+        output_path_layout.setSpacing(SPACE_SM)
+        output_path_label = QLabel("Папка:")
+        output_path_label.setFixedWidth(102)
+        output_path_layout.addWidget(output_path_label)
+        self.conversion_output_path_input = QLineEdit()
+        self.conversion_output_path_input.setPlaceholderText("Выберите папку")
+        self.conversion_output_path_input.setText(
+            str(getattr(self, "conversion_output_path", "") or "")
+        )
+        setup_standard_line_input(self.conversion_output_path_input)
+        self.conversion_output_path_input.textChanged.connect(
+            self._on_conversion_output_path_changed
+        )
+        output_path_layout.addWidget(self.conversion_output_path_input, 1)
+        self.btn_select_conversion_output_path = QPushButton("Выбрать…")
+        setup_standard_action_button(
+            self.btn_select_conversion_output_path,
+            height=HEADER_FIELD_HEIGHT,
+            variant="secondary",
+        )
+        self.btn_select_conversion_output_path.clicked.connect(
+            self._select_conversion_output_path_from_settings
+        )
+        output_path_layout.addWidget(self.btn_select_conversion_output_path)
+        main_card_layout.addWidget(output_path_row)
+        self._update_conversion_output_controls()
 
         _add_settings_section_divider(main_card_layout)
         _add_settings_section_title(main_card_layout, "Ярлыки")

@@ -427,6 +427,9 @@ class MultiforaMainWindow(
                 files,
                 self._last_operation.get("conversion_type", ""),
                 self._last_operation.get("conversion_format", ""),
+                output_mode=self._last_operation.get(
+                    "conversion_output_mode", "source_subfolder"
+                ),
                 output_dir=self._last_operation.get("conversion_output_dir", ""),
             )
         elif op == "compress":

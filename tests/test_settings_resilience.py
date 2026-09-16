@@ -87,3 +87,23 @@ class SettingsResilienceTests(unittest.TestCase):
         data = settings._collect_settings_data(window)
         self.assertEqual(data["image_compression_output_mode"], "custom")
         self.assertEqual(data["image_compression_output_path"], r"C:\output")
+
+    def test_conversion_destination_is_persisted(self):
+        window = _DummyWindow()
+        settings._initialize_settings_defaults(window)
+        settings._apply_settings_data(
+            window,
+            {
+                "conversion_output_mode": "custom",
+                "conversion_output_path": r"C:\converted",
+            },
+        )
+        self.assertEqual(window.conversion_output_mode, "custom")
+        self.assertEqual(window.conversion_output_path, r"C:\converted")
+
+        window.custom_templates = {}
+        window.auto_clear_checkbox = _DummyCheckbox()
+        window.ghostscript_path_override = None
+        data = settings._collect_settings_data(window)
+        self.assertEqual(data["conversion_output_mode"], "custom")
+        self.assertEqual(data["conversion_output_path"], r"C:\converted")
