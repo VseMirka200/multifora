@@ -93,27 +93,7 @@ class TemplateApplyMixin:
             step = int(custom_settings.get("step", 1))
             num_digits = int(custom_settings.get("digits", 3))
 
-        initial_num = current_num
-        numbering_active = numbering_mode in {
-            "Простая нумерация",
-            "Нумерация с префиксом",
-            "Нумерация с датой",
-        } or (self.current_template == "Пользовательский шаблон" and use_numbering)
-        scope_widget = getattr(self, "rename_numbering_scope_combo", None)
-        numbering_scope = (
-            str(scope_widget.currentData() or "global")
-            if scope_widget is not None
-            else "global"
-        )
-        folder_counters: dict[str, int] = {}
-
-        for i, file_item in enumerate(self.files):
-            folder_key = os.path.normcase(
-                os.path.abspath(str(getattr(file_item, "folder", "")))
-            )
-            if numbering_active and numbering_scope == "per_folder":
-                current_num = folder_counters.get(folder_key, initial_num)
-
+        for file_item in self.files:
             old_name = file_item.name
             name_without_ext, ext = os.path.splitext(old_name)
             new_name = old_name
@@ -220,9 +200,6 @@ class TemplateApplyMixin:
                         )
 
             file_item.preview_name = new_name
-            if numbering_active and numbering_scope == "per_folder":
-                folder_counters[folder_key] = current_num
-
         self.list_files.refresh()
 
         self.status_bar.showMessage(f"Применен шаблон: {self.current_template}")

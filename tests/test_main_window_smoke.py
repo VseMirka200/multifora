@@ -413,7 +413,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window._settings_save_timer.stop()
                 window.deleteLater()
 
-    def test_custom_numbering_can_restart_in_each_folder(self):
+    def test_custom_numbering_continues_across_folders(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             folders = [os.path.join(tmp_dir, name) for name in ("first", "second")]
             for folder in folders:
@@ -438,18 +438,8 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.update_file_list()
                 window.on_template_selected("Пользовательский шаблон")
                 window.template_custom.setText("ПР {num:1d,start=1,step=1}")
-
-                scope_index = window.rename_numbering_scope_combo.findData("per_folder")
-                window.rename_numbering_scope_combo.setCurrentIndex(scope_index)
                 window.refresh_rename_preview()
-                self.assertEqual(
-                    [item.preview_name for item in window.files],
-                    ["ПР 1.docx", "ПР 2.docx", "ПР 1.docx", "ПР 2.docx"],
-                )
 
-                global_index = window.rename_numbering_scope_combo.findData("global")
-                window.rename_numbering_scope_combo.setCurrentIndex(global_index)
-                window.refresh_rename_preview()
                 self.assertEqual(
                     [item.preview_name for item in window.files],
                     ["ПР 1.docx", "ПР 2.docx", "ПР 3.docx", "ПР 4.docx"],
@@ -461,7 +451,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window._settings_save_timer.stop()
                 window.deleteLater()
 
-    def test_regex_case_and_conflict_controls_exist(self):
+    def test_regex_and_case_controls_exist_without_advanced_rename_options(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             settings_path = os.path.join(tmp_dir, "settings.json")
             with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
@@ -496,13 +486,9 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.refresh_rename_preview()
                 self.assertEqual(window.files[0].preview_name, "img_0042.JPG")
 
-                self.assertEqual(window.rename_conflict_policy.currentData(), "unique")
-                self.assertEqual(window.rename_folder_mode_combo.currentData(), "sequential")
-                self.assertEqual(window.rename_numbering_scope_combo.currentData(), "global")
-                self.assertGreaterEqual(
-                    window.rename_folder_mode_combo.findData("parallel_by_folder"),
-                    0,
-                )
+                self.assertFalse(hasattr(window, "rename_conflict_policy"))
+                self.assertFalse(hasattr(window, "rename_folder_mode_combo"))
+                self.assertFalse(hasattr(window, "rename_numbering_scope_combo"))
                 self.assertIsNotNone(window.rename_validation_label)
                 self.assertFalse(hasattr(window, "operation_profile_combo"))
             finally:

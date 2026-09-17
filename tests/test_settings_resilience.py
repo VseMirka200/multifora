@@ -110,17 +110,26 @@ class SettingsResilienceTests(unittest.TestCase):
         self.assertEqual(data["conversion_output_mode"], "custom")
         self.assertEqual(data["conversion_output_path"], r"C:\converted")
 
-    def test_rename_folder_mode_is_persisted(self):
+    def test_removed_rename_options_are_ignored(self):
         window = _DummyWindow()
         settings._initialize_settings_defaults(window)
-        settings._apply_settings_data(window, {"rename_folder_mode": "parallel_by_folder"})
-        self.assertEqual(window.rename_folder_mode, "parallel_by_folder")
+        settings._apply_settings_data(
+            window,
+            {
+                "rename_folder_mode": "parallel_by_folder",
+                "rename_numbering_scope": "per_folder",
+            },
+        )
+
+        self.assertFalse(hasattr(window, "rename_folder_mode"))
+        self.assertFalse(hasattr(window, "rename_numbering_scope"))
 
         window.custom_templates = {}
         window.auto_clear_checkbox = _DummyCheckbox()
         window.ghostscript_path_override = None
         data = settings._collect_settings_data(window)
-        self.assertEqual(data["rename_folder_mode"], "parallel_by_folder")
+        self.assertNotIn("rename_folder_mode", data)
+        self.assertNotIn("rename_numbering_scope", data)
 
     def test_column_sort_state_is_persisted(self):
         window = _DummyWindow()
@@ -145,18 +154,3 @@ class SettingsResilienceTests(unittest.TestCase):
             data["file_list_view_state"],
             {"sort_column": 3, "sort_order": "descending"},
         )
-
-    def test_per_folder_numbering_scope_is_persisted(self):
-        window = _DummyWindow()
-        settings._initialize_settings_defaults(window)
-        settings._apply_settings_data(
-            window,
-            {"rename_numbering_scope": "per_folder"},
-        )
-        self.assertEqual(window.rename_numbering_scope, "per_folder")
-
-        window.custom_templates = {}
-        window.auto_clear_checkbox = _DummyCheckbox()
-        window.ghostscript_path_override = None
-        data = settings._collect_settings_data(window)
-        self.assertEqual(data["rename_numbering_scope"], "per_folder")

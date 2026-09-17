@@ -438,8 +438,6 @@ class MultiforaMainWindow(
             self.file_worker.set_rename(
                 valid_files,
                 new_names,
-                conflict_policy=self._last_operation.get("conflict_policy", "unique"),
-                folder_mode=self._last_operation.get("folder_mode", "sequential"),
             )
         elif op == "convert":
             self.file_worker.set_conversion(

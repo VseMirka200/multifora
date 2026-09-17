@@ -1,6 +1,5 @@
 import os
 import tempfile
-import threading
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -62,54 +61,21 @@ class FileWorkerOperationTests(unittest.TestCase):
             self.assertEqual(results[0].updated_files, [(source, target_path)])
             self.assertEqual(results[0].errors, [])
 
-    @patch("core.workers.file_worker.os.path.exists", return_value=False)
-    def test_parallel_rename_uses_a_separate_worker_for_each_folder(self, _exists):
-        barrier = threading.Barrier(2, timeout=2)
-        thread_names = []
-
-        def rename_in_parallel(_source, _target):
-            thread_names.append(threading.current_thread().name)
-            barrier.wait()
-
-        first = SimpleNamespace(path="C:/one/a.txt", folder="C:/one", name="a.txt")
-        second = SimpleNamespace(path="C:/two/b.txt", folder="C:/two", name="b.txt")
-        worker = FileWorker()
-        results = []
-        worker.finished.connect(results.append)
-        worker.set_rename(
-            [first, second],
-            ["renamed-a.txt", "renamed-b.txt"],
-            folder_mode="parallel_by_folder",
-        )
-
-        with patch("core.workers.file_worker.os.rename", side_effect=rename_in_parallel):
-            worker.run()
-
-        self.assertEqual(len(set(thread_names)), 2)
-        self.assertEqual(
-            [item for item, _path in results[0].updated_files],
-            [first, second],
-        )
-
     @patch("core.workers.file_worker.os.rename")
-    @patch("core.workers.file_worker.os.path.exists", return_value=False)
-    def test_parallel_mode_keeps_files_in_the_same_folder_sequential(self, _exists, rename):
-        first = SimpleNamespace(path="C:/one/a.txt", folder="C:/one", name="a.txt")
-        second = SimpleNamespace(path="C:/one/b.txt", folder="C:/one", name="b.txt")
-        worker = FileWorker()
-        worker.set_rename(
-            [first, second],
-            ["renamed-a.txt", "renamed-b.txt"],
-            folder_mode="parallel_by_folder",
+    @patch("core.workers.file_worker.os.path.exists", return_value=True)
+    def test_rename_conflict_always_uses_a_unique_path(self, _exists, rename):
+        source = SimpleNamespace(
+            path="C:/files/source.txt",
+            folder="C:/files",
+            name="source.txt",
         )
+        worker = FileWorker()
+        worker._get_unique_path = lambda _path: "C:/files/renamed_1.txt"
+        worker.set_rename([source], ["renamed.txt"])
 
         worker.run()
 
-        self.assertEqual(
-            [call.args[0] for call in rename.call_args_list],
-            [first.path, second.path],
-        )
-
+        rename.assert_called_once_with(source.path, "C:/files/renamed_1.txt")
 
 if __name__ == "__main__":
     unittest.main()
