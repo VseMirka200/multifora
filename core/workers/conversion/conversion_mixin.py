@@ -45,6 +45,7 @@ _WORD_WARMUP_LOCK = threading.Lock()
 _CONVERSION_OUTPUT_PATH_LOCK = threading.Lock()
 _WORD_WARMUP_DONE = False
 _WD_EXPORT_FORMAT_PDF = 17
+_SW_HIDE = 0
 
 
 _WORD_DIRECT_SOURCE_FORMATS = frozenset({"DOC", "DOCX", "ODT", "RTF", "TXT", "HTML"})
@@ -56,6 +57,106 @@ _WORD_SAVE_FORMATS: dict[str, int] = {
     "HTML": 10,
     "ODT": 23,
 }
+
+
+def _word_window_handle(word_application) -> int:
+    """Returns the HWND of the automation instance without failing conversion."""
+    if os.name != "nt" or word_application is None:
+        return 0
+    try:
+        return int(word_application.Hwnd or 0)
+    except Exception:
+        return 0
+
+
+def _hide_window(window_handle: int) -> None:
+    if os.name != "nt" or not window_handle:
+        return
+    try:
+        import ctypes
+
+        ctypes.windll.user32.ShowWindow(window_handle, _SW_HIDE)
+    except Exception as error:
+        _debug_log(f"Не удалось скрыть окно Microsoft Word: {error}")
+
+
+def _foreground_window() -> int:
+    if os.name != "nt":
+        return 0
+    try:
+        import ctypes
+
+        return int(ctypes.windll.user32.GetForegroundWindow() or 0)
+    except Exception:
+        return 0
+
+
+def _restore_foreground_window(window_handle: int, hidden_handle: int) -> None:
+    """Gives focus back only when the automation window actually stole it."""
+    if os.name != "nt" or not window_handle or window_handle == hidden_handle:
+        return
+    try:
+        import ctypes
+
+        user32 = ctypes.windll.user32
+        user32.SetForegroundWindow(window_handle)
+    except Exception:
+        pass
+
+
+class _HiddenWordWindowGuard:
+    """Keeps Word automation invisible while a blocking COM call is running."""
+
+    def __init__(self, word_application, foreground_handle: int = 0):
+        self._window_handle = _word_window_handle(word_application)
+        self._foreground_handle = foreground_handle
+        self._stop_event = threading.Event()
+        self._thread = None
+
+    def start(self) -> None:
+        if not self._window_handle:
+            return
+        self.keep_hidden()
+        self._thread = threading.Thread(
+            target=self._watch,
+            name="multifora-word-window-guard",
+            daemon=True,
+        )
+        self._thread.start()
+
+    def _watch(self) -> None:
+        while not self._stop_event.wait(0.05):
+            self.keep_hidden()
+
+    def keep_hidden(self) -> None:
+        stole_focus = _foreground_window() == self._window_handle
+        _hide_window(self._window_handle)
+        if stole_focus:
+            _restore_foreground_window(
+                self._foreground_handle,
+                self._window_handle,
+            )
+
+    def stop(self) -> None:
+        self._stop_event.set()
+        if self._thread is not None:
+            self._thread.join(timeout=0.3)
+
+
+def _start_hidden_word_application(win32_module):
+    """Starts an isolated Word instance and suppresses its UI for its lifetime."""
+    foreground_handle = _foreground_window()
+    word_application = win32_module.DispatchEx("Word.Application")
+    try:
+        word_application.Visible = False
+        word_application.DisplayAlerts = 0
+        word_application.ScreenUpdating = False
+        guard = _HiddenWordWindowGuard(word_application, foreground_handle)
+        guard.start()
+        return word_application, guard
+    except Exception:
+        _quit_word_application(word_application)
+        raise
 
 
 def _close_word_document(document) -> None:
@@ -102,14 +203,15 @@ def prewarm_word_background(status_callback=None, log_callback=None) -> bool:
 
             pythoncom.CoInitialize()
             word_app = None
+            window_guard = None
             try:
-                word_app = win32.DispatchEx("Word.Application")
-                word_app.Visible = False
-                word_app.DisplayAlerts = 0
+                word_app, window_guard = _start_hidden_word_application(win32)
                 _WORD_WARMUP_DONE = True
                 return True
             finally:
                 _quit_word_application(word_app)
+                if window_guard is not None:
+                    window_guard.stop()
                 _uninitialize_com(pythoncom)
         except Exception as e:
             msg = f"Не удалось запустить фоновую подготовку Microsoft Word: {e}"
@@ -356,10 +458,9 @@ class ConversionMixin(ImageEncodingMixin):
         pythoncom.CoInitialize()
         word_app = None
         document = None
+        window_guard = None
         try:
-            word_app = win32.DispatchEx("Word.Application")
-            word_app.Visible = False
-            word_app.DisplayAlerts = 0
+            word_app, window_guard = _start_hidden_word_application(win32)
             document = word_app.Documents.Open(
                 self._normalize_word_com_path(path),
                 ConfirmConversions=False,
@@ -373,6 +474,8 @@ class ConversionMixin(ImageEncodingMixin):
         finally:
             _close_word_document(document)
             _quit_word_application(word_app)
+            if window_guard is not None:
+                window_guard.stop()
             _uninitialize_com(pythoncom)
 
     def _extract_document_text(self, file: FileItem) -> str:
@@ -638,10 +741,9 @@ class ConversionMixin(ImageEncodingMixin):
         pythoncom.CoInitialize()
         word_app = None
         document = None
+        window_guard = None
         try:
-            word_app = win32.DispatchEx("Word.Application")
-            word_app.Visible = False
-            word_app.DisplayAlerts = 0
+            word_app, window_guard = _start_hidden_word_application(win32)
             document = word_app.Documents.Open(
                 self._normalize_word_com_path(file.path),
                 ConfirmConversions=False,
@@ -675,6 +777,8 @@ class ConversionMixin(ImageEncodingMixin):
         finally:
             _close_word_document(document)
             _quit_word_application(word_app)
+            if window_guard is not None:
+                window_guard.stop()
             _uninitialize_com(pythoncom)
 
     def _convert_pymupdf_document_to_pdf(self, file: FileItem) -> str | None:
@@ -926,11 +1030,12 @@ class ConversionMixin(ImageEncodingMixin):
 
         self._warmup_word()
         word_app = None
+        window_guard = None
         pythoncom.CoInitialize()
         try:
             # Один COM-экземпляр Word на всю пачку файлов заметно ускоряет конвертацию.
             try:
-                word_app = win32.DispatchEx("Word.Application")
+                word_app, window_guard = _start_hidden_word_application(win32)
             except Exception as error:
                 _debug_log(f"Microsoft Word не запустился, включён внутренний конвертер: {error}")
                 self._word_pdf_unavailable = True
@@ -938,9 +1043,6 @@ class ConversionMixin(ImageEncodingMixin):
                     list(self.files),
                     self._convert_word_to_pdf,
                 )
-            word_app.Visible = False
-            word_app.DisplayAlerts = 0
-
             for index, file in enumerate(self.files):
                 if self._should_cancel():
                     self.status.emit("Операция отменена пользователем")
@@ -964,6 +1066,8 @@ class ConversionMixin(ImageEncodingMixin):
                 self.progress.emit(int((index + 1) / total * 100))
         finally:
             _quit_word_application(word_app)
+            if window_guard is not None:
+                window_guard.stop()
             _uninitialize_com(pythoncom)
 
         return results
@@ -1122,15 +1226,14 @@ class ConversionMixin(ImageEncodingMixin):
 
         word_app = None
         document = None
+        window_guard = None
         normalized_src = self._normalize_word_com_path(src_path)
         normalized_dst = self._normalize_word_com_path(dst_pdf_path)
         if not os.path.exists(normalized_src):
             raise FileNotFoundError(f"Файл не найден: {normalized_src}")
         pythoncom.CoInitialize()
         try:
-            word_app = win32.DispatchEx("Word.Application")
-            word_app.Visible = False
-            word_app.DisplayAlerts = 0
+            word_app, window_guard = _start_hidden_word_application(win32)
 
             document = word_app.Documents.Open(
                 normalized_src,
@@ -1150,6 +1253,8 @@ class ConversionMixin(ImageEncodingMixin):
         finally:
             _close_word_document(document)
             _quit_word_application(word_app)
+            if window_guard is not None:
+                window_guard.stop()
             _uninitialize_com(pythoncom)
 
     def _convert_pdf_to_word(self, file: FileItem) -> str:

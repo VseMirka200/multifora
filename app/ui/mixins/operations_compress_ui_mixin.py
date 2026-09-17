@@ -105,6 +105,29 @@ class OperationsCompressUiMixin:
             return str(field.text() or "").strip()
         return str(getattr(self, "image_compression_output_path", "") or "").strip()
 
+    def _sync_compress_mode_stack_height(self, target=None) -> None:
+        """Fits the mode stack to dynamic controls of the currently shown page."""
+        stack = getattr(self, "compress_mode_stack", None)
+        if stack is None:
+            return
+        target = target or stack.currentWidget()
+        if target is None:
+            return
+
+        try:
+            target_layout = target.layout()
+            if target_layout is not None:
+                target_layout.invalidate()
+                target_layout.activate()
+            target.updateGeometry()
+            stack.setFixedHeight(target.sizeHint().height())
+            stack.updateGeometry()
+        except Exception as error:
+            _log_ignored_error(
+                "OperationsCompressUiMixin._sync_compress_mode_stack_height",
+                error,
+            )
+
     def on_image_output_mode_changed(self, *_args):
         mode = self._image_output_mode()
         self.image_compression_output_mode = mode
@@ -119,6 +142,10 @@ class OperationsCompressUiMixin:
         select_button = getattr(self, "btn_select_image_output_path", None)
         if select_button is not None:
             select_button.setEnabled(custom_enabled)
+
+        self._sync_compress_mode_stack_height(
+            getattr(self, "image_mode_widget", None)
+        )
 
         self._update_compress_button()
         callback = getattr(self, "_schedule_settings_save", None)
@@ -167,10 +194,7 @@ class OperationsCompressUiMixin:
         )
             if target is not None:
                 self.compress_mode_stack.setCurrentWidget(target)
-                try:
-                    self.compress_mode_stack.setFixedHeight(target.sizeHint().height())
-                except Exception as error:
-                    _log_ignored_error("OperationsCompressUiMixin.on_compress_type_changed", error)
+                self._sync_compress_mode_stack_height(target)
 
         if hasattr(self, "compress_tips_label") and self.compress_tips_label is not None:
             self.compress_tips_label.setVisible(bool(tips_text))

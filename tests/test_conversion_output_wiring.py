@@ -3,14 +3,23 @@ from pathlib import Path
 
 
 class ConversionOutputWiringTests(unittest.TestCase):
-    def test_conversion_ui_does_not_embed_output_destination_field(self):
+    def test_conversion_ui_embeds_output_destination_controls(self):
         source = Path("app/ui/mixins/operations_tab_layout_mixin.py").read_text(encoding="utf-8")
-        self.assertNotIn('"Сохранение:"', source)
-        self.assertNotIn("convert_output_mode_combo", source)
-        self.assertNotIn("input_convert_output_path", source)
+        self.assertIn('"Способ сохранения:"', source)
+        self.assertIn("combo_conversion_output_mode", source)
+        self.assertIn("input_conversion_output_path", source)
+        self.assertIn("btn_select_conversion_output_folder", source)
 
-    def test_conversion_action_asks_destination_at_run_time(self):
+    def test_conversion_destination_is_not_duplicated_in_settings(self):
+        source = Path("app/ui/mixins/settings_panel_mixin.py").read_text(encoding="utf-8")
+        self.assertNotIn("conversion_output_mode_combo", source)
+        self.assertNotIn("conversion_output_path_row", source)
+        self.assertNotIn('"Конвертация"', source)
+
+    def test_conversion_action_supports_inline_and_prompt_destinations(self):
         source = Path("app/ui/mixins/conversion_actions_mixin.py").read_text(encoding="utf-8")
+        self.assertIn("on_conversion_output_mode_changed", source)
+        self.assertIn("input_conversion_output_path", source)
         self.assertIn("_ask_conversion_output_destination", source)
         self.assertIn('"Рядом с файлом"', source)
         self.assertIn('"В папку «Конвертированные»"', source)

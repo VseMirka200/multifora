@@ -340,19 +340,19 @@ def _restore_conversion_output_settings(window, data: dict) -> None:
     window.conversion_output_mode = mode
     window.conversion_output_path = path
 
-    combo = getattr(window, "conversion_output_mode_combo", None)
+    combo = getattr(window, "combo_conversion_output_mode", None)
     if combo is not None:
         _set_combo_current_data(combo, mode)
-    path_field = getattr(window, "conversion_output_path_input", None)
+    path_field = getattr(window, "input_conversion_output_path", None)
     if path_field is not None:
         _set_widget_value_without_signals(
             path_field,
             lambda: path_field.setText(path),
             "восстановления папки конвертации",
         )
-    updater = getattr(window, "_update_conversion_output_controls", None)
-    if callable(updater):
-        updater()
+    inline_updater = getattr(window, "_update_inline_conversion_output_controls", None)
+    if callable(inline_updater):
+        inline_updater()
 
 
 def _restore_image_compression_output_settings(window, data: dict) -> None:

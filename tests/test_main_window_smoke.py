@@ -80,15 +80,8 @@ class MainWindowSmokeTests(unittest.TestCase):
                 about_page = window.settings_stack.widget(window._about_settings_row)
                 about_texts = [label.text() for label in about_page.findChildren(QLabel)]
                 self.assertIn("Версия: 0.9.0", about_texts)
-                self.assertEqual(window.conversion_output_mode_combo.currentData(), "ask")
-                self.assertTrue(window.conversion_output_path_row.isHidden())
-                self.assertFalse(window.conversion_output_path_input.isEnabled())
-                window.conversion_output_mode_combo.setCurrentIndex(
-                    window.conversion_output_mode_combo.findData("custom")
-                )
-                self.assertTrue(window.conversion_output_path_input.isEnabled())
-                self.assertTrue(window.btn_select_conversion_output_path.isEnabled())
-                self.assertFalse(window.conversion_output_path_row.isHidden())
+                self.assertFalse(hasattr(window, "conversion_output_mode_combo"))
+                self.assertFalse(hasattr(window, "conversion_output_path_row"))
                 self.assertEqual(window.btn_download_logs.text(), "Скачать логи")
                 self.assertEqual(window.btn_download_logs.property("buttonVariant"), "secondary")
                 self.assertGreaterEqual(window.settings_stack.count(), 4)
@@ -283,6 +276,21 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.to_convert_combo.setCurrentText("PDF")
 
                 self.assertTrue(window.btn_convert.isEnabled())
+                self.assertEqual(window.combo_conversion_output_mode.currentData(), "ask")
+                self.assertTrue(window.conversion_output_path_section.isHidden())
+
+                window.combo_conversion_output_mode.setCurrentIndex(
+                    window.combo_conversion_output_mode.findData("custom")
+                )
+                self.assertFalse(window.conversion_output_path_section.isHidden())
+                self.assertTrue(window.input_conversion_output_path.isEnabled())
+                self.assertTrue(window.btn_select_conversion_output_folder.isEnabled())
+                self.assertFalse(window.btn_convert.isEnabled())
+
+                window.input_conversion_output_path.setText(tmp_dir)
+                window.conversion_output_path = tmp_dir
+                window.update_convert_button_state()
+                self.assertTrue(window.btn_convert.isEnabled())
             finally:
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()
@@ -359,6 +367,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertFalse(window.input_image_output_path.isEnabled())
                 self.assertFalse(window.btn_select_image_output_path.isEnabled())
                 self.assertTrue(window.btn_compress.isEnabled())
+                compact_stack_height = window.compress_mode_stack.height()
 
                 window.combo_image_output_mode.setCurrentIndex(
                     window.combo_image_output_mode.findData("custom")
@@ -367,6 +376,14 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertTrue(window.btn_select_image_output_path.isEnabled())
                 self.assertFalse(window.image_output_path_section.isHidden())
                 self.assertFalse(window.btn_compress.isEnabled())
+                self.assertGreater(
+                    window.compress_mode_stack.height(),
+                    compact_stack_height,
+                )
+                self.assertEqual(
+                    window.compress_mode_stack.height(),
+                    window.image_mode_widget.sizeHint().height(),
+                )
 
                 window.input_image_output_path.setText(tmp_dir)
                 window.image_compression_output_path = tmp_dir

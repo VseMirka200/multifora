@@ -1,7 +1,7 @@
 import os
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from app.core.models import FileItem
 from core.workers.conversion.conversion_mixin import ConversionMixin
@@ -48,6 +48,43 @@ class _DummyConversionWorker(ConversionMixin):
 
 
 class ConversionMixinTests(unittest.TestCase):
+    def test_hidden_word_application_disables_ui_and_starts_window_guard(self):
+        word_application = Mock()
+        win32 = Mock()
+        win32.DispatchEx.return_value = word_application
+        guard = Mock()
+
+        with patch.object(conv_module, "_foreground_window", return_value=123), patch.object(
+            conv_module,
+            "_HiddenWordWindowGuard",
+            return_value=guard,
+        ) as guard_factory:
+            result_application, result_guard = conv_module._start_hidden_word_application(win32)
+
+        win32.DispatchEx.assert_called_once_with("Word.Application")
+        self.assertIs(result_application, word_application)
+        self.assertIs(result_guard, guard)
+        self.assertFalse(word_application.Visible)
+        self.assertEqual(word_application.DisplayAlerts, 0)
+        self.assertFalse(word_application.ScreenUpdating)
+        guard_factory.assert_called_once_with(word_application, 123)
+        guard.start.assert_called_once_with()
+
+    def test_word_window_guard_hides_and_restores_focus_if_word_stole_it(self):
+        with patch.object(conv_module, "_word_window_handle", return_value=456), patch.object(
+            conv_module,
+            "_foreground_window",
+            return_value=456,
+        ), patch.object(conv_module, "_hide_window") as hide_mock, patch.object(
+            conv_module,
+            "_restore_foreground_window",
+        ) as restore_mock:
+            guard = conv_module._HiddenWordWindowGuard(Mock(), foreground_handle=123)
+            guard.keep_hidden()
+
+        hide_mock.assert_called_once_with(456)
+        restore_mock.assert_called_once_with(123, 456)
+
     def test_convert_files_accepts_pdf_to_images_alias(self):
         worker = _DummyConversionWorker()
 

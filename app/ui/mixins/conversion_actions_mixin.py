@@ -40,7 +40,41 @@ class ConversionActionsMixin:
             callback()
 
     def _conversion_custom_output_path(self) -> str:
+        field = getattr(self, "input_conversion_output_path", None)
+        if field is not None:
+            return str(field.text() or "").strip()
         return str(getattr(self, "conversion_output_path", "") or "").strip()
+
+    def _update_inline_conversion_output_controls(self) -> None:
+        combo = getattr(self, "combo_conversion_output_mode", None)
+        mode = str(
+            combo.currentData()
+            if combo is not None
+            else getattr(self, "conversion_output_mode", "ask")
+        )
+        custom_enabled = mode == "custom"
+
+        section = getattr(self, "conversion_output_path_section", None)
+        if section is not None:
+            section.setVisible(custom_enabled)
+        field = getattr(self, "input_conversion_output_path", None)
+        if field is not None:
+            field.setEnabled(custom_enabled)
+        button = getattr(self, "btn_select_conversion_output_folder", None)
+        if button is not None:
+            button.setEnabled(custom_enabled)
+
+    def on_conversion_output_mode_changed(self, *_args) -> None:
+        combo = getattr(self, "combo_conversion_output_mode", None)
+        if combo is None:
+            return
+
+        mode = str(combo.currentData() or "ask")
+        self.conversion_output_mode = mode
+        self._update_inline_conversion_output_controls()
+
+        self.update_convert_button_state()
+        self._schedule_conversion_settings_save()
 
     def _selected_file_items(self) -> list[FileItem]:
         list_widget = getattr(self, "list_files", None)
@@ -81,6 +115,10 @@ class ConversionActionsMixin:
 
         normalized_folder = os.path.normpath(folder)
         self.conversion_output_path = normalized_folder
+        field = getattr(self, "input_conversion_output_path", None)
+        if field is not None and field.text() != normalized_folder:
+            field.setText(normalized_folder)
+        self.update_convert_button_state()
         self._schedule_conversion_settings_save()
         return normalized_folder
 
@@ -207,6 +245,9 @@ class ConversionActionsMixin:
 
     def update_convert_button_state(self) -> None:
         """Синхронизирует доступность кнопки с текущим выбором пользователя."""
+        button = getattr(self, "btn_convert", None)
+        if button is None:
+            return
         source_combo = getattr(self, "from_convert_combo", None)
         target_combo = getattr(self, "to_convert_combo", None)
         list_widget = getattr(self, "list_files", None)
@@ -215,12 +256,17 @@ class ConversionActionsMixin:
         source_selected = source_combo is not None and source_combo.currentIndex() > 0
         target_selected = target_combo is not None and target_combo.currentIndex() > 0
         has_files = bool(list_widget is not None and list_widget.selectedItems())
+        output_ready = not (
+            str(getattr(self, "conversion_output_mode", "ask") or "ask") == "custom"
+            and not self._conversion_custom_output_path()
+        )
 
-        self.btn_convert.setEnabled(
+        button.setEnabled(
             has_files
             and category_selected in CONVERSION_CATEGORIES
             and source_selected
             and target_selected
+            and output_ready
         )
 
         refresh_preview = getattr(self, "refresh_conversion_preview", None)

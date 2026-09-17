@@ -308,6 +308,53 @@ class OperationsTabLayoutMixin:
         self.to_convert_combo.setEnabled(False)
         self._add_labeled_field(convert_layout, "Конвертировать в:", self.to_convert_combo)
 
+        self.combo_conversion_output_mode = MenuLikeComboBox()
+        self.combo_conversion_output_mode.addItem("Спрашивать каждый раз", "ask")
+        self.combo_conversion_output_mode.addItem("Рядом с исходными файлами", "alongside")
+        self.combo_conversion_output_mode.addItem(
+            "В папку «Конвертированные»",
+            "source_subfolder",
+        )
+        self.combo_conversion_output_mode.addItem("В отдельную папку", "custom")
+        setup_standard_dropdown(self.combo_conversion_output_mode)
+        self.combo_conversion_output_mode.currentIndexChanged.connect(
+            self.on_conversion_output_mode_changed
+        )
+        self._add_labeled_field(
+            convert_layout,
+            "Способ сохранения:",
+            self.combo_conversion_output_mode,
+        )
+
+        self.conversion_output_path_widget = QWidget()
+        conversion_output_path_layout = QHBoxLayout(self.conversion_output_path_widget)
+        conversion_output_path_layout.setContentsMargins(*MARGINS_NONE)
+        conversion_output_path_layout.setSpacing(SPACE_SM)
+
+        self.input_conversion_output_path = QLineEdit()
+        self.input_conversion_output_path.setReadOnly(True)
+        self.input_conversion_output_path.setPlaceholderText("Выберите папку сохранения")
+        setup_standard_line_input(self.input_conversion_output_path)
+        conversion_output_path_layout.addWidget(self.input_conversion_output_path, 1)
+
+        self.btn_select_conversion_output_folder = QPushButton("Выбрать папку")
+        setup_standard_secondary_button(self.btn_select_conversion_output_folder)
+        self.btn_select_conversion_output_folder.clicked.connect(
+            self.select_conversion_output_folder
+        )
+        conversion_output_path_layout.addWidget(self.btn_select_conversion_output_folder)
+
+        self.conversion_output_path_section = QWidget()
+        conversion_output_section_layout = QVBoxLayout(self.conversion_output_path_section)
+        conversion_output_section_layout.setContentsMargins(*MARGINS_NONE)
+        conversion_output_section_layout.setSpacing(SPACE_SM)
+        conversion_output_section_layout.addWidget(
+            self._create_operation_label("Папка сохранения:")
+        )
+        conversion_output_section_layout.addWidget(self.conversion_output_path_widget)
+        convert_layout.addWidget(self.conversion_output_path_section)
+        self.on_conversion_output_mode_changed()
+
         convert_layout.addSpacing(SPACE_SM)
         
         self.btn_convert = QPushButton("Конвертировать")
