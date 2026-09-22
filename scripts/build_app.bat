@@ -35,10 +35,10 @@ if exist "bin" (
 )
 
 echo Build complete. Output: dist\%APP_BUILD_NAME%
-pause
+if /i not "%~1"=="--no-pause" pause
 exit /b 0
 
 :error
 echo Build failed.
-pause
+if /i not "%~1"=="--no-pause" pause
 exit /b 1

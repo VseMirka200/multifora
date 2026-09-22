@@ -7,18 +7,12 @@
 <p align="center">Пакетная работа с файлами в Windows</p>
 
 <p align="center">
-  <a href="https://github.com/VseMirka200/multifora/actions/workflows/ci.yml"><img alt="Тесты" src="https://github.com/VseMirka200/multifora/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/VseMirka200/multifora/releases/latest"><img alt="Скачать" src="https://img.shields.io/badge/СКАЧАТЬ-1f883d?style=for-the-badge"></a>
+  <a href="#как-пользоваться"><img alt="Документация" src="https://img.shields.io/badge/ДОКУМЕНТАЦИЯ-0969da?style=for-the-badge"></a>
+  <a href="https://github.com/VseMirka200/multifora/issues/new"><img alt="Сообщить об ошибке" src="https://img.shields.io/badge/ОШИБКА-d1242f?style=for-the-badge"></a>
 </p>
 
-<p align="center">
-  <a href="https://github.com/VseMirka200/multifora/releases/latest"><img alt="Скачать" src="https://img.shields.io/badge/СКАЧАТЬ-ПОСЛЕДНЮЮ_ВЕРСИЮ-1f883d?style=for-the-badge"></a>
-  <a href="https://github.com/VseMirka200/multifora"><img alt="Исходный код" src="https://img.shields.io/badge/ИСХОДНЫЙ_КОД-GITHUB-6f42c1?style=for-the-badge"></a>
-  <a href="https://github.com/VseMirka200/multifora/releases"><img alt="Релизы" src="https://img.shields.io/badge/РЕЛИЗЫ-ОТКРЫТЬ-0969da?style=for-the-badge"></a>
-  <a href="https://github.com/VseMirka200/multifora/issues"><img alt="Задачи" src="https://img.shields.io/badge/ЗАДАЧИ-ОТКРЫТЬ-57606a?style=for-the-badge"></a>
-  <a href="https://github.com/VseMirka200/multifora/issues/new"><img alt="Сообщить об ошибке" src="https://img.shields.io/badge/СООБЩИТЬ_ОБ_ОШИБКЕ-СОЗДАТЬ-d1242f?style=for-the-badge"></a>
-</p>
-
-Мультифора — приложение для Windows, предназначенное для одновременной работы с большим количеством файлов. Оно объединяет основные операции с документами и изображениями в одном интерфейсе на PyQt и позволяет предварительно просматривать изменения перед их применением.
+Мультифора — бесплатная программа для пакетной работы с файлами в Windows. Она помогает быстро переименовывать, конвертировать, объединять и сжимать документы и изображения. Перед применением изменений можно проверить результат в предварительном просмотре.
 
 ## Возможности
 
@@ -36,66 +30,38 @@
 - Проверка обновлений через GitHub Releases.
 - Профили параметров для всех операций.
 
-## Шаблоны переименования
+## Установка
 
-В пользовательском шаблоне доступны токены `{name}`, `{ext}`, `{num}`, `{date}`, `{created}`, `{modified}`, `{exif_date}`, `{width}` и `{height}`. Например:
+1. Нажмите кнопку **«Скачать»** вверху страницы.
+2. Скачайте установщик `Multifora-Setup-<версия>.exe` и запустите его.
+3. После установки откройте **«Мультифору»** через меню «Пуск» или ярлык на рабочем столе.
+
+Если в выпуске доступен только ZIP-архив, распакуйте его в отдельную папку и запустите `Multifora.exe`.
+
+## Как пользоваться
+
+1. Добавьте файлы или папки кнопкой выбора либо перетащите их в окно программы.
+2. Выберите нужную операцию: переименование, конвертацию, объединение, сжатие или удаление метаданных.
+3. Настройте параметры операции.
+4. Проверьте будущий результат в предварительном просмотре.
+5. Запустите обработку и дождитесь её завершения.
+
+### Шаблоны переименования
+
+Для создания нового имени можно использовать готовые шаблоны или составить свой. Доступны обозначения имени, расширения, номера, дат файла, даты EXIF и размера изображения. Например:
 
 ```text
 {exif_date}_{num:04d,start=1,step=1}_{name}
 ```
 
-Для сложной замены выберите шаблон **«Регулярное выражение»**. Поддерживаются группы захвата (`\1`) и поиск без учёта регистра. Перед запуском приложение проверяет запрещённые Windows-имена, совпадающие целевые имена и уже существующие файлы.
+Перед переименованием программа проверит недопустимые имена, совпадения и конфликты с существующими файлами.
 
-## Скачивание
+## Дополнительные программы
 
-Скачайте последнюю готовую сборку со страницы [GitHub Releases](https://github.com/VseMirka200/multifora/releases/latest), распакуйте архив и запустите `Multifora.exe`.
+- Для работы со старыми файлами DOC требуется Microsoft Word.
+- При преобразовании DOCX в PDF программа использует Microsoft Word, если он установлен. Без него доступен встроенный конвертер, но сложное оформление документа может измениться.
+- Для сжатия PDF требуется [Ghostscript](https://ghostscript.com/releases/gsdnld.html). Путь к программе можно указать в настройках Мультифоры.
 
-Приложение предназначено для Windows. При преобразовании DOCX в PDF сначала используется Microsoft Word, а если он отсутствует или не запускается — встроенный текстовый конвертер на базе python-docx и PyMuPDF. Сложное форматирование во внутреннем режиме может отличаться от оригинала. Для старого формата DOC по-прежнему требуется Microsoft Word. Для сжатия PDF необходим [Ghostscript](https://ghostscript.com/releases/gsdnld.html); путь к его исполняемому файлу также можно указать в настройках приложения.
+## Если возникла ошибка
 
-## Запуск из исходного кода
-
-Потребуются Windows и Python 3.11 или новее.
-
-```powershell
-git clone https://github.com/VseMirka200/multifora.git
-cd multifora
-.\start_multifora.bat
-```
-
-Скрипт запуска создаёт `.venv`, устанавливает пакеты из `requirements.txt` и запускает приложение. Для ручной настройки окружения выполните:
-
-```powershell
-py -3 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe multifora_start.py
-```
-
-## Сборка приложения для Windows
-
-Запустите скрипт сборки из корня репозитория:
-
-```powershell
-.\scripts\build_app.bat
-```
-
-Скрипт установит PyInstaller и сохранит готовое приложение в папку `dist\Multifora`.
-
-## Разработка
-
-Для запуска всех тестов используйте:
-
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests
-```
-
-GitHub Actions запускает тесты на Windows для каждого push и Pull Request. При отправке тега вида `v1.2.3` release workflow собирает ZIP-архив приложения, вычисляет SHA-256 и создаёт changelog из коммитов после предыдущего тега.
-
-Перед отправкой изменений прочитайте [руководство для участников](CONTRIBUTING.md). Участие в проекте регулируется [Кодексом поведения](CODE_OF_CONDUCT.md). Информацию об уязвимостях необходимо передавать в соответствии с [Политикой безопасности](SECURITY.md).
-
-## Ссылки проекта
-
-- [Последний релиз](https://github.com/VseMirka200/multifora/releases/latest)
-- [Трекер задач](https://github.com/VseMirka200/multifora/issues)
-- [Руководство для участников](CONTRIBUTING.md)
-- [Политика безопасности](SECURITY.md)
-- [Кодекс поведения](CODE_OF_CONDUCT.md)
+Нажмите кнопку **«Ошибка»** вверху страницы и опишите проблему. Укажите версию Мультифоры и Windows, что вы делали, что ожидали увидеть и что произошло на самом деле. Если возможно, приложите снимок экрана или журнал работы без личных данных.
