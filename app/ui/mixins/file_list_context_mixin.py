@@ -4,19 +4,17 @@ import os
 from PyQt6.QtCore import QPoint, QItemSelectionModel, QMimeData, Qt, QUrl
 from PyQt6.QtWidgets import QApplication, QMenu, QMessageBox
 
-from app.ui.ui_components import apply_standard_menu_style, get_russian_text_input
+from app.ui.ui_components import (
+    apply_standard_menu_style,
+    get_russian_text_input,
+    selected_file_items,
+)
 
 
 class FileListContextMixin:
     # Действия контекстного меню работают с текущим выделением списка файлов.
     def _get_selected_file_items(self):
-        selected_items = self.list_files.selectedItems()
-        file_items = []
-        for item in selected_items:
-            data = item.data(Qt.ItemDataRole.UserRole)
-            if data:
-                file_items.append(data)
-        return file_items
+        return selected_file_items(self.list_files)
 
     def show_file_context_menu(self, pos: QPoint):
         if not self.files:

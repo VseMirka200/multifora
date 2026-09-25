@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from PyQt6.QtCore import QEvent, QTimer, Qt
-from PyQt6.QtGui import QAction, QActionGroup, QColor, QIcon, QPalette
+from PyQt6.QtGui import QAction, QColor, QIcon, QPalette
 from PyQt6.QtNetwork import QLocalServer
 
 from app.core.app_identity import APP_WINDOW_TITLE
@@ -59,6 +59,7 @@ from app.ui.ui_components import (
     refresh_standard_button_styles,
     refresh_standard_field_styles,
     refresh_standard_surface_styles,
+    selected_file_items,
 )
 from app.ui.ui_spacing import (
     APP_MARGINS,
@@ -73,7 +74,13 @@ from app.ui.ui_spacing import (
     SPACE_XS,
     SPACE_LG,
     SPACE_XL,
-    TOP_MENU_MARGINS,
+)
+from app.ui.ui_styles import (
+    build_drop_zone_hint_style,
+    build_drop_zone_overlay_style,
+    build_drop_zone_surface_style,
+    build_file_info_separator_style,
+    build_splitter_style,
 )
 from app.ui.mixins import (
     LifecycleMixin,
@@ -354,6 +361,7 @@ class MultiforaMainWindow(
 
     def _create_progress_dialog(self):
         dialog = QDialog(self)
+        dialog._effective_theme_mode = getattr(self, "_effective_theme_mode", "dark")
         dialog.setObjectName("progress_dialog")
         setup_standard_dialog(dialog, title="Выполнение операции", fixed_width=360)
         dialog.setModal(False)
@@ -377,7 +385,7 @@ class MultiforaMainWindow(
         layout.addWidget(self.progress_bar)
 
         self.btn_cancel_operation = QPushButton("Отмена")
-        setup_standard_danger_button(self.btn_cancel_operation)
+        setup_standard_danger_button(self.btn_cancel_operation, expand=True)
         self.btn_cancel_operation.clicked.connect(self.cancel_operation)
         layout.addWidget(self.btn_cancel_operation)
 
@@ -492,29 +500,13 @@ class MultiforaMainWindow(
         separator.setFrameShape(QFrame.Shape.VLine)
         separator.setFrameShadow(QFrame.Shadow.Plain)
         separator.setObjectName("file_info_separator")
-        separator.setStyleSheet(
-            "background-color: rgba(255, 255, 255, 0.18); border: none;"
-        )
+        separator.setStyleSheet(build_file_info_separator_style("dark"))
         separator.setFixedWidth(1)
         separator.setFixedHeight(16)
         return separator
 
-    def _create_top_menu_and_settings_host(self, main_layout: QVBoxLayout) -> None:
-        """Создаёт скрытое верхнее меню и контейнер панели настроек."""
-        self.top_menu_bar = QWidget()
-        self.top_menu_bar.setObjectName("bottom_links_bar")
-        self.top_menu_bar.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
-            QSizePolicy.Policy.Fixed,
-        )
-        self.top_menu_bar.setStyleSheet("background-color: transparent;")
-        top_menu_layout = QHBoxLayout(self.top_menu_bar)
-        top_menu_layout.setContentsMargins(*TOP_MENU_MARGINS)
-        top_menu_layout.setSpacing(SPACE_SM)
-        top_menu_layout.addStretch(1)
-        self.top_menu_bar.setVisible(False)
-        main_layout.addWidget(self.top_menu_bar)
-
+    def _create_settings_panel_host(self) -> None:
+        """Создаёт контейнер панели настроек."""
         self.settings_panel_host = QFrame()
         self.settings_panel_host.setObjectName("settings_panel_host")
         self.settings_panel_host.setVisible(False)
@@ -532,18 +524,7 @@ class MultiforaMainWindow(
         splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter = splitter
         splitter.setHandleWidth(max(6, SPACE_SM))
-        splitter.setStyleSheet(
-            """
-            QSplitter::handle:horizontal {
-                background-color: transparent;
-                border: none;
-                margin: 0px;
-            }
-            QSplitter::handle:horizontal:hover {
-                background-color: transparent;
-            }
-            """
-        )
+        splitter.setStyleSheet(build_splitter_style())
         return splitter
 
     def _create_left_panel(self, main_layout: QVBoxLayout) -> QWidget:
@@ -586,13 +567,6 @@ class MultiforaMainWindow(
             self.settings_panel_widget.setParent(None)
             self.settings_panel_host_layout.addWidget(self.settings_panel_widget)
 
-        ensure_history_page = getattr(
-            self,
-            "_ensure_rename_history_settings_page",
-            None,
-        )
-        if callable(ensure_history_page):
-            ensure_history_page()
         self._ensure_about_settings_page()
 
         self.tabs.tabBar().hide()
@@ -618,6 +592,28 @@ class MultiforaMainWindow(
             lambda: self._set_header_menu_open_state(button, False)
         )
 
+    @staticmethod
+    def _clear_filter_actions(actions: dict, changed_callback) -> None:
+        for action in actions.values():
+            previous_state = action.blockSignals(True)
+            try:
+                action.setChecked(False)
+            finally:
+                action.blockSignals(previous_state)
+        changed_callback(False)
+
+    def _add_clear_filter_action(self, menu, actions: dict, changed_callback):
+        clear_action = QAction("Снять все отметки", menu)
+        clear_action.triggered.connect(
+            lambda _checked=False: self._clear_filter_actions(
+                actions,
+                changed_callback,
+            )
+        )
+        menu.addAction(clear_action)
+        menu.addSeparator()
+        return clear_action
+
     def _create_extension_filter(self) -> None:
         self._list_header_ext_label = QLabel("Расширения:")
         self._list_header_ext_label.setAlignment(
@@ -633,6 +629,11 @@ class MultiforaMainWindow(
         self._ext_filter_menu.setObjectName("header_dropdown_popup")
         apply_standard_menu_style(self._ext_filter_menu)
         self._ext_filter_actions = {}
+        self._clear_ext_filter_action = self._add_clear_filter_action(
+            self._ext_filter_menu,
+            self._ext_filter_actions,
+            self.on_extension_filter_changed,
+        )
 
         options = (
             ("DOC", ".doc"),
@@ -691,6 +692,11 @@ class MultiforaMainWindow(
         self._type_filter_menu.setObjectName("header_dropdown_popup")
         apply_standard_menu_style(self._type_filter_menu)
         self._type_filter_actions = {}
+        self._clear_type_filter_action = self._add_clear_filter_action(
+            self._type_filter_menu,
+            self._type_filter_actions,
+            self.on_file_type_filter_changed,
+        )
 
         options = (
             ("Документы", "document"),
@@ -716,63 +722,6 @@ class MultiforaMainWindow(
         )
         self._bind_header_menu_state(self.btn_type_filter, self._type_filter_menu)
         self._update_type_filter_button_text()
-
-    def _create_sort_filter(self) -> None:
-        self._list_header_sort_label = QLabel("Сортировка:")
-        self._list_header_sort_label.setAlignment(
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-        )
-        self._list_header_sort_label.setFixedWidth(90)
-        self._list_header_sort_label.setVisible(False)
-
-        self.combo_sort = LeftAlignedToolButton()
-        self.combo_sort.setObjectName("header_cell_bl")
-        setup_standard_header_dropdown(self.combo_sort)
-        self._sort_filter_menu = QMenu(self.combo_sort)
-        self._sort_filter_menu.setObjectName("header_dropdown_popup")
-        apply_standard_menu_style(self._sort_filter_menu)
-        self._sort_action_group = QActionGroup(self._sort_filter_menu)
-        self._sort_action_group.setExclusive(True)
-        self._sort_filter_actions = {}
-        self._sort_modes = [
-            "Без сортировки (ручной порядок)",
-            "Имя A→Z",
-            "Имя Z→A",
-            "Расширение A→Z",
-            "Размер ↑",
-            "Размер ↓",
-        ]
-        self._sort_labels = {
-            "Без сортировки (ручной порядок)": "Ручной порядок",
-            "Имя A→Z": "Имя: А → Я",
-            "Имя Z→A": "Имя: Я → А",
-            "Расширение A→Z": "Расширение: А → Я",
-            "Размер ↑": "Размер: сначала маленькие",
-            "Размер ↓": "Размер: сначала большие",
-        }
-        for index, mode in enumerate(self._sort_modes):
-            if index in (1, 3, 4):
-                self._sort_filter_menu.addSeparator()
-            action = QAction(self._sort_labels[mode], self._sort_filter_menu)
-            action.setCheckable(True)
-            action.setChecked(index == 0)
-            action.triggered.connect(
-                lambda _checked=False, selected_mode=mode: self._on_sort_mode_selected(
-                    selected_mode
-                )
-            )
-            self._sort_action_group.addAction(action)
-            self._sort_filter_menu.addAction(action)
-            self._sort_filter_actions[mode] = action
-
-        self._sort_current_mode = self._sort_modes[0]
-        self.combo_sort.setText(self._sort_labels[self._sort_current_mode])
-        self.combo_sort.setToolTip("Сортировка: ручной порядок. Перетаскивайте файлы в списке.")
-        self.combo_sort.setMenu(self._sort_filter_menu)
-        self._sort_filter_menu.aboutToShow.connect(
-            self._sync_sort_menu_width
-        )
-        self._bind_header_menu_state(self.combo_sort, self._sort_filter_menu)
 
     def _create_list_header(self) -> QGridLayout:
         """Создаёт поиск и фильтры списка файлов без отдельного поля сортировки."""
@@ -859,18 +808,7 @@ class MultiforaMainWindow(
         self.drop_zone_controls.setObjectName("drop_zone_overlay")
         self.drop_zone_controls.setAcceptDrops(True)
         self.drop_zone_controls.installEventFilter(self)
-        self.drop_zone_controls.setStyleSheet(
-            """
-            QWidget#drop_zone_overlay {
-                background-color: transparent;
-                border: none;
-                border-radius: 4px;
-            }
-            QWidget#drop_zone_overlay QLabel {
-                background-color: transparent;
-            }
-            """
-        )
+        self.drop_zone_controls.setStyleSheet(build_drop_zone_overlay_style("dark"))
         drop_zone_layout = QVBoxLayout(self.drop_zone_controls)
         drop_zone_layout.setContentsMargins(*DROP_ZONE_MARGINS)
         drop_zone_layout.setSpacing(SPACE_XL)
@@ -904,9 +842,7 @@ class MultiforaMainWindow(
 
         self.drop_zone_hint_label = QLabel("Или перетащите сюда файлы/папки")
         self.drop_zone_hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.drop_zone_hint_label.setStyleSheet(
-            "color: rgba(220,220,220,180); font-size: 13px;"
-        )
+        self.drop_zone_hint_label.setStyleSheet(build_drop_zone_hint_style("dark"))
         drop_zone_layout.addWidget(
             self.drop_zone_hint_label,
             0,
@@ -949,13 +885,7 @@ class MultiforaMainWindow(
             QSizePolicy.Policy.Expanding,
         )
         files_panel.setObjectName("drop_zone_surface")
-        files_panel.setStyleSheet(
-            "QWidget#drop_zone_surface {"
-            "background-color: #ffffff;"
-            "border: none;"
-            "border-radius: 4px;"
-            "}"
-        )
+        files_panel.setStyleSheet(build_drop_zone_surface_style("light"))
         files_panel_layout = QVBoxLayout(files_panel)
         files_panel_layout.setContentsMargins(*MARGINS_NONE)
         files_panel_layout.setSpacing(SPACE_NONE)
@@ -1013,7 +943,6 @@ class MultiforaMainWindow(
         right_layout.addLayout(list_header)
         self._create_files_preview(right_layout)
         self._create_progress_dialog()
-        self.on_sort_changed()
         right_layout.addLayout(self._create_file_info_layout())
         return right_widget
 
@@ -1085,7 +1014,7 @@ class MultiforaMainWindow(
         main_layout.setContentsMargins(*APP_MARGINS)
         main_layout.setSpacing(SPACE_NONE)
 
-        self._create_top_menu_and_settings_host(main_layout)
+        self._create_settings_panel_host()
         splitter = self._create_main_splitter()
         left_widget = self._create_left_panel(main_layout)
         right_widget = self._create_right_panel()
@@ -1228,32 +1157,18 @@ class MultiforaMainWindow(
             _log_ignored_error("MultiforaMainWindow._apply_theme_runtime_widgets", error)
         if hasattr(self, "main_splitter") and self.main_splitter is not None:
             try:
-                self.main_splitter.setStyleSheet(
-                    f"""
-                    QSplitter::handle:horizontal {{
-                        background-color: transparent;
-                        border: none;
-                        margin: 0px;
-                    }}
-                    QSplitter::handle:horizontal:hover {{
-                        background-color: transparent;
-                    }}
-                    """
-                )
+                self.main_splitter.setStyleSheet(build_splitter_style())
             except Exception as error:
                 _log_ignored_error("MultiforaMainWindow._apply_theme_runtime_widgets", error)
         for separator in getattr(self, "_file_info_separators", []):
             try:
-                if mode == "light":
-                    separator.setStyleSheet("background-color: rgba(31, 35, 40, 0.24); border: none;")
-                else:
-                    separator.setStyleSheet("background-color: rgba(255, 255, 255, 0.18); border: none;")
+                separator.setStyleSheet(build_file_info_separator_style(mode))
             except Exception as error:
                 _log_ignored_error("MultiforaMainWindow._apply_theme_runtime_widgets", error)
         # Кнопки фильтров хранят локальный маркер темы, потому что их всплывающие
         # меню являются отдельными виджетами. Маркер обновляется до перестроения QSS,
         # иначе после смены тёмной темы на светлую кнопки могут остаться тёмными.
-        for widget_name in ("btn_ext_filter", "btn_type_filter", "combo_sort"):
+        for widget_name in ("btn_ext_filter", "btn_type_filter"):
             widget = getattr(self, widget_name, None)
             if widget is not None:
                 try:
@@ -1268,6 +1183,8 @@ class MultiforaMainWindow(
                         self._safe_polish_widget(menu)
                 except Exception as error:
                     _log_ignored_error("MultiforaMainWindow._apply_theme_runtime_widgets", error)
+        if hasattr(self, "progress_dialog") and self.progress_dialog is not None:
+            self.progress_dialog._effective_theme_mode = mode
         try:
             refresh_standard_button_styles(self)
             refresh_standard_field_styles(self)
@@ -1279,59 +1196,11 @@ class MultiforaMainWindow(
                 "background-color: transparent; border: none; padding: 0px;"
             )
         if hasattr(self, "files_panel") and self.files_panel is not None:
-            if mode == "light":
-                self.files_panel.setStyleSheet(
-                    """
-                    QWidget#drop_zone_surface {
-                        background-color: #ffffff;
-                        border: none;
-                        border-radius: 4px;
-                    }
-                    """
-                )
-            else:
-                self.files_panel.setStyleSheet(
-                    """
-                    QWidget#drop_zone_surface {
-                        background-color: #383838;
-                        border: none;
-                        border-radius: 4px;
-                    }
-                    """
-                )
+            self.files_panel.setStyleSheet(build_drop_zone_surface_style(mode))
         if hasattr(self, "drop_zone_controls") and self.drop_zone_controls is not None:
-            if mode == "light":
-                self.drop_zone_controls.setStyleSheet(
-                    """
-                    QWidget#drop_zone_overlay {
-                        background-color: transparent;
-                        border: none;
-                        border-radius: 4px;
-                    }
-                    QWidget#drop_zone_overlay QLabel {
-                        background-color: transparent;
-                        color: #5b6470;
-                    }
-                    """
-                )
-                if hasattr(self, "drop_zone_hint_label"):
-                    self.drop_zone_hint_label.setStyleSheet("color: #5b6470; font-size: 13px;")
-            else:
-                self.drop_zone_controls.setStyleSheet(
-                    """
-                    QWidget#drop_zone_overlay {
-                        background-color: transparent;
-                        border: none;
-                        border-radius: 4px;
-                    }
-                    QWidget#drop_zone_overlay QLabel {
-                        background-color: transparent;
-                        color: rgba(220,220,220,180);
-                    }
-                    """
-                )
-                if hasattr(self, "drop_zone_hint_label"):
-                    self.drop_zone_hint_label.setStyleSheet("color: rgba(220,220,220,180); font-size: 13px;")
+            self.drop_zone_controls.setStyleSheet(build_drop_zone_overlay_style(mode))
+            if hasattr(self, "drop_zone_hint_label"):
+                self.drop_zone_hint_label.setStyleSheet(build_drop_zone_hint_style(mode))
         for tile_name in ("btn_add_files", "btn_add_folder"):
             tile = getattr(self, tile_name, None)
             if tile is not None and callable(getattr(tile, "set_theme_mode", None)):
@@ -1356,6 +1225,8 @@ class MultiforaMainWindow(
             return
         total = len(self._type_filter_actions)
         checked = sum(1 for a in self._type_filter_actions.values() if a.isChecked())
+        if hasattr(self, "_clear_type_filter_action"):
+            self._clear_type_filter_action.setEnabled(checked > 0)
         if checked == total:
             self.btn_type_filter.setText("Все типы")
         else:
@@ -1366,50 +1237,12 @@ class MultiforaMainWindow(
             return
         total = len(self._ext_filter_actions)
         checked = sum(1 for a in self._ext_filter_actions.values() if a.isChecked())
+        if hasattr(self, "_clear_ext_filter_action"):
+            self._clear_ext_filter_action.setEnabled(checked > 0)
         if checked == total:
             self.btn_ext_filter.setText("Все расширения")
         else:
             self.btn_ext_filter.setText(f"Выбрано: {checked}")
-
-    def _on_sort_mode_selected(self, mode: str):
-        self.set_sort_mode(mode, notify=True)
-
-    def _sync_sort_menu_width(self):
-        menu = self._sort_filter_menu
-        apply_standard_menu_style(menu)
-        text_width = max(
-            menu.fontMetrics().horizontalAdvance(action.text())
-            for action in self._sort_filter_actions.values()
-        )
-        menu.setFixedWidth(max(self.combo_sort.width(), text_width + 56))
-
-    def get_sort_mode(self) -> str:
-        if hasattr(self, "_sort_current_mode") and self._sort_current_mode:
-            return self._sort_current_mode
-        return "Без сортировки (ручной порядок)"
-
-    def get_sort_mode_index(self) -> int:
-        mode = self.get_sort_mode()
-        if hasattr(self, "_sort_modes") and mode in self._sort_modes:
-            return self._sort_modes.index(mode)
-        return 0
-
-    def set_sort_mode(self, mode: str, notify: bool = False):
-        if not hasattr(self, "_sort_filter_actions") or mode not in self._sort_filter_actions:
-            return
-        self._sort_current_mode = mode
-        action = self._sort_filter_actions[mode]
-        if not action.isChecked():
-            action.setChecked(True)
-        if hasattr(self, "combo_sort") and self.combo_sort is not None:
-            label = self._sort_labels.get(mode, mode)
-            self.combo_sort.setText(label)
-            self.combo_sort.setToolTip(
-                "Сортировка: ручной порядок. Перетаскивайте файлы в списке."
-                if mode == self._sort_modes[0] else f"Сортировка: {label}"
-            )
-        if notify:
-            self.on_sort_changed()
 
     def _update_header_compact_mode(self):
         compact = self.width() < 1080
@@ -1417,8 +1250,6 @@ class MultiforaMainWindow(
             return
         self._header_compact_mode = compact
 
-        if hasattr(self, "_list_header_sort_label"):
-            self._list_header_sort_label.setVisible(False)
         if hasattr(self, "_list_header_type_label"):
             self._list_header_type_label.setVisible(False)
         if hasattr(self, "_list_header_ext_label"):
@@ -1517,7 +1348,7 @@ class MultiforaMainWindow(
         
     def update_converter_from_format(self):
         """Обновляет конвертер и автоматически включает смешанный режим."""
-        selected_items = self.list_files.selectedItems()
+        selected_files = selected_file_items(self.list_files, files_only=True)
         category_combo = getattr(self, "convert_file_type_combo", None)
 
         category_label = ""
@@ -1528,12 +1359,7 @@ class MultiforaMainWindow(
                 category_label = ""
 
         categories = set()
-        selected_files = []
-        for item in selected_items:
-            file_item = item.data(Qt.ItemDataRole.UserRole)
-            if not file_item or not file_item.is_file:
-                continue
-            selected_files.append(file_item)
+        for file_item in selected_files:
             file_category = category_for_file_type(file_item.file_type)
             if file_category:
                 categories.add(file_category)

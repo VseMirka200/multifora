@@ -55,132 +55,17 @@ from app.ui.ui_spacing import (
 from app.ui.ui_styles import (
     MENU_STYLE_DARK,
     MENU_STYLE_LIGHT,
+    build_drop_action_tile_style,
+    build_drop_action_tile_text_style,
+    build_standard_button_style,
     build_standard_field_style,
 )
 from app.core.app_utils import _log_ignored_error
+from app.core.models import file_item_source_folder, file_item_type_label
 
 _MENU_STYLE_LIGHT = MENU_STYLE_LIGHT
 _MENU_STYLE_DARK = MENU_STYLE_DARK
 _build_standard_field_style = build_standard_field_style
-
-
-def _build_standard_button_style(theme: str, role: str) -> str:
-    dark_theme = str(theme).lower() != "light"
-    role = str(role or "secondary").lower()
-
-    if role == "link":
-        return """
-            QPushButton {
-                background-color: transparent;
-                color: #d8e6ff;
-                border: none;
-                border-radius: 8px;
-                padding: 4px 8px;
-            }
-            QPushButton:hover {
-                background-color: rgba(61, 116, 179, 0.08);
-            }
-            QPushButton:pressed {
-                background-color: rgba(61, 116, 179, 0.14);
-            }
-            QPushButton:disabled {
-                background-color: transparent;
-                color: rgba(216, 230, 255, 0.45);
-            }
-        """
-
-    if dark_theme:
-        palettes = {
-            "primary": {
-                "bg": "#3d74b3",
-                "hover": "#4a82c2",
-                "pressed": "#315f93",
-                "border": "#4f89c9",
-                "fg": "#ffffff",
-                "disabled_bg": "#3a3a3a",
-                "disabled_border": "#4a4a4a",
-                "disabled_fg": "#8d8d8d",
-            },
-            "danger": {
-                "bg": "#8f3b3b",
-                "hover": "#a44646",
-                "pressed": "#793232",
-                "border": "#b85a5a",
-                "fg": "#ffffff",
-                "disabled_bg": "#3a3a3a",
-                "disabled_border": "#4a4a4a",
-                "disabled_fg": "#8d8d8d",
-            },
-            "secondary": {
-                "bg": "#303030",
-                "hover": "#3a3a3a",
-                "pressed": "#2a2a2a",
-                "border": "#474747",
-                "fg": "#f1f1f1",
-                "disabled_bg": "#292929",
-                "disabled_border": "#3b3b3b",
-                "disabled_fg": "#787878",
-            },
-        }
-    else:
-        palettes = {
-            "primary": {
-                "bg": "#3d74b3",
-                "hover": "#4a82c2",
-                "pressed": "#315f93",
-                "border": "#3b6ea8",
-                "fg": "#ffffff",
-                "disabled_bg": "#eef2f7",
-                "disabled_border": "#d7dee8",
-                "disabled_fg": "#9aa4b2",
-            },
-            "danger": {
-                "bg": "#c55353",
-                "hover": "#d36161",
-                "pressed": "#ab4747",
-                "border": "#b94d4d",
-                "fg": "#ffffff",
-                "disabled_bg": "#eef2f7",
-                "disabled_border": "#d7dee8",
-                "disabled_fg": "#9aa4b2",
-            },
-            "secondary": {
-                "bg": "#f6f8fb",
-                "hover": "#edf2f7",
-                "pressed": "#e2eaf3",
-                "border": "#d6dee8",
-                "fg": "#243244",
-                "disabled_bg": "#f8fafc",
-                "disabled_border": "#e4eaf2",
-                "disabled_fg": "#9aa4b2",
-            },
-        }
-
-    colors = palettes.get(role, palettes["secondary"])
-    return f"""
-        QPushButton {{
-            background-color: {colors['bg']};
-            color: {colors['fg']};
-            border: 1px solid {colors['border']};
-            border-radius: 7px;
-            padding: 2px 9px;
-            font-weight: 500;
-            font-size: 13px;
-        }}
-        QPushButton:hover {{
-            background-color: {colors['hover']};
-            border-color: {colors['border']};
-        }}
-        QPushButton:pressed {{
-            background-color: {colors['pressed']};
-            border-color: {colors['border']};
-        }}
-        QPushButton:disabled {{
-            background-color: {colors['disabled_bg']};
-            color: {colors['disabled_fg']};
-            border: 1px solid {colors['disabled_border']};
-        }}
-    """
 
 
 
@@ -216,7 +101,7 @@ def apply_standard_field_style(widget):
             return widget
         widget.setStyleSheet(_build_standard_field_style(theme, "line"))
         return widget
-    if isinstance(widget, QToolButton) and name in {"header_cell_tl", "header_cell_tr", "header_cell_bl"}:
+    if isinstance(widget, QToolButton) and name in {"header_cell_tl", "header_cell_tr"}:
         widget.setStyleSheet(_build_standard_field_style(theme, "header"))
         return widget
     if isinstance(widget, QAbstractItemView) and name == "files_list":
@@ -238,7 +123,7 @@ def refresh_standard_field_styles(root: QWidget):
         for widget in root.findChildren(QComboBox):
             apply_standard_field_style(widget)
         for widget in root.findChildren(QToolButton):
-            if widget.objectName() in {"header_cell_tl", "header_cell_tr", "header_cell_bl", "menu_like_combo"}:
+            if widget.objectName() in {"header_cell_tl", "header_cell_tr", "menu_like_combo"}:
                 apply_standard_field_style(widget)
         for widget in root.findChildren(QAbstractItemView):
             if widget.objectName() == "files_list":
@@ -268,7 +153,7 @@ def refresh_standard_button_styles(root: QWidget):
             role = widget.property("buttonVariant")
             if not role:
                 continue
-            widget.setStyleSheet(_build_standard_button_style(_resolve_widget_theme_mode(widget), str(role)))
+            widget.setStyleSheet(build_standard_button_style(_resolve_widget_theme_mode(widget), str(role)))
             _refresh_widget_style(widget)
     except Exception as error:
         _log_ignored_error("refresh_standard_button_styles", error)
@@ -367,7 +252,7 @@ class ComboPopupItemDelegate(QStyledItemDelegate):
 
 
 def setup_standard_dropdown(widget, *, fixed_width: int | None = None):
-    header_fields = {"header_cell_tl", "header_cell_tr", "header_cell_bl"}
+    header_fields = {"header_cell_tl", "header_cell_tr"}
     height = (
         HEADER_FIELD_HEIGHT
         if getattr(widget, "objectName", lambda: "")() in header_fields
@@ -457,41 +342,62 @@ def setup_standard_header_dropdown(widget):
     return widget
 
 
-def setup_standard_action_button(widget, *, height: int = ACTION_BUTTON_HEIGHT, variant: str | None = None):
+def setup_standard_action_button(
+    widget,
+    *,
+    variant: str | None = None,
+    expand: bool = False,
+):
     role = variant or widget.property("buttonVariant") or "secondary"
-    widget.setFixedHeight(height)
+    widget.setFixedHeight(ACTION_BUTTON_HEIGHT)
     widget.setMinimumWidth(0)
     widget.setMaximumWidth(16777215)
-    widget.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+    widget.setSizePolicy(
+        QSizePolicy.Policy.Expanding if expand else QSizePolicy.Policy.Maximum,
+        QSizePolicy.Policy.Fixed,
+    )
     widget.setProperty("buttonVariant", role)
     widget.setCursor(Qt.CursorShape.PointingHandCursor)
     if variant == "primary" and not widget.objectName():
         widget.setObjectName("convert_btn")
     elif variant == "danger" and not widget.objectName():
         widget.setObjectName("cancel_operation_btn")
-    elif variant == "link" and not widget.objectName():
-        widget.setObjectName("top_menu_link_btn")
-    if variant == "link":
-        widget.setFlat(True)
-        widget.setCursor(Qt.CursorShape.PointingHandCursor)
-        widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-    else:
-        widget.setFlat(False)
-    widget.setStyleSheet(_build_standard_button_style(_resolve_widget_theme_mode(widget), role))
+    widget.setFlat(False)
+    widget.setStyleSheet(build_standard_button_style(_resolve_widget_theme_mode(widget), role))
     _refresh_widget_style(widget)
     return widget
 
 
-def setup_standard_primary_button(widget, *, height: int = ACTION_BUTTON_HEIGHT):
-    return setup_standard_action_button(widget, height=height, variant="primary")
+def setup_standard_primary_button(
+    widget,
+    *,
+    expand: bool = False,
+):
+    return setup_standard_action_button(
+        widget,
+        variant="primary",
+        expand=expand,
+    )
 
 
-def setup_standard_danger_button(widget, *, height: int = ACTION_BUTTON_HEIGHT):
-    return setup_standard_action_button(widget, height=height, variant="danger")
+def setup_standard_danger_button(
+    widget,
+    *,
+    expand: bool = False,
+):
+    return setup_standard_action_button(
+        widget,
+        variant="danger",
+        expand=expand,
+    )
 
 
-def setup_standard_secondary_button(widget, *, height: int = ACTION_BUTTON_HEIGHT):
-    return setup_standard_action_button(widget, height=height)
+def setup_standard_secondary_button(
+    widget,
+    *,
+    expand: bool = False,
+):
+    return setup_standard_action_button(widget, expand=expand)
 
 
 def setup_standard_form_label(widget, *, align: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignLeft):
@@ -578,14 +484,12 @@ def get_russian_text_input(parent, *, title: str, label: str, text: str = "") ->
     buttons_layout = QHBoxLayout(buttons_row)
     buttons_layout.setContentsMargins(*MARGINS_NONE)
     buttons_layout.setSpacing(SPACE_SM)
-    buttons_layout.addStretch()
-
     ok_button = QPushButton("Сохранить")
-    setup_standard_secondary_button(ok_button)
+    setup_standard_primary_button(ok_button, expand=True)
     cancel_button = QPushButton("Отмена")
-    setup_standard_secondary_button(cancel_button)
-    buttons_layout.addWidget(ok_button)
-    buttons_layout.addWidget(cancel_button)
+    setup_standard_danger_button(cancel_button, expand=True)
+    buttons_layout.addWidget(ok_button, 1)
+    buttons_layout.addWidget(cancel_button, 1)
     layout.addWidget(buttons_row)
 
     ok_button.clicked.connect(dialog.accept)
@@ -767,7 +671,7 @@ class LeftAlignedToolButton(QToolButton):
     def paintEvent(self, event):
         option = QStyleOptionToolButton()
         self.initStyleOption(option)
-        if self.objectName() in {"header_cell_tl", "header_cell_tr", "header_cell_bl"}:
+        if self.objectName() in {"header_cell_tl", "header_cell_tr"}:
             option.state &= ~QStyle.StateFlag.State_MouseOver
         text = option.text
         option.text = ""
@@ -794,20 +698,19 @@ class FileListItemAdapter:
     def data(self, role):
         return self._view.model().data(self._index, role)
 
-    def isSelected(self):
-        return self._view.selectionModel().isSelected(self._index)
-
-    def setSelected(self, selected: bool):
-        if selected:
-            self._view.selectionModel().select(
-                self._index,
-                QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
-            )
-        else:
-            self._view.selectionModel().select(
-                self._index,
-                QItemSelectionModel.SelectionFlag.Deselect | QItemSelectionModel.SelectionFlag.Rows,
-            )
+def selected_file_items(list_widget, *, files_only: bool = False) -> list:
+    """Извлекает объекты файлов из выбранных строк любого совместимого списка."""
+    if list_widget is None:
+        return []
+    result = []
+    for item in list_widget.selectedItems():
+        file_item = item.data(Qt.ItemDataRole.UserRole)
+        if file_item is None:
+            continue
+        if files_only and not getattr(file_item, "is_file", False):
+            continue
+        result.append(file_item)
+    return result
 
 
 class FileListModel(QAbstractTableModel):
@@ -823,15 +726,6 @@ class FileListModel(QAbstractTableModel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._files = []
-
-
-    @staticmethod
-    def _full_display_name(file_item) -> str:
-        display_name = file_item.name
-        preview_name = getattr(file_item, "preview_name", None)
-        if preview_name and preview_name != file_item.name:
-            display_name = f"{file_item.name} -> {preview_name}"
-        return display_name
 
     @staticmethod
     def _original_display_name(file_item) -> str:
@@ -856,20 +750,6 @@ class FileListModel(QAbstractTableModel):
             return self.HEADERS[section]
         return super().headerData(section, orientation, role)
 
-    @staticmethod
-    def _file_type(file_item) -> str:
-        if not getattr(file_item, "is_file", True):
-            return "Папка"
-        extension = os.path.splitext(str(getattr(file_item, "path", "")))[1]
-        return extension[1:].upper() if extension else "Файл"
-
-    @staticmethod
-    def _source_folder(file_item) -> str:
-        path = str(getattr(file_item, "path", ""))
-        if not getattr(file_item, "is_file", True):
-            return path
-        return str(getattr(file_item, "folder", "") or os.path.dirname(path))
-
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid():
             return None
@@ -889,9 +769,9 @@ class FileListModel(QAbstractTableModel):
             if index.column() == self.COLUMN_NEW_NAME:
                 return getattr(file_item, "preview_name", None) or self._original_display_name(file_item)
             if index.column() == self.COLUMN_TYPE:
-                return self._file_type(file_item)
+                return file_item_type_label(file_item)
             if index.column() == self.COLUMN_PATH:
-                return self._source_folder(file_item)
+                return file_item_source_folder(file_item)
         if role == Qt.ItemDataRole.ToolTipRole:
             if index.column() == self.COLUMN_OLD_NAME:
                 return self._original_display_name(file_item)
@@ -931,20 +811,6 @@ class FileListModel(QAbstractTableModel):
 
     def clear(self):
         self.set_files([])
-
-    def append_files(self, files: list):
-        if not files:
-            return
-        if not self._files:
-            self.beginResetModel()
-            self._files = list(files)
-            self.endResetModel()
-            return
-        start = len(self._files)
-        end = start + len(files) - 1
-        self.beginInsertRows(QModelIndex(), start, end)
-        self._files.extend(files)
-        self.endInsertRows()
 
     def files(self):
         return list(self._files)
@@ -1056,17 +922,8 @@ class FileListWidget(QTableView):
     def _on_selection_changed(self, selected, deselected):
         self.itemSelectionChanged.emit()
 
-    def count(self):
-        return self.model().rowCount()
-
     def clear(self):
         self.model().clear()
-
-    def item(self, row: int):
-        index = self.model().index(row, 0)
-        if not index.isValid():
-            return None
-        return FileListItemAdapter(self, index)
 
     def selectedItems(self):
         items = []
@@ -1074,15 +931,15 @@ class FileListWidget(QTableView):
             items.append(FileListItemAdapter(self, index))
         return items
 
+    def selected_file_items(self, *, files_only: bool = False) -> list:
+        """Возвращает объекты, связанные с выбранными строками таблицы."""
+        return selected_file_items(self, files_only=files_only)
+
     def clearSelection(self):
         self.selectionModel().clearSelection()
 
     def set_files(self, files: list):
         self.model().set_files(files)
-        self._resize_columns_to_contents()
-
-    def add_files(self, files: list):
-        self.model().append_files(files)
         self._resize_columns_to_contents()
 
     def refresh(self):
@@ -1182,7 +1039,6 @@ class DropActionTile(QFrame):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFixedSize(144, 132)
         self._theme = "dark"
-        self._apply_theme_style()
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(SPACE_XS, SPACE_XS, SPACE_XS, SPACE_XS)
@@ -1197,9 +1053,9 @@ class DropActionTile(QFrame):
 
         self.text_label = QLabel(text)
         self.text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.text_label.setStyleSheet('font-family: "Segoe UI"; font-size: 12px; font-weight: 600;')
         self.text_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         layout.addWidget(self.text_label, 0, Qt.AlignmentFlag.AlignHCenter)
+        self._apply_theme_style()
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -1213,38 +1069,11 @@ class DropActionTile(QFrame):
         self._apply_theme_style()
 
     def _apply_theme_style(self):
-        if self._theme == "light":
-            self.setStyleSheet(
-                "QFrame#drop_action_tile {"
-                "background-color: transparent;"
-                "border: 2px dashed rgba(90, 100, 110, 170);"
-                "border-radius: 12px;"
-                "}"
-                "QFrame#drop_action_tile:hover {"
-                "border-color: rgba(61,116,179,220);"
-                "background-color: rgba(61,116,179,18);"
-                "}"
+        self.setStyleSheet(build_drop_action_tile_style(self._theme))
+        if hasattr(self, "text_label"):
+            self.text_label.setStyleSheet(
+                build_drop_action_tile_text_style(self._theme)
             )
-            if hasattr(self, "text_label"):
-                self.text_label.setStyleSheet(
-                    'font-family: "Segoe UI"; font-size: 12px; font-weight: 600; color: #1f2328;'
-                )
-        else:
-            self.setStyleSheet(
-                "QFrame#drop_action_tile {"
-                "background-color: transparent;"
-                "border: 2px dashed rgba(255,255,255,120);"
-                "border-radius: 12px;"
-                "}"
-                "QFrame#drop_action_tile:hover {"
-                "border-color: rgba(255,255,255,210);"
-                "background-color: rgba(255,255,255,24);"
-                "}"
-            )
-            if hasattr(self, "text_label"):
-                self.text_label.setStyleSheet(
-                    'font-family: "Segoe UI"; font-size: 12px; font-weight: 600; color: #f0f0f0;'
-                )
 
 
 class LoggingStatusBar(QStatusBar):

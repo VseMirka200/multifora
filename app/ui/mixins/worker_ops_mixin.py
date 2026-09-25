@@ -1,22 +1,18 @@
 import os
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 
 from app.core.app_utils import _debug_log, _log_ignored_error
 from app.core.models import FileItem
+from app.ui.ui_components import selected_file_items
 
 
 class WorkerOpsMixin:
     # Передаёт выбранные файлы рабочему потоку и обновляет UI по результатам операций.
     def _get_selected_or_all_file_items(self) -> list[FileItem]:
-        selected_items = self.list_files.selectedItems()
-        if selected_items:
-            files = []
-            for item in selected_items:
-                file_item = item.data(Qt.ItemDataRole.UserRole)
-                if file_item and file_item.is_file:
-                    files.append(file_item)
+        files = selected_file_items(self.list_files, files_only=True)
+        if files:
             return files
         return [file_item for file_item in self.files if getattr(file_item, "is_file", False)]
 
@@ -191,22 +187,20 @@ class WorkerOpsMixin:
         """Сжатие файлов."""
         if not self._ensure_operation_can_start():
             return
-        selected_items = self.list_files.selectedItems()
-        if not selected_items:
+        selected_files = selected_file_items(self.list_files, files_only=True)
+        if not selected_files:
             QMessageBox.warning(self, "Ошибка", "Выберите файлы для сжатия!")
             return
 
         compress_type = self.combo_compress_type.currentText()
         files = []
-        for item in selected_items:
-            file_item = item.data(Qt.ItemDataRole.UserRole)
-            if file_item and file_item.is_file:
-                if compress_type == "Изображения":
-                    if file_item.file_type == "image":
-                        files.append(file_item)
-                elif compress_type == "PDF документы":
-                    if file_item.path.lower().endswith(".pdf"):
-                        files.append(file_item)
+        for file_item in selected_files:
+            if compress_type == "Изображения":
+                if file_item.file_type == "image":
+                    files.append(file_item)
+            elif compress_type == "PDF документы":
+                if file_item.path.lower().endswith(".pdf"):
+                    files.append(file_item)
 
         if not files:
             file_type = "изображения (JPG/PNG)" if compress_type == "Изображения" else "PDF документы"

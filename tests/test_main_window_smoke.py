@@ -5,11 +5,13 @@ from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtWidgets import QApplication, QDialog, QLabel, QSizePolicy
+from PyQt6.QtWidgets import QApplication, QDialog, QLabel, QListWidget, QPushButton, QSizePolicy
 from PyQt6.QtCore import Qt
 
 from app.core.models import FileItem
 from app.ui.ui_main import MultiforaMainWindow
+from app.ui.ui_spacing import FIELD_HEIGHT
+from app.ui.ui_styles import build_standard_button_style
 
 
 class MainWindowSmokeTests(unittest.TestCase):
@@ -52,10 +54,63 @@ class MainWindowSmokeTests(unittest.TestCase):
                 ]
                 self.assertEqual([position[0] for position in header_positions], [0, 0, 0])
                 self.assertEqual([position[1] for position in header_positions], [2, 0, 1])
+                self.assertEqual(
+                    window._clear_ext_filter_action.text(),
+                    "Снять все отметки",
+                )
+                self.assertEqual(
+                    window._clear_type_filter_action.text(),
+                    "Снять все отметки",
+                )
+
+                filter_path = os.path.join(tmp_dir, "filter.txt")
+                with open(filter_path, "wb") as stream:
+                    stream.write(b"test")
+                window.files = [FileItem(filter_path)]
+                window.update_file_list()
+
+                window._clear_type_filter_action.trigger()
+                self.assertTrue(all(
+                    not action.isChecked()
+                    for action in window._type_filter_actions.values()
+                ))
+                self.assertEqual(window.list_files.model().files(), [])
+                self.assertEqual(window.btn_type_filter.text(), "Выбрано: 0")
+
+                for action in window._type_filter_actions.values():
+                    action.setChecked(True)
+                window._clear_ext_filter_action.trigger()
+                self.assertTrue(all(
+                    not action.isChecked()
+                    for action in window._ext_filter_actions.values()
+                ))
+                self.assertEqual(window.list_files.model().files(), [])
+                self.assertEqual(window.btn_ext_filter.text(), "Выбрано: 0")
+
+                for action in window._ext_filter_actions.values():
+                    action.setChecked(True)
+                window.files = []
+                window.update_file_list()
+                self.assertFalse(window.btn_compress.isEnabled())
                 self.assertFalse(window.progress_dialog.isModal())
                 self.assertEqual(
                     window.progress_dialog.windowModality(),
                     Qt.WindowModality.NonModal,
+                )
+                self.assertEqual(
+                    window.btn_cancel_operation.sizePolicy().horizontalPolicy(),
+                    QSizePolicy.Policy.Expanding,
+                )
+                self.assertEqual(
+                    window.btn_cancel_operation.property("buttonVariant"),
+                    "danger",
+                )
+                self.assertEqual(
+                    window.btn_cancel_operation.styleSheet(),
+                    build_standard_button_style(
+                        window._effective_theme_mode,
+                        "danger",
+                    ),
                 )
                 tab_labels = [
                     window.operations_tab_bar.tabText(index)
@@ -84,7 +139,46 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertFalse(hasattr(window, "conversion_output_path_row"))
                 self.assertEqual(window.btn_download_logs.text(), "Скачать логи")
                 self.assertEqual(window.btn_download_logs.property("buttonVariant"), "secondary")
+                self.assertEqual(window.btn_check_updates.property("buttonVariant"), "primary")
+                self.assertEqual(window.btn_open_repo.property("buttonVariant"), "secondary")
+                for button in (window.btn_check_updates, window.btn_open_repo):
+                    self.assertEqual(
+                        button.sizePolicy().horizontalPolicy(),
+                        QSizePolicy.Policy.Expanding,
+                    )
+                standard_buttons = [
+                    button
+                    for button in window.findChildren(QPushButton)
+                    if button.property("buttonVariant")
+                ]
+                self.assertTrue(standard_buttons)
+                self.assertEqual(
+                    [
+                        (button.objectName(), button.text(), button.height())
+                        for button in standard_buttons
+                        if button.height() != FIELD_HEIGHT
+                    ],
+                    [],
+                )
+                self.assertEqual(window.logs_search_input.height(), FIELD_HEIGHT)
+                self.assertEqual(window.logs_level_filter.height(), FIELD_HEIGHT)
                 self.assertGreaterEqual(window.settings_stack.count(), 4)
+                self.assertEqual(
+                    window.settings_nav.findItems(
+                        "История переименований",
+                        Qt.MatchFlag.MatchExactly,
+                    ),
+                    [],
+                )
+                self.assertFalse(hasattr(window, "rename_history_settings_page"))
+                self.assertEqual(
+                    window.btn_open_rename_history.text(),
+                    "Открыть историю переименований",
+                )
+                self.assertEqual(
+                    window.btn_open_rename_history.property("buttonVariant"),
+                    "secondary",
+                )
                 original_index = window.operations_tab_bar.currentIndex()
                 window.btn_settings.click()
                 self.assertFalse(window.settings_panel_host.isHidden())
@@ -112,6 +206,60 @@ class MainWindowSmokeTests(unittest.TestCase):
                         callback()
                     self.assertEqual(warning.call_count, 6)
                 self.assertIs(window.file_worker, running_worker)
+            finally:
+                if hasattr(window, "queue_timer"):
+                    window.queue_timer.stop()
+                if hasattr(window, "_settings_save_timer"):
+                    window._settings_save_timer.stop()
+                window.deleteLater()
+
+    def test_rename_history_opens_as_modal_dialog(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            settings_path = os.path.join(tmp_dir, "settings.json")
+            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+                window = MultiforaMainWindow()
+
+            captured = {}
+            window._rename_history = [
+                {
+                    "timestamp": 0,
+                    "count": 1,
+                    "label": "Переименован 1 файл",
+                    "pairs": [("new.txt", "old.txt")],
+                }
+            ]
+
+            def inspect_dialog(dialog):
+                captured["dialog"] = dialog
+                history_list = dialog.findChild(QListWidget, "rename_history_list")
+                self.assertTrue(dialog.isModal())
+                self.assertEqual(dialog.windowTitle(), "История переименований")
+                self.assertIsNotNone(history_list)
+                self.assertEqual(history_list.count(), 1)
+                self.assertEqual(history_list.currentRow(), 0)
+
+                buttons = dialog.findChildren(QPushButton)
+                self.assertEqual(
+                    {button.text() for button in buttons},
+                    {"Откатить выбранное", "Закрыть"},
+                )
+                for button in buttons:
+                    self.assertEqual(
+                        button.sizePolicy().horizontalPolicy(),
+                        QSizePolicy.Policy.Expanding,
+                    )
+                    self.assertEqual(button.height(), FIELD_HEIGHT)
+                return int(QDialog.DialogCode.Rejected)
+
+            try:
+                with patch.object(QDialog, "exec", new=inspect_dialog):
+                    window.btn_open_rename_history.click()
+                self.assertIn("dialog", captured)
+                self.assertIsNone(window.rename_history_list)
+                self.assertIsNone(window.btn_history_undo)
             finally:
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()
@@ -389,6 +537,10 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.image_compression_output_path = tmp_dir
                 window._update_compress_button()
                 self.assertTrue(window.btn_compress.isEnabled())
+
+                window.files = []
+                window.update_file_list()
+                self.assertFalse(window.btn_compress.isEnabled())
             finally:
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()
@@ -410,10 +562,17 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(
                     set(window.template_quick_insert_buttons),
                     {
-                        "{name}", "{num}", "{date}", "{ext}",
+                        "{name}", "{num:03d,start=1,step=1}", "{date}", "{ext}",
                         "{created}", "{modified}", "{exif_date}", "{width}", "{height}",
                     },
                 )
+
+                number_token = "{num:03d,start=1,step=1}"
+                number_button = window.template_quick_insert_buttons[number_token]
+                self.assertEqual(number_button.text(), number_token)
+                window.template_custom.clear()
+                number_button.click()
+                self.assertEqual(window.template_custom.text(), number_token)
 
                 window.template_custom.setText("AB")
                 cursor = window.template_custom.textCursor()

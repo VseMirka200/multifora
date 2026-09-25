@@ -1,10 +1,10 @@
 
 import os
 
-from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFileDialog
 
 from app.core.app_utils import _log_ignored_error
+from app.ui.ui_components import selected_file_items
 
 
 class OperationsCompressUiMixin:
@@ -13,12 +13,7 @@ class OperationsCompressUiMixin:
         if not hasattr(self, "list_files") or not hasattr(self, "combo_compress_type"):
             return
 
-        selected_items = self.list_files.selectedItems()
-        candidates = []
-        for item in selected_items:
-            file_item = item.data(Qt.ItemDataRole.UserRole)
-            if file_item and file_item.is_file:
-                candidates.append(file_item)
+        candidates = selected_file_items(self.list_files, files_only=True)
         if not candidates:
             candidates = [
                 file_item
@@ -60,15 +55,12 @@ class OperationsCompressUiMixin:
     def _has_selected_files_for_current_compress_type(self) -> bool:
         if not hasattr(self, "list_files"):
             return False
-        selected_items = self.list_files.selectedItems()
-        if not selected_items:
+        selected_files = selected_file_items(self.list_files, files_only=True)
+        if not selected_files:
             return False
 
         compress_type = self.combo_compress_type.currentText() if hasattr(self, "combo_compress_type") else ""
-        for item in selected_items:
-            file_item = item.data(Qt.ItemDataRole.UserRole)
-            if not file_item or not file_item.is_file:
-                continue
+        for file_item in selected_files:
             if compress_type == "PDF документы":
                 if file_item.path.lower().endswith(".pdf"):
                     return True
@@ -156,9 +148,9 @@ class OperationsCompressUiMixin:
     def select_image_output_folder(self):
         initial_path = self._image_output_path()
         if not initial_path or not os.path.isdir(initial_path):
-            selected_items = self.list_files.selectedItems() if hasattr(self, "list_files") else []
-            if selected_items:
-                file_item = selected_items[0].data(Qt.ItemDataRole.UserRole)
+            selected_files = selected_file_items(getattr(self, "list_files", None))
+            if selected_files:
+                file_item = selected_files[0]
                 initial_path = os.path.dirname(str(getattr(file_item, "path", "") or ""))
 
         folder = QFileDialog.getExistingDirectory(
@@ -208,13 +200,10 @@ class OperationsCompressUiMixin:
         if callable(getattr(self, "refresh_compression_preview", None)):
             self.refresh_compression_preview(show_empty_warning=False)
 
-    def _refresh_compression_preview_if_available(self):
+    def _refresh_compression_preview_if_available(self, *_args):
         refresh_preview = getattr(self, "refresh_compression_preview", None)
         if callable(refresh_preview):
             refresh_preview(show_empty_warning=False)
-
-    def on_replace_pdf_checked(self, _state):
-        self._refresh_compression_preview_if_available()
 
     def on_pdf_method_changed(self, method_text: str):
         if not hasattr(self, "pdf_method_warning_label"):
@@ -223,7 +212,4 @@ class OperationsCompressUiMixin:
             self.pdf_method_warning_label.setVisible(True)
         else:
             self.pdf_method_warning_label.setVisible(False)
-        self._refresh_compression_preview_if_available()
-
-    def on_compression_level_changed(self, _index: int):
         self._refresh_compression_preview_if_available()

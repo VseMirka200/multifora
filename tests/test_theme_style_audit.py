@@ -6,7 +6,11 @@ from app.ui.theme_styles import LIGHT_APPLICATION_STYLE
 from app.ui.ui_styles import (
     MENU_STYLE_DARK,
     MENU_STYLE_LIGHT,
+    build_drop_zone_surface_style,
     build_operations_tab_bar_style,
+    build_standard_button_style,
+    build_standard_field_style,
+    build_template_table_style,
     standard_palette,
 )
 
@@ -28,6 +32,17 @@ def _contrast(a: str, b: str) -> float:
 
 
 class ThemeStyleAuditTests(unittest.TestCase):
+    def test_all_button_roles_use_the_same_neutral_style(self):
+        accent_colors = ("#3d74b3", "#8f3b3b", "#c55353")
+        for theme in ("light", "dark"):
+            styles = {
+                build_standard_button_style(theme, role)
+                for role in ("primary", "danger", "secondary")
+            }
+            self.assertEqual(len(styles), 1)
+            style = next(iter(styles))
+            self.assertFalse(any(color in style for color in accent_colors))
+
     def test_standard_field_text_contrast(self):
         for theme in ("light", "dark"):
             palette = standard_palette(theme)
@@ -48,17 +63,18 @@ class ThemeStyleAuditTests(unittest.TestCase):
             self.assertNotIn("QTabBar#operations_tab_bar::tab:hover", style)
 
     def test_light_theme_does_not_reintroduce_dark_template_surface(self):
-        light = LIGHT_APPLICATION_STYLE
+        light = "\n".join((
+            LIGHT_APPLICATION_STYLE,
+            build_standard_field_style("light", "surface"),
+            build_template_table_style("light"),
+        ))
         self.assertNotIn("#383838", light)
         self.assertTrue("alternate-background-color: #eef1f5" in light or "alternate-background-color: #f8fafc" in light)
 
     def test_template_manager_light_alternating_rows_are_light(self):
-        source = Path("app/ui/mixins/template_crud_mixin.py").read_text(encoding="utf-8")
-        start = source.index('if self._get_effective_theme_mode_for_templates() == "light"')
-        dark_return = source.index('        return """', source.index('            """', start) + 1)
-        light_block = source[start:dark_return]
-        self.assertIn("alternate-background-color: #eef1f5", light_block)
-        self.assertNotIn("alternate-background-color: #454545", light_block)
+        light_style = build_template_table_style("light")
+        self.assertIn("alternate-background-color: #eef1f5", light_style)
+        self.assertNotIn("alternate-background-color: #454545", light_style)
 
     def test_runtime_refreshes_buttons_and_operation_tabs(self):
         source = Path("app/ui/ui_main.py").read_text(encoding="utf-8")
@@ -71,8 +87,8 @@ class ThemeStyleAuditTests(unittest.TestCase):
 
     def test_light_file_panel_and_list_surface_stay_white(self):
         ui_main = Path("app/ui/ui_main.py").read_text(encoding="utf-8")
-        self.assertIn('background-color: #ffffff;', ui_main)
-        self.assertNotIn('background-color: #f3f3f3;\n                        border: none;\n                        border-radius: 4px;', ui_main)
+        self.assertIn("background-color: #ffffff", build_drop_zone_surface_style("light"))
+        self.assertNotIn("background-color: #f3f3f3", build_drop_zone_surface_style("light"))
         self.assertNotIn('right_layout.addSpacing(SPACE_SM)', ui_main)
 
 

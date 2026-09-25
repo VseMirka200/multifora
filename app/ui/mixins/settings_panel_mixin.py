@@ -33,6 +33,8 @@ from app.ui.ui_components import (
     MenuLikeComboBox,
     apply_standard_menu_style,
     setup_standard_action_button,
+    setup_standard_primary_button,
+    setup_standard_secondary_button,
     setup_standard_dropdown,
     setup_standard_line_input,
     setup_standard_form_label,
@@ -165,9 +167,6 @@ class SettingsPanelMixin:
         """Показывает панель настроек поверх рабочей области."""
         settings_widget = self._ensure_settings_panel_widget()
         self.btn_settings.setChecked(True)
-        if callable(getattr(self, "_ensure_rename_history_settings_page", None)):
-            self._ensure_rename_history_settings_page()
-
         host = getattr(self, "settings_panel_host", None)
         tab_bar = getattr(self, "operations_tab_bar", None)
         if tab_bar is not None:
@@ -248,7 +247,7 @@ class SettingsPanelMixin:
                 "Для отдельных операций с документами нужен Microsoft Word, "
                 "для сжатия PDF используется Ghostscript.",
                 "В настройках доступны светлая и тёмная темы, поведение после операций, "
-                "ярлыки и контекстное меню Windows, проверка обновлений, логи и история переименований.",
+                "ярлыки и контекстное меню Windows, проверка обновлений и логи.",
             ]
             for text in paragraphs:
                 label = QLabel(text)
@@ -260,75 +259,6 @@ class SettingsPanelMixin:
             repo.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(REPO_PAGE)))
             layout.addWidget(repo, 0, Qt.AlignmentFlag.AlignLeft)
             layout.addStretch()
-
-    def _ensure_rename_history_settings_page(self):
-        page = getattr(self, "rename_history_settings_page", None)
-        if page is None:
-            page = QWidget()
-            page.setObjectName("rename_history_settings_page")
-            page_layout = QVBoxLayout(page)
-            page_layout.setContentsMargins(*MARGINS_NONE)
-            page_layout.setSpacing(SPACE_NONE)
-            page_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-
-            content = QWidget()
-            content.setObjectName("rename_history_settings_content")
-            content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-            content_layout = QVBoxLayout(content)
-            content_layout.setContentsMargins(*MARGINS_NONE)
-            content_layout.setSpacing(SPACE_NONE)
-            content_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-
-            history_label = QLabel("История переименований за текущую сессию")
-            history_label.setObjectName("settings_page_title_plain")
-            setup_standard_form_label(history_label)
-            history_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-            content_layout.addWidget(history_label)
-
-            self.rename_history_list = QListWidget()
-            self.rename_history_list.setObjectName("rename_history_list")
-            self.rename_history_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-            self.rename_history_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-            self.rename_history_list.currentRowChanged.connect(self.on_history_row_changed)
-            content_layout.addWidget(self.rename_history_list, 1)
-
-            self.btn_history_undo = QPushButton("Откатить")
-            self.btn_history_undo.clicked.connect(self.undo_last_rename)
-            self.btn_history_undo.setEnabled(False)
-            history_buttons_widget, _ = self._build_rename_action_row([self.btn_history_undo])
-            content_layout.addWidget(history_buttons_widget)
-
-            page_layout.addWidget(content, 1)
-            self.rename_history_settings_page = page
-
-        settings_stack = getattr(self, "settings_stack", None)
-        if settings_stack is not None and settings_stack.indexOf(page) < 0:
-            settings_stack.addWidget(page)
-
-        settings_nav = getattr(self, "settings_nav", None)
-        history_items = (
-            settings_nav.findItems("История переименований", Qt.MatchFlag.MatchExactly)
-            if settings_nav is not None
-            else []
-        )
-        if settings_nav is not None and not history_items:
-            settings_nav.addItem("История переименований")
-            try:
-                item = settings_nav.item(settings_nav.count() - 1)
-                if item is not None:
-                    item.setSizeHint(
-                QSize(
-                    self._settings_nav_base_width,
-                    getattr(self, "_settings_nav_item_height", 36),
-                )
-            )
-            except Exception as error:
-                _log_ignored_error("SettingsPanelMixin._ensure_rename_history_settings_page", error)
-
-        self._refresh_rename_history_view()
-        self._update_undo_button()
-
-        return page
 
     def create_settings_tab(self):
         """Создает панель настроек с категориями слева и содержимым справа."""
@@ -489,17 +419,17 @@ class SettingsPanelMixin:
 
         update_buttons_layout = QHBoxLayout()
         update_buttons_layout.setContentsMargins(*MARGINS_NONE)
-        update_buttons_layout.setSpacing(SPACE_NONE)
+        update_buttons_layout.setSpacing(SPACE_SM)
 
         self.btn_check_updates = QPushButton("Проверить обновления")
-        setup_standard_action_button(self.btn_check_updates)
+        setup_standard_primary_button(self.btn_check_updates, expand=True)
         self.btn_check_updates.clicked.connect(self.check_updates_now)
-        update_buttons_layout.addWidget(self.btn_check_updates)
+        update_buttons_layout.addWidget(self.btn_check_updates, 1)
 
         self.btn_open_repo = QPushButton("Открыть GitHub")
-        setup_standard_action_button(self.btn_open_repo)
+        setup_standard_secondary_button(self.btn_open_repo, expand=True)
         self.btn_open_repo.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(REPO_PAGE)))
-        update_buttons_layout.addWidget(self.btn_open_repo)
+        update_buttons_layout.addWidget(self.btn_open_repo, 1)
 
         updates_card_layout.addLayout(update_buttons_layout)
 
@@ -549,7 +479,6 @@ class SettingsPanelMixin:
         self.btn_download_logs.setToolTip("Сохранить отображаемые логи в текстовый файл")
         setup_standard_action_button(
             self.btn_download_logs,
-            height=HEADER_FIELD_HEIGHT,
             variant="secondary",
         )
         self.btn_download_logs.setSizePolicy(

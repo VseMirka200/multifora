@@ -62,7 +62,7 @@ class OperationsTabLayoutMixin:
                 QPushButton {{ color: {foreground}; background: transparent;
                     border: none; border-bottom: 1px solid transparent;
                     border-radius: 0px; padding: 0px 2px; font-weight: 500; }}
-                QPushButton:checked {{ border-bottom: 1px solid #3d74b3; }}
+                QPushButton:checked {{ border-bottom: 1px solid {foreground}; }}
             """)
 
     def _build_rename_action_row(
@@ -277,6 +277,15 @@ class OperationsTabLayoutMixin:
 
         rename_layout.addWidget(rename_buttons_widget)
 
+        self.btn_open_rename_history = QPushButton("Открыть историю переименований")
+        setup_standard_secondary_button(self.btn_open_rename_history)
+        self.btn_open_rename_history.clicked.connect(self.show_rename_history_dialog)
+        history_button_widget, _ = self._build_rename_action_row(
+            [self.btn_open_rename_history],
+            margins=MARGINS_NONE,
+        )
+        rename_layout.addWidget(history_button_widget)
+
         self._add_operations_page(
             self._wrap_operations_page(rename_card, "rename_page"),
             "Переименование",
@@ -358,7 +367,7 @@ class OperationsTabLayoutMixin:
         convert_layout.addSpacing(SPACE_SM)
         
         self.btn_convert = QPushButton("Конвертировать")
-        setup_standard_primary_button(self.btn_convert, height=24)
+        setup_standard_primary_button(self.btn_convert)
         self._make_action_button_fill_width(self.btn_convert)
         self.btn_convert.clicked.connect(self.convert_files_dual_combo)
         self.btn_convert.setEnabled(False)
@@ -450,14 +459,14 @@ class OperationsTabLayoutMixin:
         metadata_layout.addSpacing(SPACE_SM)
 
         self.btn_remove_metadata = QPushButton("Удалить выбранные")
-        setup_standard_danger_button(self.btn_remove_metadata, height=28)
+        setup_standard_danger_button(self.btn_remove_metadata)
         self._make_action_button_fill_width(self.btn_remove_metadata)
         self.btn_remove_metadata.clicked.connect(lambda: self.remove_document_metadata(remove_all=False))
         metadata_layout.addWidget(self.btn_remove_metadata)
         metadata_layout.addSpacing(SPACE_SM)
 
         self.btn_remove_all_metadata = QPushButton("Удалить все метаданные")
-        setup_standard_danger_button(self.btn_remove_all_metadata, height=28)
+        setup_standard_danger_button(self.btn_remove_all_metadata)
         self._make_action_button_fill_width(self.btn_remove_all_metadata)
         self.btn_remove_all_metadata.clicked.connect(lambda: self.remove_document_metadata(remove_all=True))
         metadata_layout.addWidget(self.btn_remove_all_metadata)
@@ -502,7 +511,7 @@ class OperationsTabLayoutMixin:
         self.replace_pdf_row = self._create_replace_row(
             self.checkbox_replace_pdf,
             "Исходный PDF будет перезаписан сжатой версией",
-            self.on_replace_pdf_checked,
+            self._refresh_compression_preview_if_available,
         )
 
         self.pdf_method_warning_label = self._create_operation_hint_label("")
@@ -537,7 +546,7 @@ class OperationsTabLayoutMixin:
         self.combo_compression_level.setCurrentIndex(2)
         setup_standard_dropdown(self.combo_compression_level)
         self.combo_compression_level.currentIndexChanged.connect(
-            self.on_compression_level_changed
+            self._refresh_compression_preview_if_available
         )
         self._add_labeled_field(
             level_layout,
@@ -626,10 +635,10 @@ class OperationsTabLayoutMixin:
         compress_layout.addWidget(self.compress_mode_stack)
 
         self.btn_compress = QPushButton("Сжать файлы")
-        setup_standard_primary_button(self.btn_compress, height=24)
+        setup_standard_primary_button(self.btn_compress)
         self._make_action_button_fill_width(self.btn_compress)
         self.btn_compress.clicked.connect(self.compress_files)
-        self.btn_compress.setEnabled(True)
+        self.btn_compress.setEnabled(False)
         compress_layout.addSpacing(SPACE_SM)
         compress_layout.addWidget(self.btn_compress)
 

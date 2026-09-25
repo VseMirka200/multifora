@@ -1,8 +1,33 @@
 from __future__ import annotations
 
 import os
+import re
 
 from app.core.conversion_formats import FILE_TYPE_EXTENSIONS
+
+
+def natural_sort_key(value: object) -> tuple:
+    """Строит ключ для естественной сортировки: file2 перед file10."""
+    return tuple(
+        (0, int(part)) if part.isdigit() else (1, part.casefold())
+        for part in re.split(r"(\d+)", str(value))
+    )
+
+
+def file_item_source_folder(file_item: object) -> str:
+    """Возвращает исходную папку файла или путь самой папки."""
+    path = str(getattr(file_item, "path", ""))
+    if not getattr(file_item, "is_file", True):
+        return path
+    return str(getattr(file_item, "folder", "") or os.path.dirname(path))
+
+
+def file_item_type_label(file_item: object) -> str:
+    """Возвращает отображаемый тип файла или папки."""
+    if not getattr(file_item, "is_file", True):
+        return "Папка"
+    extension = os.path.splitext(str(getattr(file_item, "path", "")))[1]
+    return extension[1:].upper() if extension else "Файл"
 
 
 class FileItem:

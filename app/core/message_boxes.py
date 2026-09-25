@@ -16,14 +16,16 @@ from PyQt6.QtWidgets import (
 )
 
 from app.core.app_utils import _log_ignored_error
+from app.ui.ui_spacing import ACTION_BUTTON_HEIGHT
+from app.ui.ui_styles import build_standard_button_style
 
 
 _MESSAGE_BOX_HOOKS_INSTALLED = False
 _DIALOG_MIN_WIDTH = 420
 _DIALOG_MAX_WIDTH = 760
 _ICON_SIZE = 32
-_BUTTON_HEIGHT = 22
 _BUTTON_MIN_WIDTH = 84
+_BUTTON_HORIZONTAL_PADDING = 24
 
 
 def _setup_message_box_button(
@@ -31,17 +33,27 @@ def _setup_message_box_button(
     *,
     variant: str = "secondary",
 ) -> QPushButton:
-    button.setFixedHeight(_BUTTON_HEIGHT)
+    button.setFixedHeight(ACTION_BUTTON_HEIGHT)
     button.setCursor(Qt.CursorShape.PointingHandCursor)
     button.setProperty("buttonVariant", variant)
-    button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+    button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+    theme = getattr(button.parent(), "_effective_theme_mode", "dark")
+    button.setStyleSheet(build_standard_button_style(theme, variant))
     try:
+        button.ensurePolished()
         button.style().unpolish(button)
         button.style().polish(button)
         button.updateGeometry()
     except Exception as error:
         _log_ignored_error("_setup_message_box_button", error)
-    button.setFixedWidth(max(_BUTTON_MIN_WIDTH, button.sizeHint().width()))
+    text_width = QFontMetrics(button.font()).horizontalAdvance(button.text())
+    button.setMinimumWidth(
+        max(
+            _BUTTON_MIN_WIDTH,
+            button.sizeHint().width(),
+            text_width + _BUTTON_HORIZONTAL_PADDING,
+        )
+    )
     return button
 
 
@@ -132,8 +144,6 @@ def show_app_choice(
     button_row = QHBoxLayout()
     button_row.setContentsMargins(0, 0, 0, 0)
     button_row.setSpacing(8)
-    button_row.addStretch()
-
     selected = {"key": None}
     buttons: list[QPushButton] = []
 
@@ -142,13 +152,19 @@ def show_app_choice(
         dialog.accept()
 
     for key, label, variant in choices:
-        button = _setup_message_box_button(QPushButton(label), variant=variant)
+        button = QPushButton(label, dialog)
         button.setObjectName(f"appMessageButton_{key}")
+        effective_variant = (
+            "danger"
+            if key == cancel_key or key in {"cancel", "no"}
+            else variant
+        )
+        button = _setup_message_box_button(button, variant=effective_variant)
         button.clicked.connect(lambda _checked=False, choice_key=key: select(choice_key))
         if key == default_key:
             button.setDefault(True)
             button.setFocus()
-        button_row.addWidget(button)
+        button_row.addWidget(button, 1)
         buttons.append(button)
 
     layout.addLayout(button_row)
@@ -156,8 +172,8 @@ def show_app_choice(
     metrics = QFontMetrics(text_label.font())
     longest_line = max((metrics.horizontalAdvance(line) for line in str(text).splitlines()), default=0)
     content_width = max(_DIALOG_MIN_WIDTH, min(_DIALOG_MAX_WIDTH, longest_line + 90))
-    buttons_width = sum(button.width() for button in buttons) + max(0, len(buttons) - 1) * 8 + 28
-    dialog_width = min(_DIALOG_MAX_WIDTH, max(content_width, buttons_width, dialog.sizeHint().width()))
+    buttons_width = sum(button.minimumWidth() for button in buttons) + max(0, len(buttons) - 1) * 8 + 28
+    dialog_width = max(content_width, buttons_width, dialog.sizeHint().width())
     dialog.setMinimumWidth(dialog_width)
     dialog.resize(dialog_width, dialog.sizeHint().height())
 

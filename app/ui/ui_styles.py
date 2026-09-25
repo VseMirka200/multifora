@@ -1,4 +1,4 @@
-from app.ui.ui_spacing import FIELD_HEIGHT, HEADER_FIELD_HEIGHT
+from app.ui.ui_spacing import FIELD_HEIGHT
 
 
 def _build_menu_style(
@@ -69,6 +69,136 @@ MENU_STYLE_DARK = _build_menu_style(
 STANDARD_RADIUS = 4
 
 
+def build_splitter_style() -> str:
+    return """
+        QSplitter::handle:horizontal {
+            background-color: transparent;
+            border: none;
+            margin: 0px;
+        }
+        QSplitter::handle:horizontal:hover {
+            background-color: transparent;
+        }
+    """
+
+
+def build_file_info_separator_style(theme: str) -> str:
+    color = "rgba(31, 35, 40, 0.24)" if str(theme).lower() == "light" else "rgba(255, 255, 255, 0.18)"
+    return f"background-color: {color}; border: none;"
+
+
+def build_drop_zone_surface_style(theme: str) -> str:
+    background = "#ffffff" if str(theme).lower() == "light" else "#383838"
+    return f"""
+        QWidget#drop_zone_surface {{
+            background-color: {background};
+            border: none;
+            border-radius: {STANDARD_RADIUS}px;
+        }}
+    """
+
+
+def drop_zone_muted_color(theme: str) -> str:
+    return "#5b6470" if str(theme).lower() == "light" else "rgba(220,220,220,180)"
+
+
+def build_drop_zone_overlay_style(theme: str) -> str:
+    return f"""
+        QWidget#drop_zone_overlay {{
+            background-color: transparent;
+            border: none;
+            border-radius: {STANDARD_RADIUS}px;
+        }}
+        QWidget#drop_zone_overlay QLabel {{
+            background-color: transparent;
+            color: {drop_zone_muted_color(theme)};
+        }}
+    """
+
+
+def build_drop_zone_hint_style(theme: str) -> str:
+    return f"color: {drop_zone_muted_color(theme)}; font-size: 13px;"
+
+
+def build_drop_action_tile_style(theme: str) -> str:
+    light = str(theme).lower() == "light"
+    border = "rgba(90, 100, 110, 170)" if light else "rgba(255,255,255,120)"
+    hover_border = "rgba(61,116,179,220)" if light else "rgba(255,255,255,210)"
+    hover_background = "rgba(61,116,179,18)" if light else "rgba(255,255,255,24)"
+    return f"""
+        QFrame#drop_action_tile {{
+            background-color: transparent;
+            border: 2px dashed {border};
+            border-radius: 12px;
+        }}
+        QFrame#drop_action_tile:hover {{
+            border-color: {hover_border};
+            background-color: {hover_background};
+        }}
+    """
+
+
+def build_drop_action_tile_text_style(theme: str) -> str:
+    color = "#1f2328" if str(theme).lower() == "light" else "#f0f0f0"
+    return f'font-family: "Segoe UI"; font-size: 12px; font-weight: 600; color: {color};'
+
+
+_BUTTON_PALETTES = {
+    "dark": ("#303030", "#3a3a3a", "#2a2a2a", "#474747", "#f1f1f1", "#292929", "#3b3b3b", "#787878"),
+    "light": ("#f6f8fb", "#edf2f7", "#e2eaf3", "#d6dee8", "#243244", "#f8fafc", "#e4eaf2", "#9aa4b2"),
+}
+
+
+def build_standard_button_style(theme: str, role: str) -> str:
+    palette = _BUTTON_PALETTES["light" if str(theme).lower() == "light" else "dark"]
+    bg, hover, pressed, border, fg, disabled_bg, disabled_border, disabled_fg = palette
+    return f"""
+        QPushButton {{
+            background-color: {bg}; color: {fg}; border: 1px solid {border};
+            border-radius: 7px; padding: 2px 9px; font-weight: 500; font-size: 13px;
+        }}
+        QPushButton:hover {{ background-color: {hover}; border-color: {border}; }}
+        QPushButton:pressed {{ background-color: {pressed}; border-color: {border}; }}
+        QPushButton:disabled {{
+            background-color: {disabled_bg}; color: {disabled_fg};
+            border: 1px solid {disabled_border};
+        }}
+    """
+
+
+def build_template_table_style(theme: str) -> str:
+    light = str(theme).lower() == "light"
+    foreground = "#1f2328" if light else "#f0f0f0"
+    alternate = "#eef1f5" if light else "#454545"
+    hover = "rgba(61, 116, 179, 0.10)" if light else "rgba(255, 255, 255, 0.07)"
+    selected = "rgba(61, 116, 179, 0.22)" if light else "#5c5c5c"
+    header = alternate if light else "#2b2b2b"
+    return f"""
+        QTableWidget {{
+            background-color: transparent; alternate-background-color: {alternate};
+            color: {foreground}; border: none; selection-background-color: {selected};
+            selection-color: {foreground}; show-decoration-selected: 1;
+        }}
+        QTableWidget:focus, QTableWidget::item:focus {{ outline: none; border: none; }}
+        QTableWidget::item {{
+            padding: 2px 4px; min-height: 22px; background-color: transparent;
+            color: {foreground};
+        }}
+        QTableWidget::item:alternate {{ background-color: {alternate}; color: {foreground}; }}
+        QTableWidget::item:hover {{ background-color: {hover}; color: {foreground}; }}
+        QTableWidget::item:selected,
+        QTableWidget::item:selected:active,
+        QTableWidget::item:selected:!active {{
+            background-color: {selected}; color: {foreground}; selection-color: {foreground};
+        }}
+        QTableWidget::item:selected:focus {{
+            outline: none; border: none; background-color: {selected};
+        }}
+        QHeaderView::section {{ background-color: {header}; color: {foreground}; padding: 4px; }}
+        QTableCornerButton::section {{ background-color: {header}; border: none; }}
+    """
+
+
 def standard_palette(theme: str) -> dict[str, str]:
     if str(theme).lower() == "light":
         return {
@@ -101,8 +231,6 @@ def build_standard_field_style(theme: str, kind: str) -> str:
         return f"""
             QLineEdit {{
                 padding: 3px;
-                min-height: {FIELD_HEIGHT}px;
-                max-height: {FIELD_HEIGHT}px;
                 background-color: {p["bg"]};
                 color: {p["fg"]};
                 border: 1px solid {p["border"]};
@@ -145,8 +273,6 @@ def build_standard_field_style(theme: str, kind: str) -> str:
             QTimeEdit,
             QDateTimeEdit {{
                 padding: 3px;
-                min-height: {FIELD_HEIGHT}px;
-                max-height: {FIELD_HEIGHT}px;
                 background-color: {p["bg"]};
                 color: {p["fg"]};
                 border: 1px solid {p["border"]};
@@ -185,8 +311,6 @@ def build_standard_field_style(theme: str, kind: str) -> str:
         return f"""
             QComboBox {{
                 padding: 3px;
-                min-height: {FIELD_HEIGHT}px;
-                max-height: {FIELD_HEIGHT}px;
                 background-color: {p["bg"]};
                 color: {p["fg"]};
                 border: 1px solid {p["border"]};
@@ -248,8 +372,6 @@ def build_standard_field_style(theme: str, kind: str) -> str:
             QToolButton#menu_like_combo {{
                 font-size: 14px;
                 padding: 3px;
-                min-height: {FIELD_HEIGHT}px;
-                max-height: {FIELD_HEIGHT}px;
                 background-color: {p["bg"]};
                 color: {p["fg"]};
                 border: 1px solid {p["border"]};
@@ -279,13 +401,10 @@ def build_standard_field_style(theme: str, kind: str) -> str:
     if kind == "header":
         return f"""
             QToolButton#header_cell_tl,
-            QToolButton#header_cell_tr,
-            QToolButton#header_cell_bl {{
+            QToolButton#header_cell_tr {{
                 font-size: 14px;
                 padding: 3px;
                 padding-left: 8px;
-                min-height: {HEADER_FIELD_HEIGHT}px;
-                max-height: {HEADER_FIELD_HEIGHT}px;
                 background-color: {p["bg"]};
                 color: {p["fg"]};
                 border: 1px solid {p["border"]};
@@ -293,42 +412,35 @@ def build_standard_field_style(theme: str, kind: str) -> str:
                 text-align: left;
             }}
             QToolButton#header_cell_tl:hover,
-            QToolButton#header_cell_tr:hover,
-            QToolButton#header_cell_bl:hover {{
+            QToolButton#header_cell_tr:hover {{
                 background-color: {p["hover_bg"]};
                 border-color: {p["hover_border"]};
             }}
             QToolButton#header_cell_tl[menuOpen="true"],
-            QToolButton#header_cell_tr[menuOpen="true"],
-            QToolButton#header_cell_bl[menuOpen="true"] {{
+            QToolButton#header_cell_tr[menuOpen="true"] {{
                 border-bottom-left-radius: 0px;
                 border-bottom-right-radius: 0px;
             }}
             QLineEdit#header_cell_br {{
                 font-size: 14px;
                 padding: 3px;
-                min-height: {HEADER_FIELD_HEIGHT}px;
-                max-height: {HEADER_FIELD_HEIGHT}px;
                 background-color: {p["bg"]};
                 color: {p["fg"]};
                 border: 1px solid {p["border"]};
                 border-radius: {STANDARD_RADIUS}px;
             }}
             QToolButton#header_cell_tl::menu-indicator,
-            QToolButton#header_cell_tr::menu-indicator,
-            QToolButton#header_cell_bl::menu-indicator {{
+            QToolButton#header_cell_tr::menu-indicator {{
                 subcontrol-origin: padding;
                 subcontrol-position: right center;
                 right: 6px;
             }}
             QToolButton#header_cell_tl:pressed,
-            QToolButton#header_cell_tr:pressed,
-            QToolButton#header_cell_bl:pressed {{
+            QToolButton#header_cell_tr:pressed {{
                 background-color: {p["bg"]};
             }}
             QToolButton#header_cell_tl:disabled,
             QToolButton#header_cell_tr:disabled,
-            QToolButton#header_cell_bl:disabled,
             QLineEdit#header_cell_br:disabled {{
                 background-color: {p["disabled_bg"]};
                 color: {p["disabled_fg"]};
@@ -449,8 +561,6 @@ def build_tab_content_style_block(theme: str) -> str:
             }}
             QWidget#operation_page_content,
             QWidget#settings_page_content,
-            QWidget#rename_history_settings_page,
-            QWidget#rename_history_settings_content,
             QWidget#template_params_widget,
             QFrame#template_numbering_card {{
                 background-color: transparent;

@@ -1,8 +1,8 @@
-from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QMessageBox
 
 from app.core.conversion_formats import CATEGORY_FILE_TYPES, suffix_for_format
 from app.core.rename_validation import analyze_rename_plan, format_rename_plan_issues
+from app.ui.ui_components import selected_file_items
 
 
 class FileListPreviewMixin:
@@ -333,15 +333,19 @@ class FileListPreviewMixin:
         """Обновление отображения списка"""
         if not self.files:
             self.list_files.clear()
+            if callable(getattr(self, "update_convert_button_state", None)):
+                self.update_convert_button_state()
+            if callable(getattr(self, "_update_compress_button", None)):
+                self._update_compress_button()
             if callable(getattr(self, "_update_merge_button_state", None)):
                 self._update_merge_button_state()
             return
 
-        selected_paths = []
-        for item in self.list_files.selectedItems():
-            file_item = item.data(Qt.ItemDataRole.UserRole)
-            if file_item and getattr(file_item, "path", None):
-                selected_paths.append(file_item.path)
+        selected_paths = [
+            file_item.path
+            for file_item in selected_file_items(self.list_files)
+            if getattr(file_item, "path", None)
+        ]
 
         filtered_files = self._get_filtered_files() if hasattr(self, "_get_filtered_files") else self.files
         self.list_files.set_files(filtered_files)

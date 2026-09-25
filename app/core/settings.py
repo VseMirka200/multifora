@@ -75,18 +75,6 @@ def _collect_template_session_state(window) -> dict:
     return {"selected_template": "", "template_data": {}}
 
 
-def _restore_filter_actions(actions, selected_values) -> None:
-    if not isinstance(selected_values, list) or not isinstance(actions, dict):
-        return
-    selected = {str(value) for value in selected_values}
-    for value, action in actions.items():
-        _set_widget_value_without_signals(
-            action,
-            lambda action=action, value=value: action.setChecked(value in selected),
-            "восстановления фильтра списка файлов",
-        )
-
-
 def _restore_file_list_view_state(window, state: dict) -> None:
     if not isinstance(state, dict):
         return

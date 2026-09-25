@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 
-from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 
 from app.core.conversion_formats import (
@@ -16,6 +15,7 @@ from app.core.conversion_formats import (
 )
 from app.core.models import FileItem
 from app.core.message_boxes import show_app_choice
+from app.ui.ui_components import selected_file_items
 
 _CATEGORY_PLACEHOLDER = "Выберите тип файла:"
 _TARGET_PLACEHOLDER = "Выберите целевой формат:"
@@ -77,16 +77,7 @@ class ConversionActionsMixin:
         self._schedule_conversion_settings_save()
 
     def _selected_file_items(self) -> list[FileItem]:
-        list_widget = getattr(self, "list_files", None)
-        if list_widget is None:
-            return []
-
-        selected_files: list[FileItem] = []
-        for item in list_widget.selectedItems():
-            file_item = item.data(Qt.ItemDataRole.UserRole)
-            if isinstance(file_item, FileItem) and file_item.is_file:
-                selected_files.append(file_item)
-        return selected_files
+        return selected_file_items(getattr(self, "list_files", None), files_only=True)
 
     def _initial_conversion_folder(self) -> str:
         current_path = self._conversion_custom_output_path()
@@ -255,7 +246,7 @@ class ConversionActionsMixin:
         category_selected = self._selected_convert_category()
         source_selected = source_combo is not None and source_combo.currentIndex() > 0
         target_selected = target_combo is not None and target_combo.currentIndex() > 0
-        has_files = bool(list_widget is not None and list_widget.selectedItems())
+        has_files = bool(selected_file_items(list_widget, files_only=True))
         output_ready = not (
             str(getattr(self, "conversion_output_mode", "ask") or "ask") == "custom"
             and not self._conversion_custom_output_path()

@@ -26,6 +26,7 @@ from app.ui.ui_components import (
     setup_standard_dialog,
 )
 from app.ui.ui_spacing import MARGINS_NONE, SPACE_MD, SPACE_SM
+from app.ui.ui_styles import build_template_table_style
 from app.core.app_utils import _log_ignored_error
 
 
@@ -93,115 +94,9 @@ class TemplateCrudMixin:
         return "light" if str(effective).lower() == "light" else "dark"
 
     def _templates_table_stylesheet(self):
-        if self._get_effective_theme_mode_for_templates() == "light":
-            return """
-            QTableWidget {
-                background-color: transparent;
-                alternate-background-color: #eef1f5;
-                color: #1f2328;
-                border: none;
-                selection-background-color: rgba(61, 116, 179, 0.22);
-                selection-color: #1f2328;
-                show-decoration-selected: 1;
-            }
-            QTableWidget:focus {
-                outline: none;
-                border: none;
-            }
-            QTableWidget::item {
-                padding: 2px 4px;
-                min-height: 22px;
-                background-color: transparent;
-                color: #1f2328;
-            }
-            QTableWidget::item:focus {
-                outline: none;
-                border: none;
-            }
-            QTableWidget::item:alternate {
-                background-color: #eef1f5;
-                color: #1f2328;
-            }
-            QTableWidget::item:hover {
-                background-color: rgba(61, 116, 179, 0.10);
-                color: #1f2328;
-            }
-            QTableWidget::item:selected,
-            QTableWidget::item:selected:active,
-            QTableWidget::item:selected:!active {
-                background-color: rgba(61, 116, 179, 0.22);
-                color: #1f2328;
-                selection-color: #1f2328;
-            }
-            QTableWidget::item:selected:focus {
-                outline: none;
-                border: none;
-                background-color: rgba(61, 116, 179, 0.22);
-            }
-            QHeaderView::section {
-                background-color: #eef1f5;
-                color: #1f2328;
-                padding: 4px;
-            }
-            QTableCornerButton::section {
-                background-color: #eef1f5;
-                border: none;
-            }
-            """
-        return """
-            QTableWidget {
-                background-color: transparent;
-                alternate-background-color: #454545;
-                color: #f0f0f0;
-                border: none;
-                selection-background-color: rgba(255, 255, 255, 0.20);
-                selection-color: #f0f0f0;
-                show-decoration-selected: 1;
-            }
-            QTableWidget:focus {
-                outline: none;
-                border: none;
-            }
-            QTableWidget::item {
-                padding: 2px 4px;
-                min-height: 22px;
-                background-color: transparent;
-                color: #f0f0f0;
-            }
-            QTableWidget::item:focus {
-                outline: none;
-                border: none;
-            }
-            QTableWidget::item:alternate {
-                background-color: #454545;
-                color: #f0f0f0;
-            }
-            QTableWidget::item:hover {
-                background-color: rgba(255, 255, 255, 0.07);
-                color: #f0f0f0;
-            }
-            QTableWidget::item:selected,
-            QTableWidget::item:selected:active,
-            QTableWidget::item:selected:!active {
-                background-color: #5c5c5c;
-                color: #f0f0f0;
-                selection-color: #f0f0f0;
-            }
-            QTableWidget::item:selected:focus {
-                outline: none;
-                border: none;
-                background-color: #5c5c5c;
-            }
-            QHeaderView::section {
-                background-color: #2b2b2b;
-                color: #f0f0f0;
-                padding: 4px;
-            }
-            QTableCornerButton::section {
-                background-color: #2b2b2b;
-                border: none;
-            }
-            """
+        return build_template_table_style(
+            self._get_effective_theme_mode_for_templates()
+        )
 
     def _get_selected_template_name(self):
         if not hasattr(self, "templates_table") or self.templates_table is None:

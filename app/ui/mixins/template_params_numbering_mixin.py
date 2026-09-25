@@ -288,7 +288,7 @@ class TemplateParamsNumberingMixin:
 
         quick_tokens = (
             ("{name}", "Исходное имя файла"),
-            ("{num}", "Порядковый номер (можно настроить: {num:03d,start=1,step=1})"),
+            ("{num:03d,start=1,step=1}", "Порядковый номер: три цифры, начало с 1, шаг 1"),
             ("{date}", "Текущая дата"),
             ("{ext}", "Расширение файла без точки"),
             ("{created}", "Дата создания файла"),
@@ -298,7 +298,6 @@ class TemplateParamsNumberingMixin:
             ("{height}", "Высота изображения"),
         )
         self.template_quick_insert_buttons = {}
-        quick_buttons = []
         for token, tooltip in quick_tokens:
             button = QPushButton(token)
             button.setToolTip(tooltip)
@@ -307,11 +306,22 @@ class TemplateParamsNumberingMixin:
                 lambda _checked=False, value=token: self._insert_custom_template_token(value)
             )
             self.template_quick_insert_buttons[token] = button
-            quick_buttons.append(button)
 
-        for start in range(0, len(quick_buttons), 3):
+        number_token = "{num:03d,start=1,step=1}"
+        number_button = self.template_quick_insert_buttons[number_token]
+        number_button_container, _number_button_layout = self._build_rename_action_row(
+            [number_button]
+        )
+        layout.addWidget(number_button_container)
+
+        remaining_buttons = [
+            button
+            for token, button in self.template_quick_insert_buttons.items()
+            if token != number_token
+        ]
+        for start in range(0, len(remaining_buttons), 3):
             quick_buttons_container, _quick_buttons_layout = self._build_rename_action_row(
-                quick_buttons[start : start + 3]
+                remaining_buttons[start : start + 3]
             )
             layout.addWidget(quick_buttons_container)
 

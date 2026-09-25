@@ -1,10 +1,14 @@
 
 import os
-import re
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QMessageBox
 
-from app.core.models import FileItem
+from app.core.models import (
+    FileItem,
+    file_item_source_folder,
+    file_item_type_label,
+    natural_sort_key,
+)
 from app.core.conversion_formats import KNOWN_FILE_EXTENSIONS
 from app.core.message_boxes import show_app_choice
 from app.core.app_utils import _log_ignored_error
@@ -13,45 +17,6 @@ from app.core.app_utils import _log_ignored_error
 class FileListActionsMixin:
     # Добавляет и удаляет файлы, сохраняя согласованность списка и предпросмотра.
     _FILTERABLE_FILE_TYPES = frozenset(("document", "image", "archive", "folder", "other"))
-
-    def _manual_sort_mode_text(self) -> str:
-        return "Без сортировки (ручной порядок)"
-
-    def _get_sort_mode(self) -> str:
-        if hasattr(self, "get_sort_mode"):
-            try:
-                return self.get_sort_mode()
-            except Exception as error:
-                _log_ignored_error("FileListActionsMixin._get_sort_mode", error)
-        if hasattr(self, "combo_sort") and self.combo_sort is not None and hasattr(self.combo_sort, "currentText"):
-            return self.combo_sort.currentText()
-        return self._manual_sort_mode_text()
-
-    def _get_sort_mode_index(self) -> int:
-        if hasattr(self, "get_sort_mode_index"):
-            try:
-                return int(self.get_sort_mode_index())
-            except Exception as error:
-                _log_ignored_error("FileListActionsMixin._get_sort_mode_index", error)
-        if hasattr(self, "combo_sort") and self.combo_sort is not None and hasattr(self.combo_sort, "currentIndex"):
-            return int(self.combo_sort.currentIndex())
-        return 0
-
-    def _set_sort_mode(self, mode: str, notify: bool = False):
-        if hasattr(self, "set_sort_mode"):
-            try:
-                self.set_sort_mode(mode, notify=notify)
-                return
-            except Exception as error:
-                _log_ignored_error("FileListActionsMixin._set_sort_mode", error)
-        if hasattr(self, "combo_sort") and self.combo_sort is not None and hasattr(self.combo_sort, "setCurrentText"):
-            if hasattr(self.combo_sort, "blockSignals"):
-                self.combo_sort.blockSignals(True)
-            self.combo_sort.setCurrentText(mode)
-            if hasattr(self.combo_sort, "blockSignals"):
-                self.combo_sort.blockSignals(False)
-            if notify:
-                self.on_sort_changed()
 
     def _selected_type_filter(self) -> set[str]:
         if not hasattr(self, "_type_filter_actions") or not self._type_filter_actions:
@@ -95,7 +60,7 @@ class FileListActionsMixin:
         result = []
         for file_item in self.files:
             ftype = str(getattr(file_item, "file_type", "other")).lower()
-            if type_filter and ftype not in type_filter:
+            if ftype not in type_filter:
                 continue
 
             ext = os.path.splitext(str(getattr(file_item, "name", "")))[1].lower()
@@ -238,14 +203,6 @@ class FileListActionsMixin:
         self.label_count.setText(f"Файлов: {total_files}")
         self.label_item_size.setText(f"Размер: {item_size:.2f} MB")
         self.label_total_size.setText(f"Общий объем: {total_size:.2f} MB")
-    def on_sort_changed(self):
-        mode = self._get_sort_mode()
-        if self._get_sort_mode_index() == 0:
-            self.list_files.set_manual_sorting(True)
-            return
-        self.sort_files(mode)
-        self.list_files.set_manual_sorting(True)
-
     def on_file_header_clicked(self, section: int):
         """Сортирует общий список по выбранной колонке таблицы."""
         current_section = getattr(self, "_column_sort_section", None)
@@ -281,41 +238,29 @@ class FileListActionsMixin:
         if section not in valid_columns:
             return
 
-        selected_paths = []
-        for item in self.list_files.selectedItems():
-            data = item.data(Qt.ItemDataRole.UserRole)
-            if data and getattr(data, "path", None):
-                selected_paths.append(data.path)
-
-        def natural_key(text: str):
-            return tuple(
-                int(part) if part.isdigit() else part.casefold()
-                for part in re.split(r"(\d+)", str(text))
-            )
-
-        def type_key(file_item):
-            if not getattr(file_item, "is_file", True):
-                return "папка"
-            extension = os.path.splitext(str(getattr(file_item, "name", "")))[1]
-            return extension[1:].casefold() if extension else "файл"
-
-        def folder_key(file_item):
-            path = str(getattr(file_item, "path", ""))
-            if not getattr(file_item, "is_file", True):
-                return path
-            return str(getattr(file_item, "folder", "") or os.path.dirname(path))
+        selected_paths = [
+            file_item.path
+            for file_item in self.list_files.selected_file_items()
+            if getattr(file_item, "path", None)
+        ]
 
         if section == model.COLUMN_OLD_NAME:
-            key_func = lambda f: (natural_key(getattr(f, "name", "")), str(f.path).casefold())
+            key_func = lambda f: (natural_sort_key(getattr(f, "name", "")), str(f.path).casefold())
         elif section == model.COLUMN_NEW_NAME:
             key_func = lambda f: (
-                natural_key(getattr(f, "preview_name", None) or getattr(f, "name", "")),
+                natural_sort_key(getattr(f, "preview_name", None) or getattr(f, "name", "")),
                 str(f.path).casefold(),
             )
         elif section == model.COLUMN_TYPE:
-            key_func = lambda f: (natural_key(type_key(f)), natural_key(getattr(f, "name", "")))
+            key_func = lambda f: (
+                natural_sort_key(file_item_type_label(f)),
+                natural_sort_key(getattr(f, "name", "")),
+            )
         else:
-            key_func = lambda f: (natural_key(folder_key(f)), natural_key(getattr(f, "name", "")))
+            key_func = lambda f: (
+                natural_sort_key(file_item_source_folder(f)),
+                natural_sort_key(getattr(f, "name", "")),
+            )
 
         self.files.sort(
             key=key_func,
@@ -332,45 +277,6 @@ class FileListActionsMixin:
         self.list_files.select_paths(selected_paths)
         if callable(getattr(self, "_schedule_settings_save", None)):
             self._schedule_settings_save()
-    def sort_files(self, mode: str):
-        if not self.files:
-            return
-        selected_paths = []
-        for item in self.list_files.selectedItems():
-            data = item.data(Qt.ItemDataRole.UserRole)
-            if data and getattr(data, "path", None):
-                selected_paths.append(data.path)
-
-        def natural_key(text: str):
-            parts = re.split(r"(\d+)", text)
-            key = []
-            for part in parts:
-                if part.isdigit():
-                    key.append(int(part))
-                else:
-                    key.append(part.casefold())
-            return key
-
-        reverse = False
-        if mode == "Имя A→Z":
-            key_func = lambda f: (natural_key(f.name), f.path.casefold())
-        elif mode == "Имя Z→A":
-            key_func = lambda f: (natural_key(f.name), f.path.casefold())
-            reverse = True
-        elif mode == "Расширение A→Z":
-            key_func = lambda f: (os.path.splitext(f.name)[1].lower(), natural_key(f.name))
-        elif mode == "Размер ↑":
-            key_func = lambda f: (f.size, natural_key(f.name))
-        elif mode == "Размер ↓":
-            key_func = lambda f: (f.size, natural_key(f.name))
-            reverse = True
-        else:
-            return
-
-        self.files.sort(key=key_func, reverse=reverse)
-        self.update_file_list()
-        self.list_files.clearSelection()
-        self.list_files.select_paths(selected_paths)
     def on_list_order_changed(self):
         visible_files = self.list_files.model().files()
         if self._is_any_filter_active():
@@ -384,8 +290,6 @@ class FileListActionsMixin:
             self.files = visible_files
         self._column_sort_section = None
         self.list_files.horizontalHeader().setSortIndicatorShown(False)
-        if self._get_sort_mode() != self._manual_sort_mode_text():
-            self._set_sort_mode(self._manual_sort_mode_text(), notify=False)
         self.list_files.set_manual_sorting(True)
         if callable(getattr(self, "_schedule_settings_save", None)):
             self._schedule_settings_save()
