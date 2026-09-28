@@ -1,0 +1,31 @@
+SPACE_NONE = 0
+SPACE_XXS = 1
+SPACE_XS = 2
+SPACE_SM = 4
+SPACE_MD = 6
+SPACE_LG = 8
+SPACE_XL = 10
+
+MARGINS_NONE = (0, 0, 0, 0)
+APP_MARGINS = (0, 0, SPACE_SM, 6)
+DIALOG_MARGINS = (12, 12, 12, 12)
+DROP_ZONE_MARGINS = (0, 8, 0, 8)
+SETTINGS_PANEL_MARGINS = (0, 0, 0, 0)
+SETTINGS_PANEL_COLUMN_GAP = SPACE_LG
+OPERATIONS_PAGE_MARGINS = (0, 0, 0, 0)
+
+CONTROL_HEIGHT = 28
+FIELD_HEIGHT = CONTROL_HEIGHT
+HEADER_FIELD_HEIGHT = CONTROL_HEIGHT
+ACTION_BUTTON_HEIGHT = FIELD_HEIGHT
+PROGRESS_HEIGHT = 22
+TAB_BAR_HEIGHT = 36
+CHECKBOX_SIZE = 16
+
+
+def px(value: int) -> str:
+    return f"{int(value)}px"
+
+
+def padding(vertical: int, horizontal: int) -> str:
+    return f"{int(vertical)}px {int(horizontal)}px"
