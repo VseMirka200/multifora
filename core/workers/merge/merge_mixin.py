@@ -53,8 +53,8 @@ class MergeMixin:
 
         try:
             from docx import Document
-        except Exception:
-            raise Exception("Установите python-docx для объединения Word-файлов.")
+        except ImportError as error:
+            raise Exception("Установите python-docx для объединения Word-файлов.") from error
 
         output_path = self._get_merge_output_path(files, "docx")
         merged = Document(files[0].path)
@@ -88,8 +88,8 @@ class MergeMixin:
 
         try:
             import pymupdf as fitz
-        except Exception:
-            raise Exception("PyMuPDF недоступен для объединения PDF-файлов.")
+        except ImportError as error:
+            raise Exception("PyMuPDF недоступен для объединения PDF-файлов.") from error
 
         output_path = self._get_merge_output_path(files, "pdf")
         merged_pdf = fitz.open()

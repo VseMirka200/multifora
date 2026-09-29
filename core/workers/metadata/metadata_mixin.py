@@ -5,8 +5,8 @@ import os
 import tempfile
 import zipfile
 from pathlib import Path
+from typing import ClassVar
 from xml.etree import ElementTree as ET
-
 
 _METADATA_GROUPS = frozenset(
     {
@@ -25,7 +25,7 @@ _METADATA_GROUPS = frozenset(
 class MetadataMixin:
     """Удаление метаданных из поддерживаемых форматов документов."""
 
-    _DOCX_CORE_FIELDS = {
+    _DOCX_CORE_FIELDS: ClassVar[dict[str, set[str]]] = {
         "author": {"creator", "lastModifiedBy"},
         "title": {"title"},
         "subject": {"subject"},
@@ -33,11 +33,11 @@ class MetadataMixin:
         "comments": {"description", "category", "contentStatus"},
         "dates": {"created", "modified"},
     }
-    _DOCX_APP_FIELDS = {
+    _DOCX_APP_FIELDS: ClassVar[dict[str, set[str]]] = {
         "application": {"Application", "AppVersion", "Template", "TotalTime"},
         "custom": {"Company", "Manager", "HyperlinkBase"},
     }
-    _ODT_FIELDS = {
+    _ODT_FIELDS: ClassVar[dict[str, set[str]]] = {
         "author": {"creator", "initial-creator", "printed-by"},
         "title": {"title"},
         "subject": {"subject"},
@@ -47,7 +47,7 @@ class MetadataMixin:
         "application": {"generator", "editing-duration", "editing-cycles", "document-statistic"},
         "custom": {"user-defined"},
     }
-    _PDF_INFO_FIELDS = {
+    _PDF_INFO_FIELDS: ClassVar[dict[str, set[str]]] = {
         "author": {"author"},
         "title": {"title"},
         "subject": {"subject"},
@@ -99,9 +99,10 @@ class MetadataMixin:
     def _temporary_path(path: str) -> str:
         folder = os.path.dirname(os.path.abspath(path)) or None
         suffix = os.path.splitext(path)[1]
-        handle = tempfile.NamedTemporaryFile(prefix=".multifora_meta_", suffix=suffix, dir=folder, delete=False)
-        handle.close()
-        return handle.name
+        with tempfile.NamedTemporaryFile(
+            prefix=".multifora_meta_", suffix=suffix, dir=folder, delete=False
+        ) as handle:
+            return handle.name
 
     def _remove_pdf_metadata(self, path: str, remove_all: bool, selected_groups: set[str]):
         try:
@@ -210,12 +211,20 @@ class MetadataMixin:
                     name = info.filename
                     data = source.read(name)
 
-                    if remove_all and name in {"docProps/core.xml", "docProps/app.xml", "docProps/custom.xml"}:
+                    if remove_all and name in {
+                        "docProps/core.xml",
+                        "docProps/app.xml",
+                        "docProps/custom.xml",
+                    }:
                         continue
                     if remove_all and name == "_rels/.rels":
-                        data = self._docx_remove_property_relationships(data, remove_core=True, remove_app=True, remove_custom=True)
+                        data = self._docx_remove_property_relationships(
+                            data, remove_core=True, remove_app=True, remove_custom=True
+                        )
                     elif remove_all and name == "[Content_Types].xml":
-                        data = self._docx_remove_property_content_types(data, remove_core=True, remove_app=True, remove_custom=True)
+                        data = self._docx_remove_property_content_types(
+                            data, remove_core=True, remove_app=True, remove_custom=True
+                        )
                     elif not remove_all:
                         if name == "docProps/core.xml":
                             data = self._docx_filter_core_properties(data, selected_groups)
@@ -224,9 +233,13 @@ class MetadataMixin:
                         elif name == "docProps/custom.xml" and "custom" in selected_groups:
                             continue
                         elif name == "_rels/.rels" and "custom" in selected_groups:
-                            data = self._docx_remove_property_relationships(data, remove_custom=True)
+                            data = self._docx_remove_property_relationships(
+                                data, remove_custom=True
+                            )
                         elif name == "[Content_Types].xml" and "custom" in selected_groups:
-                            data = self._docx_remove_property_content_types(data, remove_custom=True)
+                            data = self._docx_remove_property_content_types(
+                                data, remove_custom=True
+                            )
 
                     target.writestr(info, data)
             os.replace(temp_path, path)
@@ -338,7 +351,9 @@ class MetadataMixin:
 
     def _remove_doc_metadata_via_word(self, path: str, remove_all: bool, selected_groups: set[str]):
         if os.name != "nt":
-            raise RuntimeError("Удаление метаданных из DOC доступно только в Windows через Microsoft Word.")
+            raise RuntimeError(
+                "Удаление метаданных из DOC доступно только в Windows через Microsoft Word."
+            )
         try:
             import win32com.client
         except Exception as error:  # pragma: no cover - Windows-only
@@ -361,7 +376,9 @@ class MetadataMixin:
             word = win32com.client.DispatchEx("Word.Application")
             word.Visible = False
             word.DisplayAlerts = 0
-            document = word.Documents.Open(os.path.abspath(path), ReadOnly=False, AddToRecentFiles=False)
+            document = word.Documents.Open(
+                os.path.abspath(path), ReadOnly=False, AddToRecentFiles=False
+            )
             builtins = document.BuiltInDocumentProperties
             for group in groups:
                 for property_id in property_ids.get(group, ()):

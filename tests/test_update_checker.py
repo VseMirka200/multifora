@@ -22,7 +22,7 @@ class _BytesResponse:
     def read(self, size=-1):
         if size is None or size < 0:
             size = len(self._payload) - self._offset
-        chunk = self._payload[self._offset:self._offset + size]
+        chunk = self._payload[self._offset : self._offset + size]
         self._offset += len(chunk)
         return chunk
 
@@ -93,9 +93,12 @@ class UpdateCheckerTests(unittest.TestCase):
             _BytesResponse(f"{digest}  Multifora-Setup-1.2.0.exe".encode("ascii")),
             _BytesResponse(payload),
         ]
-        with tempfile.TemporaryDirectory() as tmp_dir, patch(
-            "app.core.update_checker.urlopen",
-            side_effect=responses,
+        with (
+            tempfile.TemporaryDirectory() as tmp_dir,
+            patch(
+                "app.core.update_checker.urlopen",
+                side_effect=responses,
+            ),
         ):
             result = update_checker.download_update_installer(
                 update,
@@ -116,9 +119,12 @@ class UpdateCheckerTests(unittest.TestCase):
                 "digest": f"sha256:{'0' * 64}",
             },
         }
-        with tempfile.TemporaryDirectory() as tmp_dir, patch(
-            "app.core.update_checker.urlopen",
-            return_value=_BytesResponse(b"damaged installer"),
+        with (
+            tempfile.TemporaryDirectory() as tmp_dir,
+            patch(
+                "app.core.update_checker.urlopen",
+                return_value=_BytesResponse(b"damaged installer"),
+            ),
         ):
             with self.assertRaisesRegex(RuntimeError, "Контрольная сумма"):
                 update_checker.download_update_installer(update, destination_dir=tmp_dir)
@@ -129,9 +135,10 @@ class UpdateCheckerTests(unittest.TestCase):
             installer_path = os.path.join(tmp_dir, "Multifora-Setup-1.2.0.exe")
             with open(installer_path, "wb") as stream:
                 stream.write(b"test")
-            with patch("app.core.update_checker.os.name", "nt"), patch(
-                "app.core.update_checker.subprocess.Popen"
-            ) as popen:
+            with (
+                patch("app.core.update_checker.os.name", "nt"),
+                patch("app.core.update_checker.subprocess.Popen") as popen,
+            ):
                 update_checker.launch_update_installer(installer_path)
 
         popen.assert_called_once_with([os.path.abspath(installer_path)], close_fds=True)

@@ -1,7 +1,6 @@
-
 import concurrent.futures
 
-from PyQt6.QtCore import QTimer, Qt, QUrl, QSize
+from PyQt6.QtCore import QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import QAction, QDesktopServices, QFont, QIcon, QTextCursor
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -24,6 +23,10 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.core.app_icons import _get_app_icon_qt_path
+from app.core.app_identity import APP_DISPLAY_NAME, APP_TECHNICAL_NAME, APP_VERSION
+from app.core.app_utils import _log_ignored_error
+from app.core.conversion_formats import CATEGORY_SOURCE_FORMATS
 from app.core.update_checker import (
     ISSUES_PAGE,
     RELEASES_PAGE,
@@ -32,31 +35,28 @@ from app.core.update_checker import (
     download_update_installer,
     launch_update_installer,
 )
-from app.core.app_identity import APP_DISPLAY_NAME, APP_TECHNICAL_NAME, APP_VERSION
-from app.core.app_icons import _get_app_icon_qt_path
-from app.core.conversion_formats import CATEGORY_SOURCE_FORMATS
 from app.ui.ui_components import (
     LeftAlignedToolButton,
     MenuLikeComboBox,
+    setup_compact_checkbox,
     setup_standard_action_button,
+    setup_standard_dropdown,
+    setup_standard_form_label,
+    setup_standard_line_input,
+    setup_standard_popup_menu,
     setup_standard_primary_button,
     setup_standard_secondary_button,
-    setup_standard_dropdown,
-    setup_standard_line_input,
-    setup_standard_form_label,
-    setup_compact_checkbox,
     sync_standard_menu_width,
 )
 from app.ui.ui_spacing import (
     CHECKBOX_SIZE,
     HEADER_FIELD_HEIGHT,
     MARGINS_NONE,
-    SETTINGS_PANEL_MARGINS,
     SETTINGS_PANEL_COLUMN_GAP,
+    SETTINGS_PANEL_MARGINS,
     SPACE_NONE,
     SPACE_SM,
 )
-from app.core.app_utils import _log_ignored_error
 
 
 class SettingsPanelMixin:
@@ -197,7 +197,11 @@ class SettingsPanelMixin:
             _log_ignored_error("SettingsPanelMixin.show_settings_modal", error)
         if hasattr(self, "settings_nav") and self.settings_nav is not None:
             target_row = getattr(self, "_pending_settings_nav_row", self.settings_nav.currentRow())
-            if not isinstance(target_row, int) or target_row < 0 or target_row >= self.settings_nav.count():
+            if (
+                not isinstance(target_row, int)
+                or target_row < 0
+                or target_row >= self.settings_nav.count()
+            ):
                 target_row = 0
             self.settings_nav.setCurrentRow(target_row)
 
@@ -247,8 +251,12 @@ class SettingsPanelMixin:
                 "Возможности: переименование по шаблонам с предварительным просмотром "
                 "и историей изменений; конвертация документов и изображений; "
                 "объединение документов в PDF и DOCX; удаление метаданных; сжатие файлов.",
-                "Исходные форматы документов: " + ", ".join(CATEGORY_SOURCE_FORMATS["Документы"]) + ".",
-                "Исходные форматы изображений: " + ", ".join(CATEGORY_SOURCE_FORMATS["Изображения"]) + ".",
+                "Исходные форматы документов: "
+                + ", ".join(CATEGORY_SOURCE_FORMATS["Документы"])
+                + ".",
+                "Исходные форматы изображений: "
+                + ", ".join(CATEGORY_SOURCE_FORMATS["Изображения"])
+                + ".",
                 "Доступность преобразований зависит от формата и установленных компонентов. "
                 "Для отдельных операций с документами нужен Microsoft Word, "
                 "для сжатия PDF используется Ghostscript.",
@@ -384,12 +392,18 @@ class SettingsPanelMixin:
         self.auto_clear_checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
         main_card_layout.addWidget(auto_clear_row)
 
-        disable_warning_row, self.disable_warning_dialogs_checkbox = self._create_settings_checkbox_row(
-            "Отключить предупреждающие окна",
-            "Предупреждения больше не будут открываться отдельными окнами и будут показаны только в строке состояния.",
+        disable_warning_row, self.disable_warning_dialogs_checkbox = (
+            self._create_settings_checkbox_row(
+                "Отключить предупреждающие окна",
+                "Предупреждения больше не будут открываться отдельными окнами и будут показаны только в строке состояния.",
+            )
         )
-        self.disable_warning_dialogs_checkbox.stateChanged.connect(self._on_disable_warning_dialogs_changed)
-        self.disable_warning_dialogs_checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
+        self.disable_warning_dialogs_checkbox.stateChanged.connect(
+            self._on_disable_warning_dialogs_changed
+        )
+        self.disable_warning_dialogs_checkbox.stateChanged.connect(
+            lambda _state: self._schedule_settings_save()
+        )
         main_card_layout.addWidget(disable_warning_row)
 
         _add_settings_section_divider(main_card_layout)
@@ -400,15 +414,21 @@ class SettingsPanelMixin:
             "Создает ярлык 'Мультифора' на рабочем столе.",
         )
         self.desktop_shortcut_checkbox.stateChanged.connect(self.toggle_desktop_shortcut)
-        self.desktop_shortcut_checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
+        self.desktop_shortcut_checkbox.stateChanged.connect(
+            lambda _state: self._schedule_settings_save()
+        )
         main_card_layout.addWidget(desktop_shortcut_row)
 
-        start_menu_shortcut_row, self.start_menu_shortcut_checkbox = self._create_settings_checkbox_row(
-            "Добавить ярлык в меню Пуск",
-            "Создает ярлык 'Мультифора' в меню Пуск.",
+        start_menu_shortcut_row, self.start_menu_shortcut_checkbox = (
+            self._create_settings_checkbox_row(
+                "Добавить ярлык в меню Пуск",
+                "Создает ярлык 'Мультифора' в меню Пуск.",
+            )
         )
         self.start_menu_shortcut_checkbox.stateChanged.connect(self.toggle_start_menu_shortcut)
-        self.start_menu_shortcut_checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
+        self.start_menu_shortcut_checkbox.stateChanged.connect(
+            lambda _state: self._schedule_settings_save()
+        )
         main_card_layout.addWidget(start_menu_shortcut_row)
 
         context_menu_row, self.context_menu_checkbox = self._create_settings_checkbox_row(
@@ -416,7 +436,9 @@ class SettingsPanelMixin:
             "Добавляет пункт 'Добавить в Мультифору' в контекстное меню файлов и папок.",
         )
         self.context_menu_checkbox.stateChanged.connect(self.toggle_context_menu)
-        self.context_menu_checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
+        self.context_menu_checkbox.stateChanged.connect(
+            lambda _state: self._schedule_settings_save()
+        )
         main_card_layout.addWidget(context_menu_row)
         main_card_layout.addStretch()
 
@@ -427,10 +449,12 @@ class SettingsPanelMixin:
             "Проверка обновлений выполняется через GitHub-репозиторий проекта.",
         )
         self.auto_update_check_checkbox.setChecked(True)
-        self.auto_update_check_checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
+        self.auto_update_check_checkbox.stateChanged.connect(
+            lambda _state: self._schedule_settings_save()
+        )
         updates_card_layout.addWidget(auto_update_row)
 
-        self.update_status_label = QLabel("Нажмите \"Проверить обновления\".")
+        self.update_status_label = QLabel('Нажмите "Проверить обновления".')
         self.update_status_label.setWordWrap(True)
         updates_card_layout.addWidget(self.update_status_label)
 
@@ -493,6 +517,7 @@ class SettingsPanelMixin:
         self.logs_level_filter.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.logs_level_filter.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
         self._logs_level_menu = QMenu(self.logs_level_filter)
+        setup_standard_popup_menu(self._logs_level_menu)
         self._logs_level_menu.setObjectName("header_dropdown_popup")
         self._logs_level_actions = {}
         all_levels_action = QAction("Все уровни", self._logs_level_menu)
@@ -587,7 +612,9 @@ class SettingsPanelMixin:
         level_filter_active = bool(all_levels) and selected_levels != all_levels
         level_tokens = {f"[{level}]" for level in selected_levels} if level_filter_active else set()
         for line in lines:
-            if level_filter_active and (not level_tokens or not any(token in line for token in level_tokens)):
+            if level_filter_active and (
+                not level_tokens or not any(token in line for token in level_tokens)
+            ):
                 continue
             if query and query not in line.lower():
                 continue
@@ -642,7 +669,10 @@ class SettingsPanelMixin:
 
     def check_updates_on_startup(self):
         try:
-            if hasattr(self, "auto_update_check_checkbox") and self.auto_update_check_checkbox.isChecked():
+            if (
+                hasattr(self, "auto_update_check_checkbox")
+                and self.auto_update_check_checkbox.isChecked()
+            ):
                 self._start_update_check(silent=True)
         except Exception as error:
             _log_ignored_error("SettingsPanelMixin.check_updates_on_startup", error)
@@ -722,11 +752,9 @@ class SettingsPanelMixin:
             if not getattr(self, "_update_silent", False):
                 QMessageBox.information(self, "Проверка обновлений", text_msg)
         except Exception as e:
-            text_msg = f"Не удалось проверить обновления: {str(e)}"
+            text_msg = f"Не удалось проверить обновления: {e!s}"
             self.update_status_label.setText(text_msg)
-            self.btn_download_update.setEnabled(
-                bool(getattr(self, "_available_update", None))
-            )
+            self.btn_download_update.setEnabled(bool(getattr(self, "_available_update", None)))
             if not getattr(self, "_update_silent", False):
                 QMessageBox.warning(self, "Проверка обновлений", text_msg)
 
@@ -739,7 +767,10 @@ class SettingsPanelMixin:
                 "Установщик обновления недоступен. Выполните проверку ещё раз.",
             )
             return
-        if getattr(self, "_update_download_future", None) and not self._update_download_future.done():
+        if (
+            getattr(self, "_update_download_future", None)
+            and not self._update_download_future.done()
+        ):
             return
 
         if not hasattr(self, "_update_executor"):

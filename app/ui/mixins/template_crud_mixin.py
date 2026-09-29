@@ -1,12 +1,12 @@
 from datetime import datetime
 
-from PyQt6.QtCore import QModelIndex, QTimer, Qt, QSize
+from PyQt6.QtCore import QModelIndex, QSize, Qt, QTimer
 from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractItemView,
-    QHBoxLayout,
     QDialog,
     QFrame,
+    QHBoxLayout,
     QHeaderView,
     QMenu,
     QMessageBox,
@@ -18,15 +18,15 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.core.app_utils import _log_ignored_error
 from app.ui.ui_components import (
     get_russian_text_input,
+    setup_standard_dialog,
     setup_standard_primary_button,
     setup_standard_secondary_button,
-    setup_standard_dialog,
 )
 from app.ui.ui_spacing import MARGINS_NONE, SPACE_MD, SPACE_SM
 from app.ui.ui_styles import build_template_table_style
-from app.core.app_utils import _log_ignored_error
 
 
 class TemplateCrudMixin:
@@ -63,7 +63,9 @@ class TemplateCrudMixin:
         if index < 0:
             try:
                 normalized_name = template_name.strip().casefold()
-                for idx, (item_text, _item_data) in enumerate(getattr(self.combo_templates, "_items", [])):
+                for idx, (item_text, _item_data) in enumerate(
+                    getattr(self.combo_templates, "_items", [])
+                ):
                     if str(item_text).strip().casefold() == normalized_name:
                         index = idx
                         break
@@ -93,9 +95,7 @@ class TemplateCrudMixin:
         return "light" if str(effective).lower() == "light" else "dark"
 
     def _templates_table_stylesheet(self):
-        return build_template_table_style(
-            self._get_effective_theme_mode_for_templates()
-        )
+        return build_template_table_style(self._get_effective_theme_mode_for_templates())
 
     def _get_selected_template_name(self):
         if not hasattr(self, "templates_table") or self.templates_table is None:
@@ -196,65 +196,66 @@ class TemplateCrudMixin:
         if not self.current_template:
             QMessageBox.warning(self, "Ошибка", "Сначала выберите и настройте шаблон!")
             return
-            
+
         template_data = self.get_current_template_data()
         if not template_data:
             return
-            
+
         name, ok = get_russian_text_input(
             self,
             title="Сохранение шаблона",
             label="Введите имя для шаблона:",
             text=f"Мой шаблон {len(self.custom_templates) + 1}",
         )
-        
+
         if ok and name:
             self.custom_templates[name] = {
-                'type': self.current_template,
-                'data': template_data,
-                'created': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                "type": self.current_template,
+                "data": template_data,
+                "created": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
-            
+
             self.save_settings()
             QMessageBox.information(self, "Успех", f"Шаблон '{name}' сохранен!")
+
     def get_current_template_data(self):
         """Получает данные текущего шаблона"""
         template_data = {}
-        
+
         if self.current_template == "Добавить текст в начало":
-            if hasattr(self, 'template_prefix'):
-                template_data['prefix'] = self.template_prefix.text()
+            if hasattr(self, "template_prefix"):
+                template_data["prefix"] = self.template_prefix.text()
             else:
                 return None
-                
+
         elif self.current_template == "Добавить текст в конец":
-            if hasattr(self, 'template_suffix'):
-                template_data['suffix'] = self.template_suffix.text()
+            if hasattr(self, "template_suffix"):
+                template_data["suffix"] = self.template_suffix.text()
             else:
                 return None
-                
+
         elif self.current_template == "Удалить символы с начала":
-            if hasattr(self, 'template_remove_start'):
-                template_data['remove_start'] = self.template_remove_start.value()
+            if hasattr(self, "template_remove_start"):
+                template_data["remove_start"] = self.template_remove_start.value()
             else:
                 return None
-                
+
         elif self.current_template == "Удалить символы с конца":
-            if hasattr(self, 'template_remove_end'):
-                template_data['remove_end'] = self.template_remove_end.value()
+            if hasattr(self, "template_remove_end"):
+                template_data["remove_end"] = self.template_remove_end.value()
             else:
                 return None
-                
+
         elif self.current_template == "Удалить определенный текст":
-            if hasattr(self, 'template_remove_text'):
-                template_data['remove_text'] = self.template_remove_text.text()
+            if hasattr(self, "template_remove_text"):
+                template_data["remove_text"] = self.template_remove_text.text()
             else:
                 return None
-                
+
         elif self.current_template == "Заменить текст другим":
-            if hasattr(self, 'template_find') and hasattr(self, 'template_replace'):
-                template_data['find'] = self.template_find.text()
-                template_data['replace'] = self.template_replace.text()
+            if hasattr(self, "template_find") and hasattr(self, "template_replace"):
+                template_data["find"] = self.template_find.text()
+                template_data["replace"] = self.template_replace.text()
             else:
                 return None
 
@@ -271,7 +272,7 @@ class TemplateCrudMixin:
                 template_data["case_mode"] = self.template_case_mode.currentData() or "lower"
             else:
                 return None
-                
+
         elif self.current_template == "Нумерация":
             if hasattr(self, "get_numbering_mode"):
                 template_data["numbering_mode"] = self.get_numbering_mode()
@@ -303,89 +304,93 @@ class TemplateCrudMixin:
                     template_data["digits"] = self.template_date_digits.value()
                 else:
                     return None
-                
+
         elif self.current_template == "Дата в начале названия":
-            if hasattr(self, 'template_original_date_format'):
-                template_data['date_format'] = self.template_original_date_format.currentIndex()
+            if hasattr(self, "template_original_date_format"):
+                template_data["date_format"] = self.template_original_date_format.currentIndex()
             else:
                 return None
-                
+
         elif self.current_template == "Пользовательский шаблон":
-            if hasattr(self, 'template_custom'):
-                template_data['template'] = self.template_custom.text()
+            if hasattr(self, "template_custom"):
+                template_data["template"] = self.template_custom.text()
             else:
                 return None
-                
+
         return template_data
+
     def load_selected_template(self, parent_window=None):
         """Загрузка выбранного шаблона из таблицы"""
         selected_rows = self.templates_table.selectionModel().selectedRows()
         if not selected_rows:
             QMessageBox.warning(self, "Ошибка", "Выберите шаблон для загрузки!")
             return
-            
+
         row = selected_rows[0].row()
         template_item = self.templates_table.item(row, 0)
-        template_name = template_item.data(Qt.ItemDataRole.UserRole) if template_item is not None else ""
+        template_name = (
+            template_item.data(Qt.ItemDataRole.UserRole) if template_item is not None else ""
+        )
         template_name = str(template_name).strip() if template_name else ""
         self.load_template(template_name)
         if parent_window:
             parent_window.accept()
+
     def load_template(self, template_name):
         """Загрузка шаблона по имени"""
         if template_name not in self.custom_templates:
             QMessageBox.warning(self, "Ошибка", f"Шаблон '{template_name}' не найден!")
             return
-            
+
         template_data = self.custom_templates[template_name]
-        template_type = template_data['type']
+        template_type = template_data["type"]
         index = self.combo_templates.findText(template_type)
         if index >= 0:
             self.combo_templates.setCurrentIndex(index)
-            
-            QTimer.singleShot(100, lambda: self.apply_template_data(template_type, template_data['data']))
-            
+
+            QTimer.singleShot(
+                100, lambda: self.apply_template_data(template_type, template_data["data"])
+            )
+
             self.status_bar.showMessage(f"Загружен шаблон: {template_name}")
         else:
             QMessageBox.warning(self, "Ошибка", f"Тип шаблона '{template_type}' не поддерживается!")
+
     def delete_selected_template(self, parent_window=None):
         """Удаление выбранного шаблона"""
         selected_rows = self.templates_table.selectionModel().selectedRows()
         if not selected_rows:
             QMessageBox.warning(self, "Ошибка", "Выберите шаблон для удаления!")
             return
-            
+
         row = selected_rows[0].row()
         template_item = self.templates_table.item(row, 0)
-        template_name = template_item.data(Qt.ItemDataRole.UserRole) if template_item is not None else ""
-        template_name = str(template_name).strip() if template_name else ""
-        
-        reply = self.show_russian_message_box(
-            "Подтверждение", 
-            f"Удалить шаблон '{template_name}'?",
-            QMessageBox.Icon.Question,
-            True
+        template_name = (
+            template_item.data(Qt.ItemDataRole.UserRole) if template_item is not None else ""
         )
-        
+        template_name = str(template_name).strip() if template_name else ""
+
+        reply = self.show_russian_message_box(
+            "Подтверждение", f"Удалить шаблон '{template_name}'?", QMessageBox.Icon.Question, True
+        )
+
         if reply:
             del self.custom_templates[template_name]
             self.update_templates_table(parent_window)
             self.save_settings()
             self.status_bar.showMessage(f"Шаблон '{template_name}' удален")
+
     def update_templates_table(self, parent_window=None):
         """Обновление таблицы шаблонов"""
-        if hasattr(self, 'templates_table') and self.templates_table:
+        if hasattr(self, "templates_table") and self.templates_table:
             current_name = self._get_selected_template_name()
             self.templates_table.clearContents()
             self.templates_table.setRowCount(len(self.custom_templates))
-            row = 0
-            for name, template_data in self.custom_templates.items():
+            for row, name in enumerate(self.custom_templates):
                 name_item = QTableWidgetItem(f"{row + 1}. {name}")
                 name_item.setData(Qt.ItemDataRole.UserRole, name)
                 name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 self.templates_table.setItem(row, 0, name_item)
-                row += 1
-                
             self.templates_table.horizontalHeader().setStretchLastSection(False)
             self.templates_table.setColumnWidth(0, 390)
             if current_name:
@@ -401,6 +406,7 @@ class TemplateCrudMixin:
             else:
                 self.templates_table.clearSelection()
                 self.templates_table.setCurrentIndex(QModelIndex())
+
     def _build_template_manager_action_buttons(self, dialog):
         actions_row = QWidget()
         actions_row.setObjectName("template_manager_action_row")
@@ -429,8 +435,6 @@ class TemplateCrudMixin:
         apply_btn.clicked.connect(lambda: self.load_selected_template(dialog))
         actions_layout.addWidget(apply_btn, 1)
 
-        self.btn_export_templates = export_btn
-        self.btn_import_templates = import_btn
         self.btn_apply_template = apply_btn
 
         return actions_row
@@ -444,11 +448,11 @@ class TemplateCrudMixin:
             dialog.setStyleSheet(self.styleSheet())
         except Exception as error:
             _log_ignored_error("TemplateCrudMixin.show_template_manager", error)
-        
+
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(SPACE_MD, SPACE_MD, SPACE_MD, SPACE_MD)
         layout.setSpacing(SPACE_SM)
-        
+
         card = QFrame()
         card.setObjectName("settings_card")
         card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
@@ -477,7 +481,9 @@ class TemplateCrudMixin:
         header.setMinimumSectionSize(36)
         self._templates_table_min_widths = {0: 220}
         header.sectionResized.connect(self._on_templates_table_section_resized)
-        self.templates_table.cellDoubleClicked.connect(lambda *_args: self.load_selected_template(dialog))
+        self.templates_table.cellDoubleClicked.connect(
+            lambda *_args: self.load_selected_template(dialog)
+        )
         self.templates_table.customContextMenuRequested.connect(
             lambda pos: self._show_templates_context_menu(pos, dialog)
         )
@@ -492,20 +498,30 @@ class TemplateCrudMixin:
         card_layout.addWidget(actions_row)
 
         self._templates_apply_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Return), dialog)
-        self._templates_apply_shortcut.activated.connect(lambda: self.load_selected_template(dialog))
+        self._templates_apply_shortcut.activated.connect(
+            lambda: self.load_selected_template(dialog)
+        )
         self._templates_apply_shortcut_enter = QShortcut(QKeySequence(Qt.Key.Key_Enter), dialog)
-        self._templates_apply_shortcut_enter.activated.connect(lambda: self.load_selected_template(dialog))
+        self._templates_apply_shortcut_enter.activated.connect(
+            lambda: self.load_selected_template(dialog)
+        )
         self._templates_delete_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Delete), dialog)
-        self._templates_delete_shortcut.activated.connect(lambda: self.delete_selected_template(dialog))
+        self._templates_delete_shortcut.activated.connect(
+            lambda: self.delete_selected_template(dialog)
+        )
         self._templates_rename_shortcut = QShortcut(QKeySequence(Qt.Key.Key_F2), dialog)
-        self._templates_rename_shortcut.activated.connect(lambda: self._rename_selected_template(dialog))
+        self._templates_rename_shortcut.activated.connect(
+            lambda: self._rename_selected_template(dialog)
+        )
 
         layout.addWidget(card)
-        
+
         self.update_templates_table(dialog)
         dialog.adjustSize()
         table_width = self.templates_table.frameWidth() * 2
-        table_width += sum(self.templates_table.columnWidth(i) for i in range(self.templates_table.columnCount()))
+        table_width += sum(
+            self.templates_table.columnWidth(i) for i in range(self.templates_table.columnCount())
+        )
         card_margins = card_layout.contentsMargins()
         root_margins = layout.contentsMargins()
         required_width = (
@@ -517,12 +533,13 @@ class TemplateCrudMixin:
         )
         dialog.setMinimumWidth(required_width)
         dialog.resize(required_width, dialog.sizeHint().height())
-        
+
         dialog.exec()
+
     def update_template_combo(self):
         """Обновляет комбобокс с шаблонами - теперь только стандартные шаблоны"""
         self.combo_templates.clear()
-        
+
         standard_templates = [
             "Выберите шаблон...",
             "Добавить текст в начало",
@@ -535,7 +552,7 @@ class TemplateCrudMixin:
             "Изменить регистр",
             "Нумерация",
             "Дата в начале названия",
-            "Пользовательский шаблон"
+            "Пользовательский шаблон",
         ]
-        
+
         self.combo_templates.addItems(standard_templates)

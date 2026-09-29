@@ -1,5 +1,5 @@
-
 from PyQt6.QtWidgets import QCheckBox, QLabel, QLineEdit, QSpinBox, QVBoxLayout, QWidget
+
 from app.ui.ui_components import (
     MenuLikeComboBox,
     setup_compact_checkbox,
@@ -69,27 +69,27 @@ class TemplateParamsTextMixin:
         layout = QVBoxLayout(container)
         layout.setSpacing(SPACE_SM)
         layout.setContentsMargins(*MARGINS_NONE)
-        
+
         find_label = QLabel("Что заменить:")
         setup_standard_form_label(find_label)
         layout.addWidget(find_label)
-        
+
         self.template_find = QLineEdit()
         self.template_find.setPlaceholderText("старый текст")
         self.template_find.setProperty("renameTemplateField", True)
         setup_standard_line_input(self.template_find)
         layout.addWidget(self.template_find)
-        
+
         replace_label = QLabel("На что заменить:")
         setup_standard_form_label(replace_label)
         layout.addWidget(replace_label)
-        
+
         self.template_replace = QLineEdit()
         self.template_replace.setPlaceholderText("новый текст")
         self.template_replace.setProperty("renameTemplateField", True)
         setup_standard_line_input(self.template_replace)
         layout.addWidget(self.template_replace)
-        
+
         self.template_params_layout.addWidget(container)
 
     def create_regex_replace_params(self):

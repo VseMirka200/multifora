@@ -59,10 +59,7 @@ class RenameHistoryMixin:
             ts = entry.get("timestamp")
             count = entry.get("count", 0)
             label = entry.get("label")
-            if ts:
-                time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
-            else:
-                time_str = ""
+            time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts)) if ts else ""
             if not label:
                 label = f"{count} файлов"
             text = f"{time_str} • {label}" if time_str else label
@@ -146,7 +143,7 @@ class RenameHistoryMixin:
         files = self._collect_file_items_by_paths(paths)
         self._last_operation = {
             "op": "rename",
-            "new_names_by_path": {p: n for p, n in zip(paths, new_names)},
+            "new_names_by_path": dict(zip(paths, new_names, strict=True)),
         }
         self.file_worker.set_rename(files, new_names)
         self.file_worker.start()

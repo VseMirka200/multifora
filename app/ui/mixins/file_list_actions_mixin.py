@@ -1,17 +1,17 @@
-
 import os
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QMessageBox
 
+from app.core.app_utils import _log_ignored_error
+from app.core.conversion_formats import KNOWN_FILE_EXTENSIONS
+from app.core.message_boxes import show_app_choice
 from app.core.models import (
     FileItem,
     file_item_source_folder,
     file_item_type_label,
     natural_sort_key,
 )
-from app.core.conversion_formats import KNOWN_FILE_EXTENSIONS
-from app.core.message_boxes import show_app_choice
-from app.core.app_utils import _log_ignored_error
 
 
 class FileListActionsMixin:
@@ -23,6 +23,7 @@ class FileListActionsMixin:
             return set(self._FILTERABLE_FILE_TYPES)
         selected = {k for k, a in self._type_filter_actions.items() if a.isChecked()}
         return selected
+
     def _current_search_query(self) -> str:
         if hasattr(self, "input_search") and self.input_search is not None:
             return self.input_search.text().strip().casefold()
@@ -36,7 +37,11 @@ class FileListActionsMixin:
         return self._selected_type_filter() != all_types
 
     def _is_any_filter_active(self) -> bool:
-        return self._is_search_active() or self._is_type_filter_active() or self._is_extension_filter_active()
+        return (
+            self._is_search_active()
+            or self._is_type_filter_active()
+            or self._is_extension_filter_active()
+        )
 
     def _selected_extension_filter(self) -> set[str]:
         if not hasattr(self, "_ext_filter_actions") or not self._ext_filter_actions:
@@ -49,12 +54,15 @@ class FileListActionsMixin:
         all_ext = set(self._ext_filter_actions.keys())
         return self._selected_extension_filter() != all_ext
 
-
     def _get_filtered_files(self):
         type_filter = self._selected_type_filter()
         ext_filter = self._selected_extension_filter()
         query = self._current_search_query()
-        if not query and not self._is_type_filter_active() and not self._is_extension_filter_active():
+        if (
+            not query
+            and not self._is_type_filter_active()
+            and not self._is_extension_filter_active()
+        ):
             return list(self.files)
 
         result = []
@@ -67,9 +75,7 @@ class FileListActionsMixin:
             ext_key = ext
             if ftype == "folder":
                 ext_key = "__folder__"
-            elif not ext:
-                ext_key = "__noext__"
-            elif ext not in KNOWN_FILE_EXTENSIONS:
+            elif not ext or ext not in KNOWN_FILE_EXTENSIONS:
                 ext_key = "__otherext__"
 
             if self._is_extension_filter_active() and ext_key not in ext_filter:
@@ -100,8 +106,7 @@ class FileListActionsMixin:
         selected = show_app_choice(
             self,
             "Добавление папки",
-            "Выберите способ добавления:\n"
-            "добавить папку целиком или только её содержимое?",
+            "Выберите способ добавления:\nдобавить папку целиком или только её содержимое?",
             (
                 ("folder", "Добавить папку", "secondary"),
                 ("contents", "Добавить содержимое", "secondary"),
@@ -118,10 +123,12 @@ class FileListActionsMixin:
         if not isinstance(file_paths, list):
             if isinstance(file_paths, str):
                 file_paths = [file_paths]
-            elif hasattr(file_paths, '__iter__'):
+            elif hasattr(file_paths, "__iter__"):
                 file_paths = list(file_paths)
             else:
-                QMessageBox.warning(self, "Ошибка", f"Неправильный формат файлов: {type(file_paths)}")
+                QMessageBox.warning(
+                    self, "Ошибка", f"Неправильный формат файлов: {type(file_paths)}"
+                )
                 return
 
         folder_mode = None
@@ -133,8 +140,7 @@ class FileListActionsMixin:
                         folder_mode = self._ask_folder_add_mode()
                     if folder_mode == "contents":
                         for root, _, files in os.walk(path):
-                            for name in files:
-                                expanded_paths.append(os.path.join(root, name))
+                            expanded_paths.extend(os.path.join(root, name) for name in files)
                     elif folder_mode == "folder":
                         expanded_paths.append(path)
                     elif folder_mode is None:
@@ -144,7 +150,7 @@ class FileListActionsMixin:
             except Exception:
                 expanded_paths.append(path)
         file_paths = expanded_paths
-        
+
         added_count = 0
         existing_paths = set()
         for f in self.files:
@@ -152,7 +158,7 @@ class FileListActionsMixin:
                 existing_paths.add(os.path.normcase(os.path.abspath(f.path)))
             except Exception:
                 existing_paths.add(os.path.normcase(f.path))
-        
+
         new_items = []
         for file_path in file_paths:
             try:
@@ -161,16 +167,18 @@ class FileListActionsMixin:
                 abs_path = os.path.normcase(file_path)
             if abs_path in existing_paths:
                 continue
-                
+
             try:
                 file_item = FileItem(file_path)
                 self.files.append(file_item)
                 added_count += 1
                 existing_paths.add(abs_path)
                 new_items.append(file_item)
-                
+
             except Exception as e:
-                QMessageBox.warning(self, "Ошибка", f"Не удалось добавить файл {os.path.basename(file_path)}: {e}")
+                QMessageBox.warning(
+                    self, "Ошибка", f"Не удалось добавить файл {os.path.basename(file_path)}: {e}"
+                )
 
         if new_items:
             column = getattr(self, "_column_sort_section", None)
@@ -181,7 +189,7 @@ class FileListActionsMixin:
                 )
             else:
                 self.update_file_list()
-        
+
         if added_count > 0:
             self.update_file_info()
             try:
@@ -194,15 +202,17 @@ class FileListActionsMixin:
             if callable(getattr(self, "log_event", None)):
                 self.log_event(f"Добавлены файлы в список: {self._ru_files_label(added_count)}")
             self.status_bar.showMessage(f"Добавлено {self._ru_files_label(added_count)}")
+
     def update_file_info(self):
         """Обновление информации о файлах"""
         total_files = len(self.files)
-        total_size = sum(f.size for f in self.files) / (1024*1024)
-        item_size = self.files[0].size / (1024*1024) if self.files else 0.0
-        
+        total_size = sum(f.size for f in self.files) / (1024 * 1024)
+        item_size = self.files[0].size / (1024 * 1024) if self.files else 0.0
+
         self.label_count.setText(f"Файлов: {total_files}")
         self.label_item_size.setText(f"Размер: {item_size:.2f} MB")
         self.label_total_size.setText(f"Общий объем: {total_size:.2f} MB")
+
     def on_file_header_clicked(self, section: int):
         """Сортирует общий список по выбранной колонке таблицы."""
         current_section = getattr(self, "_column_sort_section", None)
@@ -245,22 +255,38 @@ class FileListActionsMixin:
         ]
 
         if section == model.COLUMN_OLD_NAME:
-            key_func = lambda f: (natural_sort_key(getattr(f, "name", "")), str(f.path).casefold())
+
+            def key_func(file_item):
+                return (
+                    natural_sort_key(getattr(file_item, "name", "")),
+                    str(file_item.path).casefold(),
+                )
+
         elif section == model.COLUMN_NEW_NAME:
-            key_func = lambda f: (
-                natural_sort_key(getattr(f, "preview_name", None) or getattr(f, "name", "")),
-                str(f.path).casefold(),
-            )
+
+            def key_func(file_item):
+                return (
+                    natural_sort_key(
+                        getattr(file_item, "preview_name", None) or getattr(file_item, "name", "")
+                    ),
+                    str(file_item.path).casefold(),
+                )
+
         elif section == model.COLUMN_TYPE:
-            key_func = lambda f: (
-                natural_sort_key(file_item_type_label(f)),
-                natural_sort_key(getattr(f, "name", "")),
-            )
+
+            def key_func(file_item):
+                return (
+                    natural_sort_key(file_item_type_label(file_item)),
+                    natural_sort_key(getattr(file_item, "name", "")),
+                )
+
         else:
-            key_func = lambda f: (
-                natural_sort_key(file_item_source_folder(f)),
-                natural_sort_key(getattr(f, "name", "")),
-            )
+
+            def key_func(file_item):
+                return (
+                    natural_sort_key(file_item_source_folder(file_item)),
+                    natural_sort_key(getattr(file_item, "name", "")),
+                )
 
         self.files.sort(
             key=key_func,
@@ -277,6 +303,7 @@ class FileListActionsMixin:
         self.list_files.select_paths(selected_paths)
         if callable(getattr(self, "_schedule_settings_save", None)):
             self._schedule_settings_save()
+
     def on_list_order_changed(self):
         visible_files = self.list_files.model().files()
         if self._is_any_filter_active():

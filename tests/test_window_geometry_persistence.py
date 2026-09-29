@@ -20,20 +20,25 @@ class WindowGeometryPersistenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             settings_path = os.path.join(tmp_dir, "settings.json")
 
-            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
-                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+            with (
+                patch("app.core.settings.get_settings_file_path", return_value=settings_path),
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True),
+            ):
                 window = MultiforaMainWindow()
                 try:
                     window.setGeometry(321, 245, 1111, 633)
-                    if hasattr(window, "_settings_save_timer") and window._settings_save_timer is not None:
+                    if (
+                        hasattr(window, "_settings_save_timer")
+                        and window._settings_save_timer is not None
+                    ):
                         window._settings_save_timer.stop()
                     window._force_settings_save = True
                     window.save_settings()
                     window._force_settings_save = False
 
-                    with open(settings_path, "r", encoding="utf-8") as f:
+                    with open(settings_path, encoding="utf-8") as f:
                         data = json.load(f)
 
                     self.assertEqual(data["window_pos"], [321, 245])

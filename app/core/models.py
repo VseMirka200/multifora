@@ -35,9 +35,7 @@ class FileItem:
 
     def __init__(self, path: str):
         self.path = path
-        self.original_path = path
         self.preview_name = os.path.basename(path)
-        self.is_selected = False
 
         self.is_file = False
         self.name = ""

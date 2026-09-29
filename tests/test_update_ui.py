@@ -66,11 +66,10 @@ class UpdateUiTests(unittest.TestCase):
         self.host.file_worker.isRunning.return_value = False
         self.host.close = Mock()
         self.host.log_event = Mock()
-        with patch(
-            "app.ui.mixins.settings_panel_mixin.launch_update_installer"
-        ) as launch, patch(
-            "app.ui.mixins.settings_panel_mixin.QTimer.singleShot"
-        ) as single_shot:
+        with (
+            patch("app.ui.mixins.settings_panel_mixin.launch_update_installer") as launch,
+            patch("app.ui.mixins.settings_panel_mixin.QTimer.singleShot") as single_shot,
+        ):
             SettingsPanelMixin.install_downloaded_update(self.host)
 
         launch.assert_called_once_with("C:/Updates/Multifora-Setup-1.1.0.exe")

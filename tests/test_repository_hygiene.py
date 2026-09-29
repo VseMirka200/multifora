@@ -2,8 +2,8 @@ import builtins
 import shutil
 import subprocess
 import symtable
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 
 class RepositoryHygieneTests(unittest.TestCase):
@@ -67,7 +67,7 @@ class RepositoryHygieneTests(unittest.TestCase):
             root = symtable.symtable(source, str(path), "exec")
             module_symbols = {symbol.get_name(): symbol for symbol in root.get_symbols()}
 
-            def visit(table):
+            def visit(table, module_symbols, path):
                 for symbol in table.get_symbols():
                     name = symbol.get_name()
                     if (
@@ -87,16 +87,18 @@ class RepositoryHygieneTests(unittest.TestCase):
                             offenders.append(f"{path}: {name}")
 
                 for child in table.get_children():
-                    visit(child)
+                    visit(child, module_symbols, path)
 
-            visit(root)
+            visit(root, module_symbols, path)
 
         self.assertEqual(offenders, [])
 
     def test_tracked_text_files_are_utf8_without_bom(self):
         if shutil.which("git") is None:
             self.skipTest("Git не установлен или не доступен в PATH")
-        tracked_files = subprocess.check_output(["git", "ls-files"], text=True, encoding="utf-8").splitlines()
+        tracked_files = subprocess.check_output(
+            ["git", "ls-files"], text=True, encoding="utf-8"
+        ).splitlines()
         binary_suffixes = (
             ".png",
             ".jpg",

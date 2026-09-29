@@ -88,7 +88,7 @@ class MetadataMixinTests(unittest.TestCase):
             self.assertEqual(result.paragraphs[0].text, "Document body")
 
     def test_odt_selective_cleanup_removes_only_selected_elements(self):
-        metadata_xml = b'''<?xml version="1.0" encoding="UTF-8"?>
+        metadata_xml = b"""<?xml version="1.0" encoding="UTF-8"?>
 <office:document-meta
  xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
  xmlns:dc="http://purl.org/dc/elements/1.1/"
@@ -98,7 +98,7 @@ class MetadataMixinTests(unittest.TestCase):
   <dc:creator>Remove author</dc:creator>
   <meta:keyword>Keep keyword</meta:keyword>
  </office:meta>
-</office:document-meta>'''
+</office:document-meta>"""
 
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "sample.odt")

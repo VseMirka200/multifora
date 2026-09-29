@@ -18,17 +18,16 @@ class WorkerOpsMixin:
 
     @staticmethod
     def _detect_merge_output_format(files: list[FileItem]) -> str | None:
-        extensions = {
-            os.path.splitext(str(getattr(file, "path", "")))[1].lower()
-            for file in files
-        }
+        extensions = {os.path.splitext(str(getattr(file, "path", "")))[1].lower() for file in files}
         if extensions == {".pdf"}:
             return "pdf"
         if extensions == {".docx"}:
             return "docx"
         return None
 
-    def _select_merge_output_path_for_format(self, output_format: str, files: list[FileItem]) -> str:
+    def _select_merge_output_path_for_format(
+        self, output_format: str, files: list[FileItem]
+    ) -> str:
         extension = "docx" if output_format == "docx" else "pdf"
         filter_text = "Word Document (*.docx)" if extension == "docx" else "PDF Document (*.pdf)"
         start_folder = os.path.dirname(files[0].path) if files else ""
@@ -77,11 +76,7 @@ class WorkerOpsMixin:
         if button is None:
             return
 
-        files = (
-            self._get_selected_or_all_file_items()
-            if hasattr(self, "list_files")
-            else []
-        )
+        files = self._get_selected_or_all_file_items() if hasattr(self, "list_files") else []
         output_format = self._detect_merge_output_format(files)
         expected_extension = f".{output_format}" if output_format else ""
         valid_files = len(files) >= 2 and output_format is not None
@@ -98,16 +93,22 @@ class WorkerOpsMixin:
             all_button.setEnabled(has_documents)
         button = getattr(self, "btn_remove_metadata", None)
         if button is not None:
-            button.setEnabled(has_documents and any(
-                checkbox.isChecked()
-                for checkbox in getattr(self, "metadata_field_checkboxes", {}).values()
-            ))
+            button.setEnabled(
+                has_documents
+                and any(
+                    checkbox.isChecked()
+                    for checkbox in getattr(self, "metadata_field_checkboxes", {}).values()
+                )
+            )
 
     @staticmethod
     def _metadata_documents(candidates):
         return [
-            file_item for file_item in candidates
-            if str(getattr(file_item, "path", "")).lower().endswith((".pdf", ".docx", ".odt", ".doc"))
+            file_item
+            for file_item in candidates
+            if str(getattr(file_item, "path", ""))
+            .lower()
+            .endswith((".pdf", ".docx", ".odt", ".doc"))
         ]
 
     def remove_document_metadata(self, *, remove_all: bool = False):
@@ -132,7 +133,9 @@ class WorkerOpsMixin:
                 if checkbox.isChecked()
             ]
             if not fields:
-                QMessageBox.warning(self, "Ошибка", "Отметьте хотя бы один тип метаданных для удаления.")
+                QMessageBox.warning(
+                    self, "Ошибка", "Отметьте хотя бы один тип метаданных для удаления."
+                )
                 return
 
         skipped = max(0, len(candidates) - len(files))
@@ -178,17 +181,17 @@ class WorkerOpsMixin:
             return
 
         compress_type = self.combo_compress_type.currentText()
-        files = []
-        for file_item in selected_files:
-            if compress_type == "Изображения":
-                if file_item.file_type == "image":
-                    files.append(file_item)
-            elif compress_type == "PDF документы":
-                if file_item.path.lower().endswith(".pdf"):
-                    files.append(file_item)
+        if compress_type == "Изображения":
+            files = [file_item for file_item in selected_files if file_item.file_type == "image"]
+        else:
+            files = [
+                file_item for file_item in selected_files if file_item.path.lower().endswith(".pdf")
+            ]
 
         if not files:
-            file_type = "изображения (JPG/PNG)" if compress_type == "Изображения" else "PDF документы"
+            file_type = (
+                "изображения (JPG/PNG)" if compress_type == "Изображения" else "PDF документы"
+            )
             QMessageBox.warning(self, "Ошибка", f"Выберите {file_type} для сжатия!")
             return
 
@@ -205,7 +208,11 @@ class WorkerOpsMixin:
                 pdf_method = "quality"
             elif method_text == "Только оптимизация":
                 pdf_method = "optimize"
-            replace_pdf = self.checkbox_replace_pdf.isChecked() if hasattr(self, "checkbox_replace_pdf") else False
+            replace_pdf = (
+                self.checkbox_replace_pdf.isChecked()
+                if hasattr(self, "checkbox_replace_pdf")
+                else False
+            )
         elif compress_type == "Изображения":
             image_output_mode = self._image_output_mode()
             if image_output_mode == "custom":
@@ -233,10 +240,7 @@ class WorkerOpsMixin:
                 "alongside": "рядом с исходниками",
                 "custom": f"в папку {image_output_dir}",
             }
-            details = (
-                f" (уровень: {compression_level}%, "
-                f"{destination_labels[image_output_mode]})"
-            )
+            details = f" (уровень: {compression_level}%, {destination_labels[image_output_mode]})"
         reply = self.show_russian_message_box(
             "Подтверждение",
             f"Сжать {len(files)} {file_type}{details}?",
@@ -286,7 +290,9 @@ class WorkerOpsMixin:
             return
         files = self._get_selected_or_all_file_items()
         if len(files) < 2:
-            QMessageBox.warning(self, "Ошибка", "Добавьте или выберите минимум два документа для объединения!")
+            QMessageBox.warning(
+                self, "Ошибка", "Добавьте или выберите минимум два документа для объединения!"
+            )
             return
 
         output_format = self._detect_merge_output_format(files)
@@ -300,7 +306,9 @@ class WorkerOpsMixin:
 
         if output_format == "docx":
             if not all(file.path.lower().endswith(".docx") for file in files):
-                QMessageBox.warning(self, "Ошибка", "Для результата DOCX выберите только файлы DOCX.")
+                QMessageBox.warning(
+                    self, "Ошибка", "Для результата DOCX выберите только файлы DOCX."
+                )
                 return
             format_label = "DOCX"
         else:
@@ -358,12 +366,15 @@ class WorkerOpsMixin:
         self._operation_errors = []
 
         if self._is_undo_operation:
-            if errors:
-                if self._pending_undo_entry:
-                    self._rename_history.append(self._pending_undo_entry)
+            if errors and self._pending_undo_entry:
+                self._rename_history.append(self._pending_undo_entry)
             self._pending_undo_entry = None
         else:
-            if self._last_operation and self._last_operation.get("op") == "rename" and updated_files:
+            if (
+                self._last_operation
+                and self._last_operation.get("op") == "rename"
+                and updated_files
+            ):
                 undo_pairs = []
                 for file_item, new_path in updated_files:
                     old_path = getattr(file_item, "path", None)

@@ -18,8 +18,17 @@ class _DummyWindow:
 
 
 class _DummyCheckbox:
-    def isChecked(self):
+    def __init__(self, checked=False):
+        self.checked = bool(checked)
+
+    def blockSignals(self, _blocked):
         return False
+
+    def setChecked(self, checked):
+        self.checked = bool(checked)
+
+    def isChecked(self):
+        return self.checked
 
 
 class SettingsResilienceTests(unittest.TestCase):
@@ -35,7 +44,7 @@ class SettingsResilienceTests(unittest.TestCase):
 
         self.assertEqual(window.theme_mode, "system")
         self.assertFalse(window.windows_context_menu_enabled)
-        self.assertTrue(window.auto_update_check_enabled)
+        self.assertFalse(hasattr(window, "auto_update_check_enabled"))
         self.assertTrue(window.shortcut_settings_silent)
 
     def test_load_settings_ignores_persisted_rename_history(self):
@@ -89,6 +98,30 @@ class SettingsResilienceTests(unittest.TestCase):
         data = settings._collect_settings_data(window)
         self.assertEqual(data["image_compression_output_mode"], "custom")
         self.assertEqual(data["image_compression_output_path"], r"C:\output")
+
+    def test_auto_update_check_uses_checkbox_as_single_source_of_truth(self):
+        window = _DummyWindow()
+        settings._initialize_settings_defaults(window)
+        window.auto_update_check_checkbox = _DummyCheckbox(True)
+
+        settings._apply_settings_data(
+            window,
+            {
+                "auto_check_updates": False,
+                "current_tab_index": 4,
+            },
+        )
+
+        self.assertFalse(window.auto_update_check_checkbox.isChecked())
+        self.assertFalse(hasattr(window, "auto_update_check_enabled"))
+
+        window.custom_templates = {}
+        window.auto_clear_checkbox = _DummyCheckbox()
+        window.ghostscript_path_override = None
+        data = settings._collect_settings_data(window)
+
+        self.assertFalse(data["auto_check_updates"])
+        self.assertNotIn("current_tab_index", data)
 
     def test_conversion_destination_is_persisted(self):
         window = _DummyWindow()

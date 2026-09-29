@@ -11,8 +11,8 @@ from PyQt6.QtWidgets import (
     QFileDialog,
     QLineEdit,
     QListWidget,
-    QPlainTextEdit,
     QMessageBox,
+    QPlainTextEdit,
     QSpinBox,
     QTabBar,
     QWidget,
@@ -122,11 +122,15 @@ class LoggingMixin:
 
         try:
             if isinstance(widget, QCheckBox):
-                widget.toggled.connect(lambda checked, w=widget: self._log_checkbox_action(w, checked))
+                widget.toggled.connect(
+                    lambda checked, w=widget: self._log_checkbox_action(w, checked)
+                )
                 return
             if isinstance(widget, QComboBox):
                 widget.setProperty("_last_logged_value", widget.currentText())
-                widget.currentTextChanged.connect(lambda text, w=widget: self._log_combo_action(w, text))
+                widget.currentTextChanged.connect(
+                    lambda text, w=widget: self._log_combo_action(w, text)
+                )
                 return
             if isinstance(widget, QLineEdit):
                 widget.setProperty("_last_logged_value", widget.text())
@@ -137,10 +141,14 @@ class LoggingMixin:
                 widget.valueChanged.connect(lambda value, w=widget: self._log_spin_action(w, value))
                 return
             if isinstance(widget, QTabBar):
-                widget.currentChanged.connect(lambda index, w=widget: self._log_tab_action(w, index))
+                widget.currentChanged.connect(
+                    lambda index, w=widget: self._log_tab_action(w, index)
+                )
                 return
             if isinstance(widget, QListWidget) and widget.objectName() == "settings_nav":
-                widget.currentTextChanged.connect(lambda text, w=widget: self._log_list_navigation_action(w, text))
+                widget.currentTextChanged.connect(
+                    lambda text, w=widget: self._log_list_navigation_action(w, text)
+                )
                 return
             if isinstance(widget, QAbstractButton):
                 widget.clicked.connect(lambda _checked=False, w=widget: self._log_button_action(w))
@@ -356,7 +364,7 @@ class LoggingMixin:
         lines = []
         if os.path.exists(log_path):
             try:
-                with open(log_path, "r", encoding="utf-8") as f:
+                with open(log_path, encoding="utf-8") as f:
                     lines = f.read().splitlines()
             except Exception:
                 lines = []

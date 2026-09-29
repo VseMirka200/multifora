@@ -2,11 +2,10 @@ import os
 import subprocess
 import time
 
-from app.core.app_utils import _debug_log
 import app.core.deps as deps
+from app.core.app_utils import _debug_log
 from app.core.models import FileItem
 from core.workers.common import emit_progress, finish_if_cancelled, record_file_error
-
 
 _PDF_PROCESS_TIMEOUT_SECONDS = 120
 _PDF_PROCESS_POLL_INTERVAL_SECONDS = 0.1
@@ -119,9 +118,7 @@ def _stop_process(process: subprocess.Popen) -> None:
     try:
         process.terminate()
     except OSError as terminate_error:
-        _debug_log(
-            f"Не удалось отправить процессу сигнал завершения: {terminate_error}"
-        )
+        _debug_log(f"Не удалось отправить процессу сигнал завершения: {terminate_error}")
     else:
         try:
             process.wait(timeout=2)
@@ -171,7 +168,9 @@ class CompressionMixin:
                             with deps.Image.open(file.path) as img:
                                 if img.mode in ("RGBA", "LA", "P"):
                                     rgb_img = deps.Image.new("RGB", img.size, (255, 255, 255))
-                                    rgb_img.paste(img, mask=img.split()[-1] if img.mode == "RGBA" else None)
+                                    rgb_img.paste(
+                                        img, mask=img.split()[-1] if img.mode == "RGBA" else None
+                                    )
                                     img = rgb_img
 
                                 if ext in [".jpg", ".jpeg"]:
@@ -210,7 +209,9 @@ class CompressionMixin:
                                             _remove_file_safely(compressed_path)
                                     else:
                                         results.append(FileItem(compressed_path))
-                                        self.status.emit(f"Изображение сжато: {file.name} (-{ratio:.1f}%)")
+                                        self.status.emit(
+                                            f"Изображение сжато: {file.name} (-{ratio:.1f}%)"
+                                        )
                                 else:
                                     os.remove(compressed_path)
                                     self.status.emit(f"Изображение уже оптимизировано: {file.name}")
@@ -226,7 +227,7 @@ class CompressionMixin:
                     record_file_error(self, file, msg)
 
             except Exception as e:
-                msg = f"Ошибка сжатия {file.name}: {str(e)}"
+                msg = f"Ошибка сжатия {file.name}: {e!s}"
                 record_file_error(self, file, msg)
 
             emit_progress(self, i, total)
@@ -252,7 +253,9 @@ class CompressionMixin:
                     continue
 
                 original_size = os.path.getsize(file.path)
-                compressed_path = self._get_unique_path(file.path.rsplit(".", 1)[0] + "_compressed.pdf")
+                compressed_path = self._get_unique_path(
+                    file.path.rsplit(".", 1)[0] + "_compressed.pdf"
+                )
 
                 success = False
                 compression_method = ""
@@ -290,14 +293,16 @@ class CompressionMixin:
                                     f"{file.name} (-{ratio:.1f}%)"
                                 )
                             except Exception as e:
-                                msg = f"Ошибка замены PDF {file.name}: {str(e)}"
+                                msg = f"Ошибка замены PDF {file.name}: {e!s}"
                                 self._record_error(file, msg)
                                 self.error.emit(msg)
                                 _remove_file_safely(compressed_path)
                         else:
                             results.append(FileItem(compressed_path))
                             ratio = (1 - new_size / original_size) * 100
-                            self.status.emit(f"PDF сжат ({compression_method}): {file.name} (-{ratio:.1f}%)")
+                            self.status.emit(
+                                f"PDF сжат ({compression_method}): {file.name} (-{ratio:.1f}%)"
+                            )
                     else:
                         _remove_file_safely(compressed_path)
                         self.status.emit(f"PDF уже оптимизирован: {file.name}")
@@ -333,7 +338,9 @@ class CompressionMixin:
 
         self._emit_finished(results, updated)
 
-    def _compress_pdf_with_ghostscript(self, input_path: str, output_path: str) -> tuple[bool, str, float]:
+    def _compress_pdf_with_ghostscript(
+        self, input_path: str, output_path: str
+    ) -> tuple[bool, str, float]:
         if self._should_cancel():
             self._last_pdf_error = "отменено пользователем"
             return False, "", 0.0
@@ -406,7 +413,9 @@ class CompressionMixin:
 
             err = (stderr or "").strip()[:500]
             _debug_log(f"Ghostscript ошибка: {err}")
-            self._last_pdf_error = f"Ghostscript: {err}" if err else "Ghostscript: неизвестная ошибка"
+            self._last_pdf_error = (
+                f"Ghostscript: {err}" if err else "Ghostscript: неизвестная ошибка"
+            )
             return False, "", 0.0
 
         except Exception as e:
@@ -414,7 +423,9 @@ class CompressionMixin:
             self._last_pdf_error = f"Ghostscript: {e}"
             return False, "", 0.0
 
-    def _compress_pdf_with_pymupdf(self, input_path: str, output_path: str) -> tuple[bool, str, float]:
+    def _compress_pdf_with_pymupdf(
+        self, input_path: str, output_path: str
+    ) -> tuple[bool, str, float]:
         if self._should_cancel():
             self._last_pdf_error = "отменено пользователем"
             return False, "", 0.0
@@ -457,9 +468,7 @@ class CompressionMixin:
             if self.files:
                 file_size = os.path.getsize(self.files[0].path)
                 profile_name = (
-                    "auto_large"
-                    if file_size > _LARGE_PDF_THRESHOLD_BYTES
-                    else "auto_standard"
+                    "auto_large" if file_size > _LARGE_PDF_THRESHOLD_BYTES else "auto_standard"
                 )
             else:
                 profile_name = "standard"

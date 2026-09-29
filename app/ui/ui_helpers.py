@@ -1,4 +1,3 @@
-
 from contextlib import contextmanager
 
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QSpinBox, QVBoxLayout, QWidget
@@ -37,7 +36,9 @@ def create_param_block(label_text: str, field: QWidget, *, spacing: int = SPACE_
     return container
 
 
-def create_spin_param_block(label_text: str, spinbox: QSpinBox, *, spacing: int = SPACE_NONE) -> QWidget:
+def create_spin_param_block(
+    label_text: str, spinbox: QSpinBox, *, spacing: int = SPACE_NONE
+) -> QWidget:
     spinbox.setProperty("renameTemplateField", True)
 
     field_container = QWidget()

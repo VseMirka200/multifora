@@ -4,8 +4,8 @@ from PyQt6.QtWidgets import QFileDialog, QMessageBox
 
 import app.core.settings as app_settings
 from app.core.app_ipc import _delete_ipc_token
-from app.core.message_boxes import show_app_choice
 from app.core.app_utils import _log_ignored_error
+from app.core.message_boxes import show_app_choice
 
 
 class LifecycleMixin:
@@ -48,7 +48,7 @@ class LifecycleMixin:
                     json.dump(self.custom_templates, f, ensure_ascii=False, indent=2)
                 QMessageBox.information(self, "Успех", f"Шаблоны экспортированы в {file_path}")
             except Exception as exc:
-                QMessageBox.critical(self, "Ошибка", f"Не удалось экспортировать шаблоны: {str(exc)}")
+                QMessageBox.critical(self, "Ошибка", f"Не удалось экспортировать шаблоны: {exc!s}")
 
     def import_templates(self, parent_window):
         """Импорт шаблонов из файла."""
@@ -60,7 +60,7 @@ class LifecycleMixin:
         )
         if file_path:
             try:
-                with open(file_path, "r", encoding="utf-8") as f:
+                with open(file_path, encoding="utf-8") as f:
                     imported_templates = json.load(f)
                 for name, template_data in imported_templates.items():
                     if name in self.custom_templates:
@@ -83,7 +83,7 @@ class LifecycleMixin:
                 QMessageBox.critical(
                     parent_window if parent_window else self,
                     "Ошибка",
-                    f"Не удалось импортировать шаблоны: {str(exc)}",
+                    f"Не удалось импортировать шаблоны: {exc!s}",
                 )
 
     def closeEvent(self, event):

@@ -1,4 +1,3 @@
-
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -16,19 +15,18 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.core.conversion_formats import CONVERSION_CATEGORIES
 from app.ui.ui_components import (
     MenuLikeComboBox,
     setup_compact_checkbox,
     setup_standard_action_button,
-    setup_standard_dropdown,
     setup_standard_danger_button,
+    setup_standard_dropdown,
     setup_standard_form_label,
     setup_standard_line_input,
     setup_standard_primary_button,
     setup_standard_secondary_button,
 )
-from app.core.conversion_formats import CONVERSION_CATEGORIES
-from app.ui.ui_styles import build_operations_tab_bar_style
 from app.ui.ui_spacing import (
     CHECKBOX_SIZE,
     CONTROL_HEIGHT,
@@ -38,6 +36,7 @@ from app.ui.ui_spacing import (
     SPACE_SM,
     TAB_BAR_HEIGHT,
 )
+from app.ui.ui_styles import build_operations_tab_bar_style
 
 
 class OperationsTabLayoutMixin:
@@ -50,9 +49,7 @@ class OperationsTabLayoutMixin:
         effective = theme or getattr(self, "_effective_theme_mode", None)
         if effective not in ("light", "dark"):
             effective = (
-                "light"
-                if str(getattr(self, "theme_mode", "dark")).lower() == "light"
-                else "dark"
+                "light" if str(getattr(self, "theme_mode", "dark")).lower() == "light" else "dark"
             )
         tab_bar.setStyleSheet(build_operations_tab_bar_style(effective))
         foreground = "#202833" if effective == "light" else "#e3e6ea"
@@ -210,10 +207,9 @@ class OperationsTabLayoutMixin:
         self.operations_stack = QStackedWidget()
         self.operations_stack.setObjectName("operations_stack")
         self._settings_tab_index = -1
-        self._current_operations_tab_index = 0
         self.operations_tab_bar.currentChanged.connect(self._on_operations_tab_changed)
         tab_layout.addWidget(self.operations_stack)
-        
+
         self._create_rename_operation_page()
         self._create_conversion_operation_page()
         self._create_compression_operation_page()
@@ -222,7 +218,9 @@ class OperationsTabLayoutMixin:
 
         self.operations_tab_bar.tabBarClicked.connect(self._on_operation_tab_clicked)
         self.operations_tab_bar.setUsesScrollButtons(True)
-        self.operations_tab_bar.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self.operations_tab_bar.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
+        )
 
         self.btn_settings = QPushButton("Настройки")
         self.btn_settings.setCheckable(True)
@@ -232,14 +230,13 @@ class OperationsTabLayoutMixin:
         self.btn_settings.clicked.connect(self.show_settings_modal)
         self._apply_operations_tab_bar_theme()
 
-        self._update_operations_narrow_layout()
         return tab
 
     def _create_rename_operation_page(self) -> None:
         """Создаёт страницу переименования."""
         rename_card, rename_layout = self._create_operation_card()
         rename_layout.setContentsMargins(SPACE_SM, SPACE_NONE, SPACE_NONE, SPACE_NONE)
-        
+
         self.combo_templates = MenuLikeComboBox()
         self.combo_templates.setProperty("renameTemplateField", True)
         self.combo_templates.currentTextChanged.connect(self.on_template_selected)
@@ -253,7 +250,7 @@ class OperationsTabLayoutMixin:
         self.rename_validation_label.setWordWrap(True)
         rename_layout.addWidget(self.rename_validation_label)
         rename_layout.addSpacing(SPACE_SM)
-        
+
         self.template_params_widget = QWidget()
         self.template_params_widget.setObjectName("template_params_widget")
         self.template_params_widget.setVisible(False)
@@ -262,18 +259,13 @@ class OperationsTabLayoutMixin:
         self.template_params_layout.setContentsMargins(*MARGINS_NONE)
         self.template_params_layout.setSpacing(SPACE_SM)
         rename_layout.addWidget(self.template_params_widget)
-        
+
         self.btn_apply_rename = QPushButton("Начать действие")
         self.btn_apply_rename.setProperty("buttonVariant", "primary")
         self.btn_apply_rename.clicked.connect(self.apply_rename)
         self.btn_apply_rename.setEnabled(False)
 
-        rename_buttons_widget, rename_buttons = self._build_rename_action_row(
-            [self.btn_apply_rename]
-        )
-        self._rename_buttons_layout = rename_buttons
-        self._rename_buttons_widget = rename_buttons_widget
-        self._rename_buttons_compact = None
+        rename_buttons_widget, _ = self._build_rename_action_row([self.btn_apply_rename])
 
         rename_layout.addWidget(rename_buttons_widget)
         rename_layout.addSpacing(SPACE_SM)
@@ -292,7 +284,6 @@ class OperationsTabLayoutMixin:
             "Переименование",
         )
 
-
     def _create_conversion_operation_page(self) -> None:
         """Создаёт страницу конвертации."""
         convert_card, convert_layout = self._create_operation_card()
@@ -304,13 +295,13 @@ class OperationsTabLayoutMixin:
         self.convert_file_type_combo.currentIndexChanged.connect(self.update_converter_from_format)
         self.convert_file_type_combo.currentIndexChanged.connect(self.update_convert_button_state)
         self._add_labeled_field(convert_layout, "Тип файла:", self.convert_file_type_combo)
-        
+
         self.from_convert_combo = MenuLikeComboBox()
         self.from_convert_combo.addItem("Выберите исходный формат:")
         setup_standard_dropdown(self.from_convert_combo)
         self.from_convert_combo.currentIndexChanged.connect(self.update_to_combo_based_on_from)
         self._add_labeled_field(convert_layout, "Конвертировать из:", self.from_convert_combo)
-        
+
         self.to_convert_combo = MenuLikeComboBox()
         self.to_convert_combo.addItem("Выберите целевой формат:")
         setup_standard_dropdown(self.to_convert_combo)
@@ -366,7 +357,7 @@ class OperationsTabLayoutMixin:
         self.on_conversion_output_mode_changed()
 
         convert_layout.addSpacing(SPACE_SM)
-        
+
         self.btn_convert = QPushButton("Конвертировать")
         setup_standard_primary_button(self.btn_convert)
         self._make_action_button_fill_width(self.btn_convert)
@@ -378,7 +369,6 @@ class OperationsTabLayoutMixin:
             self._wrap_operations_page(convert_card, "convert_page"),
             "Конвертация",
         )
-
 
     def _create_merge_operation_page(self) -> None:
         """Создаёт страницу объединения документов."""
@@ -423,7 +413,6 @@ class OperationsTabLayoutMixin:
             "Объединение",
         )
 
-
     def _create_metadata_operation_page(self) -> None:
         """Создаёт страницу очистки метаданных."""
         metadata_card, metadata_layout = self._create_operation_card(align_top=True)
@@ -463,14 +452,18 @@ class OperationsTabLayoutMixin:
         self.btn_remove_metadata = QPushButton("Удалить выбранные")
         setup_standard_danger_button(self.btn_remove_metadata)
         self._make_action_button_fill_width(self.btn_remove_metadata)
-        self.btn_remove_metadata.clicked.connect(lambda: self.remove_document_metadata(remove_all=False))
+        self.btn_remove_metadata.clicked.connect(
+            lambda: self.remove_document_metadata(remove_all=False)
+        )
         metadata_layout.addWidget(self.btn_remove_metadata)
         metadata_layout.addSpacing(SPACE_SM)
 
         self.btn_remove_all_metadata = QPushButton("Удалить все метаданные")
         setup_standard_danger_button(self.btn_remove_all_metadata)
         self._make_action_button_fill_width(self.btn_remove_all_metadata)
-        self.btn_remove_all_metadata.clicked.connect(lambda: self.remove_document_metadata(remove_all=True))
+        self.btn_remove_all_metadata.clicked.connect(
+            lambda: self.remove_document_metadata(remove_all=True)
+        )
         metadata_layout.addWidget(self.btn_remove_all_metadata)
         self._update_metadata_controls()
 
@@ -478,7 +471,6 @@ class OperationsTabLayoutMixin:
             self._wrap_operations_page(metadata_card, "metadata_page"),
             "Удаление метаданных",
         )
-
 
     def _create_pdf_compression_mode(self) -> QWidget:
         """Создаёт набор элементов для сжатия PDF."""
@@ -563,9 +555,7 @@ class OperationsTabLayoutMixin:
         self.combo_image_output_mode.addItem("В отдельную папку", "custom")
         self.combo_image_output_mode.setCurrentIndex(1)
         setup_standard_dropdown(self.combo_image_output_mode)
-        self.combo_image_output_mode.currentIndexChanged.connect(
-            self.on_image_output_mode_changed
-        )
+        self.combo_image_output_mode.currentIndexChanged.connect(self.on_image_output_mode_changed)
         self._add_labeled_field(
             image_mode_layout,
             "Способ сохранения:",
@@ -592,9 +582,7 @@ class OperationsTabLayoutMixin:
         image_output_section_layout = QVBoxLayout(self.image_output_path_section)
         image_output_section_layout.setContentsMargins(*MARGINS_NONE)
         image_output_section_layout.setSpacing(SPACE_SM)
-        image_output_section_layout.addWidget(
-            self._create_operation_label("Папка сохранения:")
-        )
+        image_output_section_layout.addWidget(self._create_operation_label("Папка сохранения:"))
         image_output_section_layout.addWidget(self.image_output_path_widget)
         image_mode_layout.addWidget(self.image_output_path_section)
         self.on_image_output_mode_changed()
@@ -613,9 +601,7 @@ class OperationsTabLayoutMixin:
         self.combo_compress_type = MenuLikeComboBox()
         self.combo_compress_type.addItems(["Изображения", "PDF документы"])
         setup_standard_dropdown(self.combo_compress_type)
-        self.combo_compress_type.currentTextChanged.connect(
-            self.on_compress_type_changed
-        )
+        self.combo_compress_type.currentTextChanged.connect(self.on_compress_type_changed)
         self._add_labeled_field(
             compress_layout,
             "Тип файлов:",
@@ -659,18 +645,20 @@ class OperationsTabLayoutMixin:
         page = self._wrap_operations_page(compress_card, "compress_page")
         self._add_operations_page(page, "Сжатие")
 
-
     def _add_operations_page(self, page: QWidget, label: str) -> None:
         self.operations_stack.addWidget(page)
         self.operations_tab_bar.addTab(label)
         if self.operations_stack.count() == 1:
             self.operations_tab_bar.setCurrentIndex(0)
             self.operations_stack.setCurrentIndex(0)
-            self._current_operations_tab_index = 0
 
     def _on_operation_tab_clicked(self, index: int) -> None:
         host = getattr(self, "settings_panel_host", None)
-        if host is not None and not host.isHidden() and index == self.operations_tab_bar.currentIndex():
+        if (
+            host is not None
+            and not host.isHidden()
+            and index == self.operations_tab_bar.currentIndex()
+        ):
             self._on_operations_tab_changed(index)
 
     def _on_operations_tab_changed(self, index: int) -> None:
@@ -686,7 +674,6 @@ class OperationsTabLayoutMixin:
 
         stack_index = index
         if 0 <= stack_index < self.operations_stack.count():
-            self._current_operations_tab_index = index
             self.operations_stack.setCurrentIndex(stack_index)
             if callable(getattr(self, "refresh_active_file_preview", None)):
                 self.refresh_active_file_preview()
@@ -724,25 +711,3 @@ class OperationsTabLayoutMixin:
         page_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         page_layout.addWidget(scroll)
         return page
-
-    def _update_operations_narrow_layout(self):
-        # Левая панель изменяет ширину через основной разделитель, поэтому элементы
-        # должны оставаться удобными и при узкой, и при широкой компоновке.
-        stack = getattr(self, "operations_stack", None)
-        panel_width = (
-            stack.viewport().width()
-            if hasattr(stack, "viewport")
-            else (stack.width() if stack else 0)
-        )
-        compact = bool(panel_width and panel_width < 310)
-
-        rename_layout = getattr(self, "_rename_buttons_layout", None)
-        rename_widget = getattr(self, "_rename_buttons_widget", None)
-        btn_apply = getattr(self, "btn_apply_rename", None)
-        if rename_layout is not None and rename_widget is not None and btn_apply is not None:
-            if self._rename_buttons_compact is not False:
-                self._rename_buttons_compact = False
-                rename_layout.addWidget(btn_apply, 0, 0, 1, 1)
-                rename_layout.setColumnStretch(0, 1)
-                rename_layout.setHorizontalSpacing(SPACE_NONE)
-                rename_layout.setVerticalSpacing(SPACE_NONE)

@@ -8,8 +8,8 @@ from PyQt6.QtCore import (
     QModelIndex,
     QPropertyAnimation,
     QSize,
-    QTimer,
     Qt,
+    QTimer,
     pyqtSignal,
 )
 from PyQt6.QtGui import (
@@ -27,37 +27,40 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
     QFrame,
+    QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QListView,
     QListWidget,
     QListWidgetItem,
-    QHeaderView,
     QMenu,
     QPushButton,
-    QHBoxLayout,
     QSizePolicy,
     QStatusBar,
     QStyle,
     QStyledItemDelegate,
-    QStyleOptionViewItem,
     QStyleOptionToolButton,
+    QStyleOptionViewItem,
     QStylePainter,
-    QTextEdit,
     QTableView,
+    QTextEdit,
     QToolButton,
     QVBoxLayout,
     QWidget,
     QWidgetAction,
 )
+
+from app.core.app_utils import _log_ignored_error
+from app.core.models import file_item_source_folder, file_item_type_label
 from app.ui.ui_spacing import (
     ACTION_BUTTON_HEIGHT,
     FIELD_HEIGHT,
     HEADER_FIELD_HEIGHT,
     MARGINS_NONE,
-    SPACE_XS,
-    SPACE_SM,
     SPACE_MD,
+    SPACE_SM,
+    SPACE_XS,
 )
 from app.ui.ui_styles import (
     build_drop_action_tile_style,
@@ -65,12 +68,8 @@ from app.ui.ui_styles import (
     build_standard_button_style,
     build_standard_field_style,
 )
-from app.core.app_utils import _log_ignored_error
-from app.core.models import file_item_source_folder, file_item_type_label
 
 _build_standard_field_style = build_standard_field_style
-
-
 
 
 def apply_standard_field_style(widget):
@@ -154,7 +153,9 @@ def refresh_standard_button_styles(root: QWidget):
             role = widget.property("buttonVariant")
             if not role:
                 continue
-            widget.setStyleSheet(build_standard_button_style(_resolve_widget_theme_mode(widget), str(role)))
+            widget.setStyleSheet(
+                build_standard_button_style(_resolve_widget_theme_mode(widget), str(role))
+            )
             _refresh_widget_style(widget)
     except Exception as error:
         _log_ignored_error("refresh_standard_button_styles", error)
@@ -516,6 +517,22 @@ def sync_standard_menu_width(menu: QMenu, anchor_widget: QWidget):
     menu.setMinimumWidth(width)
     menu.setMaximumWidth(width)
     menu.setFixedWidth(width)
+    filter_list = getattr(menu, "filter_list", None)
+    if filter_list is not None:
+        # QWidgetAction иначе сохраняет sizeHint по самому длинному пункту:
+        # меню сжимается до ширины кнопки, а вертикальный скроллбар остаётся
+        # за его правой границей и визуально пропадает.
+        filter_list.setFixedWidth(max(1, width - 2))
+
+
+def setup_standard_popup_menu(menu: QMenu):
+    """Разрешает QSS-скруглению меню оставлять прозрачные внешние углы."""
+    if menu is not None:
+        # На Windows прозрачные пиксели верхнеуровневого popup корректно
+        # компонуются только без системной прямоугольной рамки.
+        menu.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
+        menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+    return menu
 
 
 class SmoothScrollListWidget(QListWidget):
@@ -523,9 +540,7 @@ class SmoothScrollListWidget(QListWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._scroll_animation = QPropertyAnimation(
-            self.verticalScrollBar(), b"value", self
-        )
+        self._scroll_animation = QPropertyAnimation(self.verticalScrollBar(), b"value", self)
         self._scroll_animation.setDuration(180)
         self._scroll_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
 
@@ -561,11 +576,11 @@ class ScrollableFilterMenu(QMenu):
 
     def __init__(self, parent=None, *, max_visible_items: int = 8):
         super().__init__(parent)
+        setup_standard_popup_menu(self)
         self._preferred_visible_items = max(1, int(max_visible_items))
         self._filter_actions: list[QAction] = []
         self._filter_items: dict[QAction, QListWidgetItem] = {}
         self._filter_list: SmoothScrollListWidget | None = None
-        self._filter_widget_action: QWidgetAction | None = None
 
     def _ensure_filter_list(self) -> SmoothScrollListWidget:
         if self._filter_list is not None:
@@ -588,7 +603,6 @@ class ScrollableFilterMenu(QMenu):
         super().addAction(widget_action)
 
         self._filter_list = filter_list
-        self._filter_widget_action = widget_action
         return filter_list
 
     @property
@@ -603,9 +617,7 @@ class ScrollableFilterMenu(QMenu):
         filter_list.addItem(item)
         self._filter_actions.append(action)
         self._filter_items[action] = item
-        action.toggled.connect(
-            lambda _checked=False, target=action: self._sync_filter_item(target)
-        )
+        action.toggled.connect(lambda _checked=False, target=action: self._sync_filter_item(target))
         action.changed.connect(lambda target=action: self._sync_filter_item(target))
         self._sync_filter_item(action)
         self._update_filter_list_height()
@@ -691,6 +703,7 @@ class MenuLikeComboBox(QToolButton):
         self._items = []
         self._current_index = -1
         self._menu = QMenu(self)
+        setup_standard_popup_menu(self._menu)
         self._menu.setObjectName("menu_like_combo_popup")
         self._menu.aboutToShow.connect(self._sync_popup_width)
         self._menu.aboutToShow.connect(self._mark_menu_open)
@@ -845,6 +858,7 @@ class FileListItemAdapter:
     def data(self, role):
         return self._view.model().data(self._index, role)
 
+
 def selected_file_items(list_widget, *, files_only: bool = False) -> list:
     """Извлекает объекты файлов из выбранных строк любого совместимого списка."""
     if list_widget is None:
@@ -877,8 +891,6 @@ class FileListModel(QAbstractTableModel):
     @staticmethod
     def _original_display_name(file_item) -> str:
         return file_item.name
-
-
 
     def rowCount(self, parent=QModelIndex()):
         if parent.isValid():
@@ -914,7 +926,9 @@ class FileListModel(QAbstractTableModel):
             if index.column() == self.COLUMN_OLD_NAME:
                 return self._original_display_name(file_item)
             if index.column() == self.COLUMN_NEW_NAME:
-                return getattr(file_item, "preview_name", None) or self._original_display_name(file_item)
+                return getattr(file_item, "preview_name", None) or self._original_display_name(
+                    file_item
+                )
             if index.column() == self.COLUMN_TYPE:
                 return file_item_type_label(file_item)
             if index.column() == self.COLUMN_PATH:
@@ -923,7 +937,9 @@ class FileListModel(QAbstractTableModel):
             if index.column() == self.COLUMN_OLD_NAME:
                 return self._original_display_name(file_item)
             if index.column() == self.COLUMN_NEW_NAME:
-                return getattr(file_item, "preview_name", None) or self._original_display_name(file_item)
+                return getattr(file_item, "preview_name", None) or self._original_display_name(
+                    file_item
+                )
             if index.column() == self.COLUMN_PATH:
                 return str(getattr(file_item, "path", ""))
         if role == Qt.ItemDataRole.SizeHintRole:
@@ -972,7 +988,9 @@ class FileListModel(QAbstractTableModel):
         if destinationChild >= sourceRow and destinationChild <= sourceRow + count:
             return False
 
-        self.beginMoveRows(sourceParent, sourceRow, sourceRow + count - 1, destinationParent, destinationChild)
+        self.beginMoveRows(
+            sourceParent, sourceRow, sourceRow + count - 1, destinationParent, destinationChild
+        )
         rows = self._files[sourceRow : sourceRow + count]
         del self._files[sourceRow : sourceRow + count]
         if destinationChild > sourceRow:
@@ -990,7 +1008,11 @@ class FileListModel(QAbstractTableModel):
         self.dataChanged.emit(
             top_left,
             bottom_right,
-            [Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.SizeHintRole, Qt.ItemDataRole.ToolTipRole],
+            [
+                Qt.ItemDataRole.DisplayRole,
+                Qt.ItemDataRole.SizeHintRole,
+                Qt.ItemDataRole.ToolTipRole,
+            ],
         )
 
 
@@ -1041,11 +1063,7 @@ class FileListWidget(QTableView):
         self.verticalHeader().hide()
         header = self.horizontalHeader()
         header.setStyleSheet(
-            "QHeaderView::section {"
-            "background: transparent;"
-            "border: none;"
-            "padding: 4px 6px;"
-            "}"
+            "QHeaderView::section {background: transparent;border: none;padding: 4px 6px;}"
         )
         header.setStretchLastSection(True)
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
@@ -1060,7 +1078,6 @@ class FileListWidget(QTableView):
         self.setDropIndicatorShown(True)
         self.setDragDropOverwriteMode(False)
         self.setDragDropMode(QAbstractItemView.DragDropMode.DropOnly)
-        self._drag_rows = None
 
         self.doubleClicked.connect(self._on_double_clicked)
         self.selectionModel().selectionChanged.connect(self._on_selection_changed)
@@ -1070,17 +1087,17 @@ class FileListWidget(QTableView):
             return
         self.itemDoubleClicked.emit(FileListItemAdapter(self, index))
 
-    def _on_selection_changed(self, selected, deselected):
+    def _on_selection_changed(self, _selected, _deselected):
         self.itemSelectionChanged.emit()
 
     def clear(self):
         self.model().clear()
 
     def selectedItems(self):
-        items = []
-        for index in self.selectionModel().selectedRows(self.model().COLUMN_NAME):
-            items.append(FileListItemAdapter(self, index))
-        return items
+        return [
+            FileListItemAdapter(self, index)
+            for index in self.selectionModel().selectedRows(self.model().COLUMN_NAME)
+        ]
 
     def selected_file_items(self, *, files_only: bool = False) -> list:
         """Возвращает объекты, связанные с выбранными строками таблицы."""
@@ -1105,20 +1122,18 @@ class FileListWidget(QTableView):
     def set_manual_sorting(self, enabled: bool):
         self.setDragEnabled(enabled)
         self.setDragDropMode(
-            QAbstractItemView.DragDropMode.InternalMove if enabled else QAbstractItemView.DragDropMode.DropOnly
+            QAbstractItemView.DragDropMode.InternalMove
+            if enabled
+            else QAbstractItemView.DragDropMode.DropOnly
         )
         if enabled:
             self.setDefaultDropAction(Qt.DropAction.MoveAction)
-        else:
-            self._drag_rows = None
-
-    def startDrag(self, supported_actions):
-        if not self.dragEnabled():
-            return
-        super().startDrag(supported_actions)
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton and not self.indexAt(event.position().toPoint()).isValid():
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and not self.indexAt(event.position().toPoint()).isValid()
+        ):
             self.emptyAreaClicked.emit()
         super().mousePressEvent(event)
 
@@ -1148,7 +1163,8 @@ class FileListWidget(QTableView):
             if file_item and getattr(file_item, "path", None) in path_set:
                 self.selectionModel().select(
                     index,
-                    QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
+                    QItemSelectionModel.SelectionFlag.Select
+                    | QItemSelectionModel.SelectionFlag.Rows,
                 )
 
     def dragEnterEvent(self, event):
@@ -1238,9 +1254,7 @@ class DropActionTile(QFrame):
     def _apply_theme_style(self):
         self.setStyleSheet(build_drop_action_tile_style(self._theme))
         if hasattr(self, "text_label"):
-            self.text_label.setStyleSheet(
-                build_drop_action_tile_text_style(self._theme)
-            )
+            self.text_label.setStyleSheet(build_drop_action_tile_text_style(self._theme))
 
 
 class LoggingStatusBar(QStatusBar):

@@ -1,7 +1,6 @@
-
 import os
 
-from PyQt6.QtCore import QPoint, QItemSelectionModel, QMimeData, Qt, QUrl
+from PyQt6.QtCore import QItemSelectionModel, QMimeData, QPoint, Qt, QUrl
 from PyQt6.QtWidgets import QApplication, QMenu, QMessageBox
 
 from app.ui.ui_components import (
@@ -46,6 +45,7 @@ class FileListContextMixin:
             self.rename_selected_item()
         elif action == action_remove:
             self.remove_selected_files_from_list()
+
     def open_file(self, item):
         """Открытие файла"""
         file_item = item.data(Qt.ItemDataRole.UserRole)
@@ -55,11 +55,14 @@ class FileListContextMixin:
                     os.startfile(file_item.path)
                     self.log_event(f"Открыт файл: {file_item.path}")
                 else:
-                    QMessageBox.information(self, "Информация", 
-                        f"Файл не найден: {file_item.name}")
+                    QMessageBox.information(self, "Информация", f"Файл не найден: {file_item.name}")
             except Exception as e:
-                QMessageBox.information(self, "Информация", 
-                    f"Не удалось открыть файл: {file_item.name}\nОшибка: {str(e)}")
+                QMessageBox.information(
+                    self,
+                    "Информация",
+                    f"Не удалось открыть файл: {file_item.name}\nОшибка: {e!s}",
+                )
+
     def open_selected_items(self):
         selected = self._get_selected_file_items()
         if not selected:
@@ -76,14 +79,16 @@ class FileListContextMixin:
                 self.log_event(f"Ошибка открытия: {file_item.path} ({e})", "ERROR")
         if opened:
             self.status_bar.showMessage(f"Открыто: {opened}")
+
     def copy_selected_files_to_clipboard(self):
         selected = self._get_selected_file_items()
         if not selected:
             return
-        urls = []
-        for file_item in selected:
-            if os.path.exists(file_item.path):
-                urls.append(QUrl.fromLocalFile(file_item.path))
+        urls = [
+            QUrl.fromLocalFile(file_item.path)
+            for file_item in selected
+            if os.path.exists(file_item.path)
+        ]
         if not urls:
             QMessageBox.information(self, "Информация", "Не удалось скопировать: файлы не найдены")
             return
@@ -91,6 +96,7 @@ class FileListContextMixin:
         mime.setUrls(urls)
         QApplication.clipboard().setMimeData(mime)
         self.status_bar.showMessage(f"Скопировано: {len(urls)}")
+
     def rename_selected_item(self):
         selected = self._get_selected_file_items()
         if len(selected) != 1:
@@ -129,6 +135,7 @@ class FileListContextMixin:
             self.status_bar.showMessage("Переименовано")
         except Exception as e:
             QMessageBox.warning(self, "Ошибка", f"Не удалось переименовать: {e}")
+
     def remove_selected_files_from_list(self):
         selected = self._get_selected_file_items()
         if not selected:

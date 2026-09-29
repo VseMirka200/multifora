@@ -19,7 +19,6 @@ except ImportError:
 
 from app.core.app_utils import _debug_log, _get_app_data_dir
 
-
 MUTEX_HANDLE = None
 ERROR_ALREADY_EXISTS = 183
 _WINDOWS_OPTION_PREFIXES = ("-", "/")
@@ -36,7 +35,7 @@ def _load_ipc_token() -> str | None:
         token_path = _get_ipc_token_path()
         if not os.path.exists(token_path):
             return None
-        with open(token_path, "r", encoding="utf-8") as token_file:
+        with open(token_path, encoding="utf-8") as token_file:
             return token_file.read().strip() or None
     except OSError as error:
         _debug_log(f"Ошибка загрузки IPC-токена: {error}")
@@ -120,7 +119,7 @@ def _normalize_path_candidate(path: str) -> str:
 def _add_existing_candidate(candidate, *, excluded_paths, seen, result) -> None:
     if not candidate:
         return
-    normalized = _normalize_path_candidate(str(candidate).strip('"\''))
+    normalized = _normalize_path_candidate(str(candidate).strip("\"'"))
     if not normalized:
         return
 
@@ -161,9 +160,7 @@ def _collect_paths_from_args(args: list[str]) -> list[str]:
 
     try:
         split_candidates = [
-            part
-            for argument in arguments
-            for part in shlex.split(argument, posix=False)
+            part for argument in arguments for part in shlex.split(argument, posix=False)
         ]
     except (TypeError, ValueError) as error:
         _debug_log(f"Ошибка резервного разбора аргументов запуска: {error}")
@@ -201,7 +198,7 @@ def _enqueue_files(file_paths: list[str]) -> None:
 def _read_queue_file(path: str) -> list[str]:
     queued_paths = []
     try:
-        with open(path, "r", encoding="utf-8") as queue_stream:
+        with open(path, encoding="utf-8") as queue_stream:
             queued_paths.extend(line.strip() for line in queue_stream if line.strip())
     finally:
         try:
@@ -349,7 +346,6 @@ def send_files_to_running_instance(
 
     suffix = f": {last_error}" if last_error else ""
     _debug_log(
-        "send_files_to_running_instance: не удалось подключиться после повторных попыток"
-        f"{suffix}"
+        f"send_files_to_running_instance: не удалось подключиться после повторных попыток{suffix}"
     )
     return False

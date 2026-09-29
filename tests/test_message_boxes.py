@@ -27,9 +27,7 @@ class MessageBoxTests(unittest.TestCase):
     def setUp(self):
         self.parent = QWidget()
         self.parent._effective_theme_mode = "dark"
-        self.parent.setStyleSheet(
-            'QPushButton[buttonVariant="secondary"] { background: #333333; }'
-        )
+        self.parent.setStyleSheet('QPushButton[buttonVariant="secondary"] { background: #333333; }')
 
     def tearDown(self):
         self.parent.deleteLater()
@@ -107,14 +105,10 @@ class MessageBoxTests(unittest.TestCase):
             return exec_dialog
 
         with patch.object(QDialog, "exec", new=press_key(Qt.Key.Key_Return)):
-            self.assertTrue(
-                show_app_confirmation(self.parent, "Подтверждение", "Продолжить?")
-            )
+            self.assertTrue(show_app_confirmation(self.parent, "Подтверждение", "Продолжить?"))
 
         with patch.object(QDialog, "exec", new=press_key(Qt.Key.Key_Delete)):
-            self.assertFalse(
-                show_app_confirmation(self.parent, "Подтверждение", "Продолжить?")
-            )
+            self.assertFalse(show_app_confirmation(self.parent, "Подтверждение", "Продолжить?"))
 
     def test_choice_buttons_fit_long_labels(self):
         captured = {}
@@ -142,7 +136,9 @@ class MessageBoxTests(unittest.TestCase):
             text_width = QFontMetrics(button.font()).horizontalAdvance(button.text())
             self.assertGreaterEqual(button.minimumWidth(), text_width + 24)
 
-        required_width = sum(button.minimumWidth() for button in buttons) + 8 * (len(buttons) - 1) + 28
+        required_width = (
+            sum(button.minimumWidth() for button in buttons) + 8 * (len(buttons) - 1) + 28
+        )
         self.assertGreaterEqual(dialog.minimumWidth(), required_width)
 
 

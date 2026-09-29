@@ -204,8 +204,8 @@ def ensure_ghostscript_detected(
 
 
 try:
-    import pythoncom  # noqa: F401
-    import win32com.client  # noqa: F401
+    import pythoncom
+    import win32com.client
 
     HAS_WORD_TO_PDF = True
 except ImportError:
@@ -219,10 +219,9 @@ except ImportError:
     _debug_log("pdf2docx не найден")
 
 try:
-    from odf import text, teletype
+    from odf import teletype, text
     from odf.opendocument import OpenDocumentText, load
 
     HAS_ODF_PYTHON = True
 except ImportError:
     _debug_log("python-odf не найден")
-

@@ -2,7 +2,6 @@ import os
 import re
 from datetime import datetime
 
-
 _DATE_FORMAT_PATTERNS = (
     ("2024-01-15_", "%Y-%m-%d_"),
     ("15-01-2024_", "%d-%m-%Y_"),

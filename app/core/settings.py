@@ -5,7 +5,6 @@ from PyQt6.QtCore import Qt
 
 from app.core.app_utils import _debug_log
 
-
 _DEFAULT_THEME_MODE = "system"
 _VALID_THEME_MODES = {_DEFAULT_THEME_MODE, "dark", "light"}
 _SETTINGS_FILENAME = "multifora_settings.json"
@@ -128,10 +127,12 @@ def _migrate_legacy_settings(target_file: str) -> None:
             target_file
         )
         should_migrate = not target_exists or target_is_older
-        if not should_migrate or os.path.normcase(newest_candidate) == os.path.normcase(target_file):
+        if not should_migrate or os.path.normcase(newest_candidate) == os.path.normcase(
+            target_file
+        ):
             return
 
-        with open(newest_candidate, "r", encoding="utf-8") as source:
+        with open(newest_candidate, encoding="utf-8") as source:
             migrated_data = source.read()
         with open(target_file, "w", encoding="utf-8") as destination:
             destination.write(migrated_data)
@@ -153,14 +154,12 @@ def _initialize_settings_defaults(window) -> None:
     window.desktop_shortcut_enabled = False
     window.start_menu_shortcut_enabled = False
     window.disable_warning_dialogs = False
-    window.auto_update_check_enabled = True
     window.theme_mode = _DEFAULT_THEME_MODE
     window.conversion_output_mode = "ask"
     window.conversion_output_path = ""
     window.image_compression_output_mode = "alongside"
     window.image_compression_output_path = ""
     window._pending_template_session_state = None
-    window._pending_settings_dialog_geometry = None
     window._pending_settings_nav_row = 0
     window._rename_history = []
 
@@ -190,27 +189,7 @@ def _restore_boolean_option(
     _set_checkbox_state(getattr(window, checkbox_name, None), value)
 
 
-def _restore_widget_index(widget, raw_index, context: str) -> int | None:
-    if widget is None:
-        return None
-    try:
-        index = int(raw_index)
-        if 0 <= index < widget.count():
-            widget.setCurrentIndex(index)
-            return index
-    except Exception as error:
-        _log_settings_error(context, error)
-    return None
-
-
 def _restore_navigation_state(window, data: dict) -> None:
-    if "current_tab_index" in data:
-        _restore_widget_index(
-            getattr(window, "tabs", None),
-            data.get("current_tab_index"),
-            "восстановления основной вкладки",
-        )
-
     if "settings_nav_current_row" in data:
         try:
             settings_row = int(data.get("settings_nav_current_row"))
@@ -252,8 +231,11 @@ def _restore_navigation_state(window, data: dict) -> None:
             )
             if has_metadata_tab and legacy_index == 3:
                 index = next(
-                    (candidate for candidate in range(operations_tab_bar.count())
-                     if operations_tab_bar.tabText(candidate) == "Сжатие"),
+                    (
+                        candidate
+                        for candidate in range(operations_tab_bar.count())
+                        if operations_tab_bar.tabText(candidate) == "Сжатие"
+                    ),
                     0,
                 )
             elif has_metadata_tab and legacy_index == 4:
@@ -268,7 +250,6 @@ def _restore_navigation_state(window, data: dict) -> None:
         operations_stack = getattr(window, "operations_stack", None)
         if operations_stack is not None and index < operations_stack.count():
             operations_stack.setCurrentIndex(index)
-        window._current_operations_tab_index = index
     except Exception as error:
         _log_settings_error("восстановления вкладки операций", error)
 
@@ -290,10 +271,6 @@ def _restore_main_splitter_sizes(window, data: dict) -> None:
 
 
 def _restore_pending_state(window, data: dict) -> None:
-    settings_geometry = _nonempty_string(data.get("settings_dialog_geometry"))
-    if settings_geometry:
-        window._pending_settings_dialog_geometry = settings_geometry
-
     template_session = data.get("template_session")
     if isinstance(template_session, dict):
         window._pending_template_session_state = template_session
@@ -382,7 +359,6 @@ def _apply_settings_data(window, data: dict) -> None:
         ("windows_context_menu", "windows_context_menu_enabled", "context_menu_checkbox"),
         ("desktop_shortcut", "desktop_shortcut_enabled", "desktop_shortcut_checkbox"),
         ("start_menu_shortcut", "start_menu_shortcut_enabled", "start_menu_shortcut_checkbox"),
-        ("auto_check_updates", "auto_update_check_enabled", "auto_update_check_checkbox"),
     )
     for setting_name, attribute_name, checkbox_name in boolean_options:
         _restore_boolean_option(
@@ -391,6 +367,11 @@ def _apply_settings_data(window, data: dict) -> None:
             setting_name,
             attribute_name,
             checkbox_name,
+        )
+    if "auto_check_updates" in data:
+        _set_checkbox_state(
+            getattr(window, "auto_update_check_checkbox", None),
+            bool(data["auto_check_updates"]),
         )
 
     _restore_navigation_state(window, data)
@@ -417,7 +398,7 @@ def load_settings(window) -> None:
 
     try:
         if os.path.exists(settings_file):
-            with open(settings_file, "r", encoding="utf-8") as settings_stream:
+            with open(settings_file, encoding="utf-8") as settings_stream:
                 data = json.load(settings_stream)
             if not isinstance(data, dict):
                 raise ValueError("корневое значение файла настроек должно быть объектом")
@@ -483,11 +464,7 @@ def _collect_file_list_view_state(window) -> dict:
     order = getattr(window, "_column_sort_order", Qt.SortOrder.AscendingOrder)
     return {
         "sort_column": getattr(window, "_column_sort_section", None),
-        "sort_order": (
-            "descending"
-            if order == Qt.SortOrder.DescendingOrder
-            else "ascending"
-        ),
+        "sort_order": ("descending" if order == Qt.SortOrder.DescendingOrder else "ascending"),
     }
 
 
@@ -519,10 +496,7 @@ def _collect_settings_data(window) -> dict:
         "image_compression_output_mode": getattr(
             window, "image_compression_output_mode", "alongside"
         ),
-        "image_compression_output_path": getattr(
-            window, "image_compression_output_path", ""
-        ),
-        "current_tab_index": _current_widget_index(window, "tabs"),
+        "image_compression_output_path": getattr(window, "image_compression_output_path", ""),
         "settings_nav_current_row": settings_nav.currentRow() if settings_nav is not None else 0,
         "operations_tab_index": _current_widget_index(window, "operations_tab_bar"),
         "main_splitter_sizes": (
@@ -536,7 +510,6 @@ def _collect_settings_data(window) -> dict:
             and window.operations_tab_bar.currentIndex() >= 0
             else ""
         ),
-        "settings_dialog_geometry": _encoded_geometry(getattr(window, "_settings_dialog", None)),
         "template_session": _collect_template_session_state(window),
         "file_list_view_state": _collect_file_list_view_state(window),
         "window_geometry": _encoded_geometry(window),

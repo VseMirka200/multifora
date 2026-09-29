@@ -92,7 +92,9 @@ class FileListPreviewMixin:
         validation_label = getattr(self, "rename_validation_label", None)
         if validation_label is not None:
             if blocking:
-                validation_label.setText(format_rename_plan_issues(self._rename_plan_issues, limit=3))
+                validation_label.setText(
+                    format_rename_plan_issues(self._rename_plan_issues, limit=3)
+                )
             elif self._rename_plan_issues:
                 validation_label.setText(
                     f"Найдено конфликтов: {len(self._rename_plan_issues)}; "
@@ -163,9 +165,12 @@ class FileListPreviewMixin:
                 expected = CATEGORY_FILE_TYPES.get(category_label, "")
                 if expected and file_type != expected:
                     continue
-            if callable(getattr(self, "_check_file_compatibility_dual", None)):
-                if self._check_file_compatibility_dual(file_item, from_format):
-                    file_item.preview_name = self._build_conversion_preview_name(file_item.name, to_format)
+            if callable(
+                getattr(self, "_check_file_compatibility_dual", None)
+            ) and self._check_file_compatibility_dual(file_item, from_format):
+                file_item.preview_name = self._build_conversion_preview_name(
+                    file_item.name, to_format
+                )
 
         self._refresh_list_preview()
 
@@ -238,7 +243,9 @@ class FileListPreviewMixin:
             return
 
         compress_type = str(compress_type_combo.currentText() or "")
-        replace_pdf = bool(getattr(getattr(self, "checkbox_replace_pdf", None), "isChecked", lambda: False)())
+        replace_pdf = bool(
+            getattr(getattr(self, "checkbox_replace_pdf", None), "isChecked", lambda: False)()
+        )
         replace_image = (
             callable(getattr(self, "_image_output_mode", None))
             and self._image_output_mode() == "replace"
@@ -249,7 +256,9 @@ class FileListPreviewMixin:
             if not getattr(file_item, "is_file", False):
                 continue
 
-            if "PDF" in compress_type and str(getattr(file_item, "path", "")).lower().endswith(".pdf"):
+            if "PDF" in compress_type and str(getattr(file_item, "path", "")).lower().endswith(
+                ".pdf"
+            ):
                 reduction = self._estimate_pdf_reduction_percent()
                 if not replace_pdf:
                     new_name = self._build_compressed_name(file_item.name, ".pdf")
@@ -280,7 +289,7 @@ class FileListPreviewMixin:
         new_names = []
 
         for file_item in self.files:
-            if hasattr(file_item, 'preview_name') and file_item.name != file_item.preview_name:
+            if hasattr(file_item, "preview_name") and file_item.name != file_item.preview_name:
                 files_to_rename.append(file_item)
                 new_names.append(file_item.preview_name)
 
@@ -310,7 +319,7 @@ class FileListPreviewMixin:
             "Подтверждение",
             f"Переименовать {len(files_to_rename)} файлов?{conflict_details}",
             QMessageBox.Icon.Question,
-            True
+            True,
         )
 
         if reply:
@@ -322,7 +331,9 @@ class FileListPreviewMixin:
             )
             self._last_operation = {
                 "op": "rename",
-                "new_names_by_path": {f.path: name for f, name in zip(files_to_rename, new_names)},
+                "new_names_by_path": {
+                    f.path: name for f, name in zip(files_to_rename, new_names, strict=True)
+                },
             }
             self.file_worker.start()
             self.log_event(f"Переименование: {len(files_to_rename)} файлов")
@@ -347,7 +358,9 @@ class FileListPreviewMixin:
             if getattr(file_item, "path", None)
         ]
 
-        filtered_files = self._get_filtered_files() if hasattr(self, "_get_filtered_files") else self.files
+        filtered_files = (
+            self._get_filtered_files() if hasattr(self, "_get_filtered_files") else self.files
+        )
         self.list_files.set_files(filtered_files)
         self.list_files.clearSelection()
         self.list_files.select_paths(selected_paths)

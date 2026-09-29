@@ -21,11 +21,3 @@ ACTION_BUTTON_HEIGHT = FIELD_HEIGHT
 PROGRESS_HEIGHT = 22
 TAB_BAR_HEIGHT = 36
 CHECKBOX_SIZE = 16
-
-
-def px(value: int) -> str:
-    return f"{int(value)}px"
-
-
-def padding(vertical: int, horizontal: int) -> str:
-    return f"{int(vertical)}px {int(horizontal)}px"

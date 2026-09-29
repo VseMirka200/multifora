@@ -15,8 +15,12 @@ class ConversionAdaptiveLayoutTests(unittest.TestCase):
         self.assertIn("def minimumSizeHint(self):", source)
 
     def test_conversion_destination_is_prompted_instead_of_embedded(self):
-        layout_source = Path("app/ui/mixins/operations_tab_layout_mixin.py").read_text(encoding="utf-8")
-        action_source = Path("app/ui/mixins/conversion_actions_mixin.py").read_text(encoding="utf-8")
+        layout_source = Path("app/ui/mixins/operations_tab_layout_mixin.py").read_text(
+            encoding="utf-8"
+        )
+        action_source = Path("app/ui/mixins/conversion_actions_mixin.py").read_text(
+            encoding="utf-8"
+        )
         self.assertNotIn('"Сохранение:"', layout_source)
         self.assertIn('"Куда сохранить сконвертированные файлы?"', action_source)
         self.assertIn('"Рядом с файлом"', action_source)

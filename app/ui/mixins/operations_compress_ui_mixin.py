@@ -1,4 +1,3 @@
-
 import os
 
 from PyQt6.QtWidgets import QFileDialog
@@ -59,7 +58,9 @@ class OperationsCompressUiMixin:
         if not selected_files:
             return False
 
-        compress_type = self.combo_compress_type.currentText() if hasattr(self, "combo_compress_type") else ""
+        compress_type = (
+            self.combo_compress_type.currentText() if hasattr(self, "combo_compress_type") else ""
+        )
         for file_item in selected_files:
             if compress_type == "PDF документы":
                 if file_item.path.lower().endswith(".pdf"):
@@ -135,9 +136,7 @@ class OperationsCompressUiMixin:
         if select_button is not None:
             select_button.setEnabled(custom_enabled)
 
-        self._sync_compress_mode_stack_height(
-            getattr(self, "image_mode_widget", None)
-        )
+        self._sync_compress_mode_stack_height(getattr(self, "image_mode_widget", None))
 
         self._update_compress_button()
         callback = getattr(self, "_schedule_settings_save", None)
@@ -180,10 +179,10 @@ class OperationsCompressUiMixin:
 
         if hasattr(self, "compress_mode_stack") and self.compress_mode_stack is not None:
             target = (
-            getattr(self, "pdf_mode_widget", None)
-            if is_pdf_mode
-            else getattr(self, "image_mode_widget", None)
-        )
+                getattr(self, "pdf_mode_widget", None)
+                if is_pdf_mode
+                else getattr(self, "image_mode_widget", None)
+            )
             if target is not None:
                 self.compress_mode_stack.setCurrentWidget(target)
                 self._sync_compress_mode_stack_height(target)

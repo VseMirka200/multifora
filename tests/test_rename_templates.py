@@ -1,5 +1,5 @@
-import unittest
 import tempfile
+import unittest
 from pathlib import Path
 from unittest.mock import patch
 
@@ -41,9 +41,11 @@ class RenameTemplateTests(unittest.TestCase):
         self.assertEqual(nxt, 1)
 
     def test_build_file_tokens_uses_file_timestamps(self):
-        with patch("app.core.rename_templates.os.path.isfile", return_value=False), \
-            patch("app.core.rename_templates.os.path.getctime", return_value=0), \
-            patch("app.core.rename_templates.os.path.getmtime", return_value=86400):
+        with (
+            patch("app.core.rename_templates.os.path.isfile", return_value=False),
+            patch("app.core.rename_templates.os.path.getctime", return_value=0),
+            patch("app.core.rename_templates.os.path.getmtime", return_value=86400),
+        ):
             values = rt.build_file_token_values("sample.txt")
         self.assertTrue(values["created"])
         self.assertTrue(values["modified"])
@@ -119,9 +121,7 @@ class RenameTemplateTests(unittest.TestCase):
         self.assertEqual(nxt, 12)
 
     def test_parse_custom_template_settings(self):
-        settings = rt.parse_custom_template_settings(
-            "фото_{num:04d,start=10,step=2}_{date}_{name}"
-        )
+        settings = rt.parse_custom_template_settings("фото_{num:04d,start=10,step=2}_{date}_{name}")
         self.assertEqual(settings["start"], 10)
         self.assertEqual(settings["step"], 2)
         self.assertEqual(settings["digits"], 4)

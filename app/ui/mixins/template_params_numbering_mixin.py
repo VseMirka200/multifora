@@ -1,4 +1,3 @@
-
 from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -10,6 +9,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
 from app.ui.ui_components import (
     AutoHeightTextEdit,
     MenuLikeComboBox,
@@ -98,7 +98,9 @@ class TemplateParamsNumberingMixin:
                 combo.setCurrentIndex(index)
         self._set_numbering_mode_visibility(target)
 
-    def _create_labeled_spin_block(self, label_text: str, spinbox: QSpinBox, *, label: QLabel | None = None):
+    def _create_labeled_spin_block(
+        self, label_text: str, spinbox: QSpinBox, *, label: QLabel | None = None
+    ):
         if label is None:
             return create_spin_param_block(label_text, spinbox)
         return self._create_param_block_with_label(label, spinbox)
@@ -136,32 +138,38 @@ class TemplateParamsNumberingMixin:
         simple_layout = QVBoxLayout(self.template_num_simple_widget)
         simple_layout.setSpacing(SPACE_SM)
         simple_layout.setContentsMargins(*MARGINS_NONE)
-        
+
         self.template_num_start = QSpinBox()
         self.template_num_start.setMinimum(1)
         self.template_num_start.setMaximum(9999)
         self.template_num_start.setValue(1)
         setup_standard_spin_input(self.template_num_start)
-        simple_layout.addWidget(self._create_labeled_spin_block("Начальный номер:", self.template_num_start))
-        
+        simple_layout.addWidget(
+            self._create_labeled_spin_block("Начальный номер:", self.template_num_start)
+        )
+
         self.template_num_step = QSpinBox()
         self.template_num_step.setMinimum(1)
         self.template_num_step.setMaximum(100)
         self.template_num_step.setValue(1)
         setup_standard_spin_input(self.template_num_step)
-        simple_layout.addWidget(self._create_labeled_spin_block("Шаг нумерации:", self.template_num_step))
-        
+        simple_layout.addWidget(
+            self._create_labeled_spin_block("Шаг нумерации:", self.template_num_step)
+        )
+
         self.template_num_digits = QSpinBox()
         self.template_num_digits.setMinimum(1)
         self.template_num_digits.setMaximum(6)
         self.template_num_digits.setValue(3)
         setup_standard_spin_input(self.template_num_digits)
-        simple_layout.addWidget(self._create_labeled_spin_block("Кол-во цифр:", self.template_num_digits))
-        
+        simple_layout.addWidget(
+            self._create_labeled_spin_block("Кол-во цифр:", self.template_num_digits)
+        )
+
         sep_label = QLabel("Разделитель:")
         setup_standard_form_label(sep_label)
         simple_layout.addWidget(sep_label)
-        
+
         self.template_num_sep = QLineEdit()
         self.template_num_sep.setText("_")
         self.template_num_sep.setMaxLength(5)
@@ -183,19 +191,25 @@ class TemplateParamsNumberingMixin:
         self.template_prefix_start.setRange(1, 9999)
         self.template_prefix_start.setValue(1)
         setup_standard_spin_input(self.template_prefix_start)
-        prefix_layout.addWidget(self._create_labeled_spin_block("Начальный номер:", self.template_prefix_start))
+        prefix_layout.addWidget(
+            self._create_labeled_spin_block("Начальный номер:", self.template_prefix_start)
+        )
 
         self.template_prefix_step = QSpinBox()
         self.template_prefix_step.setRange(1, 100)
         self.template_prefix_step.setValue(1)
         setup_standard_spin_input(self.template_prefix_step)
-        prefix_layout.addWidget(self._create_labeled_spin_block("Шаг нумерации:", self.template_prefix_step))
+        prefix_layout.addWidget(
+            self._create_labeled_spin_block("Шаг нумерации:", self.template_prefix_step)
+        )
 
         self.template_prefix_digits = QSpinBox()
         self.template_prefix_digits.setRange(1, 6)
         self.template_prefix_digits.setValue(3)
         setup_standard_spin_input(self.template_prefix_digits)
-        prefix_layout.addWidget(self._create_labeled_spin_block("Кол-во цифр:", self.template_prefix_digits))
+        prefix_layout.addWidget(
+            self._create_labeled_spin_block("Кол-во цифр:", self.template_prefix_digits)
+        )
 
         self.template_num_date_widget = QWidget()
         date_layout = QVBoxLayout(self.template_num_date_widget)
@@ -203,10 +217,12 @@ class TemplateParamsNumberingMixin:
         date_layout.setContentsMargins(*MARGINS_NONE)
 
         self.template_date_format = MenuLikeComboBox()
-        self.template_date_format.addItems([
-            "2024-01-15",
-            "15-01-2024",
-        ])
+        self.template_date_format.addItems(
+            [
+                "2024-01-15",
+                "15-01-2024",
+            ]
+        )
         setup_standard_dropdown(self.template_date_format)
         date_layout.addWidget(create_param_block("Формат даты:", self.template_date_format))
 
@@ -214,19 +230,25 @@ class TemplateParamsNumberingMixin:
         self.template_date_start.setRange(1, 9999)
         self.template_date_start.setValue(1)
         setup_standard_spin_input(self.template_date_start)
-        date_layout.addWidget(self._create_labeled_spin_block("Начальный номер:", self.template_date_start))
+        date_layout.addWidget(
+            self._create_labeled_spin_block("Начальный номер:", self.template_date_start)
+        )
 
         self.template_date_step = QSpinBox()
         self.template_date_step.setRange(1, 100)
         self.template_date_step.setValue(1)
         setup_standard_spin_input(self.template_date_step)
-        date_layout.addWidget(self._create_labeled_spin_block("Шаг нумерации:", self.template_date_step))
+        date_layout.addWidget(
+            self._create_labeled_spin_block("Шаг нумерации:", self.template_date_step)
+        )
 
         self.template_date_digits = QSpinBox()
         self.template_date_digits.setRange(1, 6)
         self.template_date_digits.setValue(3)
         setup_standard_spin_input(self.template_date_digits)
-        date_layout.addWidget(self._create_labeled_spin_block("Кол-во цифр:", self.template_date_digits))
+        date_layout.addWidget(
+            self._create_labeled_spin_block("Кол-во цифр:", self.template_date_digits)
+        )
 
         layout.addWidget(self.template_num_simple_widget)
         layout.addWidget(self.template_num_prefix_widget)
@@ -242,12 +264,14 @@ class TemplateParamsNumberingMixin:
         layout = QVBoxLayout(container)
         layout.setSpacing(SPACE_SM)
         layout.setContentsMargins(*MARGINS_NONE)
-        
+
         self.template_original_date_format = MenuLikeComboBox()
-        self.template_original_date_format.addItems([
-            "2024-01-15_название",
-            "15-01-2024_название",
-        ])
+        self.template_original_date_format.addItems(
+            [
+                "2024-01-15_название",
+                "15-01-2024_название",
+            ]
+        )
         setup_standard_dropdown(self.template_original_date_format)
         layout.addWidget(create_param_block("Дата в начале:", self.template_original_date_format))
         self.template_params_layout.addWidget(container)
@@ -269,21 +293,23 @@ class TemplateParamsNumberingMixin:
         layout = QVBoxLayout(container)
         layout.setSpacing(SPACE_NONE)
         layout.setContentsMargins(*MARGINS_NONE)
-        
+
         input_container = QWidget()
         input_layout = QHBoxLayout(input_container)
         input_layout.setContentsMargins(*MARGINS_NONE)
         input_layout.setSpacing(SPACE_NONE)
         input_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        
+
         self.template_custom = AutoHeightTextEdit()
         self.template_custom._auto_min_height = 44
-        self.template_custom.setPlaceholderText("например: фото_{num:03d,start=1,step=1}_{date}_{name}")
+        self.template_custom.setPlaceholderText(
+            "например: фото_{num:03d,start=1,step=1}_{date}_{name}"
+        )
         self.template_custom.setText("фото_{num:03d,start=1,step=1}_{date}_{name}")
         self.template_custom.setProperty("renameTemplateField", True)
         self.template_custom.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         input_layout.addWidget(self.template_custom, 1)
-        
+
         layout.addWidget(input_container)
 
         quick_tokens = (
@@ -342,5 +368,5 @@ class TemplateParamsNumberingMixin:
         )
         layout.addWidget(buttons_container)
         layout.setStretch(layout.count() - 1, 0)
-        
+
         self.template_params_layout.addWidget(container)

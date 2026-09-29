@@ -7,11 +7,11 @@ from app.core.conversion_formats import (
     category_for_file_type,
     compatible_targets_for_source,
     format_for_path,
+    matches_format,
     mixed_source_label_for_category,
     source_formats_for_category,
-    target_formats_for_category,
-    matches_format,
     suffix_for_format,
+    target_formats_for_category,
 )
 
 

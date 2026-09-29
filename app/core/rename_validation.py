@@ -5,7 +5,6 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 
-
 _INVALID_WINDOWS_CHARS_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 _RESERVED_WINDOWS_NAMES = {
     "CON",
@@ -43,7 +42,7 @@ def _windows_name_error(name: str) -> str:
 
 def analyze_rename_plan(file_items, new_names: list[str]) -> list[RenamePlanIssue]:
     """Проверяет пакетное переименование до изменения файлов на диске."""
-    pairs = list(zip(file_items, new_names))
+    pairs = list(zip(file_items, new_names, strict=False))
     normalized_targets = [
         os.path.normcase(os.path.abspath(os.path.join(item.folder, str(name))))
         for item, name in pairs
@@ -55,7 +54,7 @@ def analyze_rename_plan(file_items, new_names: list[str]) -> list[RenamePlanIssu
     }
 
     issues: list[RenamePlanIssue] = []
-    for (item, raw_name), normalized_target in zip(pairs, normalized_targets):
+    for (item, raw_name), normalized_target in zip(pairs, normalized_targets, strict=True):
         name = str(raw_name or "")
         source = str(getattr(item, "path", ""))
         target = os.path.join(str(getattr(item, "folder", "")), name)
@@ -74,7 +73,9 @@ def analyze_rename_plan(file_items, new_names: list[str]) -> list[RenamePlanIssu
                     "несколько файлов получат одинаковое имя",
                 )
             )
-        if target_key != os.path.normcase(os.path.abspath(source)).casefold() and os.path.exists(target):
+        if target_key != os.path.normcase(os.path.abspath(source)).casefold() and os.path.exists(
+            target
+        ):
             message = (
                 "целевое имя занято другим файлом из пакета"
                 if target_key in source_paths
@@ -88,8 +89,9 @@ def format_rename_plan_issues(issues: list[RenamePlanIssue], limit: int = 5) -> 
     if not issues:
         return "Конфликты не обнаружены."
     lines = [f"Обнаружено конфликтов: {len(issues)}."]
-    for issue in issues[: max(0, limit)]:
-        lines.append(f"• {os.path.basename(issue.target)} — {issue.message}")
+    lines.extend(
+        f"• {os.path.basename(issue.target)} — {issue.message}" for issue in issues[: max(0, limit)]
+    )
     remaining = len(issues) - max(0, limit)
     if remaining > 0:
         lines.append(f"• …и ещё {remaining}")

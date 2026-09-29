@@ -7,16 +7,17 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QMessageBox,
 )
+
+from app.core.app_utils import _log_ignored_error
+from app.core.message_boxes import show_app_confirmation
+from app.ui.theme_styles import APPLICATION_STYLES
 from app.ui.ui_components import (
-    setup_standard_dropdown,
     refresh_standard_button_styles,
     refresh_standard_field_styles,
     refresh_standard_surface_styles,
+    setup_standard_dropdown,
 )
 from app.ui.ui_styles import build_tab_content_style_block
-from app.ui.theme_styles import APPLICATION_STYLES
-from app.core.app_utils import _log_ignored_error
-from app.core.message_boxes import show_app_confirmation
 
 
 class AppearanceMixin:
@@ -25,6 +26,10 @@ class AppearanceMixin:
         """Возвращает путь локальной иконки галочки для QSS."""
         icon_path = Path(__file__).resolve().parents[1] / "checkbox_checked.svg"
         return icon_path.resolve().as_posix()
+
+    def _theme_asset_url(self, filename: str) -> str:
+        """Возвращает QSS-совместимый путь к ресурсу общей темы."""
+        return (Path(__file__).resolve().parents[1] / filename).resolve().as_posix()
 
     def _apply_detached_theme_style(self, style: str):
         """Применяет тему к отдельным окнам, не входящим в иерархию главного окна."""
@@ -52,6 +57,8 @@ class AppearanceMixin:
         # Общий порядок обновления сохраняет оформление отдельных окон и списков.
         style = APPLICATION_STYLES[theme] + build_tab_content_style_block(theme)
         style = style.replace("__CHECKMARK_URL__", self._checkbox_checkmark_url())
+        style = style.replace("__SCROLL_UP_URL__", self._theme_asset_url("scroll_up.svg"))
+        style = style.replace("__SCROLL_DOWN_URL__", self._theme_asset_url("scroll_down.svg"))
         app = QApplication.instance()
         if app is not None:
             app.setStyleSheet(style)
@@ -133,8 +140,10 @@ class AppearanceMixin:
     def _on_system_theme_changed(self, _scheme):
         if getattr(self, "theme_mode", "system") == "system":
             self.apply_theme_mode("system")
-        
-    def show_russian_message_box(self, title, text, icon=QMessageBox.Icon.Question, default_no=True):
+
+    def show_russian_message_box(
+        self, title, text, icon=QMessageBox.Icon.Question, default_no=True
+    ):
         """Показывает диалог подтверждения с русскими кнопками Да/Нет."""
         return show_app_confirmation(
             self,

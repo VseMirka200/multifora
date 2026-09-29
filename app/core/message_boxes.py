@@ -19,7 +19,6 @@ from app.core.app_utils import _log_ignored_error
 from app.ui.ui_spacing import ACTION_BUTTON_HEIGHT
 from app.ui.ui_styles import build_standard_button_style
 
-
 _MESSAGE_BOX_HOOKS_INSTALLED = False
 _DIALOG_MIN_WIDTH = 420
 _DIALOG_MAX_WIDTH = 760
@@ -72,26 +71,6 @@ def _resolve_message_box_icon(widget, icon: QMessageBox.Icon):
         return style.standardIcon(standard_icon)
     except Exception:
         return None
-
-
-def tune_message_box_layout(msg_box: QMessageBox, icon: QMessageBox.Icon):
-    """Приводит системный QMessageBox к общему виду приложения."""
-    resolved_icon = _resolve_message_box_icon(msg_box, icon)
-    if resolved_icon is not None:
-        msg_box.setIconPixmap(resolved_icon.pixmap(_ICON_SIZE, _ICON_SIZE))
-
-    for label in msg_box.findChildren(QLabel):
-        try:
-            if label.pixmap() is not None:
-                label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
-                label.setFixedSize(_ICON_SIZE, _ICON_SIZE)
-                continue
-        except Exception as error:
-            _log_ignored_error("tune_message_box_layout", error)
-        if label.text():
-            label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-            label.setWordWrap(True)
-            label.setMinimumHeight(36)
 
 
 def show_app_choice(
@@ -155,11 +134,7 @@ def show_app_choice(
     for key, label, variant in choices:
         button = QPushButton(label, dialog)
         button.setObjectName(f"appMessageButton_{key}")
-        effective_variant = (
-            "danger"
-            if key == cancel_key or key in {"cancel", "no"}
-            else variant
-        )
+        effective_variant = "danger" if key == cancel_key or key in {"cancel", "no"} else variant
         button = _setup_message_box_button(button, variant=effective_variant)
         button.clicked.connect(lambda _checked=False, choice_key=key: select(choice_key))
         if key == default_key:
@@ -168,10 +143,7 @@ def show_app_choice(
         button_row.addWidget(button, 1)
         buttons.append(button)
 
-    choice_keys = {
-        str(key)
-        for key, _label, _variant in choices
-    }
+    choice_keys = {str(key) for key, _label, _variant in choices}
     if {"yes", "no"}.issubset(choice_keys):
         dialog._confirmation_shortcuts = []
         for key, selected_key in (
@@ -181,17 +153,19 @@ def show_app_choice(
         ):
             shortcut = QShortcut(QKeySequence(key), dialog)
             shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-            shortcut.activated.connect(
-                lambda choice_key=selected_key: select(choice_key)
-            )
+            shortcut.activated.connect(lambda choice_key=selected_key: select(choice_key))
             dialog._confirmation_shortcuts.append(shortcut)
 
     layout.addLayout(button_row)
 
     metrics = QFontMetrics(text_label.font())
-    longest_line = max((metrics.horizontalAdvance(line) for line in str(text).splitlines()), default=0)
+    longest_line = max(
+        (metrics.horizontalAdvance(line) for line in str(text).splitlines()), default=0
+    )
     content_width = max(_DIALOG_MIN_WIDTH, min(_DIALOG_MAX_WIDTH, longest_line + 90))
-    buttons_width = sum(button.minimumWidth() for button in buttons) + max(0, len(buttons) - 1) * 8 + 28
+    buttons_width = (
+        sum(button.minimumWidth() for button in buttons) + max(0, len(buttons) - 1) * 8 + 28
+    )
     dialog_width = max(content_width, buttons_width, dialog.sizeHint().width())
     dialog.setMinimumWidth(dialog_width)
     dialog.resize(dialog_width, dialog.sizeHint().height())
@@ -226,7 +200,9 @@ def show_app_confirmation(
     return result == "yes"
 
 
-def _show_localized_message_box(parent, title, text, icon, default_button=QMessageBox.StandardButton.Ok):
+def _show_localized_message_box(
+    parent, title, text, icon, default_button=QMessageBox.StandardButton.Ok
+):
     """Показывает локализованное модальное сообщение приложения."""
     show_app_choice(
         parent,

@@ -1,6 +1,6 @@
 import os
-from types import SimpleNamespace
 import unittest
+from types import SimpleNamespace
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -29,8 +29,12 @@ class FileTableTests(unittest.TestCase):
         type_index = model.index(0, model.COLUMN_TYPE)
         path_index = model.index(0, model.COLUMN_PATH)
         self.assertEqual(model.columnCount(), 4)
-        self.assertEqual(model.headerData(model.COLUMN_OLD_NAME, Qt.Orientation.Horizontal), "Старое имя")
-        self.assertEqual(model.headerData(model.COLUMN_NEW_NAME, Qt.Orientation.Horizontal), "Новое имя")
+        self.assertEqual(
+            model.headerData(model.COLUMN_OLD_NAME, Qt.Orientation.Horizontal), "Старое имя"
+        )
+        self.assertEqual(
+            model.headerData(model.COLUMN_NEW_NAME, Qt.Orientation.Horizontal), "Новое имя"
+        )
         self.assertEqual(
             model.headerData(model.COLUMN_PATH, Qt.Orientation.Horizontal),
             "Исходная папка",
@@ -50,31 +54,35 @@ class FileTableTests(unittest.TestCase):
 
     def test_file_type_handles_uppercase_extension_folder_and_extensionless_file(self):
         model = FileListModel()
-        model.set_files([
-            SimpleNamespace(path="report.PDF", name="report.PDF", is_file=True),
-            SimpleNamespace(path="documents", name="documents", is_file=False),
-            SimpleNamespace(path="README", name="README", is_file=True),
-        ])
+        model.set_files(
+            [
+                SimpleNamespace(path="report.PDF", name="report.PDF", is_file=True),
+                SimpleNamespace(path="documents", name="documents", is_file=False),
+                SimpleNamespace(path="README", name="README", is_file=True),
+            ]
+        )
         self.assertEqual(model.index(0, model.COLUMN_TYPE).data(), "PDF")
         self.assertEqual(model.index(1, model.COLUMN_TYPE).data(), "Папка")
         self.assertEqual(model.index(2, model.COLUMN_TYPE).data(), "Файл")
 
     def test_source_folder_distinguishes_files_from_different_directories(self):
         model = FileListModel()
-        model.set_files([
-            SimpleNamespace(
-                path=r"C:\One\report.pdf",
-                folder=r"C:\One",
-                name="report.pdf",
-                is_file=True,
-            ),
-            SimpleNamespace(
-                path=r"D:\Two\report.pdf",
-                folder=r"D:\Two",
-                name="report.pdf",
-                is_file=True,
-            ),
-        ])
+        model.set_files(
+            [
+                SimpleNamespace(
+                    path=r"C:\One\report.pdf",
+                    folder=r"C:\One",
+                    name="report.pdf",
+                    is_file=True,
+                ),
+                SimpleNamespace(
+                    path=r"D:\Two\report.pdf",
+                    folder=r"D:\Two",
+                    name="report.pdf",
+                    is_file=True,
+                ),
+            ]
+        )
 
         self.assertEqual(model.index(0, model.COLUMN_PATH).data(), r"C:\One")
         self.assertEqual(model.index(1, model.COLUMN_PATH).data(), r"D:\Two")

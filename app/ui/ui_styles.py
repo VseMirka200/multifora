@@ -17,7 +17,9 @@ def build_splitter_style() -> str:
 
 
 def build_file_info_separator_style(theme: str) -> str:
-    color = "rgba(31, 35, 40, 0.24)" if str(theme).lower() == "light" else "rgba(255, 255, 255, 0.18)"
+    color = (
+        "rgba(31, 35, 40, 0.24)" if str(theme).lower() == "light" else "rgba(255, 255, 255, 0.18)"
+    )
     return f"background-color: {color}; border: none;"
 
 
@@ -78,8 +80,26 @@ def build_drop_action_tile_text_style(theme: str) -> str:
 
 
 _BUTTON_PALETTES = {
-    "dark": ("#303030", "#3a3a3a", "#2a2a2a", "#474747", "#f1f1f1", "#292929", "#3b3b3b", "#787878"),
-    "light": ("#f6f8fb", "#edf2f7", "#e2eaf3", "#d6dee8", "#243244", "#f8fafc", "#e4eaf2", "#9aa4b2"),
+    "dark": (
+        "#303030",
+        "#3a3a3a",
+        "#2a2a2a",
+        "#474747",
+        "#f1f1f1",
+        "#292929",
+        "#3b3b3b",
+        "#787878",
+    ),
+    "light": (
+        "#f6f8fb",
+        "#edf2f7",
+        "#e2eaf3",
+        "#d6dee8",
+        "#243244",
+        "#f8fafc",
+        "#e4eaf2",
+        "#9aa4b2",
+    ),
 }
 
 
@@ -359,8 +379,16 @@ def build_standard_field_style(theme: str, kind: str) -> str:
         """
     if kind == "surface":
         alternate_bg = "#f8fafc" if str(theme).lower() == "light" else "#3d3d3d"
-        hover_bg = "rgba(61, 116, 179, 0.10)" if str(theme).lower() == "light" else "rgba(255, 255, 255, 0.07)"
-        selected_bg = "rgba(61, 116, 179, 0.22)" if str(theme).lower() == "light" else "rgba(61, 116, 179, 0.38)"
+        hover_bg = (
+            "rgba(61, 116, 179, 0.10)"
+            if str(theme).lower() == "light"
+            else "rgba(255, 255, 255, 0.07)"
+        )
+        selected_bg = (
+            "rgba(61, 116, 179, 0.22)"
+            if str(theme).lower() == "light"
+            else "rgba(61, 116, 179, 0.38)"
+        )
         return f"""
             QAbstractItemView#files_list,
             QListWidget#files_list,
@@ -415,7 +443,6 @@ def build_operations_tab_bar_style(theme: str) -> str:
     foreground = "#202833" if is_light else "#e3e6ea"
     selected_fg = "#ffffff" if not is_light else "#1d2f45"
     base_bg = "transparent"
-    hover_bg = "transparent"
     underline = "#3d74b3"
     return f"""
         QTabBar#operations_tab_bar {{
@@ -490,21 +517,6 @@ def build_tab_content_style_block(theme: str) -> str:
                 font-size: 13px;
                 font-weight: 700;
                 color: {base_text};
-            }}
-            QLabel#settings_page_title {{
-                font-size: 30px;
-                font-weight: 700;
-                color: {base_text};
-                padding-bottom: 5px;
-                margin-bottom: 3px;
-                border-bottom: 1px solid {"rgba(0, 0, 0, 0.28)" if is_light else "rgba(255, 255, 255, 0.26)"};
-            }}
-            QLabel#settings_page_title_plain {{
-                font-size: 30px;
-                font-weight: 700;
-                color: {base_text};
-                padding-bottom: 5px;
-                margin-bottom: 3px;
             }}
             QFrame#settings_section_separator {{
                 background-color: {"rgba(0, 0, 0, 0.36)" if is_light else "rgba(255, 255, 255, 0.38)"};

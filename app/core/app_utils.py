@@ -27,4 +27,3 @@ def _get_app_data_dir():
     except Exception as error:
         _debug_log(f"Ошибка получения каталога данных приложения: {error}")
     return base_dir
-

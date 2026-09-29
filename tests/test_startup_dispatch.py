@@ -99,7 +99,9 @@ class StartupDispatchTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             startup.main()
         send_mock.assert_called_once()
-        debug_log_mock.assert_called_once_with("Не удалось передать стартовые файлы уже запущенному экземпляру")
+        debug_log_mock.assert_called_once_with(
+            "Не удалось передать стартовые файлы уже запущенному экземпляру"
+        )
         enqueue_mock.assert_called_once_with([r"C:\tmp\a.pdf"])
         exit_mock.assert_called_once_with(0)
 

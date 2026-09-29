@@ -1,5 +1,5 @@
-import json
 import hashlib
+import json
 import os
 import re
 import subprocess
@@ -9,7 +9,6 @@ from urllib.request import Request, urlopen
 
 from app.core.app_identity import APP_VERSION
 from app.core.app_utils import _log_ignored_error
-
 
 REPO = "VseMirka200/multifora"
 RELEASES_LATEST_API = f"https://api.github.com/repos/{REPO}/releases/latest"
@@ -23,7 +22,7 @@ _SHA256_RE = re.compile(r"\b([0-9a-fA-F]{64})\b")
 
 def _parse_version(version: str) -> tuple[int, ...]:
     if not version:
-        return tuple()
+        return ()
     parts = re.findall(r"\d+", str(version))
     return tuple(int(p) for p in parts)
 

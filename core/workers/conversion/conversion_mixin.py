@@ -10,6 +10,13 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from app.core.app_utils import _debug_log
+from app.core.conversion_formats import (
+    DOCUMENT_CATEGORY,
+    IMAGE_CATEGORY,
+    format_for_path,
+    source_formats_for_category,
+    suffix_for_format,
+)
 from app.core.deps import (
     HAS_ODF_PYTHON,
     HAS_PDF_TO_WORD,
@@ -24,13 +31,6 @@ from app.core.deps import (
     text,
 )
 from app.core.models import FileItem
-from app.core.conversion_formats import (
-    DOCUMENT_CATEGORY,
-    IMAGE_CATEGORY,
-    format_for_path,
-    source_formats_for_category,
-    suffix_for_format,
-)
 
 from .image_encoding_mixin import ImageEncodingMixin
 
@@ -230,8 +230,7 @@ class ConversionMixin(ImageEncodingMixin):
 
     def _conversion_output_directory(self, file: FileItem) -> str:
         mode = str(
-            getattr(self, "conversion_output_mode", "source_subfolder")
-            or "source_subfolder"
+            getattr(self, "conversion_output_mode", "source_subfolder") or "source_subfolder"
         ).strip()
         custom_dir = str(getattr(self, "conversion_output_dir", "") or "").strip()
         if mode == "custom" and custom_dir:
@@ -324,9 +323,7 @@ class ConversionMixin(ImageEncodingMixin):
                 file, self.conversion_format
             ),
             "auto_image": lambda file: self._convert_image_auto(file, self.conversion_format),
-            "auto_document": lambda file: self._convert_document_auto(
-                file, self.conversion_format
-            ),
+            "auto_document": lambda file: self._convert_document_auto(file, self.conversion_format),
         }
         return handlers.get(self.conversion_type)
 
@@ -410,7 +407,7 @@ class ConversionMixin(ImageEncodingMixin):
                 super().__init__()
                 self.parts = []
 
-            def handle_starttag(self, tag, attrs):
+            def handle_starttag(self, tag, _attrs):
                 if tag.lower() in _HTML_BLOCK_TAGS:
                     self.parts.append("\n")
 
@@ -500,8 +497,7 @@ class ConversionMixin(ImageEncodingMixin):
                 document = docx.Document(file.path)
                 parts = [paragraph.text for paragraph in document.paragraphs]
                 for table in document.tables:
-                    for row in table.rows:
-                        parts.append("\t".join(cell.text for cell in row.cells))
+                    parts.extend("\t".join(cell.text for cell in row.cells) for row in table.rows)
                 return "\n".join(parts)
             except Exception as error:
                 raise Exception(f"Ошибка чтения DOCX: {error}") from error
@@ -544,9 +540,7 @@ class ConversionMixin(ImageEncodingMixin):
                 paragraphs.append(f"<p>{escaped}</p>")
 
         with open(output_path, "w", encoding="utf-8", newline="") as stream:
-            stream.write(
-                '<!doctype html><html><head><meta charset="utf-8"></head><body>\n'
-            )
+            stream.write('<!doctype html><html><head><meta charset="utf-8"></head><body>\n')
             stream.write("\n".join(paragraphs))
             stream.write("\n</body></html>")
 
@@ -797,9 +791,7 @@ class ConversionMixin(ImageEncodingMixin):
         except Exception as error:
             if "output_path" in locals():
                 self._discard_conversion_output(output_path)
-            _debug_log(
-                f"PyMuPDF не смог напрямую создать PDF из {source_format}: {error}"
-            )
+            _debug_log(f"PyMuPDF не смог напрямую создать PDF из {source_format}: {error}")
             return None
 
     def _convert_document_to_doc(
@@ -840,9 +832,7 @@ class ConversionMixin(ImageEncodingMixin):
                     except FileNotFoundError:
                         pass
                     except OSError as error:
-                        _debug_log(
-                            f"Не удалось удалить промежуточный DOCX {temp_docx}: {error}"
-                        )
+                        _debug_log(f"Не удалось удалить промежуточный DOCX {temp_docx}: {error}")
                     finally:
                         self._release_conversion_output_path(temp_docx)
 
@@ -924,9 +914,7 @@ class ConversionMixin(ImageEncodingMixin):
             self.status.emit(f"Конвертация: {file.name}")
             try:
                 if handler is None:
-                    raise Exception(
-                        f"Неизвестная операция конвертации: {self.conversion_type}"
-                    )
+                    raise Exception(f"Неизвестная операция конвертации: {self.conversion_type}")
                 converted_item = self._converted_file_item(handler(file))
                 if converted_item is not None:
                     results.append(converted_item)
@@ -1007,11 +995,7 @@ class ConversionMixin(ImageEncodingMixin):
         if total == 0:
             return results
 
-        if (
-            os.name != "nt"
-            or not HAS_WORD_TO_PDF
-            or getattr(self, "_word_pdf_unavailable", False)
-        ):
+        if os.name != "nt" or not HAS_WORD_TO_PDF or getattr(self, "_word_pdf_unavailable", False):
             return self._convert_sequential_batch(
                 list(self.files),
                 self._convert_word_to_pdf,
@@ -1132,9 +1116,7 @@ class ConversionMixin(ImageEncodingMixin):
         try:
             started = prewarm_word_background(
                 status_callback=(
-                    self.status.emit
-                    if callable(getattr(self, "status", None))
-                    else None
+                    self.status.emit if callable(getattr(self, "status", None)) else None
                 ),
                 log_callback=_debug_log,
             )
@@ -1183,9 +1165,7 @@ class ConversionMixin(ImageEncodingMixin):
             if self._should_cancel():
                 raise Exception("Конвертация отменена пользователем") from error
             self._word_pdf_unavailable = True
-            _debug_log(
-                f"Microsoft Word не смог создать PDF, включён внутренний конвертер: {error}"
-            )
+            _debug_log(f"Microsoft Word не смог создать PDF, включён внутренний конвертер: {error}")
             return self._convert_docx_to_pdf_internal(
                 file,
                 output_reference=output_reference,
@@ -1267,8 +1247,8 @@ class ConversionMixin(ImageEncodingMixin):
                     converter.convert(docx_path)
                     converter.close()
                     return docx_path
-                except Exception as e:
-                    raise Exception(f"Ошибка конвертации PDF в Word: {e}")
+                except Exception as error:
+                    raise Exception(f"Ошибка конвертации PDF в Word: {error}") from error
             else:
                 raise Exception("Установите pdf2docx")
 
@@ -1298,8 +1278,8 @@ class ConversionMixin(ImageEncodingMixin):
                 )
                 odt_doc.save(odt_path)
                 return odt_path
-            except Exception as e:
-                raise Exception(f"Ошибка конвертации Word в ODT: {e}")
+            except Exception as error:
+                raise Exception(f"Ошибка конвертации Word в ODT: {error}") from error
         return None
 
     def _convert_odt_to_word(self, file: FileItem) -> str:
@@ -1318,8 +1298,8 @@ class ConversionMixin(ImageEncodingMixin):
                 docx_path = self._conversion_output_path(file, ".docx")
                 docx_doc.save(docx_path)
                 return docx_path
-            except Exception as e:
-                raise Exception(f"Ошибка конвертации ODT в DOCX: {e}")
+            except Exception as error:
+                raise Exception(f"Ошибка конвертации ODT в DOCX: {error}") from error
         return None
 
     def _convert_odt_to_pdf(self, file: FileItem) -> str:

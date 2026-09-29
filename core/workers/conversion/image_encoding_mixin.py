@@ -33,9 +33,7 @@ _IMAGE_SAVE_FORMATS: dict[str, str] = {
 }
 
 
-_IMAGE_RGB_TARGETS = frozenset(
-    {"JPG", "JPEG", "BMP", "PCX", "PPM", "JP2", "EPS", "SGI"}
-)
+_IMAGE_RGB_TARGETS = frozenset({"JPG", "JPEG", "BMP", "PCX", "PPM", "JP2", "EPS", "SGI"})
 
 _IMAGE_ALPHA_TARGETS = frozenset(
     {"PNG", "WEBP", "TIFF", "TGA", "AVIF", "HEIC", "HEIF", "QOI", "DDS", "ICNS"}
@@ -50,9 +48,7 @@ class ImageEncodingMixin:
     @staticmethod
     def _flatten_transparency(img):
         # Для форматов без альфа-канала возвращаем RGB-копию на белом фоне.
-        has_palette_transparency = (
-            img.mode == "P" and "transparency" in getattr(img, "info", {})
-        )
+        has_palette_transparency = img.mode == "P" and "transparency" in getattr(img, "info", {})
         if img.mode not in {"RGBA", "LA"} and not has_palette_transparency:
             return img.convert("RGB")
 
@@ -166,11 +162,7 @@ class ImageEncodingMixin:
     def _ico_sizes(frame) -> list[tuple[int, int]]:
         width, height = frame.size
         max_side = max(width, height)
-        sizes = [
-            (size, size)
-            for size in (16, 24, 32, 48, 64, 128, 256)
-            if size <= max_side
-        ]
+        sizes = [(size, size) for size in (16, 24, 32, 48, 64, 128, 256) if size <= max_side]
         return sizes or [(width, height)]
 
     def _save_pillow_image(
@@ -197,9 +189,7 @@ class ImageEncodingMixin:
             ImageSequence = None
 
         frame_count = int(getattr(source_image, "n_frames", 1) or 1)
-        preserve_animation = (
-            frame_count > 1 and normalized_target in _ANIMATED_IMAGE_TARGETS
-        )
+        preserve_animation = frame_count > 1 and normalized_target in _ANIMATED_IMAGE_TARGETS
         save_options = self._image_save_options(normalized_target)
 
         if preserve_animation and ImageSequence is not None:
@@ -228,19 +218,21 @@ class ImageEncodingMixin:
         """Встраивает статичный PNG в автономный SVG, сохраняя прозрачность."""
         from PIL import ImageOps
 
-        with ImageOps.exif_transpose(source_image) as oriented:
-            with self._prepare_image_frame(oriented, "PNG") as frame:
-                width, height = frame.size
-                with BytesIO() as buffer:
-                    frame.save(buffer, "PNG")
-                    payload = base64.b64encode(buffer.getvalue()).decode("ascii")
+        with (
+            ImageOps.exif_transpose(source_image) as oriented,
+            self._prepare_image_frame(oriented, "PNG") as frame,
+            BytesIO() as buffer,
+        ):
+            width, height = frame.size
+            frame.save(buffer, "PNG")
+            payload = base64.b64encode(buffer.getvalue()).decode("ascii")
         svg = (
             '<svg xmlns="http://www.w3.org/2000/svg" '
             'xmlns:xlink="http://www.w3.org/1999/xlink" '
             f'width="{width}" height="{height}" viewBox="0 0 {width} {height}">\n'
             f'  <image width="{width}" height="{height}" '
             f'xlink:href="data:image/png;base64,{payload}"/>\n'
-            '</svg>\n'
+            "</svg>\n"
         )
         with open(output_path, "w", encoding="utf-8") as stream:
             stream.write(svg)

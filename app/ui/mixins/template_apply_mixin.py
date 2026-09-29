@@ -5,8 +5,8 @@ from datetime import datetime
 from PyQt6.QtWidgets import QCheckBox, QComboBox, QLineEdit, QSpinBox, QTextEdit
 
 import app.core.rename_templates as rt
-from app.ui.ui_components import setup_standard_dropdown
 from app.core.app_utils import _log_ignored_error
+from app.ui.ui_components import setup_standard_dropdown
 
 
 class TemplateApplyMixin:
@@ -59,8 +59,6 @@ class TemplateApplyMixin:
         if callable(getattr(self, "_schedule_settings_save", None)):
             self._schedule_settings_save()
 
-        self.adjust_rename_group_height()
-
     def apply_template_logic(self):
         """Логика применения шаблона"""
         self._rename_template_error = ""
@@ -71,20 +69,38 @@ class TemplateApplyMixin:
 
         numbering_mode = self.current_template
         if self.current_template == "Нумерация":
-            numbering_mode = self.get_numbering_mode() if hasattr(self, "get_numbering_mode") else "Простая нумерация"
+            numbering_mode = (
+                self.get_numbering_mode()
+                if hasattr(self, "get_numbering_mode")
+                else "Простая нумерация"
+            )
 
         if numbering_mode == "Простая нумерация":
-            current_num = self.template_num_start.value() if hasattr(self, "template_num_start") else 1
+            current_num = (
+                self.template_num_start.value() if hasattr(self, "template_num_start") else 1
+            )
             step = self.template_num_step.value() if hasattr(self, "template_num_step") else 1
-            num_digits = self.template_num_digits.value() if hasattr(self, "template_num_digits") else 3
+            num_digits = (
+                self.template_num_digits.value() if hasattr(self, "template_num_digits") else 3
+            )
         elif numbering_mode == "Нумерация с префиксом":
-            current_num = self.template_prefix_start.value() if hasattr(self, "template_prefix_start") else 1
+            current_num = (
+                self.template_prefix_start.value() if hasattr(self, "template_prefix_start") else 1
+            )
             step = self.template_prefix_step.value() if hasattr(self, "template_prefix_step") else 1
-            num_digits = self.template_prefix_digits.value() if hasattr(self, "template_prefix_digits") else 3
+            num_digits = (
+                self.template_prefix_digits.value()
+                if hasattr(self, "template_prefix_digits")
+                else 3
+            )
         elif numbering_mode == "Нумерация с датой":
-            current_num = self.template_date_start.value() if hasattr(self, "template_date_start") else 1
+            current_num = (
+                self.template_date_start.value() if hasattr(self, "template_date_start") else 1
+            )
             step = self.template_date_step.value() if hasattr(self, "template_date_step") else 1
-            num_digits = self.template_date_digits.value() if hasattr(self, "template_date_digits") else 3
+            num_digits = (
+                self.template_date_digits.value() if hasattr(self, "template_date_digits") else 3
+            )
         elif self.current_template == "Пользовательский шаблон":
             template = self.template_custom.text() if hasattr(self, "template_custom") else ""
             custom_settings = rt.parse_custom_template_settings(template)
@@ -178,7 +194,9 @@ class TemplateApplyMixin:
                 current_num += step
 
             elif self.current_template == "Дата в начале названия":
-                date_format_name = getattr(self, "template_original_date_format", QComboBox()).currentText()
+                date_format_name = getattr(
+                    self, "template_original_date_format", QComboBox()
+                ).currentText()
                 date_str = datetime.now().strftime(rt.get_date_format(date_format_name))
                 new_name = f"{date_str}{old_name}"
 
@@ -220,8 +238,12 @@ class TemplateApplyMixin:
             field.valueChanged.connect(lambda _value, self=self: self.refresh_rename_preview())
             field.valueChanged.connect(lambda _value, self=self: self._schedule_settings_save())
         for field in container.findChildren(QComboBox):
-            field.currentIndexChanged.connect(lambda _value, self=self: self.refresh_rename_preview())
-            field.currentIndexChanged.connect(lambda _value, self=self: self._schedule_settings_save())
+            field.currentIndexChanged.connect(
+                lambda _value, self=self: self.refresh_rename_preview()
+            )
+            field.currentIndexChanged.connect(
+                lambda _value, self=self: self._schedule_settings_save()
+            )
         for field in container.findChildren(QCheckBox):
             field.stateChanged.connect(lambda _value, self=self: self.refresh_rename_preview())
             field.stateChanged.connect(lambda _value, self=self: self._schedule_settings_save())

@@ -8,12 +8,12 @@ try:
 except ImportError:
     winreg = None
 
-from PyQt6.QtCore import Qt, QStandardPaths
+from PyQt6.QtCore import QStandardPaths, Qt
 from PyQt6.QtWidgets import QMessageBox
 
+from app.core.app_icons import _get_shortcut_icon_path
 from app.core.app_identity import APP_DISPLAY_NAME
 from app.core.app_utils import _debug_log, _log_ignored_error
-from app.core.app_icons import _get_shortcut_icon_path
 
 
 def _gui_python_executable() -> str:
@@ -50,12 +50,14 @@ class WindowsIntegrationMixin:
 
             icon_path = _get_shortcut_icon_path()
             if not icon_path:
-                icon_path = _gui_python_executable() if exe_path.lower().endswith(".py") else exe_path
+                icon_path = (
+                    _gui_python_executable() if exe_path.lower().endswith(".py") else exe_path
+                )
             if icon_path:
                 if icon_path.lower().endswith((".exe", ".dll")):
-                    icon_value = f"\"{icon_path}\",0"
+                    icon_value = f'"{icon_path}",0'
                 else:
-                    icon_value = f"\"{icon_path}\""
+                    icon_value = f'"{icon_path}"'
             else:
                 icon_value = None
 
@@ -183,7 +185,9 @@ class WindowsIntegrationMixin:
         except Exception as exc:
             self.log_event(f"Ошибка удаления контекстного меню: {exc}", "ERROR")
             try:
-                QMessageBox.critical(self, "Ошибка", f"Не удалось удалить контекстное меню.\n\n{exc}")
+                QMessageBox.critical(
+                    self, "Ошибка", f"Не удалось удалить контекстное меню.\n\n{exc}"
+                )
             except Exception as error:
                 _log_ignored_error("WindowsIntegrationMixin.unregister_context_menu", error)
             return False
@@ -256,7 +260,9 @@ class WindowsIntegrationMixin:
     def get_desktop_shortcut_path(self):
         """Возвращает путь ярлыка на рабочем столе."""
         try:
-            desktop_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DesktopLocation)
+            desktop_dir = QStandardPaths.writableLocation(
+                QStandardPaths.StandardLocation.DesktopLocation
+            )
             if not desktop_dir:
                 desktop_dir = os.path.join(os.path.expanduser("~"), "Desktop")
         except Exception:
@@ -266,7 +272,9 @@ class WindowsIntegrationMixin:
     def get_start_menu_shortcut_path(self):
         """Возвращает путь ярлыка в меню Пуск."""
         try:
-            start_dir = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.ApplicationsLocation)
+            start_dir = QStandardPaths.writableLocation(
+                QStandardPaths.StandardLocation.ApplicationsLocation
+            )
             if not start_dir:
                 start_dir = os.path.join(
                     os.path.expanduser("~"),
@@ -342,7 +350,9 @@ class WindowsIntegrationMixin:
             )
             if result.returncode != 0:
                 if not silent:
-                    QMessageBox.warning(self, "Ошибка", f"Не удалось создать ярлык: {result.stderr}")
+                    QMessageBox.warning(
+                        self, "Ошибка", f"Не удалось создать ярлык: {result.stderr}"
+                    )
                 self.log_event(f"Ошибка создания ярлыка: {result.stderr}", "ERROR")
                 return False
             return True

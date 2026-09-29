@@ -7,8 +7,8 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 from app.core.models import FileItem
 
-from .compression import CompressionMixin
 from .common import emit_progress, get_unique_path, record_file_error
+from .compression import CompressionMixin
 from .conversion import ConversionMixin
 from .merge import MergeMixin
 from .metadata import MetadataMixin
@@ -175,7 +175,7 @@ class FileWorker(
 
         total = len(self.files)
         updated_files: list[tuple[FileItem, str]] = []
-        for index, (file_item, new_name) in enumerate(zip(self.files, self.new_names)):
+        for index, (file_item, new_name) in enumerate(zip(self.files, self.new_names, strict=True)):
             if self._should_cancel():
                 break
 

@@ -2,13 +2,14 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import patch
 
 from app.core import app_ipc
 
 
 class _SocketStub:
-    instances = []
+    instances: ClassVar[list["_SocketStub"]] = []
 
     def __init__(self):
         self.server_name = None
@@ -89,9 +90,11 @@ class AppIpcTests(unittest.TestCase):
         _SocketStub.instances.clear()
         files = [r"C:\docs\one.pdf", r"C:\docs\two.docx"]
 
-        with patch.object(app_ipc, "QLocalSocket", _SocketStub), \
-            patch.object(app_ipc, "_load_ipc_token", return_value="secret"), \
-            patch.object(app_ipc, "_get_ipc_server_name", return_value="Multifora_IPC_test"):
+        with (
+            patch.object(app_ipc, "QLocalSocket", _SocketStub),
+            patch.object(app_ipc, "_load_ipc_token", return_value="secret"),
+            patch.object(app_ipc, "_get_ipc_server_name", return_value="Multifora_IPC_test"),
+        ):
             sent = app_ipc.send_files_to_running_instance(files, retries=1, delay=0)
 
         self.assertTrue(sent)

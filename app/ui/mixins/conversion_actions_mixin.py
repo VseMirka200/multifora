@@ -13,8 +13,8 @@ from app.core.conversion_formats import (
     matches_format,
     target_formats_for_category,
 )
-from app.core.models import FileItem
 from app.core.message_boxes import show_app_choice
+from app.core.models import FileItem
 from app.ui.ui_components import selected_file_items
 
 _CATEGORY_PLACEHOLDER = "Выберите тип файла:"
@@ -429,13 +429,9 @@ class ConversionActionsMixin:
         show_progress = getattr(self, "_show_progress_dialog", None)
         if callable(show_progress):
             skipped_suffix = (
-                f" (пропущено уже готовых: {skipped_same_target})"
-                if skipped_same_target
-                else ""
+                f" (пропущено уже готовых: {skipped_same_target})" if skipped_same_target else ""
             )
-            show_progress(
-                f"Конвертация {len(files)} файлов в {target_label}{skipped_suffix}..."
-            )
+            show_progress(f"Конвертация {len(files)} файлов в {target_label}{skipped_suffix}...")
 
     def _check_file_compatibility_dual(
         self,

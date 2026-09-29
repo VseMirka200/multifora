@@ -1,6 +1,6 @@
 """Базовые QSS-темы. Общее оформление полей и кнопок дополняется в ui_styles."""
 
-DARK_APPLICATION_STYLE = '''
+DARK_APPLICATION_STYLE = """
 QMainWindow {
     background-color: #2c2c2c;
 }
@@ -236,26 +236,6 @@ QComboBox:on::drop-down {
 QComboBox:hover {
     border: 1px solid #4f4f4f;
 }
-QToolButton#menu_like_combo {
-    font-size: 14px;
-    padding: 3px;
-    border: 1px solid #4f4f4f;
-    border-radius: 4px;
-    text-align: left;
-    padding-left: 6px;
-}
-QToolButton#menu_like_combo[menuOpen="true"] {
-    border-bottom-left-radius: 0px;
-    border-bottom-right-radius: 0px;
-}
-QToolButton#menu_like_combo::menu-indicator {
-    subcontrol-origin: padding;
-    subcontrol-position: right center;
-    right: 6px;
-}
-QToolButton#menu_like_combo:hover {
-    border: 1px solid #4f4f4f;
-}
 QToolButton#menu_like_combo[renameTemplateField="true"],
 QToolButton#menu_like_combo[renameTemplateField="true"]:hover,
 QToolButton#menu_like_combo[renameTemplateField="true"]:focus,
@@ -264,40 +244,6 @@ QWidget#template_params_widget QSpinBox[renameTemplateField="true"]:hover,
 QWidget#template_params_widget QSpinBox[renameTemplateField="true"]:focus {
     border: none;
     border-radius: 0px;
-}
-QComboBox QAbstractItemView {
-    background-color: #383838;
-    color: #f0f0f0;
-    border: 1px solid #4f4f4f;
-    outline: 0px;
-    border-radius: 0px;
-    padding: 0px;
-    margin: 0px;
-}
-QComboBox QListView {
-    background-color: #383838;
-    color: #f0f0f0;
-    border: 1px solid #4f4f4f;
-    border-radius: 0px;
-    margin: 0px;
-    padding: 0px;
-    outline: 0px;
-}
-QComboBox QListView::viewport {
-    background-color: #383838;
-    margin: 0px;
-    padding: 0px;
-}
-QComboBox QAbstractItemView::item {
-    padding: 4px 8px;
-    margin: 0px;
-    background-color: transparent;
-    color: #f0f0f0;
-}
-QComboBox QAbstractItemView::item:hover,
-QComboBox QAbstractItemView::item:selected {
-    background-color: rgba(255, 255, 255, 0.07);
-    color: #f0f0f0;
 }
 QLineEdit {
     font-size: 14px;
@@ -426,11 +372,6 @@ QListWidget#settings_nav::item:selected {
     border-radius: 0px;
     border: none;
 }
-QTabWidget::pane {
-    border: none;
-    border-radius: 0px;
-    background-color: #2c2c2c;
-}
 QTabBar::tab {
     padding: 2px 7px;
     font-size: 14px;
@@ -550,35 +491,9 @@ QHeaderView::section {
     padding: 4px;
     border: 1px solid #4f4f4f;
 }
-/* Фон раскрытого списка должен совпадать с фоном поля. */
-QComboBox QAbstractItemView,
-QComboBox QListView,
-QComboBox QListView::viewport {
-    background-color: #383838;
-    color: #f0f0f0;
-    font-family: "Segoe UI";
-    font-size: 14px;
-    font-weight: 600;
-    border: 1px solid #4f4f4f;
-    border-radius: 0px;
-    margin: 0px;
-    padding: 0px;
-    outline: 0px;
-}
-QComboBox QAbstractItemView::item {
-    padding: 6px 10px;
-    margin: 0px;
-    background-color: transparent;
-    color: #f0f0f0;
-}
-QComboBox QAbstractItemView::item:hover,
-QComboBox QAbstractItemView::item:selected {
-    background-color: rgba(255, 255, 255, 0.07);
-    color: #f0f0f0;
-}
-'''
+"""
 
-LIGHT_APPLICATION_STYLE = '''
+LIGHT_APPLICATION_STYLE = """
 QMainWindow, QWidget {
     background-color: #f3f3f3;
     color: #1f2328;
@@ -748,29 +663,6 @@ QDateTimeEdit {
 QLineEdit::placeholder {
     color: #6f7785;
 }
-QToolButton#menu_like_combo {
-    font-size: 14px;
-    padding: 3px;
-    border: 1px solid #c7cfda;
-    border-radius: 4px;
-    text-align: left;
-    padding-left: 6px;
-}
-QToolButton#menu_like_combo[menuOpen="true"] {
-    border-bottom-left-radius: 0px;
-    border-bottom-right-radius: 0px;
-}
-QToolButton#menu_like_combo::menu-indicator {
-    subcontrol-origin: padding;
-    subcontrol-position: right center;
-    right: 6px;
-}
-QToolButton#menu_like_combo:hover {
-    border: 1px solid #aab5c3;
-}
-QToolButton#menu_like_combo:disabled {
-    border: 1px solid #d6dbe2;
-}
 QListWidget#settings_nav {
     background-color: transparent;
     border: none;
@@ -803,36 +695,6 @@ QListWidget#settings_nav::item:selected {
     font-weight: 400;
     border-radius: 0px;
     border: none;
-}
-/* Force light dropdown popup even in dark theme (override generic QListView). */
-QComboBox QAbstractItemView,
-QComboBox QListView,
-QComboBox QListView::viewport {
-    background-color: #ffffff;
-    color: #1f2328;
-    border: 1px solid #c7cfda;
-    border-radius: 4px;
-    margin: 0px;
-    padding: 0px;
-    outline: 0px;
-}
-QComboBox:on {
-    border-bottom-left-radius: 0px;
-    border-bottom-right-radius: 0px;
-}
-QComboBox:on::drop-down {
-    border-bottom-right-radius: 0px;
-}
-QComboBox QAbstractItemView::item {
-    padding: 4px 8px;
-    margin: 1px 0px;
-    background-color: transparent;
-    color: #1f2328;
-}
-QComboBox QAbstractItemView::item:hover,
-QComboBox QAbstractItemView::item:selected {
-    background-color: rgba(61, 116, 179, 0.10);
-    color: #1f2328;
 }
 QListWidget {
     font-size: 13px;
@@ -895,11 +757,6 @@ QCheckBox::indicator:checked {
 QLabel:disabled,
 QCheckBox:disabled {
     color: #6f7785;
-}
-QTabWidget::pane {
-    border: none;
-    border-radius: 0px;
-    background-color: #f2f4f7;
 }
 QScrollArea {
     border: none;
@@ -993,7 +850,8 @@ QPushButton:disabled,
 QFrame#card QPushButton:disabled {
     background-color: transparent;
 }
-'''
+"""
+
 
 def _build_global_dropdown_style(
     *,
@@ -1003,9 +861,12 @@ def _build_global_dropdown_style(
     hover: str,
     separator: str,
     disabled: str,
+    scroll_track: str,
+    scroll_handle: str,
+    scroll_handle_hover: str,
 ) -> str:
     """Единое оформление всех раскрывающихся меню и списков приложения."""
-    return f'''
+    return f"""
 QMenu {{
     background-color: {background};
     color: {foreground};
@@ -1020,20 +881,24 @@ QMenu#header_dropdown_popup {{
     border-top-right-radius: 0px;
     border-bottom-left-radius: 4px;
     border-bottom-right-radius: 4px;
+    padding-bottom: 0px;
 }}
-QMenu::item {{
+QMenu::item,
+QMenu QListWidget#scrollable_filter_list::item {{
     padding: 4px 8px;
-    margin: 1px 0px;
-    background-color: transparent;
+    margin: 0px;
+    border: 0px;
+    background-color: {background};
     color: {foreground};
 }}
 QMenu::item:hover,
-QMenu::item:selected {{
+QMenu::item:selected,
+QMenu QListWidget#scrollable_filter_list::item:hover {{
     background-color: {hover};
     color: {foreground};
 }}
 QMenu::item:disabled {{
-    background-color: transparent;
+    background-color: {background};
     color: {disabled};
 }}
 QMenu::separator {{
@@ -1047,16 +912,48 @@ QMenu QListWidget#scrollable_filter_list {{
     outline: 0px;
     padding: 0px;
 }}
-QMenu QListWidget#scrollable_filter_list::item {{
-    padding: 4px 8px;
-    margin: 0px;
+QMenu QListWidget#scrollable_filter_list QScrollBar:vertical {{
+    background-color: {scroll_track};
     border: 0px;
-    background-color: transparent;
-    color: {foreground};
+    width: 14px;
+    margin: 14px 0px 14px 0px;
 }}
-QMenu QListWidget#scrollable_filter_list::item:hover {{
-    background-color: {hover};
-    color: {foreground};
+QMenu QListWidget#scrollable_filter_list QScrollBar::handle:vertical {{
+    background-color: {scroll_handle};
+    border: 0px;
+    border-radius: 3px;
+    min-height: 20px;
+}}
+QMenu QListWidget#scrollable_filter_list QScrollBar::handle:vertical:hover {{
+    background-color: {scroll_handle_hover};
+}}
+QMenu QListWidget#scrollable_filter_list QScrollBar::sub-line:vertical,
+QMenu QListWidget#scrollable_filter_list QScrollBar::add-line:vertical {{
+    background-color: {scroll_track};
+    border: 0px;
+    height: 14px;
+    width: 14px;
+    subcontrol-origin: margin;
+}}
+QMenu QListWidget#scrollable_filter_list QScrollBar::sub-line:vertical {{
+    subcontrol-position: top;
+}}
+QMenu QListWidget#scrollable_filter_list QScrollBar::add-line:vertical {{
+    subcontrol-position: bottom;
+}}
+QMenu QListWidget#scrollable_filter_list QScrollBar::up-arrow:vertical {{
+    image: url("__SCROLL_UP_URL__");
+    width: 8px;
+    height: 8px;
+}}
+QMenu QListWidget#scrollable_filter_list QScrollBar::down-arrow:vertical {{
+    image: url("__SCROLL_DOWN_URL__");
+    width: 8px;
+    height: 8px;
+}}
+QMenu QListWidget#scrollable_filter_list QScrollBar::add-page:vertical,
+QMenu QListWidget#scrollable_filter_list QScrollBar::sub-page:vertical {{
+    background-color: {scroll_track};
 }}
 QComboBox QAbstractItemView,
 QComboBox QListView,
@@ -1083,24 +980,30 @@ QComboBox QAbstractItemView::item:selected {{
     background-color: {hover};
     color: {foreground};
 }}
-'''
+"""
 
 
 DARK_APPLICATION_STYLE += _build_global_dropdown_style(
     background="#383838",
     foreground="#f0f0f0",
     border="#4f4f4f",
-    hover="rgba(255, 255, 255, 0.07)",
+    hover="#464646",
     separator="rgba(255, 255, 255, 0.18)",
     disabled="#a8a8a8",
+    scroll_track="#2f2f2f",
+    scroll_handle="#777777",
+    scroll_handle_hover="#909090",
 )
 LIGHT_APPLICATION_STYLE += _build_global_dropdown_style(
     background="#ffffff",
     foreground="#1f2328",
     border="#c7cfda",
-    hover="rgba(61, 116, 179, 0.10)",
+    hover="#ecf1f7",
     separator="rgba(0, 0, 0, 0.2)",
     disabled="#6f7785",
+    scroll_track="#eef1f5",
+    scroll_handle="#8f99a6",
+    scroll_handle_hover="#707b89",
 )
 
 

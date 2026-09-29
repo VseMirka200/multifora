@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QApplication,
     QDialog,
@@ -14,11 +15,10 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QSizePolicy,
 )
-from PyQt6.QtCore import Qt
 
 from app.core.models import FileItem
-from app.ui.ui_main import MultiforaMainWindow
 from app.ui.ui_components import ScrollableFilterMenu
+from app.ui.ui_main import MultiforaMainWindow
 from app.ui.ui_spacing import DIALOG_MARGINS, FIELD_HEIGHT
 from app.ui.ui_styles import build_standard_button_style
 
@@ -31,15 +31,17 @@ class MainWindowSmokeTests(unittest.TestCase):
     def test_main_window_builds_core_ui(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             settings_path = os.path.join(tmp_dir, "settings.json")
-            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
-                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+            with (
+                patch("app.core.settings.get_settings_file_path", return_value=settings_path),
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True),
+            ):
                 window = MultiforaMainWindow()
 
             try:
                 self.assertEqual(window.windowTitle(), "Мультифора")
-                self.assertIsNotNone(window.tabs)
+                self.assertFalse(hasattr(window, "tabs"))
                 self.assertIsNotNone(window.operations_stack)
                 self.assertGreaterEqual(window.operations_stack.count(), 5)
                 self.assertEqual(window.operations_tab_bar.count(), 5)
@@ -53,6 +55,8 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertTrue(hasattr(window, "btn_type_filter"))
                 self.assertIsInstance(window._ext_filter_menu, ScrollableFilterMenu)
                 self.assertIsInstance(window._type_filter_menu, ScrollableFilterMenu)
+                self.assertNotIn("__noext__", window._ext_filter_actions)
+                self.assertIn("__otherext__", window._ext_filter_actions)
                 self.assertEqual(
                     window._ext_filter_menu.filter_list.count(),
                     len(window._ext_filter_actions),
@@ -91,20 +95,18 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.update_file_list()
 
                 window._clear_type_filter_action.trigger()
-                self.assertTrue(all(
-                    not action.isChecked()
-                    for action in window._type_filter_actions.values()
-                ))
+                self.assertTrue(
+                    all(not action.isChecked() for action in window._type_filter_actions.values())
+                )
                 self.assertEqual(window.list_files.model().files(), [])
                 self.assertEqual(window.btn_type_filter.text(), "Выбрано: 0")
 
                 for action in window._type_filter_actions.values():
                     action.setChecked(True)
                 window._clear_ext_filter_action.trigger()
-                self.assertTrue(all(
-                    not action.isChecked()
-                    for action in window._ext_filter_actions.values()
-                ))
+                self.assertTrue(
+                    all(not action.isChecked() for action in window._ext_filter_actions.values())
+                )
                 self.assertEqual(window.list_files.model().files(), [])
                 self.assertEqual(window.btn_ext_filter.text(), "Выбрано: 0")
 
@@ -170,10 +172,12 @@ class MainWindowSmokeTests(unittest.TestCase):
                 )
                 links_layout = window.about_link_buttons[0].parentWidget().layout()
                 self.assertIsInstance(links_layout, QHBoxLayout)
-                self.assertTrue(all(
-                    button.parentWidget() is window.about_link_buttons[0].parentWidget()
-                    for button in window.about_link_buttons
-                ))
+                self.assertTrue(
+                    all(
+                        button.parentWidget() is window.about_link_buttons[0].parentWidget()
+                        for button in window.about_link_buttons
+                    )
+                )
                 with patch(
                     "app.ui.mixins.settings_panel_mixin.QDesktopServices.openUrl",
                     return_value=True,
@@ -245,10 +249,12 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.btn_settings.click()
                 self.assertFalse(window.settings_panel_host.isHidden())
                 self.assertEqual(window.operations_tab_bar.currentIndex(), original_index)
-                self.assertTrue(all(
-                    window.operations_tab_bar.isTabVisible(index)
-                    for index in range(window.operations_tab_bar.count())
-                ))
+                self.assertTrue(
+                    all(
+                        window.operations_tab_bar.isTabVisible(index)
+                        for index in range(window.operations_tab_bar.count())
+                    )
+                )
                 window.operations_tab_bar.tabBarClicked.emit(original_index)
                 self.assertTrue(window.settings_panel_host.isHidden())
                 self.assertFalse(window.btn_settings.isChecked())
@@ -278,16 +284,17 @@ class MainWindowSmokeTests(unittest.TestCase):
     def test_progress_dialog_expands_for_wrapped_status(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             settings_path = os.path.join(tmp_dir, "settings.json")
-            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
-                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+            with (
+                patch("app.core.settings.get_settings_file_path", return_value=settings_path),
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True),
+            ):
                 window = MultiforaMainWindow()
 
             try:
                 window._show_progress_dialog(
-                    "PDF сжат и заменен (Ghostscript (Авто (стандарт))): "
-                    "ВСР 15.pdf (-38.7%)"
+                    "PDF сжат и заменен (Ghostscript (Авто (стандарт))): ВСР 15.pdf (-38.7%)"
                 )
                 self.app.processEvents()
 
@@ -312,10 +319,12 @@ class MainWindowSmokeTests(unittest.TestCase):
     def test_rename_history_opens_as_modal_dialog(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             settings_path = os.path.join(tmp_dir, "settings.json")
-            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
-                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+            with (
+                patch("app.core.settings.get_settings_file_path", return_value=settings_path),
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True),
+            ):
                 window = MultiforaMainWindow()
 
             captured = {}
@@ -376,10 +385,12 @@ class MainWindowSmokeTests(unittest.TestCase):
                     stream.write(b"test")
 
             settings_path = os.path.join(tmp_dir, "settings.json")
-            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
-                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+            with (
+                patch("app.core.settings.get_settings_file_path", return_value=settings_path),
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True),
+            ):
                 window = MultiforaMainWindow()
 
             try:
@@ -425,10 +436,12 @@ class MainWindowSmokeTests(unittest.TestCase):
                     stream.write(b"test")
 
             settings_path = os.path.join(tmp_dir, "settings.json")
-            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
-                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+            with (
+                patch("app.core.settings.get_settings_file_path", return_value=settings_path),
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True),
+            ):
                 window = MultiforaMainWindow()
 
             try:
@@ -439,13 +452,15 @@ class MainWindowSmokeTests(unittest.TestCase):
 
                 self.assertTrue(window.list_files.dragEnabled())
                 self.assertEqual(window.list_files.model().rowCount(), 2)
-                self.assertTrue(window.list_files.model().moveRows(
-                    window.list_files.rootIndex(),
-                    0,
-                    1,
-                    window.list_files.rootIndex(),
-                    2,
-                ))
+                self.assertTrue(
+                    window.list_files.model().moveRows(
+                        window.list_files.rootIndex(),
+                        0,
+                        1,
+                        window.list_files.rootIndex(),
+                        2,
+                    )
+                )
                 window.on_list_order_changed()
 
                 self.assertEqual(
@@ -464,10 +479,12 @@ class MainWindowSmokeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             settings_path = os.path.join(tmp_dir, "settings.json")
             export_path = os.path.join(tmp_dir, "filtered_logs.txt")
-            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
-                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+            with (
+                patch("app.core.settings.get_settings_file_path", return_value=settings_path),
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True),
+            ):
                 window = MultiforaMainWindow()
 
             try:
@@ -485,7 +502,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 ):
                     window.download_visible_logs()
 
-                with open(export_path, "r", encoding="utf-8") as exported:
+                with open(export_path, encoding="utf-8") as exported:
                     content = exported.read()
                 self.assertIn("Тестовая ошибка", content)
                 self.assertNotIn("Запуск", content)
@@ -503,10 +520,12 @@ class MainWindowSmokeTests(unittest.TestCase):
                 f.write(b"x")
 
             settings_path = os.path.join(tmp_dir, "settings.json")
-            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
-                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+            with (
+                patch("app.core.settings.get_settings_file_path", return_value=settings_path),
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True),
+            ):
                 window = MultiforaMainWindow()
 
             try:
@@ -550,10 +569,12 @@ class MainWindowSmokeTests(unittest.TestCase):
                     stream.write(b"pdf")
 
             settings_path = os.path.join(tmp_dir, "settings.json")
-            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
-                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+            with (
+                patch("app.core.settings.get_settings_file_path", return_value=settings_path),
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True),
+            ):
                 window = MultiforaMainWindow()
 
             try:
@@ -593,10 +614,12 @@ class MainWindowSmokeTests(unittest.TestCase):
                     stream.write(b"test")
 
             settings_path = os.path.join(tmp_dir, "settings.json")
-            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
-                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+            with (
+                patch("app.core.settings.get_settings_file_path", return_value=settings_path),
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True),
+            ):
                 window = MultiforaMainWindow()
 
             try:
@@ -652,10 +675,12 @@ class MainWindowSmokeTests(unittest.TestCase):
     def test_custom_template_quick_commands_insert_at_cursor(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             settings_path = os.path.join(tmp_dir, "settings.json")
-            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
-                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+            with (
+                patch("app.core.settings.get_settings_file_path", return_value=settings_path),
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True),
+            ):
                 window = MultiforaMainWindow()
 
             try:
@@ -663,8 +688,15 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(
                     set(window.template_quick_insert_buttons),
                     {
-                        "{name}", "{num:03d,start=1,step=1}", "{date}", "{ext}",
-                        "{created}", "{modified}", "{exif_date}", "{width}", "{height}",
+                        "{name}",
+                        "{num:03d,start=1,step=1}",
+                        "{date}",
+                        "{ext}",
+                        "{created}",
+                        "{modified}",
+                        "{exif_date}",
+                        "{width}",
+                        "{height}",
                     },
                 )
 
@@ -704,10 +736,12 @@ class MainWindowSmokeTests(unittest.TestCase):
                     paths.append(path)
 
             settings_path = os.path.join(tmp_dir, "settings.json")
-            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
-                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+            with (
+                patch("app.core.settings.get_settings_file_path", return_value=settings_path),
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True),
+            ):
                 window = MultiforaMainWindow()
 
             try:
@@ -731,10 +765,12 @@ class MainWindowSmokeTests(unittest.TestCase):
     def test_regex_and_case_controls_exist_without_advanced_rename_options(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             settings_path = os.path.join(tmp_dir, "settings.json")
-            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
-                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+            with (
+                patch("app.core.settings.get_settings_file_path", return_value=settings_path),
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True),
+            ):
                 window = MultiforaMainWindow()
 
             try:
@@ -778,10 +814,12 @@ class MainWindowSmokeTests(unittest.TestCase):
     def test_template_manager_actions_are_full_width_and_apply_selection(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             settings_path = os.path.join(tmp_dir, "settings.json")
-            with patch("app.core.settings.get_settings_file_path", return_value=settings_path), \
-                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None), \
-                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
+            with (
+                patch("app.core.settings.get_settings_file_path", return_value=settings_path),
+                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
+                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
+                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True),
+            ):
                 window = MultiforaMainWindow()
 
             dialog = None
@@ -807,11 +845,16 @@ class MainWindowSmokeTests(unittest.TestCase):
                 card_layout = window.templates_table.parentWidget().layout()
                 self.assertEqual(card_layout.spacing(), 4)
                 actions_row = window.btn_apply_template.parentWidget()
-                self.assertGreater(card_layout.indexOf(actions_row), card_layout.indexOf(window.templates_table))
+                self.assertGreater(
+                    card_layout.indexOf(actions_row), card_layout.indexOf(window.templates_table)
+                )
 
+                action_buttons = {
+                    button.text(): button for button in actions_row.findChildren(QPushButton)
+                }
                 for button in (
-                    window.btn_export_templates,
-                    window.btn_import_templates,
+                    action_buttons["Экспорт шаблонов"],
+                    action_buttons["Импорт шаблонов"],
                     window.btn_apply_template,
                 ):
                     self.assertEqual(
@@ -838,60 +881,69 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.deleteLater()
 
     def test_metadata_buttons_dispatch_selected_and_all_fields(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            with patch("app.core.settings.get_settings_file_path", return_value=os.path.join(tmp_dir, "settings.json")), \
-                patch.object(MultiforaMainWindow, "apply_shortcut_settings"), \
-                patch.object(MultiforaMainWindow, "create_ipc_server"), \
-                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True):
-                window = MultiforaMainWindow()
-                try:
+        with (
+            tempfile.TemporaryDirectory() as tmp_dir,
+            patch(
+                "app.core.settings.get_settings_file_path",
+                return_value=os.path.join(tmp_dir, "settings.json"),
+            ),
+            patch.object(MultiforaMainWindow, "apply_shortcut_settings"),
+            patch.object(MultiforaMainWindow, "create_ipc_server"),
+            patch.object(MultiforaMainWindow, "create_file_worker", return_value=True),
+        ):
+            window = MultiforaMainWindow()
+            try:
+                self.assertFalse(window.btn_remove_metadata.isEnabled())
+                self.assertFalse(window.btn_remove_all_metadata.isEnabled())
+                document = Mock(path=os.path.join(tmp_dir, "document.pdf"))
+                window.file_worker = Mock()
+                window.file_worker.isRunning.return_value = False
+                with (
+                    patch.object(
+                        window, "_get_selected_or_all_file_items", return_value=[document]
+                    ),
+                    patch.object(window, "show_russian_message_box", return_value=True),
+                    patch.object(window, "_show_progress_dialog"),
+                ):
+                    window._update_metadata_controls()
                     self.assertFalse(window.btn_remove_metadata.isEnabled())
-                    self.assertFalse(window.btn_remove_all_metadata.isEnabled())
-                    document = Mock(path=os.path.join(tmp_dir, "document.pdf"))
-                    window.file_worker = Mock()
-                    window.file_worker.isRunning.return_value = False
-                    with patch.object(window, "_get_selected_or_all_file_items", return_value=[document]), \
-                        patch.object(window, "show_russian_message_box", return_value=True), \
-                        patch.object(window, "_show_progress_dialog"):
-                        window._update_metadata_controls()
-                        self.assertFalse(window.btn_remove_metadata.isEnabled())
-                        self.assertTrue(window.btn_remove_all_metadata.isEnabled())
-                        window.metadata_field_checkboxes["author"].setChecked(True)
-                        window.btn_remove_metadata.click()
-                        window.file_worker.set_metadata_cleanup.assert_called_with(
-                            [document], remove_all=False, fields=["author"]
-                        )
-                        window.btn_remove_all_metadata.click()
-                        window.file_worker.set_metadata_cleanup.assert_called_with(
-                            [document], remove_all=True, fields=[]
-                        )
-                        window.metadata_field_checkboxes["author"].setChecked(False)
-                        self.assertFalse(window.btn_remove_metadata.isEnabled())
-                        window.btn_remove_all_metadata.click()
-                        self.assertEqual(window.file_worker.start.call_count, 3)
-                    for name in ("document.pdf", "image.png"):
-                        with open(os.path.join(tmp_dir, name), "wb") as source:
-                            source.write(b"test")
-                    document_item = FileItem(os.path.join(tmp_dir, "document.pdf"))
-                    image_item = FileItem(os.path.join(tmp_dir, "image.png"))
-                    window.files = [document_item, image_item]
-                    window.update_file_list()
                     self.assertTrue(window.btn_remove_all_metadata.isEnabled())
                     window.metadata_field_checkboxes["author"].setChecked(True)
-                    self.assertTrue(window.btn_remove_metadata.isEnabled())
-                    window.list_files.select_paths([image_item.path])
-                    self.assertFalse(window.btn_remove_all_metadata.isEnabled())
+                    window.btn_remove_metadata.click()
+                    window.file_worker.set_metadata_cleanup.assert_called_with(
+                        [document], remove_all=False, fields=["author"]
+                    )
+                    window.btn_remove_all_metadata.click()
+                    window.file_worker.set_metadata_cleanup.assert_called_with(
+                        [document], remove_all=True, fields=[]
+                    )
+                    window.metadata_field_checkboxes["author"].setChecked(False)
                     self.assertFalse(window.btn_remove_metadata.isEnabled())
-                    window.list_files.clearSelection()
-                    self.assertTrue(window.btn_remove_all_metadata.isEnabled())
-                    window.files = []
-                    window.update_file_list()
-                    self.assertFalse(window.btn_remove_all_metadata.isEnabled())
-                    self.assertFalse(window.btn_remove_metadata.isEnabled())
-                finally:
-                    window.queue_timer.stop()
-                    window._settings_save_timer.stop()
-                    window.deleteLater()
+                    window.btn_remove_all_metadata.click()
+                    self.assertEqual(window.file_worker.start.call_count, 3)
+                for name in ("document.pdf", "image.png"):
+                    with open(os.path.join(tmp_dir, name), "wb") as source:
+                        source.write(b"test")
+                document_item = FileItem(os.path.join(tmp_dir, "document.pdf"))
+                image_item = FileItem(os.path.join(tmp_dir, "image.png"))
+                window.files = [document_item, image_item]
+                window.update_file_list()
+                self.assertTrue(window.btn_remove_all_metadata.isEnabled())
+                window.metadata_field_checkboxes["author"].setChecked(True)
+                self.assertTrue(window.btn_remove_metadata.isEnabled())
+                window.list_files.select_paths([image_item.path])
+                self.assertFalse(window.btn_remove_all_metadata.isEnabled())
+                self.assertFalse(window.btn_remove_metadata.isEnabled())
+                window.list_files.clearSelection()
+                self.assertTrue(window.btn_remove_all_metadata.isEnabled())
+                window.files = []
+                window.update_file_list()
+                self.assertFalse(window.btn_remove_all_metadata.isEnabled())
+                self.assertFalse(window.btn_remove_metadata.isEnabled())
+            finally:
+                window.queue_timer.stop()
+                window._settings_save_timer.stop()
+                window.deleteLater()
 
 
 if __name__ == "__main__":

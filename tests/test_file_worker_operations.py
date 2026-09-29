@@ -77,5 +77,6 @@ class FileWorkerOperationTests(unittest.TestCase):
 
         rename.assert_called_once_with(source.path, "C:/files/renamed_1.txt")
 
+
 if __name__ == "__main__":
     unittest.main()
