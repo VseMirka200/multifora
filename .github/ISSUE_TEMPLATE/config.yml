@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Документация
-    url: https://github.com/VseMirka200/multifora/blob/main/docs/README.md
-    about: Перед созданием обращения проверьте руководства и решение проблем.
+  - name: Поддержка
+    url: https://github.com/VseMirka200/multifora/blob/main/docs/SUPPORT.md
+    about: Перед созданием обращения проверьте README, поддержку и существующие задачи.

@@ -157,7 +157,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window._ensure_about_settings_page()
                 about_page = window.settings_stack.widget(window._about_settings_row)
                 about_texts = [label.text() for label in about_page.findChildren(QLabel)]
-                self.assertIn("Версия: 0.9.0", about_texts)
+                self.assertIn("Версия: 1.0.0", about_texts)
                 self.assertEqual(
                     [button.text() for button in window.about_link_buttons],
                     [

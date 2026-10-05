@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 class WindowsContextMenuRegistrationTests(unittest.TestCase):
-    def test_multiselect_model_is_player(self):
+    def test_multiselect_model_invokes_each_selected_path(self):
         source = Path("app/ui/mixins/windows_integration_mixin.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
 
@@ -17,9 +17,9 @@ class WindowsContextMenuRegistrationTests(unittest.TestCase):
 
         value = values.get("_CONTEXT_MENU_MULTISELECT_MODEL")
         self.assertIsInstance(value, ast.Constant)
-        self.assertEqual(value.value, "Player")
+        self.assertEqual(value.value, "Document")
 
-    def test_context_menu_passes_selected_path(self):
+    def test_context_menu_passes_each_selected_path(self):
         source = Path("app/ui/mixins/windows_integration_mixin.py").read_text(encoding="utf-8")
 
         self.assertIn("return f'{base_cmd} \"%1\"'", source)

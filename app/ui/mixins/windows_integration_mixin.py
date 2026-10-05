@@ -40,7 +40,9 @@ class WindowsIntegrationMixin:
         r"Software\Classes\*\shell\AddToMultifora",
         r"Software\Classes\Directory\shell\AddToMultifora",
     )
-    _CONTEXT_MENU_MULTISELECT_MODEL = "Player"
+    # Для legacy-команды Document запускает обработчик для каждого выделенного
+    # элемента. Последующие процессы передают свои пути первому экземпляру по IPC.
+    _CONTEXT_MENU_MULTISELECT_MODEL = "Document"
 
     def register_context_menu(self):
         """Регистрирует пункт контекстного меню Windows (HKCU, без админа)."""
@@ -66,8 +68,8 @@ class WindowsIntegrationMixin:
             for root in self._CONTEXT_MENU_ROOTS:
                 with winreg.CreateKey(winreg.HKEY_CURRENT_USER, root) as key:
                     winreg.SetValueEx(key, "MUIVerb", 0, winreg.REG_SZ, "Добавить в Мультифору")
-                    # Player разрешает legacy-команде работать с большим множественным
-                    # выбором. Document ограничивает пункт контекстного меню 15 элементами.
+                    # Document вызывает legacy-команду отдельно для каждого элемента;
+                    # приложение объединяет эти вызовы через IPC.
                     winreg.SetValueEx(
                         key,
                         "MultiSelectModel",
@@ -131,7 +133,7 @@ class WindowsIntegrationMixin:
                 return True
 
             self.log_event(
-                "Обновляю контекстное меню для выбора более 15 файлов...",
+                "Обновляю обработчик множественного выбора контекстного меню...",
                 "INFO",
             )
             success = self.register_context_menu()
