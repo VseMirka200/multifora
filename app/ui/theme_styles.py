@@ -48,6 +48,15 @@ QFrame#settings_card {
 QFrame#settings_card QWidget {
     background-color: transparent;
 }
+QFrame#settings_card QLabel[aboutVersionBadge="true"] {
+    background-color: #383838;
+    color: #c9d1d9;
+    border: 1px solid #555555;
+    border-radius: 10px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
 QFrame#settings_section_separator {
     background-color: rgba(255, 255, 255, 0.38);
     border: none;
@@ -523,6 +532,15 @@ QFrame#settings_card {
 }
 QFrame#settings_card QWidget {
     background-color: transparent;
+}
+QFrame#settings_card QLabel[aboutVersionBadge="true"] {
+    background-color: #ffffff;
+    color: #57606a;
+    border: 1px solid #d0d7de;
+    border-radius: 10px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 600;
 }
 QFrame#settings_section_separator {
     background-color: rgba(0, 0, 0, 0.36);

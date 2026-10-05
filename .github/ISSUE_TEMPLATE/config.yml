@@ -2,4 +2,4 @@ blank_issues_enabled: false
 contact_links:
   - name: Поддержка
     url: https://github.com/VseMirka200/multifora/blob/main/docs/SUPPORT.md
-    about: Перед созданием обращения проверьте README, поддержку и существующие задачи.
+    about: Перед созданием обращения проверьте README, раздел «Поддержка» и существующие задачи.

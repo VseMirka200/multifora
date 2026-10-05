@@ -29,7 +29,6 @@ from app.core.app_utils import _log_ignored_error
 from app.core.conversion_formats import CATEGORY_SOURCE_FORMATS
 from app.core.update_checker import (
     ISSUES_PAGE,
-    RELEASES_PAGE,
     REPO_PAGE,
     check_for_updates,
     download_update_installer,
@@ -55,7 +54,9 @@ from app.ui.ui_spacing import (
     SETTINGS_PANEL_COLUMN_GAP,
     SETTINGS_PANEL_MARGINS,
     SPACE_NONE,
+    SPACE_LG,
     SPACE_SM,
+    SPACE_XL,
 )
 
 
@@ -235,17 +236,50 @@ class SettingsPanelMixin:
             self.settings_stack.widget(self._about_settings_row).layout().setAlignment(
                 Qt.AlignmentFlag.AlignTop
             )
-            icon = QLabel()
-            icon.setPixmap(QIcon(_get_app_icon_qt_path() or "").pixmap(64, 64))
-            layout.addWidget(icon)
-            title = QLabel(f"{APP_DISPLAY_NAME} ({APP_TECHNICAL_NAME})")
-            font = title.font()
-            font.setPointSize(18)
-            font.setBold(True)
-            title.setFont(font)
-            layout.addWidget(title)
+
+            about_header = QWidget()
+            about_header.setObjectName("about_header")
+            about_header.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            about_header_layout = QVBoxLayout(about_header)
+            about_header_layout.setContentsMargins(0, SPACE_LG, 0, SPACE_XL)
+            about_header_layout.setSpacing(SPACE_SM)
+            about_header_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+
+            self.about_icon_label = QLabel()
+            self.about_icon_label.setPixmap(QIcon(_get_app_icon_qt_path() or "").pixmap(80, 80))
+            self.about_icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            about_header_layout.addWidget(
+                self.about_icon_label,
+                0,
+                Qt.AlignmentFlag.AlignHCenter,
+            )
+
+            self.about_title_label = QLabel(f"{APP_DISPLAY_NAME} ({APP_TECHNICAL_NAME})")
+            title_font = self.about_title_label.font()
+            title_font.setPointSize(18)
+            title_font.setBold(True)
+            self.about_title_label.setFont(title_font)
+            self.about_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            about_header_layout.addWidget(
+                self.about_title_label,
+                0,
+                Qt.AlignmentFlag.AlignHCenter,
+            )
+
+            self.about_version_label = QLabel(f"Версия: {APP_VERSION}")
+            self.about_version_label.setProperty("aboutVersionBadge", True)
+            self.about_version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.about_version_label.setTextInteractionFlags(
+                Qt.TextInteractionFlag.TextSelectableByMouse
+            )
+            about_header_layout.addWidget(
+                self.about_version_label,
+                0,
+                Qt.AlignmentFlag.AlignHCenter,
+            )
+            layout.addWidget(about_header)
+
             paragraphs = [
-                f"Версия: {APP_VERSION}",
                 "Приложение для пакетной обработки файлов и папок. "
                 "Добавляйте файлы кнопками или перетаскивайте их в окно.",
                 "Возможности: переименование по шаблонам с предварительным просмотром "
@@ -270,13 +304,13 @@ class SettingsPanelMixin:
                 layout.addWidget(label)
             about_links = (
                 ("Описание и исходный код", REPO_PAGE),
-                ("Скачать последнюю версию", RELEASES_PAGE),
                 ("Обратная связь", ISSUES_PAGE),
             )
             links_row = QWidget()
             links_layout = QHBoxLayout(links_row)
             links_layout.setContentsMargins(*MARGINS_NONE)
             links_layout.setSpacing(SPACE_SM)
+            links_layout.addStretch()
             self.about_link_buttons = []
             for caption, url in about_links:
                 button = QPushButton(caption)

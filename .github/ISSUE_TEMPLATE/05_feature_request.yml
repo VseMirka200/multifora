@@ -1,0 +1,44 @@
+name: Предложить улучшение
+description: Новая функция или изменение поведения Мультифоры
+title: "[Предложение]: "
+labels:
+  - улучшение
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Задача пользователя
+      description: Какую проблему или неудобство должно решить предложение?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Предлагаемое решение
+      description: Опишите желаемое поведение и пример использования.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Альтернативы
+      description: Какие другие варианты или обходные решения рассматривались?
+  - type: textarea
+    id: context
+    attributes:
+      label: Дополнительный контекст
+      description: Макеты, снимки экрана, похожие решения или технические ограничения.
+  - type: checkboxes
+    id: participation
+    attributes:
+      label: Участие в реализации
+      options:
+        - label: Я готов обсудить детали решения.
+        - label: Я готов подготовить Pull Request после согласования.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Проверка перед отправкой
+      options:
+        - label: Я проверил существующие Issues и не нашёл такого предложения.
+          required: true

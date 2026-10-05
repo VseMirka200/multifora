@@ -11,9 +11,10 @@
   <a href="https://github.com/VseMirka200/multifora/actions/workflows/ci.yml"><img alt="Тесты" src="https://github.com/VseMirka200/multifora/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Платформа: Windows" src="https://img.shields.io/badge/platform-Windows-0078D4">
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-3776AB">
+  <a href="LICENSE"><img alt="Лицензия MIT" src="https://img.shields.io/badge/license-MIT-2ea44f"></a>
 </p>
 
-Мультифора — настольное приложение для массовой работы с документами и изображениями. Оно объединяет очередь файлов, предварительный просмотр результатов и несколько операций в одном интерфейсе.
+Мультифора — бесплатное настольное приложение с открытым исходным кодом для массовой работы с документами и изображениями. Оно объединяет очередь файлов, предварительный просмотр результатов и несколько операций в одном интерфейсе.
 
 > Перед заменой исходных файлов сделайте резервную копию. Проверяйте предварительный результат, особенно при переименовании, конвертации и удалении метаданных.
 
@@ -38,6 +39,13 @@
 
 Для переносного запуска скачайте ZIP-архив, распакуйте его полностью и запустите `Multifora.exe`. Контрольные суммы SHA-256 публикуются рядом с файлами выпуска.
 
+### Дополнительные компоненты
+
+Основные функции доступны сразу после установки. Для отдельных операций могут потребоваться:
+
+- Microsoft Word — для работы с некоторыми документами DOC и преобразования документов с сохранением сложного оформления;
+- [Ghostscript](https://ghostscript.com/releases/gsdnld.html) — для сжатия PDF.
+
 ## Быстрый старт
 
 1. Добавьте файлы или папку в очередь.
@@ -54,15 +62,21 @@
 - [История изменений](CHANGELOG.md)
 - [Архитектура](docs/ARCHITECTURE.md)
 - [Подготовка выпуска](docs/RELEASING.md)
+- [Лицензия MIT](LICENSE)
 
 ## Обратная связь
 
-- Для воспроизводимых ошибок используйте [шаблон сообщения об ошибке](https://github.com/VseMirka200/multifora/issues/new/choose).
-- Для предложений создайте Feature Request.
+- [Общая ошибка](https://github.com/VseMirka200/multifora/issues/new?template=01_bug_report.yml)
+- [Установка или обновление](https://github.com/VseMirka200/multifora/issues/new?template=02_installation_update.yml)
+- [Обработка файлов](https://github.com/VseMirka200/multifora/issues/new?template=03_file_processing.yml)
+- [Производительность](https://github.com/VseMirka200/multifora/issues/new?template=04_performance.yml)
+- [Предложить улучшение](https://github.com/VseMirka200/multifora/issues/new?template=05_feature_request.yml)
+- [Исправить документацию](https://github.com/VseMirka200/multifora/issues/new?template=06_documentation.yml)
+- [Задать вопрос](https://github.com/VseMirka200/multifora/issues/new?template=07_question.yml)
 - Уязвимости не публикуйте в Issues — следуйте [политике безопасности](docs/SECURITY.md).
 
 Перед отправкой журнала удалите из него личные пути, имена файлов и содержимое документов.
 
 ## Лицензия
 
-В репозитории пока нет файла `LICENSE`. До выбора и публикации лицензии стандартные права на исходный код сохраняются за правообладателем; отсутствие лицензии не означает разрешение на копирование и распространение. Владельцу проекта следует явно выбрать лицензию перед приёмом внешних вкладов или распространением производных сборок.
+Мультифора распространяется по лицензии [MIT](LICENSE). Вы можете использовать, изменять и распространять код при сохранении текста лицензии и уведомления об авторских правах.

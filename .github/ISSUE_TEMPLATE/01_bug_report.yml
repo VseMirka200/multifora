@@ -1,0 +1,80 @@
+name: Сообщить об ошибке
+description: Воспроизводимая проблема в работе Мультифоры
+title: "[Ошибка]: "
+labels:
+  - ошибка
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за сообщение. Не публикуйте документы, личные пути, токены и другие конфиденциальные данные. Об уязвимостях сообщайте через раздел Security.
+  - type: input
+    id: app-version
+    attributes:
+      label: Версия Мультифоры
+      description: Версия указана в разделе «О программе».
+      placeholder: Например, 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: windows-version
+    attributes:
+      label: Версия Windows
+      placeholder: Например, Windows 11 24H2
+    validations:
+      required: true
+  - type: dropdown
+    id: launch-method
+    attributes:
+      label: Способ запуска
+      options:
+        - Установщик
+        - Переносная ZIP-версия
+        - Исходный код
+        - Другое
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Описание проблемы
+      description: Кратко и однозначно опишите, что работает неправильно.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги воспроизведения
+      placeholder: |
+        1. Добавить…
+        2. Выбрать…
+        3. Нажать…
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидаемый результат
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Фактический результат
+      description: Укажите полный текст ошибки, если он появился.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Дополнительные сведения
+      description: Форматы и количество файлов, повторяемость, снимки экрана или очищенный журнал.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Проверка перед отправкой
+      options:
+        - label: Я проверил существующие Issues и не нашёл такого сообщения.
+          required: true
+        - label: Я удалил из текста и вложений конфиденциальные данные.
+          required: true

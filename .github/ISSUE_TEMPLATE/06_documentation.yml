@@ -1,0 +1,40 @@
+name: Исправить документацию
+description: Неточность, пропуск или непонятное место в документации
+title: "[Документация]: "
+labels:
+  - документация
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Страница или раздел
+      description: Укажите ссылку, путь к файлу или название раздела.
+      placeholder: Например, README.md — раздел «Установка»
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Что нужно исправить
+      description: Опишите неточность, устаревшую информацию или недостающую инструкцию.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Предлагаемая формулировка
+      description: Если возможно, предложите исправленный текст или структуру.
+  - type: textarea
+    id: context
+    attributes:
+      label: Дополнительный контекст
+      description: Версия приложения, снимок экрана или причина, по которой текст был непонятен.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Проверка перед отправкой
+      options:
+        - label: Я проверил актуальную версию документации в ветке main.
+          required: true
+        - label: Я проверил существующие Issues.
+          required: true

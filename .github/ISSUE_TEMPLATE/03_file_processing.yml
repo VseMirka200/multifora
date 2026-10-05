@@ -1,0 +1,77 @@
+name: Проблема обработки файла
+description: Ошибка переименования, конвертации, объединения, сжатия или метаданных
+title: "[Обработка файлов]: "
+labels:
+  - ошибка
+  - обработка файлов
+body:
+  - type: dropdown
+    id: operation
+    attributes:
+      label: Операция
+      options:
+        - Переименование
+        - Конвертация
+        - Объединение
+        - Сжатие
+        - Удаление метаданных
+        - Добавление файлов в очередь
+        - Другое
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: Версия Мультифоры
+      placeholder: Например, 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: formats
+    attributes:
+      label: Исходный и целевой форматы
+      placeholder: Например, DOCX → PDF или PNG
+    validations:
+      required: true
+  - type: input
+    id: file-count
+    attributes:
+      label: Количество и примерный размер файлов
+      placeholder: Например, 25 файлов по 2–5 МБ
+    validations:
+      required: true
+  - type: textarea
+    id: settings
+    attributes:
+      label: Параметры операции
+      description: Укажите выбранные настройки без содержимого личных документов.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги воспроизведения
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидаемый результат
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Фактический результат
+      description: Укажите текст ошибки и приложите очищенный журнал, если он есть.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Проверка перед отправкой
+      options:
+        - label: Проблема повторяется на файле без конфиденциальных данных либо без приложения исходного файла.
+          required: true
+        - label: Я проверил существующие Issues.
+          required: true

@@ -1,0 +1,68 @@
+name: Проблема установки или обновления
+description: Ошибка установщика, ZIP-версии, запуска или обновления
+title: "[Установка]: "
+labels:
+  - ошибка
+  - установка
+body:
+  - type: markdown
+    attributes:
+      value: Не прикладывайте персональные данные, ключи и неочищенные журналы.
+  - type: dropdown
+    id: scenario
+    attributes:
+      label: Сценарий
+      options:
+        - Установка через EXE
+        - Обновление установленной версии
+        - Запуск переносной ZIP-версии
+        - Запуск из исходного кода
+        - Удаление приложения
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: Версия Мультифоры
+      placeholder: Например, 1.0.0 или версия, до которой выполняется обновление
+    validations:
+      required: true
+  - type: input
+    id: previous-version
+    attributes:
+      label: Предыдущая версия
+      description: Заполните при обновлении.
+  - type: input
+    id: windows-version
+    attributes:
+      label: Версия и разрядность Windows
+      placeholder: Например, Windows 11 24H2, x64
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Выполненные действия
+      description: Укажите источник файла и последовательность действий.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Результат и текст ошибки
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Диагностические сведения
+      description: Очищенный журнал, снимок экрана, сведения антивируса или код завершения.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Проверка перед отправкой
+      options:
+        - label: Файл скачан из официального раздела Releases этого репозитория.
+          required: true
+        - label: Я проверил существующие Issues и удалил конфиденциальные данные.
+          required: true

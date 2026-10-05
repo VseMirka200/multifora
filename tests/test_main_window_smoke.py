@@ -159,10 +159,22 @@ class MainWindowSmokeTests(unittest.TestCase):
                 about_texts = [label.text() for label in about_page.findChildren(QLabel)]
                 self.assertIn("Версия: 1.0.0", about_texts)
                 self.assertEqual(
+                    window.about_icon_label.alignment(),
+                    Qt.AlignmentFlag.AlignCenter,
+                )
+                self.assertEqual(
+                    window.about_title_label.alignment(),
+                    Qt.AlignmentFlag.AlignCenter,
+                )
+                self.assertEqual(
+                    window.about_version_label.alignment(),
+                    Qt.AlignmentFlag.AlignCenter,
+                )
+                self.assertTrue(window.about_version_label.property("aboutVersionBadge"))
+                self.assertEqual(
                     [button.text() for button in window.about_link_buttons],
                     [
                         "Описание и исходный код",
-                        "Скачать последнюю версию",
                         "Обратная связь",
                     ],
                 )
@@ -172,6 +184,10 @@ class MainWindowSmokeTests(unittest.TestCase):
                 )
                 links_layout = window.about_link_buttons[0].parentWidget().layout()
                 self.assertIsInstance(links_layout, QHBoxLayout)
+                self.assertIsNotNone(links_layout.itemAt(0).spacerItem())
+                self.assertIsNotNone(
+                    links_layout.itemAt(links_layout.count() - 1).spacerItem()
+                )
                 self.assertTrue(
                     all(
                         button.parentWidget() is window.about_link_buttons[0].parentWidget()
@@ -188,7 +204,6 @@ class MainWindowSmokeTests(unittest.TestCase):
                     [call.args[0].toString() for call in open_url.call_args_list],
                     [
                         "https://github.com/VseMirka200/multifora",
-                        "https://github.com/VseMirka200/multifora/releases/latest",
                         "https://github.com/VseMirka200/multifora/issues/new/choose",
                     ],
                 )

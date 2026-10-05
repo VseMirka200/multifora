@@ -1,0 +1,59 @@
+name: Задать вопрос
+description: Вопрос об установке, настройке или использовании Мультифоры
+title: "[Вопрос]: "
+labels:
+  - вопрос
+body:
+  - type: markdown
+    attributes:
+      value: Перед отправкой проверьте README, раздел «Поддержка» и существующие Issues.
+  - type: dropdown
+    id: topic
+    attributes:
+      label: Тема вопроса
+      options:
+        - Установка или обновление
+        - Переименование
+        - Конвертация
+        - Объединение
+        - Сжатие
+        - Удаление метаданных
+        - Настройки и интерфейс
+        - Разработка и участие в проекте
+        - Другое
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: Версия Мультифоры
+      description: Оставьте пустым, если вопрос не зависит от версии.
+      placeholder: Например, 1.0.0
+  - type: textarea
+    id: question
+    attributes:
+      label: Вопрос
+      description: Сформулируйте вопрос и желаемый результат.
+    validations:
+      required: true
+  - type: textarea
+    id: attempts
+    attributes:
+      label: Что уже пробовали
+      description: Укажите просмотренные инструкции, настройки и полученный результат.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Дополнительные сведения
+      description: Добавьте безопасный пример или снимок экрана без личных данных.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Проверка перед отправкой
+      options:
+        - label: Это не сообщение об уязвимости безопасности.
+          required: true
+        - label: Я удалил из текста и вложений конфиденциальные данные.
+          required: true
