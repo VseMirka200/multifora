@@ -15,7 +15,6 @@ RELEASES_LATEST_API = f"https://api.github.com/repos/{REPO}/releases/latest"
 TAGS_API = f"https://api.github.com/repos/{REPO}/tags"
 RELEASES_PAGE = f"https://github.com/{REPO}/releases/latest"
 REPO_PAGE = f"https://github.com/{REPO}"
-ISSUES_PAGE = f"https://github.com/{REPO}/issues/new/choose"
 _INSTALLER_NAME_RE = re.compile(r"^Multifora-Setup-.*\.exe$", re.IGNORECASE)
 _SHA256_RE = re.compile(r"\b([0-9a-fA-F]{64})\b")
 

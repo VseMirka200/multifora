@@ -15,7 +15,6 @@ AppVersion={#MyAppVersion}
 AppVerName={#MyAppDisplayName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
-AppSupportURL={#MyAppURL}/issues
 AppUpdatesURL={#MyAppURL}/releases/latest
 DefaultDirName={localappdata}\Programs\{#MyAppName}
 DefaultGroupName={#MyAppDisplayName}

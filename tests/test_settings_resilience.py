@@ -31,7 +31,30 @@ class _DummyCheckbox:
         return self.checked
 
 
+class _DummyNavigation:
+    def __init__(self, count=5):
+        self._count = count
+        self.current_row = -1
+
+    def count(self):
+        return self._count
+
+    def setCurrentRow(self, row):
+        self.current_row = row
+
+
 class SettingsResilienceTests(unittest.TestCase):
+    @staticmethod
+    def _attach_auto_clear_checkboxes(window):
+        for attribute_name in (
+            "auto_clear_rename_checkbox",
+            "auto_clear_convert_checkbox",
+            "auto_clear_merge_checkbox",
+            "auto_clear_compress_checkbox",
+            "auto_clear_metadata_checkbox",
+        ):
+            setattr(window, attribute_name, _DummyCheckbox())
+
     def test_load_settings_handles_corrupted_json(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings_path = os.path.join(tmpdir, "settings.json")
@@ -98,6 +121,85 @@ class SettingsResilienceTests(unittest.TestCase):
         data = settings._collect_settings_data(window)
         self.assertEqual(data["image_compression_output_mode"], "custom")
         self.assertEqual(data["image_compression_output_path"], r"C:\output")
+
+    def test_auto_clear_can_be_configured_per_operation(self):
+        window = _DummyWindow()
+        self._attach_auto_clear_checkboxes(window)
+        settings._initialize_settings_defaults(window)
+
+        self.assertFalse(window.auto_clear_rename_checkbox.isChecked())
+        self.assertTrue(window.auto_clear_convert_checkbox.isChecked())
+
+        settings._apply_settings_data(
+            window,
+            {
+                "auto_clear_by_operation": {
+                    "rename": True,
+                    "convert": False,
+                    "merge": True,
+                    "compress": False,
+                    "metadata": True,
+                }
+            },
+        )
+        window.custom_templates = {}
+        window.ghostscript_path_override = None
+
+        data = settings._collect_settings_data(window)
+
+        self.assertEqual(
+            data["auto_clear_by_operation"],
+            {
+                "rename": True,
+                "convert": False,
+                "merge": True,
+                "compress": False,
+                "metadata": True,
+            },
+        )
+
+    def test_legacy_auto_clear_is_migrated_to_every_operation(self):
+        window = _DummyWindow()
+        self._attach_auto_clear_checkboxes(window)
+        settings._initialize_settings_defaults(window)
+
+        settings._apply_settings_data(window, {"auto_clear": True})
+
+        self.assertTrue(window.auto_clear_rename_checkbox.isChecked())
+        self.assertTrue(window.auto_clear_convert_checkbox.isChecked())
+        self.assertTrue(window.auto_clear_merge_checkbox.isChecked())
+        self.assertTrue(window.auto_clear_compress_checkbox.isChecked())
+        self.assertTrue(window.auto_clear_metadata_checkbox.isChecked())
+
+    def test_removed_auto_clear_navigation_page_is_migrated_to_main(self):
+        window = _DummyWindow()
+        window.settings_nav = _DummyNavigation()
+
+        settings._restore_navigation_state(
+            window,
+            {
+                "settings_nav_current_row": 3,
+                "auto_clear_by_operation": {},
+            },
+        )
+
+        self.assertEqual(window._pending_settings_nav_row, 0)
+        self.assertEqual(window.settings_nav.current_row, 0)
+
+    def test_about_navigation_row_is_restored_after_auto_clear_page_removal(self):
+        window = _DummyWindow()
+        window.settings_nav = _DummyNavigation(count=4)
+
+        settings._restore_navigation_state(
+            window,
+            {
+                "settings_nav_current_row": 4,
+                "auto_clear_by_operation": {},
+            },
+        )
+
+        self.assertEqual(window._pending_settings_nav_row, 3)
+        self.assertEqual(window.settings_nav.current_row, 3)
 
     def test_auto_update_check_uses_checkbox_as_single_source_of_truth(self):
         window = _DummyWindow()

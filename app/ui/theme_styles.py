@@ -909,6 +909,10 @@ QMenu QListWidget#scrollable_filter_list::item {{
     background-color: {background};
     color: {foreground};
 }}
+QMenu#header_dropdown_popup::item {{
+    padding-left: 4px;
+    padding-right: 4px;
+}}
 QMenu::item:hover,
 QMenu::item:selected,
 QMenu QListWidget#scrollable_filter_list::item:hover {{

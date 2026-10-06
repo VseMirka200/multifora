@@ -28,7 +28,6 @@ from app.core.app_identity import APP_DISPLAY_NAME, APP_TECHNICAL_NAME, APP_VERS
 from app.core.app_utils import _log_ignored_error
 from app.core.conversion_formats import CATEGORY_SOURCE_FORMATS
 from app.core.update_checker import (
-    ISSUES_PAGE,
     REPO_PAGE,
     check_for_updates,
     download_update_installer,
@@ -37,6 +36,7 @@ from app.core.update_checker import (
 from app.ui.ui_components import (
     LeftAlignedToolButton,
     MenuLikeComboBox,
+    setup_clickable_checkbox_label,
     setup_compact_checkbox,
     setup_standard_action_button,
     setup_standard_dropdown,
@@ -53,20 +53,16 @@ from app.ui.ui_spacing import (
     MARGINS_NONE,
     SETTINGS_PANEL_COLUMN_GAP,
     SETTINGS_PANEL_MARGINS,
-    SPACE_NONE,
     SPACE_LG,
+    SPACE_NONE,
     SPACE_SM,
     SPACE_XL,
 )
+from app.ui.ui_styles import SETTINGS_SECTION_TITLE_STYLE
 
 
 class SettingsPanelMixin:
     # Создаёт страницы настроек по мере открытия и связывает поля с состоянием окна.
-    @staticmethod
-    def _setup_settings_checkbox(checkbox: QCheckBox):
-        setup_compact_checkbox(checkbox)
-        return checkbox
-
     def _create_settings_checkbox_row(self, text: str, tooltip: str = ""):
         row = QWidget()
         layout = QHBoxLayout(row)
@@ -76,23 +72,14 @@ class SettingsPanelMixin:
         checkbox = QCheckBox()
         checkbox.setFixedSize(CHECKBOX_SIZE, CHECKBOX_SIZE)
         checkbox.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self._setup_settings_checkbox(checkbox)
+        setup_compact_checkbox(checkbox)
         if tooltip:
             checkbox.setToolTip(tooltip)
         layout.addWidget(checkbox, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
         label = QLabel(text)
-        label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        label.setCursor(Qt.CursorShape.PointingHandCursor)
-        if tooltip:
-            label.setToolTip(tooltip)
+        setup_clickable_checkbox_label(label, checkbox, tooltip=tooltip)
         layout.addWidget(label, 1, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-
-        def _toggle_checkbox(_event):
-            if checkbox.isEnabled():
-                checkbox.toggle()
-
-        label.mouseReleaseEvent = _toggle_checkbox
         return row, checkbox
 
     def _create_settings_select_row(
@@ -302,10 +289,7 @@ class SettingsPanelMixin:
                 label.setWordWrap(True)
                 label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
                 layout.addWidget(label)
-            about_links = (
-                ("Описание и исходный код", REPO_PAGE),
-                ("Обратная связь", ISSUES_PAGE),
-            )
+            about_links = (("Описание и исходный код", REPO_PAGE),)
             links_row = QWidget()
             links_layout = QHBoxLayout(links_row)
             links_layout.setContentsMargins(*MARGINS_NONE)
@@ -315,8 +299,6 @@ class SettingsPanelMixin:
             for caption, url in about_links:
                 button = QPushButton(caption)
                 setup_standard_action_button(button)
-                if url == ISSUES_PAGE:
-                    button.setToolTip("Сообщить об ошибке или предложить улучшение")
                 button.clicked.connect(
                     lambda _checked=False, target=url: QDesktopServices.openUrl(QUrl(target))
                 )
@@ -383,7 +365,7 @@ class SettingsPanelMixin:
             font.setPointSize(16)
             font.setBold(True)
             label.setFont(font)
-            label.setStyleSheet("font-size: 16px; font-weight: 800; margin: 0px; padding: 0px;")
+            label.setStyleSheet(SETTINGS_SECTION_TITLE_STYLE)
             label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             label.setFixedHeight(24)
             label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
@@ -418,13 +400,6 @@ class SettingsPanelMixin:
 
         _add_settings_section_divider(main_card_layout)
         _add_settings_section_title(main_card_layout, "Поведение")
-
-        auto_clear_row, self.auto_clear_checkbox = self._create_settings_checkbox_row(
-            "Автоматически очищать список после операций",
-            "После завершения копирования/переименования/конвертации список файлов будет очищен автоматически.",
-        )
-        self.auto_clear_checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
-        main_card_layout.addWidget(auto_clear_row)
 
         disable_warning_row, self.disable_warning_dialogs_checkbox = (
             self._create_settings_checkbox_row(
@@ -474,6 +449,51 @@ class SettingsPanelMixin:
             lambda _state: self._schedule_settings_save()
         )
         main_card_layout.addWidget(context_menu_row)
+
+        _add_settings_section_divider(main_card_layout)
+        _add_settings_section_title(main_card_layout, "Автоочистка списка")
+
+        auto_clear_description = QLabel(
+            "Выберите операции, после успешного завершения которых весь список будет очищен. "
+            "Сами файлы на диске не удаляются."
+        )
+        auto_clear_description.setWordWrap(True)
+        main_card_layout.addWidget(auto_clear_description)
+        main_card_layout.addSpacing(SPACE_SM)
+
+        auto_clear_options = (
+            (
+                "auto_clear_rename_checkbox",
+                "После переименования",
+                "Оставьте выключенным, чтобы продолжить работу с переименованными файлами.",
+            ),
+            (
+                "auto_clear_convert_checkbox",
+                "После конвертации",
+                "Убирает исходные и созданные файлы из списка после конвертации.",
+            ),
+            (
+                "auto_clear_merge_checkbox",
+                "После объединения",
+                "Очищает список после создания объединенного документа.",
+            ),
+            (
+                "auto_clear_compress_checkbox",
+                "После сжатия",
+                "Очищает список после сжатия изображений или PDF.",
+            ),
+            (
+                "auto_clear_metadata_checkbox",
+                "После удаления метаданных",
+                "Очищает список после обработки метаданных документов.",
+            ),
+        )
+        for attribute_name, label, tooltip in auto_clear_options:
+            row, checkbox = self._create_settings_checkbox_row(label, tooltip)
+            setattr(self, attribute_name, checkbox)
+            checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
+            main_card_layout.addWidget(row)
+        self.auto_clear_convert_checkbox.setChecked(True)
         main_card_layout.addStretch()
 
         updates_card_layout = self._add_settings_page()
@@ -735,7 +755,12 @@ class SettingsPanelMixin:
         self._update_poll_timer.start()
 
     def _on_disable_warning_dialogs_changed(self, state):
-        self.disable_warning_dialogs = state == Qt.CheckState.Checked.value
+        checkbox = getattr(self, "disable_warning_dialogs_checkbox", None)
+        self.disable_warning_dialogs = bool(
+            checkbox.isChecked()
+            if checkbox is not None
+            else state == Qt.CheckState.Checked.value
+        )
 
     def _poll_update_future(self):
         if not getattr(self, "_update_future", None):

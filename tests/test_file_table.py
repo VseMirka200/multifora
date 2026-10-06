@@ -5,6 +5,7 @@ from types import SimpleNamespace
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt6.QtCore import Qt
+from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QAbstractItemView, QApplication, QHeaderView
 
 from app.ui.ui_components import FileListModel, FileListWidget
@@ -114,6 +115,49 @@ class FileTableTests(unittest.TestCase):
             header.sectionResizeMode(widget.model().COLUMN_PATH),
             QHeaderView.ResizeMode.Interactive,
         )
+
+    def test_mouse_click_selects_complete_rows_and_ctrl_adds_rows(self):
+        widget = FileListWidget()
+        widget.resize(640, 240)
+        widget.set_files(
+            [
+                SimpleNamespace(path="one.docx", name="one.docx", is_file=True),
+                SimpleNamespace(path="two.docx", name="two.docx", is_file=True),
+                SimpleNamespace(path="three.docx", name="three.docx", is_file=True),
+            ]
+        )
+        widget.show()
+        self.app.processEvents()
+
+        second_row_cell = widget.model().index(1, widget.model().COLUMN_NEW_NAME)
+        QTest.mouseClick(
+            widget.viewport(),
+            Qt.MouseButton.LeftButton,
+            pos=widget.visualRect(second_row_cell).center(),
+        )
+        self.assertEqual(
+            [index.row() for index in widget.selectionModel().selectedRows()],
+            [1],
+        )
+        self.assertTrue(
+            all(
+                widget.selectionModel().isSelected(widget.model().index(1, column))
+                for column in range(widget.model().columnCount())
+            )
+        )
+
+        third_row_cell = widget.model().index(2, widget.model().COLUMN_OLD_NAME)
+        QTest.mouseClick(
+            widget.viewport(),
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.ControlModifier,
+            widget.visualRect(third_row_cell).center(),
+        )
+        self.assertEqual(
+            [index.row() for index in widget.selectionModel().selectedRows()],
+            [1, 2],
+        )
+        widget.close()
 
 
 if __name__ == "__main__":

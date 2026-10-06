@@ -9,6 +9,21 @@ _DEFAULT_THEME_MODE = "system"
 _VALID_THEME_MODES = {_DEFAULT_THEME_MODE, "dark", "light"}
 _SETTINGS_FILENAME = "multifora_settings.json"
 
+_AUTO_CLEAR_CHECKBOXES = {
+    "rename": "auto_clear_rename_checkbox",
+    "convert": "auto_clear_convert_checkbox",
+    "merge": "auto_clear_merge_checkbox",
+    "compress": "auto_clear_compress_checkbox",
+    "metadata": "auto_clear_metadata_checkbox",
+}
+_AUTO_CLEAR_DEFAULTS = {
+    "rename": False,
+    "convert": True,
+    "merge": False,
+    "compress": False,
+    "metadata": False,
+}
+
 
 def _log_settings_error(context: str, error: Exception) -> None:
     _debug_log(f"Ошибка {context}: {error}")
@@ -164,7 +179,6 @@ def _initialize_settings_defaults(window) -> None:
     window._rename_history = []
 
     checkbox_defaults = {
-        "auto_clear_checkbox": False,
         "context_menu_checkbox": False,
         "desktop_shortcut_checkbox": False,
         "start_menu_shortcut_checkbox": False,
@@ -173,6 +187,11 @@ def _initialize_settings_defaults(window) -> None:
     }
     for attribute_name, checked in checkbox_defaults.items():
         _set_checkbox_state(getattr(window, attribute_name, None), checked)
+    for operation, attribute_name in _AUTO_CLEAR_CHECKBOXES.items():
+        _set_checkbox_state(
+            getattr(window, attribute_name, None),
+            _AUTO_CLEAR_DEFAULTS[operation],
+        )
 
 
 def _restore_boolean_option(
@@ -196,6 +215,13 @@ def _restore_navigation_state(window, data: dict) -> None:
         except (TypeError, ValueError) as error:
             _log_settings_error("восстановления раздела настроек", error)
         else:
+            if "auto_clear_by_operation" in data:
+                # В предыдущей раскладке строка 3 была отдельной страницей
+                # «Автоочистка», а строка 4 — страницей «О программе».
+                if settings_row == 3:
+                    settings_row = 0
+                elif settings_row == 4:
+                    settings_row = 3
             if settings_row >= 0:
                 window._pending_settings_nav_row = settings_row
                 settings_nav = getattr(window, "settings_nav", None)
@@ -347,8 +373,16 @@ def _restore_image_compression_output_settings(window, data: dict) -> None:
 def _apply_settings_data(window, data: dict) -> None:
     if "custom_templates" in data:
         window.custom_templates = data["custom_templates"]
-    if "auto_clear" in data:
-        _set_checkbox_state(getattr(window, "auto_clear_checkbox", None), data["auto_clear"])
+    auto_clear_by_operation = data.get("auto_clear_by_operation")
+    if isinstance(auto_clear_by_operation, dict):
+        for operation, attribute_name in _AUTO_CLEAR_CHECKBOXES.items():
+            value = auto_clear_by_operation.get(operation, _AUTO_CLEAR_DEFAULTS[operation])
+            _set_checkbox_state(getattr(window, attribute_name, None), bool(value))
+    elif "auto_clear" in data:
+        # Старый общий флаг переносится на все операции без изменения поведения.
+        legacy_value = bool(data["auto_clear"])
+        for attribute_name in _AUTO_CLEAR_CHECKBOXES.values():
+            _set_checkbox_state(getattr(window, attribute_name, None), legacy_value)
 
     boolean_options = (
         (
@@ -481,7 +515,13 @@ def _collect_settings_data(window) -> dict:
 
     return {
         "custom_templates": window.custom_templates,
-        "auto_clear": window.auto_clear_checkbox.isChecked(),
+        "auto_clear_by_operation": {
+            operation: bool(
+                getattr(window, attribute_name, None)
+                and getattr(window, attribute_name).isChecked()
+            )
+            for operation, attribute_name in _AUTO_CLEAR_CHECKBOXES.items()
+        },
         "windows_context_menu": window.windows_context_menu_enabled,
         "ghostscript_path": window.ghostscript_path_override,
         "desktop_shortcut": window.desktop_shortcut_enabled,

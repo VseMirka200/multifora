@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
 from app.core.conversion_formats import CONVERSION_CATEGORIES
 from app.ui.ui_components import (
     MenuLikeComboBox,
+    setup_clickable_checkbox_label,
     setup_compact_checkbox,
     setup_standard_action_button,
     setup_standard_danger_button,
@@ -36,7 +37,10 @@ from app.ui.ui_spacing import (
     SPACE_SM,
     TAB_BAR_HEIGHT,
 )
-from app.ui.ui_styles import build_operations_tab_bar_style
+from app.ui.ui_styles import (
+    build_operations_settings_button_style,
+    build_operations_tab_bar_style,
+)
 
 
 class OperationsTabLayoutMixin:
@@ -52,15 +56,9 @@ class OperationsTabLayoutMixin:
                 "light" if str(getattr(self, "theme_mode", "dark")).lower() == "light" else "dark"
             )
         tab_bar.setStyleSheet(build_operations_tab_bar_style(effective))
-        foreground = "#202833" if effective == "light" else "#e3e6ea"
         button = getattr(self, "btn_settings", None)
         if button is not None:
-            button.setStyleSheet(f"""
-                QPushButton {{ color: {foreground}; background: transparent;
-                    border: none; border-bottom: 1px solid transparent;
-                    border-radius: 0px; padding: 0px 2px; font-weight: 500; }}
-                QPushButton:checked {{ border-bottom: 1px solid {foreground}; }}
-            """)
+            button.setStyleSheet(build_operations_settings_button_style(effective))
 
     def _build_rename_action_row(
         self,
@@ -167,9 +165,10 @@ class OperationsTabLayoutMixin:
         layout.addWidget(checkbox, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         layout.addSpacing(SPACE_SM)
 
-        label = QLabel("Заменять файлы")
-        label.setFixedHeight(CONTROL_HEIGHT)
-        layout.addWidget(label, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.replace_files_label = QLabel("Заменять файлы")
+        self.replace_files_label.setFixedHeight(CONTROL_HEIGHT)
+        setup_clickable_checkbox_label(self.replace_files_label, checkbox, tooltip=tooltip)
+        layout.addWidget(self.replace_files_label, 0, Qt.AlignmentFlag.AlignVCenter)
         layout.addStretch()
         return row
 

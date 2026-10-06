@@ -63,23 +63,25 @@ from app.ui.ui_spacing import (
     SPACE_XS,
 )
 from app.ui.ui_styles import (
+    COMPACT_CHECKBOX_STYLE,
+    FILE_LIST_DRAG_ACTIVE_STYLE,
+    FILE_LIST_HEADER_STYLE,
+    STANDARD_FORM_LABEL_STYLE,
     build_drop_action_tile_style,
     build_drop_action_tile_text_style,
     build_standard_button_style,
     build_standard_field_style,
 )
 
-_build_standard_field_style = build_standard_field_style
-
 
 def apply_standard_field_style(widget):
     theme = _resolve_widget_theme_mode(widget)
     name = widget.objectName() if hasattr(widget, "objectName") else ""
     if isinstance(widget, MenuLikeComboBox):
-        widget.setStyleSheet(_build_standard_field_style(theme, "menu"))
+        widget.setStyleSheet(build_standard_field_style(theme, "menu"))
         return widget
     if isinstance(widget, QComboBox):
-        widget.setStyleSheet(_build_standard_field_style(theme, "combo"))
+        widget.setStyleSheet(build_standard_field_style(theme, "combo"))
         try:
             view = QListView(widget)
             view.setSpacing(0)
@@ -90,22 +92,22 @@ def apply_standard_field_style(widget):
             _log_ignored_error("apply_standard_field_style", error)
         return widget
     if isinstance(widget, QAbstractSpinBox):
-        widget.setStyleSheet(_build_standard_field_style(theme, "spin"))
+        widget.setStyleSheet(build_standard_field_style(theme, "spin"))
         return widget
     if isinstance(widget, QTextEdit):
-        widget.setStyleSheet(_build_standard_field_style(theme, "textedit"))
+        widget.setStyleSheet(build_standard_field_style(theme, "textedit"))
         return widget
     if isinstance(widget, QLineEdit):
         if name == "header_cell_br":
-            widget.setStyleSheet(_build_standard_field_style(theme, "header"))
+            widget.setStyleSheet(build_standard_field_style(theme, "header"))
             return widget
-        widget.setStyleSheet(_build_standard_field_style(theme, "line"))
+        widget.setStyleSheet(build_standard_field_style(theme, "line"))
         return widget
     if isinstance(widget, QToolButton) and name in {"header_cell_tl", "header_cell_tr"}:
-        widget.setStyleSheet(_build_standard_field_style(theme, "header"))
+        widget.setStyleSheet(build_standard_field_style(theme, "header"))
         return widget
     if isinstance(widget, QAbstractItemView) and name == "files_list":
-        widget.setStyleSheet(_build_standard_field_style(theme, "surface"))
+        widget.setStyleSheet(build_standard_field_style(theme, "surface"))
         return widget
     return widget
 
@@ -130,18 +132,6 @@ def refresh_standard_field_styles(root: QWidget):
                 apply_standard_field_style(widget)
     except Exception as error:
         _log_ignored_error("refresh_standard_field_styles", error)
-    return root
-
-
-def refresh_standard_surface_styles(root: QWidget):
-    if root is None:
-        return root
-    try:
-        for widget in root.findChildren(QAbstractItemView):
-            if widget.objectName() == "files_list":
-                apply_standard_field_style(widget)
-    except Exception as error:
-        _log_ignored_error("refresh_standard_surface_styles", error)
     return root
 
 
@@ -406,19 +396,29 @@ def setup_standard_form_label(widget, *, align: Qt.AlignmentFlag = Qt.AlignmentF
     widget.setAlignment(align | Qt.AlignmentFlag.AlignVCenter)
     widget.setWordWrap(True)
     widget.setFixedHeight(18)
-    widget.setStyleSheet("font-size: 13px; margin: 0px; padding: 0px;")
+    widget.setStyleSheet(STANDARD_FORM_LABEL_STYLE)
     return widget
 
 
 def setup_compact_checkbox(widget):
-    widget.setStyleSheet(
-        """
-        QCheckBox {
-            margin-top: 1px;
-        }
-        """
-    )
+    widget.setStyleSheet(COMPACT_CHECKBOX_STYLE)
     return widget
+
+
+def setup_clickable_checkbox_label(label: QLabel, checkbox, *, tooltip: str = "") -> QLabel:
+    """Связывает подпись с чекбоксом без дублирования обработчиков мыши."""
+    label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+    label.setCursor(Qt.CursorShape.PointingHandCursor)
+    if tooltip:
+        label.setToolTip(tooltip)
+
+    def toggle_checkbox(event):
+        if event.button() == Qt.MouseButton.LeftButton and checkbox.isEnabled():
+            checkbox.toggle()
+            event.accept()
+
+    label.mouseReleaseEvent = toggle_checkbox
+    return label
 
 
 def setup_standard_dialog(
@@ -634,6 +634,11 @@ class ScrollableFilterMenu(QMenu):
             flags = Qt.ItemFlag.NoItemFlags
         item.setFlags(flags)
 
+    def sync_filter_items(self) -> None:
+        """Обновляет видимые отметки после группового изменения действий."""
+        for action in self._filter_actions:
+            self._sync_filter_item(action)
+
     def _toggle_filter_item(self, item: QListWidgetItem) -> None:
         if self._filter_list is None:
             return
@@ -649,8 +654,13 @@ class ScrollableFilterMenu(QMenu):
             return 1
         visible_limit = self._preferred_visible_items
         if available_popup_height is not None:
-            # Верхнее действие, разделитель, рамка и небольшой запас меню.
-            reserved_height = FIELD_HEIGHT + 16
+            # Верхние команды, разделители, рамка и небольшой запас меню.
+            command_count = sum(
+                1
+                for action in self.actions()
+                if not isinstance(action, QWidgetAction) and not action.isSeparator()
+            )
+            reserved_height = FIELD_HEIGHT * command_count + 16
             usable_height = max(FIELD_HEIGHT * 2, available_popup_height - reserved_height)
             visible_limit = min(visible_limit, max(2, usable_height // FIELD_HEIGHT))
         return max(1, min(action_count, visible_limit))
@@ -1062,9 +1072,7 @@ class FileListWidget(QTableView):
         self.setShowGrid(False)
         self.verticalHeader().hide()
         header = self.horizontalHeader()
-        header.setStyleSheet(
-            "QHeaderView::section {background: transparent;border: none;padding: 4px 6px;}"
-        )
+        header.setStyleSheet(FILE_LIST_HEADER_STYLE)
         header.setStretchLastSection(True)
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.setMouseTracking(True)
@@ -1171,13 +1179,7 @@ class FileListWidget(QTableView):
         if event.source() == self and self.dragEnabled():
             event.acceptProposedAction()
         elif event.mimeData().hasUrls():
-            self.setStyleSheet(
-                """
-                QTableView {
-                    border: 2px dashed #3d74b3;
-                }
-                """
-            )
+            self.setStyleSheet(FILE_LIST_DRAG_ACTIVE_STYLE)
             event.accept()
         else:
             event.ignore()

@@ -16,6 +16,18 @@ class WorkerOpsMixin:
             return files
         return [file_item for file_item in self.files if getattr(file_item, "is_file", False)]
 
+    def _should_auto_clear_after_operation(self) -> bool:
+        operation = str((self._last_operation or {}).get("op", ""))
+        checkbox_names = {
+            "rename": "auto_clear_rename_checkbox",
+            "convert": "auto_clear_convert_checkbox",
+            "merge": "auto_clear_merge_checkbox",
+            "compress": "auto_clear_compress_checkbox",
+            "metadata": "auto_clear_metadata_checkbox",
+        }
+        checkbox = getattr(self, checkbox_names.get(operation, ""), None)
+        return bool(checkbox is not None and checkbox.isChecked())
+
     @staticmethod
     def _detect_merge_output_format(files: list[FileItem]) -> str | None:
         extensions = {os.path.splitext(str(getattr(file, "path", "")))[1].lower() for file in files}
@@ -405,7 +417,9 @@ class WorkerOpsMixin:
         if callable(getattr(self, "_update_compress_button", None)):
             self._update_compress_button()
 
-        auto_clear = self.auto_clear_checkbox.isChecked()
+        # При частичном сбое список сохраняется, чтобы пользователь мог увидеть
+        # проблемные файлы и повторить операцию.
+        auto_clear = not errors and self._should_auto_clear_after_operation()
         if auto_clear:
             self.files.clear()
             self.list_files.clear()

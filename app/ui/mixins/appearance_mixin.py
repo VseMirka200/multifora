@@ -14,7 +14,6 @@ from app.ui.theme_styles import APPLICATION_STYLES
 from app.ui.ui_components import (
     refresh_standard_button_styles,
     refresh_standard_field_styles,
-    refresh_standard_surface_styles,
     setup_standard_dropdown,
 )
 from app.ui.ui_styles import build_tab_content_style_block
@@ -40,7 +39,6 @@ class AppearanceMixin:
             dialog.setStyleSheet("")
             refresh_standard_button_styles(dialog)
             refresh_standard_field_styles(dialog)
-            refresh_standard_surface_styles(dialog)
         except Exception as error:
             _log_ignored_error("AppearanceMixin._apply_detached_theme_style", error)
 

@@ -70,6 +70,14 @@ class ThemeStyleAuditTests(unittest.TestCase):
             ].split("}", 1)[0]
             self.assertIn(f"background-color: {hover}", menu_hover)
 
+    def test_header_dropdown_commands_use_compact_horizontal_padding(self):
+        for style in (LIGHT_APPLICATION_STYLE, DARK_APPLICATION_STYLE):
+            selector = "QMenu#header_dropdown_popup::item {"
+            self.assertIn(selector, style)
+            menu_items = style.split(selector, 1)[1].split("}", 1)[0]
+            self.assertIn("padding-left: 4px", menu_items)
+            self.assertIn("padding-right: 4px", menu_items)
+
     def test_scrollable_dropdown_has_vertical_arrow_buttons(self):
         for style, track, handle in (
             (LIGHT_APPLICATION_STYLE, "#eef1f5", "#8f99a6"),

@@ -71,7 +71,6 @@ from app.ui.ui_components import (
     apply_standard_field_style,
     refresh_standard_button_styles,
     refresh_standard_field_styles,
-    refresh_standard_surface_styles,
     selected_file_items,
     setup_standard_danger_button,
     setup_standard_dialog,
@@ -94,6 +93,9 @@ from app.ui.ui_spacing import (
     SPACE_XXS,
 )
 from app.ui.ui_styles import (
+    FILE_INFO_LABEL_STYLE,
+    SPLITTER_GRIP_LABEL_STYLE,
+    TRANSPARENT_CONTAINER_STYLE,
     build_drop_zone_hint_style,
     build_drop_zone_overlay_style,
     build_drop_zone_surface_style,
@@ -502,7 +504,7 @@ class MultiforaMainWindow(
     @staticmethod
     def _setup_info_label(label: QLabel) -> QLabel:
         label.setFixedHeight(18)
-        label.setStyleSheet("font-size: 13px; font-weight: 600; padding: 0px 2px;")
+        label.setStyleSheet(FILE_INFO_LABEL_STYLE)
         return label
 
     @staticmethod
@@ -525,7 +527,7 @@ class MultiforaMainWindow(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Expanding,
         )
-        self.settings_panel_host.setStyleSheet("background-color: transparent;")
+        self.settings_panel_host.setStyleSheet(TRANSPARENT_CONTAINER_STYLE)
         self.settings_panel_host_layout = QVBoxLayout(self.settings_panel_host)
         self.settings_panel_host_layout.setContentsMargins(*MARGINS_NONE)
         self.settings_panel_host_layout.setSpacing(SPACE_NONE)
@@ -541,6 +543,8 @@ class MultiforaMainWindow(
     def _create_left_panel(self, main_layout: QVBoxLayout) -> QWidget:
         """Создаёт левую панель операций и подключает панель настроек."""
         left_widget = QWidget()
+        # Поля и кнопки внутри адаптивны, поэтому панель можно заметно сужать
+        # разделителем, оставляя достаточно места для основных элементов.
         left_widget.setMinimumWidth(220)
         left_layout = QVBoxLayout(left_widget)
         left_layout.setContentsMargins(*MARGINS_NONE)
@@ -578,26 +582,43 @@ class MultiforaMainWindow(
         menu.aboutToHide.connect(lambda: self._set_header_menu_open_state(button, False))
 
     @staticmethod
-    def _clear_filter_actions(actions: dict, changed_callback) -> None:
+    def _set_filter_actions_checked(
+        menu, actions: dict, checked: bool, changed_callback
+    ) -> None:
         for action in actions.values():
             previous_state = action.blockSignals(True)
             try:
-                action.setChecked(False)
+                action.setChecked(checked)
             finally:
                 action.blockSignals(previous_state)
+        if callable(getattr(menu, "sync_filter_items", None)):
+            menu.sync_filter_items()
         changed_callback(False)
 
-    def _add_clear_filter_action(self, menu, actions: dict, changed_callback):
+    def _add_filter_selection_actions(self, menu, actions: dict, changed_callback):
         clear_action = QAction("Снять все отметки", menu)
         clear_action.triggered.connect(
-            lambda _checked=False: self._clear_filter_actions(
+            lambda _checked=False: self._set_filter_actions_checked(
+                menu,
                 actions,
+                False,
                 changed_callback,
             )
         )
         menu.addAction(clear_action)
+
+        select_all_action = QAction("Вернуть все отметки", menu)
+        select_all_action.triggered.connect(
+            lambda _checked=False: self._set_filter_actions_checked(
+                menu,
+                actions,
+                True,
+                changed_callback,
+            )
+        )
+        menu.addAction(select_all_action)
         menu.addSeparator()
-        return clear_action
+        return clear_action, select_all_action
 
     def _create_extension_filter(self) -> None:
         self._list_header_ext_label = QLabel("Расширения:")
@@ -613,7 +634,10 @@ class MultiforaMainWindow(
         self._ext_filter_menu = ScrollableFilterMenu(self.btn_ext_filter)
         self._ext_filter_menu.setObjectName("header_dropdown_popup")
         self._ext_filter_actions = {}
-        self._clear_ext_filter_action = self._add_clear_filter_action(
+        (
+            self._clear_ext_filter_action,
+            self._select_all_ext_filter_action,
+        ) = self._add_filter_selection_actions(
             self._ext_filter_menu,
             self._ext_filter_actions,
             self.on_extension_filter_changed,
@@ -674,7 +698,10 @@ class MultiforaMainWindow(
         self._type_filter_menu = ScrollableFilterMenu(self.btn_type_filter)
         self._type_filter_menu.setObjectName("header_dropdown_popup")
         self._type_filter_actions = {}
-        self._clear_type_filter_action = self._add_clear_filter_action(
+        (
+            self._clear_type_filter_action,
+            self._select_all_type_filter_action,
+        ) = self._add_filter_selection_actions(
             self._type_filter_menu,
             self._type_filter_actions,
             self.on_file_type_filter_changed,
@@ -1124,13 +1151,10 @@ class MultiforaMainWindow(
         try:
             refresh_standard_button_styles(self)
             refresh_standard_field_styles(self)
-            refresh_standard_surface_styles(self)
         except Exception as error:
             _log_ignored_error("MultiforaMainWindow._apply_theme_runtime_widgets", error)
         if hasattr(self, "_splitter_grip_label") and self._splitter_grip_label is not None:
-            self._splitter_grip_label.setStyleSheet(
-                "background-color: transparent; border: none; padding: 0px;"
-            )
+            self._splitter_grip_label.setStyleSheet(SPLITTER_GRIP_LABEL_STYLE)
         if hasattr(self, "files_panel") and self.files_panel is not None:
             self.files_panel.setStyleSheet(build_drop_zone_surface_style(mode))
         if hasattr(self, "drop_zone_controls") and self.drop_zone_controls is not None:
@@ -1163,6 +1187,8 @@ class MultiforaMainWindow(
         checked = sum(1 for a in self._type_filter_actions.values() if a.isChecked())
         if hasattr(self, "_clear_type_filter_action"):
             self._clear_type_filter_action.setEnabled(checked > 0)
+        if hasattr(self, "_select_all_type_filter_action"):
+            self._select_all_type_filter_action.setEnabled(checked < total)
         if checked == total:
             self.btn_type_filter.setText("Все типы")
         else:
@@ -1175,6 +1201,8 @@ class MultiforaMainWindow(
         checked = sum(1 for a in self._ext_filter_actions.values() if a.isChecked())
         if hasattr(self, "_clear_ext_filter_action"):
             self._clear_ext_filter_action.setEnabled(checked > 0)
+        if hasattr(self, "_select_all_ext_filter_action"):
+            self._select_all_ext_filter_action.setEnabled(checked < total)
         if checked == total:
             self.btn_ext_filter.setText("Все расширения")
         else:

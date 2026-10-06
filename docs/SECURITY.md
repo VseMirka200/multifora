@@ -11,7 +11,7 @@
 
 ## Как сообщить об уязвимости
 
-Не публикуйте сведения об уязвимости в Issues, Discussions или Pull Requests.
+Не публикуйте сведения об уязвимости в открытом доступе.
 
 Используйте [приватное сообщение об уязвимости GitHub](https://github.com/VseMirka200/multifora/security/advisories/new). Укажите:
 

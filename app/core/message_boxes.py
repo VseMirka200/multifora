@@ -221,17 +221,29 @@ def install_warning_suppression_hook():
     if _MESSAGE_BOX_HOOKS_INSTALLED:
         return
 
+    def _warning_owner(parent):
+        current = parent
+        visited = set()
+        while current is not None and id(current) not in visited:
+            visited.add(id(current))
+            if hasattr(current, "disable_warning_dialogs"):
+                return current
+            parent_getter = getattr(current, "parentWidget", None)
+            current = parent_getter() if callable(parent_getter) else None
+        return parent
+
     def _warning(parent, title, text, *args, **kwargs):
-        if parent is not None and bool(getattr(parent, "disable_warning_dialogs", False)):
-            status_bar = getattr(parent, "status_bar", None)
+        owner = _warning_owner(parent)
+        if owner is not None and bool(getattr(owner, "disable_warning_dialogs", False)):
+            status_bar = getattr(owner, "status_bar", None)
             if status_bar is not None and callable(getattr(status_bar, "showMessage", None)):
                 try:
                     status_bar.showMessage(str(text))
                 except Exception as error:
                     _log_ignored_error("_warning", error)
-            if callable(getattr(parent, "log_event", None)):
+            if callable(getattr(owner, "log_event", None)):
                 try:
-                    parent.log_event(f"{title}: {text}", "WARN")
+                    owner.log_event(f"{title}: {text}", "WARN")
                 except Exception as error:
                     _log_ignored_error("_warning", error)
             return QMessageBox.StandardButton.Ok

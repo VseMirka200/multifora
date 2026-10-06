@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt6.QtCore import Qt
+from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import (
     QApplication,
     QDialog,
@@ -45,6 +46,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertIsNotNone(window.operations_stack)
                 self.assertGreaterEqual(window.operations_stack.count(), 5)
                 self.assertEqual(window.operations_tab_bar.count(), 5)
+                self.assertEqual(window.main_splitter.widget(0).minimumWidth(), 220)
                 self.assertFalse(hasattr(window, "combo_merge_format"))
                 self.assertEqual(
                     window.merge_format_hint_label.text(),
@@ -87,6 +89,14 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window._clear_type_filter_action.text(),
                     "Снять все отметки",
                 )
+                self.assertEqual(
+                    window._select_all_ext_filter_action.text(),
+                    "Вернуть все отметки",
+                )
+                self.assertEqual(
+                    window._select_all_type_filter_action.text(),
+                    "Вернуть все отметки",
+                )
 
                 filter_path = os.path.join(tmp_dir, "filter.txt")
                 with open(filter_path, "wb") as stream:
@@ -100,6 +110,26 @@ class MainWindowSmokeTests(unittest.TestCase):
                 )
                 self.assertEqual(window.list_files.model().files(), [])
                 self.assertEqual(window.btn_type_filter.text(), "Выбрано: 0")
+                self.assertTrue(
+                    all(
+                        not window._type_filter_menu.filter_list.item(index)
+                        .text()
+                        .startswith("✓")
+                        for index in range(window._type_filter_menu.filter_list.count())
+                    )
+                )
+                window._select_all_type_filter_action.trigger()
+                self.assertTrue(
+                    all(action.isChecked() for action in window._type_filter_actions.values())
+                )
+                self.assertTrue(
+                    all(
+                        window._type_filter_menu.filter_list.item(index)
+                        .text()
+                        .startswith("✓")
+                        for index in range(window._type_filter_menu.filter_list.count())
+                    )
+                )
 
                 for action in window._type_filter_actions.values():
                     action.setChecked(True)
@@ -109,6 +139,18 @@ class MainWindowSmokeTests(unittest.TestCase):
                 )
                 self.assertEqual(window.list_files.model().files(), [])
                 self.assertEqual(window.btn_ext_filter.text(), "Выбрано: 0")
+                self.assertTrue(
+                    all(
+                        not window._ext_filter_menu.filter_list.item(index)
+                        .text()
+                        .startswith("✓")
+                        for index in range(window._ext_filter_menu.filter_list.count())
+                    )
+                )
+                window._select_all_ext_filter_action.trigger()
+                self.assertTrue(
+                    all(action.isChecked() for action in window._ext_filter_actions.values())
+                )
 
                 for action in window._ext_filter_actions.values():
                     action.setChecked(True)
@@ -173,14 +215,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertTrue(window.about_version_label.property("aboutVersionBadge"))
                 self.assertEqual(
                     [button.text() for button in window.about_link_buttons],
-                    [
-                        "Описание и исходный код",
-                        "Обратная связь",
-                    ],
-                )
-                self.assertEqual(
-                    window.about_link_buttons[-1].toolTip(),
-                    "Сообщить об ошибке или предложить улучшение",
+                    ["Описание и исходный код"],
                 )
                 links_layout = window.about_link_buttons[0].parentWidget().layout()
                 self.assertIsInstance(links_layout, QHBoxLayout)
@@ -202,10 +237,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                         button.click()
                 self.assertEqual(
                     [call.args[0].toString() for call in open_url.call_args_list],
-                    [
-                        "https://github.com/VseMirka200/multifora",
-                        "https://github.com/VseMirka200/multifora/issues/new/choose",
-                    ],
+                    ["https://github.com/VseMirka200/multifora"],
                 )
                 self.assertFalse(hasattr(window, "conversion_output_mode_combo"))
                 self.assertFalse(hasattr(window, "conversion_output_path_row"))
@@ -246,6 +278,15 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertGreaterEqual(window.settings_stack.count(), 4)
                 self.assertEqual(
                     window.settings_nav.findItems(
+                        "Автоочистка",
+                        Qt.MatchFlag.MatchExactly,
+                    ),
+                    [],
+                )
+                self.assertIsNotNone(window.auto_clear_rename_checkbox)
+                self.assertIsNotNone(window.auto_clear_convert_checkbox)
+                self.assertEqual(
+                    window.settings_nav.findItems(
                         "История переименований",
                         Qt.MatchFlag.MatchExactly,
                     ),
@@ -260,6 +301,9 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window.btn_open_rename_history.property("buttonVariant"),
                     "secondary",
                 )
+                self.assertFalse(window.checkbox_replace_pdf.isChecked())
+                QTest.mouseClick(window.replace_files_label, Qt.MouseButton.LeftButton)
+                self.assertTrue(window.checkbox_replace_pdf.isChecked())
                 original_index = window.operations_tab_bar.currentIndex()
                 window.btn_settings.click()
                 self.assertFalse(window.settings_panel_host.isHidden())

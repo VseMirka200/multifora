@@ -2,6 +2,19 @@ from app.ui.ui_spacing import FIELD_HEIGHT
 
 STANDARD_RADIUS = 4
 
+STANDARD_FORM_LABEL_STYLE = "font-size: 13px; margin: 0px; padding: 0px;"
+FILE_INFO_LABEL_STYLE = "font-size: 13px; font-weight: 600; padding: 0px 2px;"
+SETTINGS_SECTION_TITLE_STYLE = (
+    "font-size: 16px; font-weight: 800; margin: 0px; padding: 0px;"
+)
+COMPACT_CHECKBOX_STYLE = "QCheckBox { margin-top: 1px; }"
+TRANSPARENT_CONTAINER_STYLE = "background-color: transparent;"
+SPLITTER_GRIP_LABEL_STYLE = "background-color: transparent; border: none; padding: 0px;"
+FILE_LIST_HEADER_STYLE = (
+    "QHeaderView::section { background: transparent; border: none; padding: 4px 6px; }"
+)
+FILE_LIST_DRAG_ACTIVE_STYLE = "QTableView { border: 2px dashed #3d74b3; }"
+
 
 def build_splitter_style() -> str:
     return """
@@ -13,6 +26,24 @@ def build_splitter_style() -> str:
         QSplitter::handle:horizontal:hover {
             background-color: transparent;
         }
+    """
+
+
+def build_operations_settings_button_style(theme: str) -> str:
+    foreground = "#202833" if str(theme).lower() == "light" else "#e3e6ea"
+    return f"""
+        QPushButton {{
+            color: {foreground};
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid transparent;
+            border-radius: 0px;
+            padding: 0px 2px;
+            font-weight: 500;
+        }}
+        QPushButton:checked {{
+            border-bottom: 1px solid {foreground};
+        }}
     """
 
 
@@ -391,6 +422,7 @@ def build_standard_field_style(theme: str, kind: str) -> str:
         )
         return f"""
             QAbstractItemView#files_list,
+            QTableView#files_list,
             QListWidget#files_list,
             QListView#files_list {{
                 background-color: {p["bg"]};
@@ -404,30 +436,36 @@ def build_standard_field_style(theme: str, kind: str) -> str:
                 show-decoration-selected: 1;
             }}
             QAbstractItemView#files_list::item,
+            QTableView#files_list::item,
             QListWidget#files_list::item,
             QListView#files_list::item {{
                 background-color: {p["bg"]};
                 color: {p["fg"]};
             }}
             QAbstractItemView#files_list::item:alternate,
+            QTableView#files_list::item:alternate,
             QListWidget#files_list::item:alternate,
             QListView#files_list::item:alternate {{
                 background-color: {alternate_bg};
                 color: {p["fg"]};
             }}
             QAbstractItemView#files_list::item:hover,
+            QTableView#files_list::item:hover,
             QListWidget#files_list::item:hover,
             QListView#files_list::item:hover {{
                 background-color: {hover_bg};
                 color: {p["fg"]};
             }}
             QAbstractItemView#files_list::item:selected,
+            QTableView#files_list::item:selected,
             QListWidget#files_list::item:selected,
             QListView#files_list::item:selected,
             QAbstractItemView#files_list::item:selected:active,
+            QTableView#files_list::item:selected:active,
             QListWidget#files_list::item:selected:active,
             QListView#files_list::item:selected:active,
             QAbstractItemView#files_list::item:selected:!active,
+            QTableView#files_list::item:selected:!active,
             QListWidget#files_list::item:selected:!active,
             QListView#files_list::item:selected:!active {{
                 background-color: {selected_bg};

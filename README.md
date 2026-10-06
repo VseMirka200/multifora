@@ -58,24 +58,10 @@
 - [Участие в проекте](docs/CONTRIBUTING.md)
 - [Политика безопасности](docs/SECURITY.md)
 - [Кодекс поведения](docs/CODE_OF_CONDUCT.md)
-- [Поддержка](docs/SUPPORT.md)
 - [История изменений](CHANGELOG.md)
 - [Архитектура](docs/ARCHITECTURE.md)
 - [Подготовка выпуска](docs/RELEASING.md)
 - [Лицензия MIT](LICENSE)
-
-## Обратная связь
-
-- [Общая ошибка](https://github.com/VseMirka200/multifora/issues/new?template=01_bug_report.yml)
-- [Установка или обновление](https://github.com/VseMirka200/multifora/issues/new?template=02_installation_update.yml)
-- [Обработка файлов](https://github.com/VseMirka200/multifora/issues/new?template=03_file_processing.yml)
-- [Производительность](https://github.com/VseMirka200/multifora/issues/new?template=04_performance.yml)
-- [Предложить улучшение](https://github.com/VseMirka200/multifora/issues/new?template=05_feature_request.yml)
-- [Исправить документацию](https://github.com/VseMirka200/multifora/issues/new?template=06_documentation.yml)
-- [Задать вопрос](https://github.com/VseMirka200/multifora/issues/new?template=07_question.yml)
-- Уязвимости не публикуйте в Issues — следуйте [политике безопасности](docs/SECURITY.md).
-
-Перед отправкой журнала удалите из него личные пути, имена файлов и содержимое документов.
 
 ## Лицензия
 
