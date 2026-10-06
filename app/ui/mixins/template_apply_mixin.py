@@ -218,7 +218,6 @@ class TemplateApplyMixin:
                         )
 
             file_item.preview_name = new_name
-        self.list_files.refresh()
 
         self.status_bar.showMessage(f"Применен шаблон: {self.current_template}")
 

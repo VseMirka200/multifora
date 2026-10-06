@@ -1049,6 +1049,8 @@ class FileListItemDelegate(QStyledItemDelegate):
 
 
 class FileListWidget(QTableView):
+    _COLUMN_RESIZE_PRECISION = 100
+
     filesDropped = pyqtSignal(list)
     emptyAreaClicked = pyqtSignal()
     itemDoubleClicked = pyqtSignal(object)
@@ -1074,6 +1076,10 @@ class FileListWidget(QTableView):
         header = self.horizontalHeader()
         header.setStyleSheet(FILE_LIST_HEADER_STYLE)
         header.setStretchLastSection(True)
+        # Measuring every cell makes model resets noticeably expensive for large
+        # batches.  A representative sample keeps automatic widths useful while
+        # bounding the work done when filters replace the visible model.
+        header.setResizeContentsPrecision(self._COLUMN_RESIZE_PRECISION)
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.setMouseTracking(True)
         self.viewport().setMouseTracking(True)
@@ -1120,7 +1126,6 @@ class FileListWidget(QTableView):
 
     def refresh(self):
         self.model().refresh()
-        self._resize_columns_to_contents()
 
     def _resize_columns_to_contents(self):
         self.resizeColumnToContents(self.model().COLUMN_OLD_NAME)

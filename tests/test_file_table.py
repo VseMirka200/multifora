@@ -1,6 +1,7 @@
 import os
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -115,6 +116,18 @@ class FileTableTests(unittest.TestCase):
             header.sectionResizeMode(widget.model().COLUMN_PATH),
             QHeaderView.ResizeMode.Interactive,
         )
+        self.assertEqual(header.resizeContentsPrecision(), 100)
+
+    def test_preview_refresh_does_not_remeasure_column_widths(self):
+        widget = FileListWidget()
+        widget.set_files(
+            [SimpleNamespace(path="one.pdf", name="one.pdf", is_file=True)]
+        )
+
+        with patch.object(widget, "resizeColumnToContents") as resize_column:
+            widget.refresh()
+
+        resize_column.assert_not_called()
 
     def test_mouse_click_selects_complete_rows_and_ctrl_adds_rows(self):
         widget = FileListWidget()

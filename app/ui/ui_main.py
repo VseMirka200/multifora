@@ -1416,7 +1416,7 @@ class MultiforaMainWindow(
         self.update_converter_from_format()
         if callable(getattr(self, "refresh_active_file_preview", None)):
             self.refresh_active_file_preview()
-        if callable(getattr(self, "refresh_preview_panel", None)):
+        elif callable(getattr(self, "refresh_preview_panel", None)):
             self.refresh_preview_panel()
         if callable(getattr(self, "_auto_select_compress_type", None)):
             self._auto_select_compress_type()
