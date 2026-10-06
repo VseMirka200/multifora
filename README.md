@@ -58,9 +58,6 @@
 - [Участие в проекте](docs/CONTRIBUTING.md)
 - [Политика безопасности](docs/SECURITY.md)
 - [Кодекс поведения](docs/CODE_OF_CONDUCT.md)
-- [История изменений](CHANGELOG.md)
-- [Архитектура](docs/ARCHITECTURE.md)
-- [Подготовка выпуска](docs/RELEASING.md)
 - [Лицензия MIT](LICENSE)
 
 ## Лицензия

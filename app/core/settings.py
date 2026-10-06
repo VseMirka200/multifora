@@ -8,6 +8,7 @@ from app.core.app_utils import _debug_log
 _DEFAULT_THEME_MODE = "system"
 _VALID_THEME_MODES = {_DEFAULT_THEME_MODE, "dark", "light"}
 _SETTINGS_FILENAME = "multifora_settings.json"
+_SETTINGS_NAV_LAYOUT_VERSION = 2
 
 _AUTO_CLEAR_CHECKBOXES = {
     "rename": "auto_clear_rename_checkbox",
@@ -215,13 +216,15 @@ def _restore_navigation_state(window, data: dict) -> None:
         except (TypeError, ValueError) as error:
             _log_settings_error("восстановления раздела настроек", error)
         else:
-            if "auto_clear_by_operation" in data:
-                # В предыдущей раскладке строка 3 была отдельной страницей
-                # «Автоочистка», а строка 4 — страницей «О программе».
-                if settings_row == 3:
-                    settings_row = 0
-                elif settings_row == 4:
-                    settings_row = 3
+            try:
+                layout_version = int(data.get("settings_nav_layout_version", 0))
+            except (TypeError, ValueError):
+                layout_version = 0
+            if layout_version < _SETTINGS_NAV_LAYOUT_VERSION:
+                # «Обновления» теперь входят в «О программе», а «Логи» стали
+                # второй строкой. Старую отдельную «Автоочистку» возвращаем
+                # на основную страницу.
+                settings_row = {0: 0, 1: 2, 2: 1, 3: 0, 4: 2}.get(settings_row, 0)
             if settings_row >= 0:
                 window._pending_settings_nav_row = settings_row
                 settings_nav = getattr(window, "settings_nav", None)
@@ -538,6 +541,7 @@ def _collect_settings_data(window) -> dict:
         ),
         "image_compression_output_path": getattr(window, "image_compression_output_path", ""),
         "settings_nav_current_row": settings_nav.currentRow() if settings_nav is not None else 0,
+        "settings_nav_layout_version": _SETTINGS_NAV_LAYOUT_VERSION,
         "operations_tab_index": _current_widget_index(window, "operations_tab_bar"),
         "main_splitter_sizes": (
             [int(value) for value in window.main_splitter.sizes()]

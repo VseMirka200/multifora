@@ -219,7 +219,8 @@ class MainWindowSmokeTests(unittest.TestCase):
                 )
                 links_layout = window.about_link_buttons[0].parentWidget().layout()
                 self.assertIsInstance(links_layout, QHBoxLayout)
-                self.assertIsNotNone(links_layout.itemAt(0).spacerItem())
+                self.assertIs(links_layout.itemAt(0).widget(), window.btn_open_repo)
+                self.assertIs(links_layout.itemAt(1).widget(), window.btn_check_updates)
                 self.assertIsNotNone(
                     links_layout.itemAt(links_layout.count() - 1).spacerItem()
                 )
@@ -245,19 +246,14 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(window.btn_download_logs.property("buttonVariant"), "secondary")
                 self.assertEqual(window.btn_check_updates.property("buttonVariant"), "primary")
                 self.assertEqual(window.btn_open_repo.property("buttonVariant"), "secondary")
-                self.assertEqual(window.btn_download_update.text(), "Скачать обновление")
-                self.assertEqual(window.btn_install_update.text(), "Установить обновление")
-                self.assertFalse(window.btn_download_update.isVisible())
-                self.assertFalse(window.btn_install_update.isVisible())
+                self.assertEqual(window.btn_check_updates.text(), "Проверить обновление программы")
                 for button in (
                     window.btn_check_updates,
                     window.btn_open_repo,
-                    window.btn_download_update,
-                    window.btn_install_update,
                 ):
                     self.assertEqual(
                         button.sizePolicy().horizontalPolicy(),
-                        QSizePolicy.Policy.Expanding,
+                        QSizePolicy.Policy.Maximum,
                     )
                 standard_buttons = [
                     button
@@ -275,7 +271,28 @@ class MainWindowSmokeTests(unittest.TestCase):
                 )
                 self.assertEqual(window.logs_search_input.height(), FIELD_HEIGHT)
                 self.assertEqual(window.logs_level_filter.height(), FIELD_HEIGHT)
-                self.assertGreaterEqual(window.settings_stack.count(), 4)
+                self.assertEqual(window.settings_stack.count(), 3)
+                self.assertEqual(
+                    [window.settings_nav.item(index).text() for index in range(3)],
+                    ["Основное", "Логи", "О программе"],
+                )
+                main_settings_page = window.settings_stack.widget(0)
+                main_settings_labels = [
+                    label.text() for label in main_settings_page.findChildren(QLabel)
+                ]
+                self.assertIn("Проверять обновления при запуске", main_settings_labels)
+                self.assertNotIn(
+                    "Проверять обновления при запуске",
+                    about_texts,
+                )
+                self.assertLess(
+                    main_settings_labels.index("Проверять обновления при запуске"),
+                    main_settings_labels.index("АВТООЧИСТКА СПИСКА"),
+                )
+                self.assertLess(
+                    main_settings_labels.index("АВТООЧИСТКА СПИСКА"),
+                    main_settings_labels.index("ЯРЛЫКИ"),
+                )
                 self.assertEqual(
                     window.settings_nav.findItems(
                         "Автоочистка",

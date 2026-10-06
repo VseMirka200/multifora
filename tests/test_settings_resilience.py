@@ -186,20 +186,44 @@ class SettingsResilienceTests(unittest.TestCase):
         self.assertEqual(window._pending_settings_nav_row, 0)
         self.assertEqual(window.settings_nav.current_row, 0)
 
-    def test_about_navigation_row_is_restored_after_auto_clear_page_removal(self):
+    def test_old_settings_navigation_rows_are_migrated_to_merged_layout(self):
+        expected_rows = {
+            0: 0,  # Основное
+            1: 2,  # Обновления -> О программе
+            2: 1,  # Логи
+            3: 0,  # Удалённая отдельная Автоочистка
+            4: 2,  # О программе
+        }
+        for saved_row, expected_row in expected_rows.items():
+            with self.subTest(saved_row=saved_row):
+                window = _DummyWindow()
+                window.settings_nav = _DummyNavigation(count=3)
+
+                settings._restore_navigation_state(
+                    window,
+                    {
+                        "settings_nav_current_row": saved_row,
+                        "auto_clear_by_operation": {},
+                    },
+                )
+
+                self.assertEqual(window._pending_settings_nav_row, expected_row)
+                self.assertEqual(window.settings_nav.current_row, expected_row)
+
+    def test_current_settings_navigation_row_is_not_migrated(self):
         window = _DummyWindow()
-        window.settings_nav = _DummyNavigation(count=4)
+        window.settings_nav = _DummyNavigation(count=3)
 
         settings._restore_navigation_state(
             window,
             {
-                "settings_nav_current_row": 4,
-                "auto_clear_by_operation": {},
+                "settings_nav_current_row": 2,
+                "settings_nav_layout_version": 2,
             },
         )
 
-        self.assertEqual(window._pending_settings_nav_row, 3)
-        self.assertEqual(window.settings_nav.current_row, 3)
+        self.assertEqual(window._pending_settings_nav_row, 2)
+        self.assertEqual(window.settings_nav.current_row, 2)
 
     def test_auto_update_check_uses_checkbox_as_single_source_of_truth(self):
         window = _DummyWindow()

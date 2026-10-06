@@ -30,8 +30,6 @@ from app.core.conversion_formats import CATEGORY_SOURCE_FORMATS
 from app.core.update_checker import (
     REPO_PAGE,
     check_for_updates,
-    download_update_installer,
-    launch_update_installer,
 )
 from app.ui.ui_components import (
     LeftAlignedToolButton,
@@ -271,7 +269,8 @@ class SettingsPanelMixin:
                 "Добавляйте файлы кнопками или перетаскивайте их в окно.",
                 "Возможности: переименование по шаблонам с предварительным просмотром "
                 "и историей изменений; конвертация документов и изображений; "
-                "объединение документов в PDF и DOCX; удаление метаданных; сжатие файлов.",
+                "объединение PDF- и DOCX-файлов; удаление метаданных; "
+                "сжатие PDF и изображений.",
                 "Исходные форматы документов: "
                 + ", ".join(CATEGORY_SOURCE_FORMATS["Документы"])
                 + ".",
@@ -289,22 +288,24 @@ class SettingsPanelMixin:
                 label.setWordWrap(True)
                 label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
                 layout.addWidget(label)
-            about_links = (("Описание и исходный код", REPO_PAGE),)
             links_row = QWidget()
             links_layout = QHBoxLayout(links_row)
             links_layout.setContentsMargins(*MARGINS_NONE)
             links_layout.setSpacing(SPACE_SM)
+
+            self.btn_open_repo = QPushButton("Описание и исходный код")
+            setup_standard_secondary_button(self.btn_open_repo)
+            self.btn_open_repo.clicked.connect(
+                lambda: QDesktopServices.openUrl(QUrl(REPO_PAGE))
+            )
+            links_layout.addWidget(self.btn_open_repo)
+
+            self.btn_check_updates = QPushButton("Проверить обновление программы")
+            setup_standard_primary_button(self.btn_check_updates)
+            self.btn_check_updates.clicked.connect(self.check_updates_now)
+            links_layout.addWidget(self.btn_check_updates)
             links_layout.addStretch()
-            self.about_link_buttons = []
-            for caption, url in about_links:
-                button = QPushButton(caption)
-                setup_standard_action_button(button)
-                button.clicked.connect(
-                    lambda _checked=False, target=url: QDesktopServices.openUrl(QUrl(target))
-                )
-                links_layout.addWidget(button)
-                self.about_link_buttons.append(button)
-            links_layout.addStretch()
+            self.about_link_buttons = [self.btn_open_repo]
             layout.addWidget(links_row)
             layout.addStretch()
 
@@ -335,7 +336,7 @@ class SettingsPanelMixin:
         self._settings_nav_item_height = 36
         nav_font = QFont()
         nav_font.setPointSize(10)
-        for title in ["Основное", "Обновления", "Логи"]:
+        for title in ["Основное", "Логи"]:
             item = QListWidgetItem(title)
             item.setFont(nav_font)
             item.setSizeHint(QSize(self._settings_nav_base_width, self._settings_nav_item_height))
@@ -415,40 +416,15 @@ class SettingsPanelMixin:
         )
         main_card_layout.addWidget(disable_warning_row)
 
-        _add_settings_section_divider(main_card_layout)
-        _add_settings_section_title(main_card_layout, "Ярлыки")
-
-        desktop_shortcut_row, self.desktop_shortcut_checkbox = self._create_settings_checkbox_row(
-            "Добавить ярлык на рабочий стол",
-            "Создает ярлык 'Мультифора' на рабочем столе.",
+        auto_update_row, self.auto_update_check_checkbox = self._create_settings_checkbox_row(
+            "Проверять обновления при запуске",
+            "Проверка обновлений выполняется через GitHub-репозиторий проекта.",
         )
-        self.desktop_shortcut_checkbox.stateChanged.connect(self.toggle_desktop_shortcut)
-        self.desktop_shortcut_checkbox.stateChanged.connect(
+        self.auto_update_check_checkbox.setChecked(True)
+        self.auto_update_check_checkbox.stateChanged.connect(
             lambda _state: self._schedule_settings_save()
         )
-        main_card_layout.addWidget(desktop_shortcut_row)
-
-        start_menu_shortcut_row, self.start_menu_shortcut_checkbox = (
-            self._create_settings_checkbox_row(
-                "Добавить ярлык в меню Пуск",
-                "Создает ярлык 'Мультифора' в меню Пуск.",
-            )
-        )
-        self.start_menu_shortcut_checkbox.stateChanged.connect(self.toggle_start_menu_shortcut)
-        self.start_menu_shortcut_checkbox.stateChanged.connect(
-            lambda _state: self._schedule_settings_save()
-        )
-        main_card_layout.addWidget(start_menu_shortcut_row)
-
-        context_menu_row, self.context_menu_checkbox = self._create_settings_checkbox_row(
-            "Добавить в контекстное меню Windows",
-            "Добавляет пункт 'Добавить в Мультифору' в контекстное меню файлов и папок.",
-        )
-        self.context_menu_checkbox.stateChanged.connect(self.toggle_context_menu)
-        self.context_menu_checkbox.stateChanged.connect(
-            lambda _state: self._schedule_settings_save()
-        )
-        main_card_layout.addWidget(context_menu_row)
+        main_card_layout.addWidget(auto_update_row)
 
         _add_settings_section_divider(main_card_layout)
         _add_settings_section_title(main_card_layout, "Автоочистка списка")
@@ -494,65 +470,42 @@ class SettingsPanelMixin:
             checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
             main_card_layout.addWidget(row)
         self.auto_clear_convert_checkbox.setChecked(True)
-        main_card_layout.addStretch()
 
-        updates_card_layout = self._add_settings_page()
+        _add_settings_section_divider(main_card_layout)
+        _add_settings_section_title(main_card_layout, "Ярлыки")
 
-        auto_update_row, self.auto_update_check_checkbox = self._create_settings_checkbox_row(
-            "Проверять обновления при запуске",
-            "Проверка обновлений выполняется через GitHub-репозиторий проекта.",
+        desktop_shortcut_row, self.desktop_shortcut_checkbox = self._create_settings_checkbox_row(
+            "Добавить ярлык на рабочий стол",
+            "Создает ярлык 'Мультифора' на рабочем столе.",
         )
-        self.auto_update_check_checkbox.setChecked(True)
-        self.auto_update_check_checkbox.stateChanged.connect(
+        self.desktop_shortcut_checkbox.stateChanged.connect(self.toggle_desktop_shortcut)
+        self.desktop_shortcut_checkbox.stateChanged.connect(
             lambda _state: self._schedule_settings_save()
         )
-        updates_card_layout.addWidget(auto_update_row)
+        main_card_layout.addWidget(desktop_shortcut_row)
 
-        self.update_status_label = QLabel('Нажмите "Проверить обновления".')
-        self.update_status_label.setWordWrap(True)
-        updates_card_layout.addWidget(self.update_status_label)
+        start_menu_shortcut_row, self.start_menu_shortcut_checkbox = (
+            self._create_settings_checkbox_row(
+                "Добавить ярлык в меню Пуск",
+                "Создает ярлык 'Мультифора' в меню Пуск.",
+            )
+        )
+        self.start_menu_shortcut_checkbox.stateChanged.connect(self.toggle_start_menu_shortcut)
+        self.start_menu_shortcut_checkbox.stateChanged.connect(
+            lambda _state: self._schedule_settings_save()
+        )
+        main_card_layout.addWidget(start_menu_shortcut_row)
 
-        self.update_latest_label = QLabel("Последняя версия: -")
-        updates_card_layout.addWidget(self.update_latest_label)
-
-        self.update_source_label = QLabel("Источник: https://github.com/VseMirka200/multifora")
-        self.update_source_label.setWordWrap(True)
-        updates_card_layout.addWidget(self.update_source_label)
-        updates_card_layout.addSpacing(SPACE_SM)
-
-        update_buttons_layout = QHBoxLayout()
-        update_buttons_layout.setContentsMargins(*MARGINS_NONE)
-        update_buttons_layout.setSpacing(SPACE_SM)
-
-        self.btn_check_updates = QPushButton("Проверить обновления")
-        setup_standard_primary_button(self.btn_check_updates, expand=True)
-        self.btn_check_updates.clicked.connect(self.check_updates_now)
-        update_buttons_layout.addWidget(self.btn_check_updates, 1)
-
-        self.btn_open_repo = QPushButton("Открыть GitHub")
-        setup_standard_secondary_button(self.btn_open_repo, expand=True)
-        self.btn_open_repo.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(REPO_PAGE)))
-        update_buttons_layout.addWidget(self.btn_open_repo, 1)
-
-        updates_card_layout.addLayout(update_buttons_layout)
-
-        update_action_buttons_layout = QHBoxLayout()
-        update_action_buttons_layout.setContentsMargins(*MARGINS_NONE)
-        update_action_buttons_layout.setSpacing(SPACE_SM)
-
-        self.btn_download_update = QPushButton("Скачать обновление")
-        setup_standard_primary_button(self.btn_download_update, expand=True)
-        self.btn_download_update.clicked.connect(self.download_available_update)
-        self.btn_download_update.setVisible(False)
-        update_action_buttons_layout.addWidget(self.btn_download_update, 1)
-
-        self.btn_install_update = QPushButton("Установить обновление")
-        setup_standard_primary_button(self.btn_install_update, expand=True)
-        self.btn_install_update.clicked.connect(self.install_downloaded_update)
-        self.btn_install_update.setVisible(False)
-        update_action_buttons_layout.addWidget(self.btn_install_update, 1)
-
-        updates_card_layout.addLayout(update_action_buttons_layout)
+        context_menu_row, self.context_menu_checkbox = self._create_settings_checkbox_row(
+            "Добавить в контекстное меню Windows",
+            "Добавляет пункт 'Добавить в Мультифору' в контекстное меню файлов и папок.",
+        )
+        self.context_menu_checkbox.stateChanged.connect(self.toggle_context_menu)
+        self.context_menu_checkbox.stateChanged.connect(
+            lambda _state: self._schedule_settings_save()
+        )
+        main_card_layout.addWidget(context_menu_row)
+        main_card_layout.addStretch()
 
         logs_card_layout = self._add_settings_page()
         logs_card_layout.setSpacing(SPACE_SM)
@@ -746,11 +699,6 @@ class SettingsPanelMixin:
 
         self._update_silent = bool(silent)
         self.btn_check_updates.setEnabled(False)
-        self.btn_download_update.setText("Скачать обновление")
-        self.btn_download_update.setEnabled(False)
-        self.btn_install_update.setVisible(False)
-        self._downloaded_update = None
-        self.update_status_label.setText("Проверяем обновления на GitHub...")
         self._update_future = self._update_executor.submit(check_for_updates)
         self._update_poll_timer.start()
 
@@ -777,126 +725,23 @@ class SettingsPanelMixin:
             latest = result.get("latest_version", "-")
             has_update = result.get("has_update")
             cmp_result = result.get("comparison")
-            self.update_latest_label.setText(f"Последняя версия: {latest}")
 
             if has_update is True:
                 self._available_update = result
-                installer_available = bool(result.get("installer"))
-                self.btn_download_update.setVisible(installer_available)
-                self.btn_download_update.setEnabled(installer_available)
-                if installer_available:
-                    text_msg = f"Доступно обновление: {current} → {latest}. Его можно скачать."
-                else:
-                    text_msg = (
-                        f"Доступно обновление: {current} → {latest}, но в релизе нет "
-                        "установщика для Windows."
-                    )
+                text_msg = f"Доступно обновление: {current} → {latest}."
             elif has_update is False:
                 self._available_update = None
-                self.btn_download_update.setVisible(False)
-                self.btn_install_update.setVisible(False)
                 text_msg = f"У вас актуальная версия: {current}"
             elif cmp_result == 1:
                 self._available_update = None
-                self.btn_download_update.setVisible(False)
-                self.btn_install_update.setVisible(False)
                 text_msg = f"Локальная версия новее GitHub: {current}"
             else:
                 self._available_update = None
-                self.btn_download_update.setVisible(False)
-                self.btn_install_update.setVisible(False)
                 text_msg = f"Проверка завершена. Текущая: {current}, GitHub: {latest}"
 
-            self.update_status_label.setText(text_msg)
             if not getattr(self, "_update_silent", False):
                 QMessageBox.information(self, "Проверка обновлений", text_msg)
         except Exception as e:
             text_msg = f"Не удалось проверить обновления: {e!s}"
-            self.update_status_label.setText(text_msg)
-            self.btn_download_update.setEnabled(bool(getattr(self, "_available_update", None)))
             if not getattr(self, "_update_silent", False):
                 QMessageBox.warning(self, "Проверка обновлений", text_msg)
-
-    def download_available_update(self):
-        update = getattr(self, "_available_update", None)
-        if not update or not update.get("installer"):
-            QMessageBox.warning(
-                self,
-                "Скачивание обновления",
-                "Установщик обновления недоступен. Выполните проверку ещё раз.",
-            )
-            return
-        if (
-            getattr(self, "_update_download_future", None)
-            and not self._update_download_future.done()
-        ):
-            return
-
-        if not hasattr(self, "_update_executor"):
-            self._update_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-        if not hasattr(self, "_update_download_poll_timer"):
-            self._update_download_poll_timer = QTimer(self)
-            self._update_download_poll_timer.setInterval(150)
-            self._update_download_poll_timer.timeout.connect(self._poll_update_download_future)
-
-        self.btn_check_updates.setEnabled(False)
-        self.btn_download_update.setEnabled(False)
-        self.btn_install_update.setVisible(False)
-        self.update_status_label.setText("Скачиваем и проверяем установщик обновления...")
-        self._update_download_future = self._update_executor.submit(
-            download_update_installer,
-            update,
-        )
-        self._update_download_poll_timer.start()
-
-    def _poll_update_download_future(self):
-        future = getattr(self, "_update_download_future", None)
-        if future is None or not future.done():
-            return
-
-        self._update_download_poll_timer.stop()
-        self.btn_check_updates.setEnabled(True)
-        self.btn_download_update.setEnabled(True)
-        try:
-            downloaded = future.result()
-            self._downloaded_update = downloaded
-            version = downloaded.get("version") or "новая версия"
-            self.btn_download_update.setText("Скачать заново")
-            self.btn_install_update.setVisible(True)
-            self.btn_install_update.setEnabled(True)
-            self.update_status_label.setText(
-                f"Обновление {version} скачано и проверено. Нажмите «Установить обновление»."
-            )
-        except Exception as error:
-            self._downloaded_update = None
-            self.btn_install_update.setVisible(False)
-            text_msg = f"Не удалось скачать обновление: {error}"
-            self.update_status_label.setText(text_msg)
-            QMessageBox.warning(self, "Скачивание обновления", text_msg)
-
-    def install_downloaded_update(self):
-        downloaded = getattr(self, "_downloaded_update", None) or {}
-        installer_path = str(downloaded.get("path") or "")
-        worker = getattr(self, "file_worker", None)
-        if worker is not None and worker.isRunning():
-            QMessageBox.warning(
-                self,
-                "Установка обновления",
-                "Дождитесь завершения текущей операции, затем установите обновление.",
-            )
-            return
-        try:
-            launch_update_installer(installer_path)
-        except Exception as error:
-            text_msg = f"Не удалось запустить установщик: {error}"
-            self.update_status_label.setText(text_msg)
-            QMessageBox.warning(self, "Установка обновления", text_msg)
-            return
-
-        self.btn_install_update.setEnabled(False)
-        self.update_status_label.setText(
-            "Установщик запущен. Мультифора будет закрыта для установки новой версии."
-        )
-        if callable(getattr(self, "log_event", None)):
-            self.log_event("Запущен установщик обновления")
-        QTimer.singleShot(500, self.close)
