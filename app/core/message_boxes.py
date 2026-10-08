@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFontMetrics, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QDialog,
     QHBoxLayout,
     QLabel,
@@ -20,11 +21,11 @@ from app.ui.ui_spacing import ACTION_BUTTON_HEIGHT
 from app.ui.ui_styles import build_standard_button_style
 
 _MESSAGE_BOX_HOOKS_INSTALLED = False
-_DIALOG_MIN_WIDTH = 420
-_DIALOG_MAX_WIDTH = 760
-_ICON_SIZE = 32
+_DIALOG_MIN_WIDTH = 360
+_DIALOG_MAX_WIDTH = 560
+_ICON_SIZE = 28
 _BUTTON_MIN_WIDTH = 84
-_BUTTON_HORIZONTAL_PADDING = 24
+_BUTTON_HORIZONTAL_PADDING = 20
 
 
 def _setup_message_box_button(
@@ -35,7 +36,7 @@ def _setup_message_box_button(
     button.setFixedHeight(ACTION_BUTTON_HEIGHT)
     button.setCursor(Qt.CursorShape.PointingHandCursor)
     button.setProperty("buttonVariant", variant)
-    button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+    button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
     theme = getattr(button.parent(), "_effective_theme_mode", "dark")
     button.setStyleSheet(build_standard_button_style(theme, variant))
     try:
@@ -82,6 +83,8 @@ def show_app_choice(
     icon: QMessageBox.Icon = QMessageBox.Icon.Question,
     default_key: str | None = None,
     cancel_key: str | None = None,
+    extra_widget=None,
+    maximum_width: int | None = None,
 ) -> str | None:
     """Показывает единый диалог приложения и возвращает ключ выбранной кнопки."""
     choices = tuple(choices)
@@ -97,8 +100,8 @@ def show_app_choice(
         _log_ignored_error("show_app_choice", error)
 
     layout = QVBoxLayout(dialog)
-    layout.setContentsMargins(14, 12, 14, 12)
-    layout.setSpacing(12)
+    layout.setContentsMargins(12, 10, 12, 10)
+    layout.setSpacing(10)
 
     content_row = QHBoxLayout()
     content_row.setContentsMargins(0, 0, 0, 0)
@@ -121,9 +124,13 @@ def show_app_choice(
     content_row.addWidget(text_label, 1, Qt.AlignmentFlag.AlignVCenter)
     layout.addLayout(content_row)
 
+    if extra_widget is not None:
+        layout.addWidget(extra_widget)
+
     button_row = QHBoxLayout()
     button_row.setContentsMargins(0, 0, 0, 0)
     button_row.setSpacing(8)
+    button_row.addStretch()
     selected = {"key": None}
     buttons: list[QPushButton] = []
 
@@ -140,7 +147,7 @@ def show_app_choice(
         if key == default_key:
             button.setDefault(True)
             button.setFocus()
-        button_row.addWidget(button, 1)
+        button_row.addWidget(button)
         buttons.append(button)
 
     choice_keys = {str(key) for key, _label, _variant in choices}
@@ -159,15 +166,21 @@ def show_app_choice(
     layout.addLayout(button_row)
 
     metrics = QFontMetrics(text_label.font())
+    effective_max_width = max(
+        _DIALOG_MIN_WIDTH,
+        int(maximum_width) if maximum_width is not None else _DIALOG_MAX_WIDTH,
+    )
     longest_line = max(
         (metrics.horizontalAdvance(line) for line in str(text).splitlines()), default=0
     )
-    content_width = max(_DIALOG_MIN_WIDTH, min(_DIALOG_MAX_WIDTH, longest_line + 90))
+    content_width = max(_DIALOG_MIN_WIDTH, min(effective_max_width, longest_line + 90))
+    text_label.setMaximumWidth(max(240, content_width - 76))
     buttons_width = (
-        sum(button.minimumWidth() for button in buttons) + max(0, len(buttons) - 1) * 8 + 28
+        sum(button.minimumWidth() for button in buttons) + max(0, len(buttons) - 1) * 8 + 24
     )
-    dialog_width = max(content_width, buttons_width, dialog.sizeHint().width())
+    dialog_width = max(content_width, buttons_width)
     dialog.setMinimumWidth(dialog_width)
+    dialog.setMaximumWidth(dialog_width)
     dialog.resize(dialog_width, dialog.sizeHint().height())
 
     dialog.exec()
@@ -198,6 +211,42 @@ def show_app_confirmation(
         cancel_key="no",
     )
     return result == "yes"
+
+
+def show_app_confirmation_with_checkbox(
+    parent,
+    title: str,
+    text: str,
+    checkbox_text: str,
+    *,
+    icon: QMessageBox.Icon = QMessageBox.Icon.Warning,
+    default_no: bool = True,
+    checkbox_checked: bool = False,
+    yes_text: str = "Удалить",
+    no_text: str = "Отмена",
+    destructive: bool = True,
+) -> tuple[bool, bool]:
+    """Показывает подтверждение с дополнительным безопасно выключенным флажком."""
+    checkbox = QCheckBox(str(checkbox_text), parent)
+    checkbox.setObjectName("appMessageCheckbox")
+    checkbox.setChecked(bool(checkbox_checked))
+    checked_state = {"value": checkbox.isChecked()}
+    checkbox.toggled.connect(lambda checked: checked_state.update(value=bool(checked)))
+    result = show_app_choice(
+        parent,
+        title,
+        text,
+        (
+            ("yes", yes_text, "danger" if destructive else "secondary"),
+            ("no", no_text, "secondary"),
+        ),
+        icon=icon,
+        default_key="no" if default_no else "yes",
+        cancel_key="no",
+        extra_widget=checkbox,
+        maximum_width=560,
+    )
+    return result == "yes", checked_state["value"]
 
 
 def _show_localized_message_box(

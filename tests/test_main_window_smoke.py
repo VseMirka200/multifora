@@ -300,8 +300,10 @@ class MainWindowSmokeTests(unittest.TestCase):
                     ),
                     [],
                 )
-                self.assertIsNotNone(window.auto_clear_rename_checkbox)
-                self.assertIsNotNone(window.auto_clear_convert_checkbox)
+                self.assertFalse(window.auto_clear_enabled_checkbox.isChecked())
+                self.assertFalse(window.auto_clear_rename_checkbox.isEnabled())
+                self.assertTrue(window.auto_clear_convert_checkbox.isChecked())
+                self.assertFalse(window.auto_clear_convert_checkbox.isEnabled())
                 self.assertEqual(
                     window.settings_nav.findItems(
                         "История переименований",

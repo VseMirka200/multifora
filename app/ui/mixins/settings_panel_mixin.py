@@ -430,46 +430,45 @@ class SettingsPanelMixin:
         _add_settings_section_title(main_card_layout, "Автоочистка списка")
 
         auto_clear_description = QLabel(
-            "Выберите операции, после успешного завершения которых весь список будет очищен. "
-            "Сами файлы на диске не удаляются."
+            "После успешной операции приложение может очистить весь список. "
+            "Файлы на диске при автоочистке никогда не удаляются."
         )
         auto_clear_description.setWordWrap(True)
         main_card_layout.addWidget(auto_clear_description)
-        main_card_layout.addSpacing(SPACE_SM)
+
+        auto_clear_enabled_row, self.auto_clear_enabled_checkbox = (
+            self._create_settings_checkbox_row(
+                "Включить автоочистку",
+                "Автоочистка срабатывает только после выбранных ниже операций без ошибок.",
+            )
+        )
+        self.auto_clear_enabled_checkbox.stateChanged.connect(self._sync_auto_clear_controls)
+        self.auto_clear_enabled_checkbox.stateChanged.connect(
+            lambda _state: self._schedule_settings_save()
+        )
+        main_card_layout.addWidget(auto_clear_enabled_row)
+
+        self.auto_clear_operations_label = QLabel("Очищать весь список после:")
+        main_card_layout.addWidget(self.auto_clear_operations_label)
 
         auto_clear_options = (
-            (
-                "auto_clear_rename_checkbox",
-                "После переименования",
-                "Оставьте выключенным, чтобы продолжить работу с переименованными файлами.",
-            ),
-            (
-                "auto_clear_convert_checkbox",
-                "После конвертации",
-                "Убирает исходные и созданные файлы из списка после конвертации.",
-            ),
-            (
-                "auto_clear_merge_checkbox",
-                "После объединения",
-                "Очищает список после создания объединенного документа.",
-            ),
-            (
-                "auto_clear_compress_checkbox",
-                "После сжатия",
-                "Очищает список после сжатия изображений или PDF.",
-            ),
-            (
-                "auto_clear_metadata_checkbox",
-                "После удаления метаданных",
-                "Очищает список после обработки метаданных документов.",
-            ),
+            ("auto_clear_rename_checkbox", "Переименования"),
+            ("auto_clear_convert_checkbox", "Конвертации"),
+            ("auto_clear_merge_checkbox", "Объединения"),
+            ("auto_clear_compress_checkbox", "Сжатия"),
+            ("auto_clear_metadata_checkbox", "Удаления метаданных"),
         )
-        for attribute_name, label, tooltip in auto_clear_options:
-            row, checkbox = self._create_settings_checkbox_row(label, tooltip)
+        self.auto_clear_operation_checkboxes = []
+        self.auto_clear_operation_rows = []
+        for attribute_name, label in auto_clear_options:
+            row, checkbox = self._create_settings_checkbox_row(label)
             setattr(self, attribute_name, checkbox)
             checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
+            self.auto_clear_operation_checkboxes.append(checkbox)
+            self.auto_clear_operation_rows.append(row)
             main_card_layout.addWidget(row)
         self.auto_clear_convert_checkbox.setChecked(True)
+        self._sync_auto_clear_controls()
 
         _add_settings_section_divider(main_card_layout)
         _add_settings_section_title(main_card_layout, "Ярлыки")
@@ -597,6 +596,15 @@ class SettingsPanelMixin:
             _log_ignored_error("SettingsPanelMixin._on_theme_mode_changed", error)
         self.apply_theme_mode(mode)
         self._schedule_settings_save()
+
+    def _sync_auto_clear_controls(self, *_args):
+        enabled_checkbox = getattr(self, "auto_clear_enabled_checkbox", None)
+        enabled = bool(enabled_checkbox is not None and enabled_checkbox.isChecked())
+        label = getattr(self, "auto_clear_operations_label", None)
+        if label is not None:
+            label.setEnabled(enabled)
+        for row in getattr(self, "auto_clear_operation_rows", ()):
+            row.setEnabled(enabled)
 
     def _apply_logs_filters(self):
         if not hasattr(self, "logs_view") or self.logs_view is None:

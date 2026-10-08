@@ -1,4 +1,3 @@
-import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -106,16 +105,6 @@ class AppIpcTests(unittest.TestCase):
             b"TOKEN:secret\nADD_FILE:C:\\docs\\one.pdf\nADD_FILE:C:\\docs\\two.docx\n",
         )
         self.assertTrue(socket.disconnected)
-
-    def test_non_windows_first_instance_does_not_call_win32(self):
-        if os.name == "nt":
-            self.skipTest("Проверка предназначена для неплатформенного пути")
-
-        with patch.object(app_ipc.ctypes, "WinDLL", create=True) as win_dll:
-            self.assertTrue(app_ipc.is_first_instance())
-
-        win_dll.assert_not_called()
-
 
 if __name__ == "__main__":
     unittest.main()

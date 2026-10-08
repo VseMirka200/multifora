@@ -17,6 +17,9 @@ class WorkerOpsMixin:
         return [file_item for file_item in self.files if getattr(file_item, "is_file", False)]
 
     def _should_auto_clear_after_operation(self) -> bool:
+        enabled_checkbox = getattr(self, "auto_clear_enabled_checkbox", None)
+        if enabled_checkbox is None or not enabled_checkbox.isChecked():
+            return False
         operation = str((self._last_operation or {}).get("op", ""))
         checkbox_names = {
             "rename": "auto_clear_rename_checkbox",
@@ -417,52 +420,55 @@ class WorkerOpsMixin:
         if callable(getattr(self, "_update_compress_button", None)):
             self._update_compress_button()
 
-        # При частичном сбое список сохраняется, чтобы пользователь мог увидеть
-        # проблемные файлы и повторить операцию.
-        auto_clear = not errors and self._should_auto_clear_after_operation()
-        if auto_clear:
+        if not errors and self._should_auto_clear_after_operation():
             self.files.clear()
             self.list_files.clear()
             self.update_file_info()
-            self.status_bar.showMessage("Операция завершена. Список файлов очищен.")
+            self.status_bar.showMessage(
+                "Операция завершена. Список очищен, файлы на диске сохранены."
+            )
+            if self._pending_close and not (self.file_worker and self.file_worker.isRunning()):
+                self._pending_close = False
+                QTimer.singleShot(0, self.close)
+            return
+
+        changed = False
+        if updated_files:
+            for file_item, new_path in updated_files:
+                try:
+                    file_item.path = new_path
+                    file_item.update_info()
+                except Exception as exc:
+                    _debug_log(f"update_info error for {new_path}: {exc}")
+            changed = True
+
+        if new_files:
+            _debug_log(f"Добавляю {len(new_files)} новых файлов в список")
+            for file_item in new_files:
+                if file_item not in self.files:
+                    self.files.append(file_item)
+            changed = True
+
+        if changed:
+            self.update_file_list()
+            self.update_file_info()
+            if callable(getattr(self, "refresh_active_file_preview", None)):
+                self.refresh_active_file_preview()
+
+        if updated_files and new_files:
+            self.status_bar.showMessage(
+                "Операция завершена. "
+                f"Создано {self._ru_files_label(len(new_files))}, "
+                f"обновлено {self._ru_files_label(len(updated_files))}."
+            )
+        elif updated_files:
+            self.status_bar.showMessage(
+                f"Операция завершена. Обновлено {self._ru_files_label(len(updated_files))}."
+            )
         else:
-            changed = False
-            if updated_files:
-                for file_item, new_path in updated_files:
-                    try:
-                        file_item.path = new_path
-                        file_item.update_info()
-                    except Exception as exc:
-                        _debug_log(f"update_info error for {new_path}: {exc}")
-                changed = True
-
-            if new_files:
-                _debug_log(f"Добавляю {len(new_files)} новых файлов в список")
-                for file_item in new_files:
-                    if file_item not in self.files:
-                        self.files.append(file_item)
-                changed = True
-
-            if changed:
-                self.update_file_list()
-                self.update_file_info()
-                if callable(getattr(self, "refresh_active_file_preview", None)):
-                    self.refresh_active_file_preview()
-
-            if updated_files and new_files:
-                self.status_bar.showMessage(
-                    "Операция завершена. "
-                    f"Создано {self._ru_files_label(len(new_files))}, "
-                    f"обновлено {self._ru_files_label(len(updated_files))}."
-                )
-            elif updated_files:
-                self.status_bar.showMessage(
-                    f"Операция завершена. Обновлено {self._ru_files_label(len(updated_files))}."
-                )
-            else:
-                self.status_bar.showMessage(
-                    f"Операция завершена. Создано {self._ru_files_label(len(new_files))}."
-                )
+            self.status_bar.showMessage(
+                f"Операция завершена. Создано {self._ru_files_label(len(new_files))}."
+            )
 
         if self._pending_close and not (self.file_worker and self.file_worker.isRunning()):
             self._pending_close = False

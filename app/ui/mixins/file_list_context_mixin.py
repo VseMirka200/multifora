@@ -1,8 +1,9 @@
 import os
 
-from PyQt6.QtCore import QItemSelectionModel, QMimeData, QPoint, Qt, QUrl
+from PyQt6.QtCore import QFile, QItemSelectionModel, QMimeData, QPoint, Qt, QUrl
 from PyQt6.QtWidgets import QApplication, QMenu, QMessageBox
 
+from app.core.message_boxes import show_app_confirmation_with_checkbox
 from app.ui.ui_components import (
     get_russian_text_input,
     selected_file_items,
@@ -140,21 +141,62 @@ class FileListContextMixin:
         selected = self._get_selected_file_items()
         if not selected:
             return
-        selected_paths = set()
+
+        confirmed, move_to_trash = show_app_confirmation_with_checkbox(
+            self,
+            "Удаление из списка",
+            f"Убрать выбранные элементы из списка ({len(selected)})?\n\n"
+            "По умолчанию файлы останутся на диске. Если включить флажок ниже, "
+            "выбранные файлы будут перемещены в корзину. Папки останутся на диске.",
+            "Переместить выбранные файлы в корзину",
+            yes_text="Убрать из списка",
+        )
+        if not confirmed:
+            return
+
+        removable_paths = set()
+        trashed_files = 0
+        failed_moves = []
         for item in selected:
             try:
-                selected_paths.add(os.path.normcase(os.path.abspath(item.path)))
+                normalized_path = os.path.normcase(os.path.abspath(item.path))
             except Exception:
-                selected_paths.add(os.path.normcase(item.path))
+                normalized_path = os.path.normcase(item.path)
+
+            if move_to_trash and getattr(item, "is_file", False):
+                try:
+                    if os.path.exists(item.path):
+                        if not QFile.moveToTrash(item.path):
+                            raise OSError("операционная система отклонила перемещение")
+                        trashed_files += 1
+                except (OSError, RuntimeError) as error:
+                    failed_moves.append(f"{item.path}: {error}")
+                    continue
+            removable_paths.add(normalized_path)
+
         kept_files = []
         for f in self.files:
             try:
                 abs_path = os.path.normcase(os.path.abspath(f.path))
             except Exception:
                 abs_path = os.path.normcase(f.path)
-            if abs_path not in selected_paths:
+            if abs_path not in removable_paths:
                 kept_files.append(f)
         self.files = kept_files
         self.list_files.set_files(self.files)
         self.update_file_info()
-        self.status_bar.showMessage("Удалено из списка")
+        removed_count = len(selected) - len(failed_moves)
+        if move_to_trash:
+            self.status_bar.showMessage(
+                f"Убрано из списка: {removed_count}; перемещено в корзину: {trashed_files}."
+            )
+        else:
+            self.status_bar.showMessage(f"Убрано из списка: {removed_count}.")
+
+        if failed_moves:
+            QMessageBox.warning(
+                self,
+                "Не удалось переместить файлы",
+                "Некоторые файлы не удалось переместить в корзину, поэтому они оставлены "
+                "в списке:\n" + "\n".join(failed_moves),
+            )

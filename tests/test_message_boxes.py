@@ -8,6 +8,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFontMetrics, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QDialog,
     QMessageBox,
     QPushButton,
@@ -15,7 +16,11 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from app.core.message_boxes import show_app_choice, show_app_confirmation
+from app.core.message_boxes import (
+    show_app_choice,
+    show_app_confirmation,
+    show_app_confirmation_with_checkbox,
+)
 from app.ui.ui_spacing import FIELD_HEIGHT
 
 
@@ -61,7 +66,7 @@ class MessageBoxTests(unittest.TestCase):
             self.assertEqual(button.height(), FIELD_HEIGHT)
             self.assertEqual(
                 button.sizePolicy().horizontalPolicy(),
-                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Minimum,
             )
         self.assertEqual(
             dialog.findChild(QPushButton, "appMessageButton_first").property("buttonVariant"),
@@ -134,12 +139,33 @@ class MessageBoxTests(unittest.TestCase):
         buttons = dialog.findChildren(QPushButton)
         for button in buttons:
             text_width = QFontMetrics(button.font()).horizontalAdvance(button.text())
-            self.assertGreaterEqual(button.minimumWidth(), text_width + 24)
+            self.assertGreaterEqual(button.minimumWidth(), text_width + 20)
 
         required_width = (
-            sum(button.minimumWidth() for button in buttons) + 8 * (len(buttons) - 1) + 28
+            sum(button.minimumWidth() for button in buttons) + 8 * (len(buttons) - 1) + 24
         )
         self.assertGreaterEqual(dialog.minimumWidth(), required_width)
+
+    def test_confirmation_with_checkbox_returns_both_choices(self):
+        captured = {}
+
+        def check_and_accept(dialog):
+            captured["dialog"] = dialog
+            dialog.findChild(QCheckBox, "appMessageCheckbox").setChecked(True)
+            dialog.findChild(QPushButton, "appMessageButton_yes").click()
+            return int(QDialog.DialogCode.Accepted)
+
+        with patch.object(QDialog, "exec", new=check_and_accept):
+            accepted, checked = show_app_confirmation_with_checkbox(
+                self.parent,
+                "Удаление из списка",
+                "Убрать выбранные элементы?",
+                "Переместить выбранные файлы в корзину",
+            )
+
+        self.assertTrue(accepted)
+        self.assertTrue(checked)
+        self.assertLessEqual(captured["dialog"].maximumWidth(), 560)
 
 
 if __name__ == "__main__":

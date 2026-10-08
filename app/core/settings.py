@@ -25,7 +25,6 @@ _AUTO_CLEAR_DEFAULTS = {
     "metadata": False,
 }
 
-
 def _log_settings_error(context: str, error: Exception) -> None:
     _debug_log(f"Ошибка {context}: {error}")
 
@@ -185,6 +184,7 @@ def _initialize_settings_defaults(window) -> None:
         "start_menu_shortcut_checkbox": False,
         "disable_warning_dialogs_checkbox": False,
         "auto_update_check_checkbox": True,
+        "auto_clear_enabled_checkbox": False,
     }
     for attribute_name, checked in checkbox_defaults.items():
         _set_checkbox_state(getattr(window, attribute_name, None), checked)
@@ -376,17 +376,29 @@ def _restore_image_compression_output_settings(window, data: dict) -> None:
 def _apply_settings_data(window, data: dict) -> None:
     if "custom_templates" in data:
         window.custom_templates = data["custom_templates"]
+
     auto_clear_by_operation = data.get("auto_clear_by_operation")
     if isinstance(auto_clear_by_operation, dict):
         for operation, attribute_name in _AUTO_CLEAR_CHECKBOXES.items():
             value = auto_clear_by_operation.get(operation, _AUTO_CLEAR_DEFAULTS[operation])
             _set_checkbox_state(getattr(window, attribute_name, None), bool(value))
     elif "auto_clear" in data:
-        # Старый общий флаг переносится на все операции без изменения поведения.
         legacy_value = bool(data["auto_clear"])
         for attribute_name in _AUTO_CLEAR_CHECKBOXES.values():
             _set_checkbox_state(getattr(window, attribute_name, None), legacy_value)
 
+    if "auto_clear_enabled" in data:
+        auto_clear_enabled = bool(data["auto_clear_enabled"])
+    elif isinstance(auto_clear_by_operation, dict):
+        auto_clear_enabled = any(bool(value) for value in auto_clear_by_operation.values())
+    elif "auto_clear" in data:
+        auto_clear_enabled = bool(data["auto_clear"])
+    else:
+        auto_clear_enabled = False
+    _set_checkbox_state(
+        getattr(window, "auto_clear_enabled_checkbox", None),
+        auto_clear_enabled,
+    )
     boolean_options = (
         (
             "disable_warning_dialogs",
@@ -410,6 +422,10 @@ def _apply_settings_data(window, data: dict) -> None:
             getattr(window, "auto_update_check_checkbox", None),
             bool(data["auto_check_updates"]),
         )
+
+    sync_auto_clear_controls = getattr(window, "_sync_auto_clear_controls", None)
+    if callable(sync_auto_clear_controls):
+        sync_auto_clear_controls()
 
     _restore_navigation_state(window, data)
     _restore_main_splitter_sizes(window, data)
@@ -518,6 +534,10 @@ def _collect_settings_data(window) -> dict:
 
     return {
         "custom_templates": window.custom_templates,
+        "auto_clear_enabled": bool(
+            getattr(window, "auto_clear_enabled_checkbox", None)
+            and window.auto_clear_enabled_checkbox.isChecked()
+        ),
         "auto_clear_by_operation": {
             operation: bool(
                 getattr(window, attribute_name, None)

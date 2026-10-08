@@ -44,17 +44,6 @@ class _DummyNavigation:
 
 
 class SettingsResilienceTests(unittest.TestCase):
-    @staticmethod
-    def _attach_auto_clear_checkboxes(window):
-        for attribute_name in (
-            "auto_clear_rename_checkbox",
-            "auto_clear_convert_checkbox",
-            "auto_clear_merge_checkbox",
-            "auto_clear_compress_checkbox",
-            "auto_clear_metadata_checkbox",
-        ):
-            setattr(window, attribute_name, _DummyCheckbox())
-
     def test_load_settings_handles_corrupted_json(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings_path = os.path.join(tmpdir, "settings.json")
@@ -122,24 +111,33 @@ class SettingsResilienceTests(unittest.TestCase):
         self.assertEqual(data["image_compression_output_mode"], "custom")
         self.assertEqual(data["image_compression_output_path"], r"C:\output")
 
-    def test_auto_clear_can_be_configured_per_operation(self):
+    def test_auto_clear_has_master_switch_and_operation_choices(self):
         window = _DummyWindow()
-        self._attach_auto_clear_checkboxes(window)
+        window.auto_clear_enabled_checkbox = _DummyCheckbox()
+        for attribute_name in (
+            "auto_clear_rename_checkbox",
+            "auto_clear_convert_checkbox",
+            "auto_clear_merge_checkbox",
+            "auto_clear_compress_checkbox",
+            "auto_clear_metadata_checkbox",
+        ):
+            setattr(window, attribute_name, _DummyCheckbox())
         settings._initialize_settings_defaults(window)
 
-        self.assertFalse(window.auto_clear_rename_checkbox.isChecked())
+        self.assertFalse(window.auto_clear_enabled_checkbox.isChecked())
         self.assertTrue(window.auto_clear_convert_checkbox.isChecked())
 
         settings._apply_settings_data(
             window,
             {
+                "auto_clear_enabled": True,
                 "auto_clear_by_operation": {
                     "rename": True,
                     "convert": False,
-                    "merge": True,
-                    "compress": False,
-                    "metadata": True,
-                }
+                    "merge": False,
+                    "compress": True,
+                    "metadata": False,
+                },
             },
         )
         window.custom_templates = {}
@@ -147,29 +145,17 @@ class SettingsResilienceTests(unittest.TestCase):
 
         data = settings._collect_settings_data(window)
 
+        self.assertTrue(data["auto_clear_enabled"])
         self.assertEqual(
             data["auto_clear_by_operation"],
             {
                 "rename": True,
                 "convert": False,
-                "merge": True,
-                "compress": False,
-                "metadata": True,
+                "merge": False,
+                "compress": True,
+                "metadata": False,
             },
         )
-
-    def test_legacy_auto_clear_is_migrated_to_every_operation(self):
-        window = _DummyWindow()
-        self._attach_auto_clear_checkboxes(window)
-        settings._initialize_settings_defaults(window)
-
-        settings._apply_settings_data(window, {"auto_clear": True})
-
-        self.assertTrue(window.auto_clear_rename_checkbox.isChecked())
-        self.assertTrue(window.auto_clear_convert_checkbox.isChecked())
-        self.assertTrue(window.auto_clear_merge_checkbox.isChecked())
-        self.assertTrue(window.auto_clear_compress_checkbox.isChecked())
-        self.assertTrue(window.auto_clear_metadata_checkbox.isChecked())
 
     def test_removed_auto_clear_navigation_page_is_migrated_to_main(self):
         window = _DummyWindow()
