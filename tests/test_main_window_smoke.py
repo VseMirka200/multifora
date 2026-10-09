@@ -273,14 +273,14 @@ class MainWindowSmokeTests(unittest.TestCase):
                     Qt.AlignmentFlag.AlignCenter,
                 )
                 self.assertTrue(window.about_version_label.property("aboutVersionBadge"))
-                self.assertEqual(window.btn_open_repo.text(), "Описание и исходный код")
+                self.assertEqual(about_page.findChildren(QScrollArea), [])
+                self.assertIn("Лицензия MIT  •  Свободное программное обеспечение", about_texts)
+                self.assertEqual(window.btn_open_repo.text(), "Исходный код")
                 links_layout = window.btn_open_repo.parentWidget().layout()
                 self.assertIsInstance(links_layout, QHBoxLayout)
                 self.assertIs(links_layout.itemAt(0).widget(), window.btn_open_repo)
                 self.assertIs(links_layout.itemAt(1).widget(), window.btn_check_updates)
-                self.assertIsNotNone(
-                    links_layout.itemAt(links_layout.count() - 1).spacerItem()
-                )
+                self.assertEqual(links_layout.count(), 2)
                 with patch(
                     "app.ui.mixins.settings_panel_mixin.QDesktopServices.openUrl",
                     return_value=True,
@@ -296,7 +296,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(window.btn_download_logs.property("buttonVariant"), "secondary")
                 self.assertEqual(window.btn_check_updates.property("buttonVariant"), "primary")
                 self.assertEqual(window.btn_open_repo.property("buttonVariant"), "secondary")
-                self.assertEqual(window.btn_check_updates.text(), "Проверить обновление программы")
+                self.assertEqual(window.btn_check_updates.text(), "Проверить обновления")
                 for button in (
                     window.btn_check_updates,
                     window.btn_open_repo,
@@ -341,7 +341,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 )[1].split("}", 1)[0]
                 self.assertIn("background-color: transparent", selected_nav_style)
                 self.assertIn("color: #3d74b3", selected_nav_style)
-                self.assertEqual(window.help_stack.count(), 3)
+                self.assertEqual(window.help_stack.count(), 2)
                 self.assertEqual(
                     [action.text() for action in window.help_menu_actions],
                     [
@@ -355,14 +355,23 @@ class MainWindowSmokeTests(unittest.TestCase):
                     "app.ui.mixins.operations_tab_layout_mixin.QDesktopServices.openUrl",
                     return_value=True,
                 ) as open_url:
+                    window.help_menu_actions[2].trigger()
+                open_url.assert_called_once()
+                self.assertEqual(
+                    open_url.call_args.args[0].toString(),
+                    "https://github.com/VseMirka200/multifora",
+                )
+                self.assertFalse(hasattr(window, "_support_help_row"))
+                with patch(
+                    "app.ui.mixins.operations_tab_layout_mixin.QDesktopServices.openUrl",
+                    return_value=True,
+                ) as open_url:
                     window.help_menu_actions[3].trigger()
                 open_url.assert_called_once()
                 self.assertEqual(
                     open_url.call_args.args[0].toString(),
-                    "https://gitflic.ru/project/vsemirka200/multifora/issue/create",
+                    "https://github.com/VseMirka200/multifora/issues/new/choose",
                 )
-                support_page = window.help_stack.widget(window._support_help_row)
-                self.assertEqual(support_page.findChildren(QLabel), [])
                 behavior_page = window.settings_stack.widget(1)
                 behavior_labels = [
                     label.text() for label in behavior_page.findChildren(QLabel)
@@ -434,16 +443,21 @@ class MainWindowSmokeTests(unittest.TestCase):
                     )
                     self.assertEqual(
                         close_button.sizePolicy().horizontalPolicy(),
-                        QSizePolicy.Policy.Expanding,
+                        QSizePolicy.Policy.Maximum,
                     )
+                    self.assertEqual(dialog.minimumSize(), dialog.maximumSize())
+                    self.assertFalse(dialog.isSizeGripEnabled())
                     return int(QDialog.DialogCode.Rejected)
 
                 with patch.object(QDialog, "exec", new=inspect_help_dialog):
                     window.help_menu_actions[1].trigger()
                 self.assertIn("dialog", captured_help_dialog)
+                with patch.object(QDialog, "exec", new=lambda dialog: int(QDialog.DialogCode.Rejected)):
+                    window.help_menu_actions[0].trigger()
+                self.assertEqual(window.help_stack.currentIndex(), 1)
                 self.assertFalse(window.settings_panel_widget.isHidden())
                 self.assertTrue(window.help_panel_widget.isHidden())
-                self.assertEqual(window.help_stack.currentIndex(), 0)
+                self.assertEqual(window.help_stack.currentIndex(), 1)
                 self.assertTrue(window.btn_settings.isChecked())
                 self.assertFalse(window.btn_help.isChecked())
                 window.operations_tab_bar.tabBarClicked.emit(original_index)

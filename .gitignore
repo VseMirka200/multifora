@@ -40,6 +40,7 @@ dist/
 
 # PyInstaller
 *.spec
+!Multifora.spec
 
 # IDE/editor settings
 .idea/

@@ -1,6 +1,7 @@
-from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtCore import QEvent, QObject, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
+    QApplication,
     QCheckBox,
     QFrame,
     QGridLayout,
@@ -18,6 +19,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.core.conversion_formats import CONVERSION_CATEGORIES
+from app.core.github_links import GITHUB_NEW_ISSUE_URL, PROJECT_SUPPORT_URL
 from app.ui.ui_components import (
     MenuLikeComboBox,
     setup_clickable_checkbox_label,
@@ -45,7 +47,37 @@ from app.ui.ui_styles import (
 )
 
 
-BUG_REPORT_PAGE = "https://gitflic.ru/project/vsemirka200/multifora/issue/create"
+BUG_REPORT_PAGE = "https://github.com/VseMirka200/multifora/issues/new/choose"
+
+
+class _HelpMenuClickFilter(QObject):
+    """Close an open help popup on a click on its anchor button.
+
+    A QMenu can grab the mouse and hide *before* QPushButton.clicked is
+    emitted. In that case a regular clicked toggle would reopen the popup.
+    Filtering the press at QApplication level consumes that closing click,
+    regardless of whether Qt delivers it to QMenu or to the button.
+    """
+
+    def __init__(self, button: QPushButton, menu: QMenu):
+        super().__init__(button)
+        self._button = button
+        self._menu = menu
+
+    def eventFilter(self, watched, event):
+        if (
+            event.type() in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonDblClick)
+            and event.button() == Qt.MouseButton.LeftButton
+            and self._menu.isVisible()
+            and self._button.isVisible()
+            and self._button.rect().contains(
+                self._button.mapFromGlobal(event.globalPosition().toPoint())
+            )
+        ):
+            self._menu.hide()
+            self._button.setChecked(False)
+            return True
+        return False
 
 
 class OperationsTabLayoutMixin:
@@ -282,30 +314,42 @@ class OperationsTabLayoutMixin:
         self.help_menu = QMenu(self.btn_help)
         setup_standard_popup_menu(self.help_menu)
         self.help_menu.setObjectName("help_menu_popup")
-        help_sections = (
-            ("О программе", 1),
-            ("Логи", 0),
-            ("Поддержать проект", 2),
-        )
         self.help_menu_actions = []
-        for title, section_index in help_sections:
-            action = self.help_menu.addAction(title)
-            action.triggered.connect(
-                lambda _checked=False, index=section_index: self.show_help_modal(index)
-            )
-            self.help_menu_actions.append(action)
+        about_action = self.help_menu.addAction("О программе")
+        about_action.triggered.connect(lambda: self.show_help_modal(1))
+        self.help_menu_actions.append(about_action)
+        logs_action = self.help_menu.addAction("Логи")
+        logs_action.triggered.connect(lambda: self.show_help_modal(0))
+        self.help_menu_actions.append(logs_action)
+
+        # Поддержка — обычная ссылка, без пустого диалогового окна.
+        support_action = self.help_menu.addAction("Поддержать проект")
+        support_action.triggered.connect(
+            lambda: QDesktopServices.openUrl(QUrl(PROJECT_SUPPORT_URL))
+        )
+        self.help_menu_actions.append(support_action)
+
         report_bug_action = self.help_menu.addAction("Сообщить об ошибке")
         report_bug_action.triggered.connect(
-            lambda: QDesktopServices.openUrl(QUrl(BUG_REPORT_PAGE))
+            lambda: QDesktopServices.openUrl(QUrl(GITHUB_NEW_ISSUE_URL))
         )
         self.help_menu_actions.append(report_bug_action)
         self.help_menu.aboutToHide.connect(self._sync_help_button_after_menu)
+        # QMenu can receive a click on its anchor before QPushButton does.
+        # Consume that click so closing the popup does not reopen it.
+        self._help_menu_click_filter = _HelpMenuClickFilter(self.btn_help, self.help_menu)
+        QApplication.instance().installEventFilter(self._help_menu_click_filter)
         self.btn_help.clicked.connect(self._show_help_menu)
         self._apply_operations_tab_bar_theme()
 
         return tab
 
     def _show_help_menu(self, _checked=False) -> None:
+        if self.help_menu.isVisible():
+            self.help_menu.hide()
+            self.btn_help.setChecked(False)
+            return
+        self.btn_help.setChecked(True)
         self.help_menu.popup(
             self.btn_help.mapToGlobal(self.btn_help.rect().bottomLeft())
         )

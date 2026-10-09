@@ -4,6 +4,7 @@ from PyQt6.QtCore import QSize, Qt, QTimer, QUrl
 from PyQt6.QtGui import QAction, QDesktopServices, QFont, QIcon, QTextCursor
 from PyQt6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QCheckBox,
     QDialog,
     QFrame,
@@ -25,9 +26,8 @@ from PyQt6.QtWidgets import (
 )
 
 from app.core.app_icons import _get_app_icon_qt_path
-from app.core.app_identity import APP_DISPLAY_NAME, APP_TECHNICAL_NAME, APP_VERSION
+from app.core.app_identity import APP_DISPLAY_NAME, APP_VERSION
 from app.core.app_utils import _log_ignored_error
-from app.core.conversion_formats import CATEGORY_SOURCE_FORMATS
 from app.core.update_checker import (
     REPO_PAGE,
     check_for_updates,
@@ -168,7 +168,24 @@ class SettingsPanelMixin:
         self.settings_stack.addWidget(page)
         return card_layout
 
-    def _add_help_page(self) -> QVBoxLayout:
+    def _add_help_page(self, *, compact: bool = False) -> QVBoxLayout:
+        if compact:
+            # Небольшая страница «О программе»: без растягиваемой прокрутки,
+            # карточка имеет только необходимую содержимому высоту.
+            page = QWidget()
+            page_layout = QVBoxLayout(page)
+            page_layout.setContentsMargins(*MARGINS_NONE)
+            page_layout.setSpacing(SPACE_NONE)
+            page_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+            card = QFrame(page)
+            card.setObjectName("settings_card")
+            card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+            card_layout = QVBoxLayout(card)
+            card_layout.setContentsMargins(*MARGINS_NONE)
+            card_layout.setSpacing(SPACE_SM)
+            page_layout.addWidget(card, 0, Qt.AlignmentFlag.AlignTop)
+            self.help_stack.addWidget(page)
+            return card_layout
         page, card_layout = self._create_settings_page_card()
         self.help_stack.addWidget(page)
         return card_layout
@@ -232,32 +249,25 @@ class SettingsPanelMixin:
         self.log_event("Открыта панель настроек")
 
     def show_help_modal(self, section_index: int = 0):
-        """Показывает выбранный раздел справки в отдельном модальном окне."""
-        help_widget = self._ensure_help_panel_widget()
-        if 0 <= section_index < self.help_stack.count():
-            self.help_stack.setCurrentIndex(section_index)
+        """Компактные окна справки с фиксированной геометрией.
 
+        Только «Логи» содержит прокручиваемую область; окно «О программе»
+        занимает столько места, сколько нужно его содержимому.
+        """
+        if section_index not in (0, 1):
+            return None
+        help_widget = self._ensure_help_panel_widget()
+        self.help_stack.setCurrentIndex(section_index)
         if callable(getattr(self, "attach_action_logging", None)):
             self.attach_action_logging(help_widget)
 
-        section_titles = {
-            0: "Логи",
-            1: "О программе",
-            2: "Поддержать проект",
-        }
-        title = section_titles.get(section_index, "Справка")
+        title = "Логи" if section_index == 0 else "О программе"
         dialog = QDialog(self)
         dialog._effective_theme_mode = getattr(self, "_effective_theme_mode", "dark")
-        setup_standard_dialog(
-            dialog,
-            title=title,
-            min_width=620,
-            min_height=420,
-            width=760,
-            height=560,
-            size_grip=True,
-            allow_minmax=True,
-        )
+        setup_standard_dialog(dialog, title=title)
+        dialog.setWindowFlag(Qt.WindowType.MSWindowsFixedSizeDialogHint, True)
+        dialog.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint, False)
+        dialog.setSizeGripEnabled(False)
         try:
             dialog.setStyleSheet(self.styleSheet())
         except Exception as error:
@@ -265,26 +275,35 @@ class SettingsPanelMixin:
 
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(*DIALOG_MARGINS)
-        layout.setSpacing(SPACE_SM)
-
+        layout.setSpacing(SPACE_LG)
         host = getattr(self, "settings_panel_host", None)
         host_layout = host.layout() if host is not None else None
         if host_layout is not None:
             host_layout.removeWidget(help_widget)
         help_widget.setParent(dialog)
         help_widget.setVisible(True)
-        layout.addWidget(help_widget, 1)
+        layout.addWidget(help_widget, 1 if section_index == 0 else 0)
 
         close_button = QPushButton("Закрыть", dialog)
-        setup_standard_secondary_button(close_button, expand=True)
+        setup_standard_secondary_button(close_button)
+        close_button.setFixedWidth(96)
         close_button.clicked.connect(dialog.accept)
-        layout.addWidget(close_button)
+        layout.addWidget(close_button, 0, Qt.AlignmentFlag.AlignRight)
+
+        # Ограничиваем размеры экраном: окно нельзя растянуть за заголовок.
+        screen = dialog.screen() or QApplication.primaryScreen()
+        screen_size = screen.availableGeometry() if screen else None
+        requested_width, requested_height = (680, 420) if section_index == 0 else (510, 405)
+        width = min(requested_width, screen_size.width() - 32) if screen_size else requested_width
+        height = min(requested_height, screen_size.height() - 48) if screen_size else requested_height
+        dialog.setFixedSize(max(320, width), max(280, height))
 
         self.log_event(f"Открыт раздел справки: {title}")
-        try:
-            self.load_logs_into_view()
-        except Exception as error:
-            _log_ignored_error("SettingsPanelMixin.show_help_modal", error)
+        if section_index == 0:
+            try:
+                self.load_logs_into_view()
+            except Exception as error:
+                _log_ignored_error("SettingsPanelMixin.show_help_modal", error)
         try:
             return dialog.exec()
         finally:
@@ -314,102 +333,95 @@ class SettingsPanelMixin:
             splitter.setVisible(True)
 
     def _ensure_about_help_page(self):
-        if not hasattr(self, "_about_help_row"):
-            self._about_help_row = self.help_stack.count()
-            layout = self._add_help_page()
-            layout.setSpacing(SPACE_SM)
-            layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-            card = layout.parentWidget()
-            card.parentWidget().layout().setAlignment(Qt.AlignmentFlag.AlignTop)
-            self.help_stack.widget(self._about_help_row).layout().setAlignment(
-                Qt.AlignmentFlag.AlignTop
-            )
+        """Страница со стандартной для настольных приложений информацией."""
+        if hasattr(self, "_about_help_row"):
+            return
+        self._about_help_row = self.help_stack.count()
+        layout = self._add_help_page(compact=True)
+        layout.setSpacing(SPACE_LG)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-            about_header = QWidget()
-            about_header.setObjectName("about_header")
-            about_header.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-            about_header_layout = QVBoxLayout(about_header)
-            about_header_layout.setContentsMargins(0, SPACE_LG, 0, SPACE_XL)
-            about_header_layout.setSpacing(SPACE_SM)
-            about_header_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        about_header = QWidget()
+        about_header.setObjectName("about_header")
+        about_header_layout = QVBoxLayout(about_header)
+        about_header_layout.setContentsMargins(0, SPACE_SM, 0, SPACE_SM)
+        about_header_layout.setSpacing(SPACE_SM)
+        about_header_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
-            self.about_icon_label = QLabel()
-            self.about_icon_label.setPixmap(QIcon(_get_app_icon_qt_path() or "").pixmap(80, 80))
-            self.about_icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            about_header_layout.addWidget(
-                self.about_icon_label,
-                0,
-                Qt.AlignmentFlag.AlignHCenter,
-            )
+        self.about_icon_label = QLabel()
+        self.about_icon_label.setPixmap(QIcon(_get_app_icon_qt_path() or "").pixmap(52, 52))
+        self.about_icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        about_header_layout.addWidget(self.about_icon_label, 0, Qt.AlignmentFlag.AlignHCenter)
 
-            self.about_title_label = QLabel(f"{APP_DISPLAY_NAME} ({APP_TECHNICAL_NAME})")
-            title_font = self.about_title_label.font()
-            title_font.setPointSize(18)
-            title_font.setBold(True)
-            self.about_title_label.setFont(title_font)
-            self.about_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            about_header_layout.addWidget(
-                self.about_title_label,
-                0,
-                Qt.AlignmentFlag.AlignHCenter,
-            )
+        self.about_title_label = QLabel(APP_DISPLAY_NAME)
+        title_font = self.about_title_label.font()
+        title_font.setPointSize(16)
+        title_font.setBold(True)
+        self.about_title_label.setFont(title_font)
+        self.about_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        about_header_layout.addWidget(self.about_title_label, 0, Qt.AlignmentFlag.AlignHCenter)
 
-            self.about_version_label = QLabel(f"Версия: {APP_VERSION}")
-            self.about_version_label.setProperty("aboutVersionBadge", True)
-            self.about_version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.about_version_label.setTextInteractionFlags(
-                Qt.TextInteractionFlag.TextSelectableByMouse
-            )
-            about_header_layout.addWidget(
-                self.about_version_label,
-                0,
-                Qt.AlignmentFlag.AlignHCenter,
-            )
-            layout.addWidget(about_header)
+        self.about_version_label = QLabel(f"Версия: {APP_VERSION}")
+        self.about_version_label.setProperty("aboutVersionBadge", True)
+        self.about_version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.about_version_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        about_header_layout.addWidget(self.about_version_label, 0, Qt.AlignmentFlag.AlignHCenter)
+        layout.addWidget(about_header)
 
-            paragraphs = [
-                "Приложение для пакетной обработки файлов и папок. "
-                "Добавляйте файлы кнопками или перетаскивайте их в окно.",
-                "Возможности: переименование по шаблонам с предварительным просмотром "
-                "и историей изменений; конвертация документов и изображений; "
-                "объединение PDF- и DOCX-файлов; "
-                "сжатие PDF и изображений.",
-                "Исходные форматы документов: "
-                + ", ".join(CATEGORY_SOURCE_FORMATS["Документы"])
-                + ".",
-                "Исходные форматы изображений: "
-                + ", ".join(CATEGORY_SOURCE_FORMATS["Изображения"])
-                + ".",
-                "Доступность преобразований зависит от формата и установленных компонентов. "
-                "Для отдельных операций с документами нужен Microsoft Word, "
-                "для сжатия PDF используется Ghostscript.",
-                "В настройках доступны светлая и тёмная темы, поведение после операций, "
-                "ярлыки и контекстное меню Windows, проверка обновлений и логи.",
-            ]
-            for text in paragraphs:
-                label = QLabel(text)
-                label.setWordWrap(True)
-                label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-                layout.addWidget(label)
-            links_row = QWidget()
-            links_layout = QHBoxLayout(links_row)
-            links_layout.setContentsMargins(*MARGINS_NONE)
-            links_layout.setSpacing(SPACE_SM)
+        description = QLabel(
+            "Мультифора — приложение с открытым исходным кодом для "
+            "пакетной обработки документов и изображений в Windows."
+        )
+        description.setWordWrap(True)
+        description.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        description.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        layout.addWidget(description)
 
-            self.btn_open_repo = QPushButton("Описание и исходный код")
-            setup_standard_secondary_button(self.btn_open_repo)
-            self.btn_open_repo.clicked.connect(
-                lambda: QDesktopServices.openUrl(QUrl(REPO_PAGE))
-            )
-            links_layout.addWidget(self.btn_open_repo)
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setFrameShadow(QFrame.Shadow.Plain)
+        layout.addWidget(separator)
 
-            self.btn_check_updates = QPushButton("Проверить обновление программы")
-            setup_standard_primary_button(self.btn_check_updates)
-            self.btn_check_updates.clicked.connect(self.check_updates_now)
-            links_layout.addWidget(self.btn_check_updates)
-            links_layout.addStretch()
-            layout.addWidget(links_row)
-            layout.addStretch()
+        capabilities = QLabel(
+            "Переименование по шаблонам · Конвертация · "
+            "Объединение PDF/DOCX · Сжатие изображений и PDF"
+        )
+        capabilities.setWordWrap(True)
+        capabilities.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        capabilities.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        layout.addWidget(capabilities)
+
+        requirements = QLabel(
+            "Для некоторых операций необходимы Microsoft Word или Ghostscript."
+        )
+        requirements.setWordWrap(True)
+        requirements.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(requirements)
+
+        license_label = QLabel("Лицензия MIT  •  Свободное программное обеспечение")
+        license_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        license_label.setWordWrap(True)
+        license_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        layout.addWidget(license_label)
+
+        links_row = QWidget()
+        links_layout = QHBoxLayout(links_row)
+        links_layout.setContentsMargins(*MARGINS_NONE)
+        links_layout.setSpacing(SPACE_SM)
+        links_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.btn_open_repo = QPushButton("Исходный код")
+        setup_standard_secondary_button(self.btn_open_repo)
+        self.btn_open_repo.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(REPO_PAGE)))
+        links_layout.addWidget(self.btn_open_repo)
+
+        self.btn_check_updates = QPushButton("Проверить обновления")
+        setup_standard_primary_button(self.btn_check_updates)
+        self.btn_check_updates.clicked.connect(self.check_updates_now)
+        links_layout.addWidget(self.btn_check_updates)
+        layout.addWidget(links_row)
 
     def create_settings_tab(self):
         """Создает панель основных настроек на всю доступную ширину."""
@@ -618,7 +630,7 @@ class SettingsPanelMixin:
         tab = QWidget()
         tab.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         help_font = QFont()
-        help_font.setPointSize(13)
+        help_font.setPointSize(10)
         tab.setFont(help_font)
         root_layout = QHBoxLayout(tab)
         root_layout.setContentsMargins(*SETTINGS_PANEL_MARGINS)
@@ -691,16 +703,13 @@ class SettingsPanelMixin:
         self.logs_view.setMaximumBlockCount(self.max_log_lines)
         self.logs_view.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         try:
-            self.logs_view.setFont(QFont("Consolas", 13))
+            self.logs_view.setFont(QFont("Consolas", 10))
         except Exception as error:
             _log_ignored_error("SettingsPanelMixin.create_settings_tab", error)
         logs_card_layout.addWidget(self.logs_view, 1)
 
         self.load_logs_into_view()
         self._ensure_about_help_page()
-        self._support_help_row = self.help_stack.count()
-        support_layout = self._add_help_page()
-        support_layout.addStretch()
 
         return tab
 

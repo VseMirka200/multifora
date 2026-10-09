@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://github.com/VseMirka200/multifora/releases/latest"><img alt="Последний выпуск" src="https://img.shields.io/github/v/release/VseMirka200/multifora?display_name=tag&sort=semver"></a>
-  <a href="https://github.com/VseMirka200/multifora/actions/workflows/ci.yml"><img alt="Тесты" src="https://github.com/VseMirka200/multifora/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/VseMirka200/multifora/actions/workflows/windows-build.yml"><img alt="Тесты" src="https://github.com/VseMirka200/multifora/actions/workflows/windows-build.yml/badge.svg"></a>
   <img alt="Платформа: Windows" src="https://img.shields.io/badge/platform-Windows-0078D4">
   <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-3776AB">
   <a href="LICENSE"><img alt="Лицензия MIT" src="https://img.shields.io/badge/license-MIT-2ea44f"></a>
@@ -68,3 +68,15 @@
 ## Рефакторинг и тестирование
 
 Перечень исправлений, новых регрессионных тестов и ограничений Windows-проверки приведён в [отчёте по рефакторингу](docs/REFACTOR_REPORT.md).
+
+## Сборка и тестирование Windows-версии
+
+Готовая конфигурация GitHub Actions собирает переносной ZIP и установщик Inno Setup на Windows, проверяет EXE и тихую установку, создаёт SHA-256. Подробные инструкции — [docs/WINDOWS_RELEASE.md](docs/WINDOWS_RELEASE.md).
+
+## Обратная связь и справка
+
+В меню **Справка** доступны окна «О программе» и «Логи». Пункт
+**Поддержать проект** открывает [репозиторий Мультифоры на GitHub](https://github.com/VseMirka200/multifora).
+Пункт **Сообщить об ошибке** сразу открывает [GitHub Issues с выбором русскоязычного шаблона](https://github.com/VseMirka200/multifora/issues/new/choose) — без промежуточного окна приложения.
+
+Подробности — в [инструкции по справке](docs/HELP_FEEDBACK.md), шаблоны находятся в [`.github/ISSUE_TEMPLATE`](.github/ISSUE_TEMPLATE).

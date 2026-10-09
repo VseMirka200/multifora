@@ -29,10 +29,15 @@ if exist "dist\%APP_BUILD_NAME%" rmdir /s /q "dist\%APP_BUILD_NAME%"
 python -m PyInstaller --noconfirm --clean "Multifora.spec"
 if errorlevel 1 goto :error
 
+if not exist "dist\%APP_BUILD_NAME%\%APP_BUILD_NAME%.exe" goto :error
+
 if exist "bin" (
     robocopy "bin" "dist\%APP_BUILD_NAME%\bin" /E /NFL /NDL /NJH /NJS /NP >nul
     if errorlevel 8 goto :error
 )
+
+python "scripts\verify_windows_bundle.py" --bundle "dist\%APP_BUILD_NAME%"
+if errorlevel 1 goto :error
 
 echo Build complete. Output: dist\%APP_BUILD_NAME%
 if /i not "%~1"=="--no-pause" pause

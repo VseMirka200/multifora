@@ -2,7 +2,7 @@ from app.ui.ui_spacing import FIELD_HEIGHT
 
 STANDARD_RADIUS = 4
 
-STANDARD_FORM_LABEL_STYLE = "font-size: 13px; margin: 0px; padding: 0px;"
+STANDARD_FORM_LABEL_STYLE = "font-size: 13px; font-weight: 400; margin: 0px; padding: 0px;"
 FILE_INFO_LABEL_STYLE = "font-size: 13px; font-weight: 600; padding: 0px 2px;"
 SETTINGS_SECTION_TITLE_STYLE = (
     "font-size: 16px; font-weight: 800; margin: 0px; padding: 0px;"
@@ -572,7 +572,7 @@ def build_tab_content_style_block(theme: str) -> str:
             }}
             QLabel#tab_section_label {{
                 font-size: 13px;
-                font-weight: 700;
+                font-weight: 400;
                 color: {base_text};
             }}
             QFrame#settings_section_separator {{
