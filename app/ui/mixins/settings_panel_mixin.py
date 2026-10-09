@@ -1,16 +1,13 @@
 import concurrent.futures
 
-from PyQt6.QtCore import QSize, Qt, QTimer, QUrl
+from PyQt6.QtCore import Qt, QTimer, QUrl
 from PyQt6.QtGui import QAction, QDesktopServices, QFont, QIcon, QTextCursor
 from PyQt6.QtWidgets import (
-    QAbstractItemView,
     QCheckBox,
     QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QListWidget,
-    QListWidgetItem,
     QMenu,
     QMessageBox,
     QPlainTextEdit,
@@ -49,7 +46,6 @@ from app.ui.ui_spacing import (
     CHECKBOX_SIZE,
     HEADER_FIELD_HEIGHT,
     MARGINS_NONE,
-    SETTINGS_PANEL_COLUMN_GAP,
     SETTINGS_PANEL_MARGINS,
     SPACE_LG,
     SPACE_NONE,
@@ -143,6 +139,11 @@ class SettingsPanelMixin:
         self.settings_stack.addWidget(page)
         return card_layout
 
+    def _add_help_page(self) -> QVBoxLayout:
+        page, card_layout = self._create_settings_page_card()
+        self.help_stack.addWidget(page)
+        return card_layout
+
     def _ensure_settings_panel_widget(self):
         if not hasattr(self, "settings_panel_widget") or self.settings_panel_widget is None:
             self.settings_panel_widget = self.create_settings_tab()
@@ -155,16 +156,29 @@ class SettingsPanelMixin:
                 host_layout.addWidget(self.settings_panel_widget)
         return self.settings_panel_widget
 
-    def show_settings_modal(self):
-        """Показывает панель настроек поверх рабочей области."""
-        settings_widget = self._ensure_settings_panel_widget()
-        self.btn_settings.setChecked(True)
-        host = getattr(self, "settings_panel_host", None)
-        tab_bar = getattr(self, "operations_tab_bar", None)
-        if tab_bar is not None:
-            tab_bar.setProperty("settingsActive", True)
-            self._apply_operations_tab_bar_theme()
+    def _ensure_help_panel_widget(self):
+        if not hasattr(self, "help_panel_widget") or self.help_panel_widget is None:
+            self.help_panel_widget = self.create_help_tab()
 
+        host = getattr(self, "settings_panel_host", None)
+        if host is not None:
+            host_layout = host.layout()
+            if host_layout is not None and host_layout.indexOf(self.help_panel_widget) < 0:
+                self.help_panel_widget.setParent(None)
+                host_layout.addWidget(self.help_panel_widget)
+        return self.help_panel_widget
+
+    def _show_header_panel(self, panel: QWidget, active_button: QPushButton) -> None:
+        for widget_name in ("settings_panel_widget", "help_panel_widget"):
+            widget = getattr(self, widget_name, None)
+            if widget is not None:
+                widget.setVisible(widget is panel)
+        for button_name in ("btn_settings", "btn_help"):
+            button = getattr(self, button_name, None)
+            if button is not None:
+                button.setChecked(button is active_button)
+
+        host = getattr(self, "settings_panel_host", None)
         if host is not None:
             host.setVisible(True)
             host.adjustSize()
@@ -173,32 +187,46 @@ class SettingsPanelMixin:
         if splitter is not None:
             splitter.setVisible(False)
 
+        tab_bar = getattr(self, "operations_tab_bar", None)
+        if tab_bar is not None:
+            tab_bar.setProperty("settingsActive", True)
+            self._apply_operations_tab_bar_theme()
+
+    def show_settings_modal(self):
+        """Показывает панель настроек поверх рабочей области."""
+        settings_widget = self._ensure_settings_panel_widget()
+        self._show_header_panel(settings_widget, self.btn_settings)
+
         if callable(getattr(self, "attach_action_logging", None)):
             self.attach_action_logging(settings_widget)
 
         self.log_event("Открыта панель настроек")
+
+    def show_help_modal(self, section_index: int = 0):
+        """Показывает справку, логи и сведения о программе."""
+        help_widget = self._ensure_help_panel_widget()
+        if 0 <= section_index < self.help_stack.count():
+            self.help_stack.setCurrentIndex(section_index)
+        self._show_header_panel(help_widget, self.btn_help)
+
+        if callable(getattr(self, "attach_action_logging", None)):
+            self.attach_action_logging(help_widget)
+
+        self.log_event("Открыта панель справки")
         try:
             self.load_logs_into_view()
         except Exception as error:
-            _log_ignored_error("SettingsPanelMixin.show_settings_modal", error)
-        if hasattr(self, "settings_nav") and self.settings_nav is not None:
-            target_row = getattr(self, "_pending_settings_nav_row", self.settings_nav.currentRow())
-            if (
-                not isinstance(target_row, int)
-                or target_row < 0
-                or target_row >= self.settings_nav.count()
-            ):
-                target_row = 0
-            self.settings_nav.setCurrentRow(target_row)
+            _log_ignored_error("SettingsPanelMixin.show_help_modal", error)
 
     def hide_settings_panel(self):
         tab_bar = getattr(self, "operations_tab_bar", None)
         if tab_bar is not None:
             tab_bar.setProperty("settingsActive", False)
             self._apply_operations_tab_bar_theme()
-        button = getattr(self, "btn_settings", None)
-        if button is not None:
-            button.setChecked(False)
+        for button_name in ("btn_settings", "btn_help"):
+            button = getattr(self, button_name, None)
+            if button is not None:
+                button.setChecked(False)
         host = getattr(self, "settings_panel_host", None)
         if host is not None:
             host.setVisible(False)
@@ -206,19 +234,15 @@ class SettingsPanelMixin:
         if splitter is not None:
             splitter.setVisible(True)
 
-    def _ensure_about_settings_page(self):
-        if not hasattr(self, "_about_settings_row"):
-            self._about_settings_row = self.settings_stack.count()
-            item = QListWidgetItem("О программе")
-            item.setFont(self.settings_nav.item(0).font())
-            item.setSizeHint(QSize(self._settings_nav_base_width, self._settings_nav_item_height))
-            self.settings_nav.addItem(item)
-            layout = self._add_settings_page()
+    def _ensure_about_help_page(self):
+        if not hasattr(self, "_about_help_row"):
+            self._about_help_row = self.help_stack.count()
+            layout = self._add_help_page()
             layout.setSpacing(SPACE_SM)
             layout.setAlignment(Qt.AlignmentFlag.AlignTop)
             card = layout.parentWidget()
             card.parentWidget().layout().setAlignment(Qt.AlignmentFlag.AlignTop)
-            self.settings_stack.widget(self._about_settings_row).layout().setAlignment(
+            self.help_stack.widget(self._about_help_row).layout().setAlignment(
                 Qt.AlignmentFlag.AlignTop
             )
 
@@ -269,7 +293,7 @@ class SettingsPanelMixin:
                 "Добавляйте файлы кнопками или перетаскивайте их в окно.",
                 "Возможности: переименование по шаблонам с предварительным просмотром "
                 "и историей изменений; конвертация документов и изображений; "
-                "объединение PDF- и DOCX-файлов; удаление метаданных; "
+                "объединение PDF- и DOCX-файлов; "
                 "сжатие PDF и изображений.",
                 "Исходные форматы документов: "
                 + ", ".join(CATEGORY_SOURCE_FORMATS["Документы"])
@@ -305,12 +329,11 @@ class SettingsPanelMixin:
             self.btn_check_updates.clicked.connect(self.check_updates_now)
             links_layout.addWidget(self.btn_check_updates)
             links_layout.addStretch()
-            self.about_link_buttons = [self.btn_open_repo]
             layout.addWidget(links_row)
             layout.addStretch()
 
     def create_settings_tab(self):
-        """Создает панель настроек с категориями слева и содержимым справа."""
+        """Создает отдельную панель основных настроек."""
         tab = QWidget()
         tab.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         settings_font = QFont()
@@ -318,39 +341,7 @@ class SettingsPanelMixin:
         tab.setFont(settings_font)
         root_layout = QHBoxLayout(tab)
         root_layout.setContentsMargins(*SETTINGS_PANEL_MARGINS)
-        root_layout.setSpacing(SETTINGS_PANEL_COLUMN_GAP)
-
-        self.settings_nav = QListWidget()
-        self.settings_nav.setObjectName("settings_nav")
-        self._settings_nav_base_width = 192
-        self.settings_nav.setFixedWidth(self._settings_nav_base_width)
-        self.settings_nav.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.settings_nav.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.settings_nav.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
-        self.settings_nav.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.settings_nav.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        self.settings_nav.setWordWrap(True)
-        self.settings_nav.setTextElideMode(Qt.TextElideMode.ElideNone)
-        self.settings_nav.setSpacing(0)
-        self.settings_nav.setUniformItemSizes(True)
-        self._settings_nav_item_height = 36
-        nav_font = QFont()
-        nav_font.setPointSize(10)
-        for title in ["Основное", "Логи"]:
-            item = QListWidgetItem(title)
-            item.setFont(nav_font)
-            item.setSizeHint(QSize(self._settings_nav_base_width, self._settings_nav_item_height))
-            self.settings_nav.addItem(item)
-        self.settings_nav.verticalScrollBar().rangeChanged.connect(
-            lambda _min, _max: self._update_settings_nav_width()
-        )
-        nav_container = QWidget()
-        nav_layout = QVBoxLayout(nav_container)
-        nav_layout.setContentsMargins(*MARGINS_NONE)
-        nav_layout.setSpacing(SPACE_NONE)
-        nav_layout.addWidget(self.settings_nav, 1)
-
-        root_layout.addWidget(nav_container, 0)
+        root_layout.setSpacing(SPACE_NONE)
 
         self.settings_stack = QStackedWidget()
         root_layout.addWidget(self.settings_stack, 1)
@@ -456,7 +447,6 @@ class SettingsPanelMixin:
             ("auto_clear_convert_checkbox", "Конвертации"),
             ("auto_clear_merge_checkbox", "Объединения"),
             ("auto_clear_compress_checkbox", "Сжатия"),
-            ("auto_clear_metadata_checkbox", "Удаления метаданных"),
         )
         self.auto_clear_operation_checkboxes = []
         self.auto_clear_operation_rows = []
@@ -506,7 +496,23 @@ class SettingsPanelMixin:
         main_card_layout.addWidget(context_menu_row)
         main_card_layout.addStretch()
 
-        logs_card_layout = self._add_settings_page()
+        return tab
+
+    def create_help_tab(self):
+        """Создает отдельную панель справки с логами и сведениями о программе."""
+        tab = QWidget()
+        tab.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        help_font = QFont()
+        help_font.setPointSize(13)
+        tab.setFont(help_font)
+        root_layout = QHBoxLayout(tab)
+        root_layout.setContentsMargins(*SETTINGS_PANEL_MARGINS)
+        root_layout.setSpacing(SPACE_NONE)
+
+        self.help_stack = QStackedWidget()
+        root_layout.addWidget(self.help_stack, 1)
+
+        logs_card_layout = self._add_help_page()
         logs_card_layout.setSpacing(SPACE_SM)
 
         logs_filters_row = QWidget()
@@ -576,17 +582,12 @@ class SettingsPanelMixin:
         logs_card_layout.addWidget(self.logs_view, 1)
 
         self.load_logs_into_view()
-        self.settings_nav.currentRowChanged.connect(self.settings_stack.setCurrentIndex)
-        self.settings_nav.currentRowChanged.connect(self._on_settings_nav_changed)
-        self.settings_nav.setCurrentRow(0)
-        self._update_settings_nav_width()
+        self._ensure_about_help_page()
+        self._support_help_row = self.help_stack.count()
+        support_layout = self._add_help_page()
+        support_layout.addStretch()
 
         return tab
-
-    def _on_settings_nav_changed(self, row: int):
-        self._pending_settings_nav_row = row
-        if callable(getattr(self, "_schedule_settings_save", None)):
-            self._schedule_settings_save()
 
     def _on_theme_mode_changed(self, _index=0):
         mode = "system"
@@ -666,19 +667,6 @@ class SettingsPanelMixin:
         button = getattr(self, "logs_level_filter", None)
         sync_standard_menu_width(menu, button)
 
-    def _update_settings_nav_width(self):
-        if not hasattr(self, "settings_nav") or self.settings_nav is None:
-            return
-        base = getattr(self, "_settings_nav_base_width", 220)
-        scroll = self.settings_nav.verticalScrollBar()
-        extra = 0
-        try:
-            if scroll and scroll.maximum() > 0:
-                extra = scroll.sizeHint().width() + 4
-        except Exception:
-            extra = 0
-        self.settings_nav.setFixedWidth(base + extra)
-
     def check_updates_now(self):
         self._start_update_check(silent=False)
 
@@ -694,8 +682,8 @@ class SettingsPanelMixin:
 
     def _start_update_check(self, silent: bool = False):
         if getattr(self, "_update_future", None) and not self._update_future.done():
-            return
-        if not hasattr(self, "btn_check_updates") or self.btn_check_updates is None:
+            if not silent:
+                self._update_silent = False
             return
 
         if not hasattr(self, "_update_executor"):
@@ -706,7 +694,9 @@ class SettingsPanelMixin:
             self._update_poll_timer.timeout.connect(self._poll_update_future)
 
         self._update_silent = bool(silent)
-        self.btn_check_updates.setEnabled(False)
+        button = getattr(self, "btn_check_updates", None)
+        if button is not None:
+            button.setEnabled(False)
         self._update_future = self._update_executor.submit(check_for_updates)
         self._update_poll_timer.start()
 
@@ -725,30 +715,31 @@ class SettingsPanelMixin:
             return
 
         self._update_poll_timer.stop()
-        self.btn_check_updates.setEnabled(True)
+        button = getattr(self, "btn_check_updates", None)
+        if button is not None:
+            button.setEnabled(True)
 
         try:
             result = self._update_future.result()
             current = result.get("current_version", "unknown")
             latest = result.get("latest_version", "-")
-            has_update = result.get("has_update")
             cmp_result = result.get("comparison")
 
-            if has_update is True:
-                self._available_update = result
+            if cmp_result == -1:
                 text_msg = f"Доступно обновление: {current} → {latest}."
-            elif has_update is False:
-                self._available_update = None
-                text_msg = f"У вас актуальная версия: {current}"
             elif cmp_result == 1:
-                self._available_update = None
                 text_msg = f"Локальная версия новее GitHub: {current}"
+            elif cmp_result == 0:
+                text_msg = f"У вас актуальная версия: {current}"
             else:
-                self._available_update = None
                 text_msg = f"Проверка завершена. Текущая: {current}, GitHub: {latest}"
 
             if not getattr(self, "_update_silent", False):
                 QMessageBox.information(self, "Проверка обновлений", text_msg)
+            elif cmp_result == -1:
+                status_bar = getattr(self, "status_bar", None)
+                if status_bar is not None:
+                    status_bar.showMessage(text_msg)
         except Exception as e:
             text_msg = f"Не удалось проверить обновления: {e!s}"
             if not getattr(self, "_update_silent", False):

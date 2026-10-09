@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMenu,
     QPushButton,
     QScrollArea,
     QSizePolicy,
@@ -21,10 +22,10 @@ from app.ui.ui_components import (
     setup_clickable_checkbox_label,
     setup_compact_checkbox,
     setup_standard_action_button,
-    setup_standard_danger_button,
     setup_standard_dropdown,
     setup_standard_form_label,
     setup_standard_line_input,
+    setup_standard_popup_menu,
     setup_standard_primary_button,
     setup_standard_secondary_button,
 )
@@ -56,9 +57,10 @@ class OperationsTabLayoutMixin:
                 "light" if str(getattr(self, "theme_mode", "dark")).lower() == "light" else "dark"
             )
         tab_bar.setStyleSheet(build_operations_tab_bar_style(effective))
-        button = getattr(self, "btn_settings", None)
-        if button is not None:
-            button.setStyleSheet(build_operations_settings_button_style(effective))
+        for button_name in ("btn_settings", "btn_help"):
+            button = getattr(self, button_name, None)
+            if button is not None:
+                button.setStyleSheet(build_operations_settings_button_style(effective))
 
     def _build_rename_action_row(
         self,
@@ -132,7 +134,7 @@ class OperationsTabLayoutMixin:
         setup_standard_form_label(label)
         # Обычные подписи формы имеют фиксированную высоту 18 px. Для подсказок
         # это неверно: длинный текст переносится на несколько строк и раньше
-        # рисовался поверх следующего элемента (например, кнопки метаданных).
+        # рисовался поверх следующего элемента.
         label.setMinimumHeight(0)
         label.setMaximumHeight(16777215)
         label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -200,7 +202,12 @@ class OperationsTabLayoutMixin:
         operations_header_layout = QHBoxLayout(self.operations_header_widget)
         operations_header_layout.setContentsMargins(*MARGINS_NONE)
         operations_header_layout.setSpacing(SPACE_NONE)
-        operations_header_layout.addWidget(self.operations_tab_bar, 0, Qt.AlignmentFlag.AlignLeft)
+        operations_header_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        operations_header_layout.addWidget(
+            self.operations_tab_bar,
+            0,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
+        )
         operations_header_layout.addStretch(1)
 
         self.operations_stack = QStackedWidget()
@@ -213,7 +220,6 @@ class OperationsTabLayoutMixin:
         self._create_conversion_operation_page()
         self._create_compression_operation_page()
         self._create_merge_operation_page()
-        self._create_metadata_operation_page()
 
         self.operations_tab_bar.tabBarClicked.connect(self._on_operation_tab_clicked)
         self.operations_tab_bar.setUsesScrollButtons(True)
@@ -223,13 +229,66 @@ class OperationsTabLayoutMixin:
 
         self.btn_settings = QPushButton("Настройки")
         self.btn_settings.setCheckable(True)
-        self.btn_settings.setFixedHeight(TAB_BAR_HEIGHT)
+        self.btn_settings.setFixedSize(76, 24)
         self.btn_settings.setCursor(Qt.CursorShape.PointingHandCursor)
-        operations_header_layout.addWidget(self.btn_settings)
-        self.btn_settings.clicked.connect(self.show_settings_modal)
+        operations_header_layout.insertWidget(
+            0,
+            self.btn_settings,
+            0,
+            Qt.AlignmentFlag.AlignTop,
+        )
+        self.btn_settings.clicked.connect(
+            lambda checked: self.show_settings_modal() if checked else self.hide_settings_panel()
+        )
+
+        self.btn_help = QPushButton("Справка")
+        self.btn_help.setCheckable(True)
+        self.btn_help.setFixedSize(58, 24)
+        self.btn_help.setCursor(Qt.CursorShape.PointingHandCursor)
+        operations_header_layout.insertSpacing(1, SPACE_SM)
+        operations_header_layout.insertWidget(
+            2,
+            self.btn_help,
+            0,
+            Qt.AlignmentFlag.AlignTop,
+        )
+        operations_header_layout.insertSpacing(3, SPACE_SM)
+        self.help_menu = QMenu(self.btn_help)
+        setup_standard_popup_menu(self.help_menu)
+        self.help_menu.setObjectName("header_dropdown_popup")
+        help_sections = (
+            ("О программе", 1),
+            ("Логи", 0),
+            ("Поддержать проект", 2),
+        )
+        self.help_menu_actions = []
+        for title, section_index in help_sections:
+            action = self.help_menu.addAction(title)
+            action.triggered.connect(
+                lambda _checked=False, index=section_index: self.show_help_modal(index)
+            )
+            self.help_menu_actions.append(action)
+        self.help_menu.aboutToHide.connect(self._sync_help_button_after_menu)
+        self.btn_help.clicked.connect(self._show_help_menu)
         self._apply_operations_tab_bar_theme()
 
         return tab
+
+    def _show_help_menu(self, _checked=False) -> None:
+        self.help_menu.popup(
+            self.btn_help.mapToGlobal(self.btn_help.rect().bottomLeft())
+        )
+
+    def _sync_help_button_after_menu(self) -> None:
+        host = getattr(self, "settings_panel_host", None)
+        help_panel = getattr(self, "help_panel_widget", None)
+        is_help_visible = bool(
+            host is not None
+            and help_panel is not None
+            and host.isVisible()
+            and help_panel.isVisible()
+        )
+        self.btn_help.setChecked(is_help_visible)
 
     def _create_rename_operation_page(self) -> None:
         """Создаёт страницу переименования."""
@@ -410,65 +469,6 @@ class OperationsTabLayoutMixin:
         self._add_operations_page(
             self._wrap_operations_page(merge_card, "merge_page"),
             "Объединение",
-        )
-
-    def _create_metadata_operation_page(self) -> None:
-        """Создаёт страницу очистки метаданных."""
-        metadata_card, metadata_layout = self._create_operation_card(align_top=True)
-        metadata_layout.setContentsMargins(SPACE_SM, SPACE_NONE, SPACE_NONE, SPACE_NONE)
-
-        metadata_layout.addWidget(self._create_operation_label("Что удалить:"))
-
-        self.metadata_field_checkboxes = {}
-        metadata_fields = [
-            ("author", "Автор / создатель"),
-            ("title", "Заголовок"),
-            ("subject", "Тема / описание"),
-            ("keywords", "Ключевые слова"),
-            ("comments", "Комментарии / категория"),
-            ("dates", "Даты создания / изменения"),
-            ("application", "Программа / производитель"),
-            ("custom", "Пользовательские свойства"),
-        ]
-        for field_key, field_label in metadata_fields:
-            checkbox = QCheckBox(field_label)
-            setup_compact_checkbox(checkbox)
-            checkbox.stateChanged.connect(self._update_metadata_controls)
-            if field_key == "custom":
-                checkbox.setToolTip("Дополнительные / пользовательские свойства")
-            self.metadata_field_checkboxes[field_key] = checkbox
-            metadata_layout.addWidget(checkbox)
-
-        metadata_hint = self._create_operation_hint_label(
-            "Поддерживаются PDF, DOCX, ODT и DOC (DOC очищается через Microsoft Word в Windows). "
-            "Если файлы не выделены, операция применяется ко всем документам в списке."
-        )
-        metadata_hint.setWordWrap(True)
-        metadata_layout.addSpacing(SPACE_SM)
-        metadata_layout.addWidget(metadata_hint)
-        metadata_layout.addSpacing(SPACE_SM)
-
-        self.btn_remove_metadata = QPushButton("Удалить выбранные")
-        setup_standard_danger_button(self.btn_remove_metadata)
-        self._make_action_button_fill_width(self.btn_remove_metadata)
-        self.btn_remove_metadata.clicked.connect(
-            lambda: self.remove_document_metadata(remove_all=False)
-        )
-        metadata_layout.addWidget(self.btn_remove_metadata)
-        metadata_layout.addSpacing(SPACE_SM)
-
-        self.btn_remove_all_metadata = QPushButton("Удалить все метаданные")
-        setup_standard_danger_button(self.btn_remove_all_metadata)
-        self._make_action_button_fill_width(self.btn_remove_all_metadata)
-        self.btn_remove_all_metadata.clicked.connect(
-            lambda: self.remove_document_metadata(remove_all=True)
-        )
-        metadata_layout.addWidget(self.btn_remove_all_metadata)
-        self._update_metadata_controls()
-
-        self._add_operations_page(
-            self._wrap_operations_page(metadata_card, "metadata_page"),
-            "Удаление метаданных",
         )
 
     def _create_pdf_compression_mode(self) -> QWidget:

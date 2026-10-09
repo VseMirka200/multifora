@@ -482,12 +482,6 @@ class MultiforaMainWindow(
                 self._last_operation.get("image_output_mode", "alongside"),
                 self._last_operation.get("image_output_dir", ""),
             )
-        elif op == "metadata":
-            self.file_worker.set_metadata_cleanup(
-                files,
-                remove_all=self._last_operation.get("remove_all", True),
-                fields=self._last_operation.get("fields", []),
-            )
         else:
             return
         self.file_worker.start()
@@ -560,8 +554,12 @@ class MultiforaMainWindow(
         if self.settings_panel_widget.parent() is not self.settings_panel_host:
             self.settings_panel_widget.setParent(None)
             self.settings_panel_host_layout.addWidget(self.settings_panel_widget)
-
-        self._ensure_about_settings_page()
+        if not hasattr(self, "help_panel_widget") or self.help_panel_widget is None:
+            self.help_panel_widget = self.create_help_tab()
+        if self.help_panel_widget.parent() is not self.settings_panel_host:
+            self.help_panel_widget.setParent(None)
+            self.settings_panel_host_layout.addWidget(self.help_panel_widget)
+        self.help_panel_widget.setVisible(False)
 
         main_layout.addWidget(self.settings_panel_host)
         left_layout.addWidget(operations_tab)
@@ -849,9 +847,6 @@ class MultiforaMainWindow(
 
     def _connect_drop_zone_updates(self, files_panel: QWidget) -> None:
         model = self.list_files.model()
-        model.rowsInserted.connect(self._update_metadata_controls)
-        model.rowsRemoved.connect(self._update_metadata_controls)
-        model.modelReset.connect(self._update_metadata_controls)
         model.rowsInserted.connect(lambda *_args: self._update_drop_zone_controls())
         model.rowsRemoved.connect(lambda *_args: self._update_drop_zone_controls())
         model.modelReset.connect(lambda *_args: self._update_drop_zone_controls())
@@ -1411,7 +1406,6 @@ class MultiforaMainWindow(
 
     def on_file_selection_changed(self):
         """Обработчик изменения выбора файлов"""
-        self._update_metadata_controls()
         self._update_merge_button_state()
         self.update_converter_from_format()
         if callable(getattr(self, "refresh_active_file_preview", None)):

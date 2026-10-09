@@ -31,18 +31,6 @@ class _DummyCheckbox:
         return self.checked
 
 
-class _DummyNavigation:
-    def __init__(self, count=5):
-        self._count = count
-        self.current_row = -1
-
-    def count(self):
-        return self._count
-
-    def setCurrentRow(self, row):
-        self.current_row = row
-
-
 class SettingsResilienceTests(unittest.TestCase):
     def test_load_settings_handles_corrupted_json(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -83,7 +71,6 @@ class SettingsResilienceTests(unittest.TestCase):
         window = _DummyWindow()
         settings._initialize_settings_defaults(window)
         window.custom_templates = {}
-        window.auto_clear_checkbox = _DummyCheckbox()
         window.ghostscript_path_override = None
         window._rename_history = [{"pairs": [["new.txt", "old.txt"]]}]
 
@@ -105,7 +92,6 @@ class SettingsResilienceTests(unittest.TestCase):
         self.assertEqual(window.image_compression_output_path, r"C:\output")
 
         window.custom_templates = {}
-        window.auto_clear_checkbox = _DummyCheckbox()
         window.ghostscript_path_override = None
         data = settings._collect_settings_data(window)
         self.assertEqual(data["image_compression_output_mode"], "custom")
@@ -119,7 +105,6 @@ class SettingsResilienceTests(unittest.TestCase):
             "auto_clear_convert_checkbox",
             "auto_clear_merge_checkbox",
             "auto_clear_compress_checkbox",
-            "auto_clear_metadata_checkbox",
         ):
             setattr(window, attribute_name, _DummyCheckbox())
         settings._initialize_settings_defaults(window)
@@ -136,7 +121,6 @@ class SettingsResilienceTests(unittest.TestCase):
                     "convert": False,
                     "merge": False,
                     "compress": True,
-                    "metadata": False,
                 },
             },
         )
@@ -153,63 +137,8 @@ class SettingsResilienceTests(unittest.TestCase):
                 "convert": False,
                 "merge": False,
                 "compress": True,
-                "metadata": False,
             },
         )
-
-    def test_removed_auto_clear_navigation_page_is_migrated_to_main(self):
-        window = _DummyWindow()
-        window.settings_nav = _DummyNavigation()
-
-        settings._restore_navigation_state(
-            window,
-            {
-                "settings_nav_current_row": 3,
-                "auto_clear_by_operation": {},
-            },
-        )
-
-        self.assertEqual(window._pending_settings_nav_row, 0)
-        self.assertEqual(window.settings_nav.current_row, 0)
-
-    def test_old_settings_navigation_rows_are_migrated_to_merged_layout(self):
-        expected_rows = {
-            0: 0,  # Основное
-            1: 2,  # Обновления -> О программе
-            2: 1,  # Логи
-            3: 0,  # Удалённая отдельная Автоочистка
-            4: 2,  # О программе
-        }
-        for saved_row, expected_row in expected_rows.items():
-            with self.subTest(saved_row=saved_row):
-                window = _DummyWindow()
-                window.settings_nav = _DummyNavigation(count=3)
-
-                settings._restore_navigation_state(
-                    window,
-                    {
-                        "settings_nav_current_row": saved_row,
-                        "auto_clear_by_operation": {},
-                    },
-                )
-
-                self.assertEqual(window._pending_settings_nav_row, expected_row)
-                self.assertEqual(window.settings_nav.current_row, expected_row)
-
-    def test_current_settings_navigation_row_is_not_migrated(self):
-        window = _DummyWindow()
-        window.settings_nav = _DummyNavigation(count=3)
-
-        settings._restore_navigation_state(
-            window,
-            {
-                "settings_nav_current_row": 2,
-                "settings_nav_layout_version": 2,
-            },
-        )
-
-        self.assertEqual(window._pending_settings_nav_row, 2)
-        self.assertEqual(window.settings_nav.current_row, 2)
 
     def test_auto_update_check_uses_checkbox_as_single_source_of_truth(self):
         window = _DummyWindow()
@@ -228,7 +157,6 @@ class SettingsResilienceTests(unittest.TestCase):
         self.assertFalse(hasattr(window, "auto_update_check_enabled"))
 
         window.custom_templates = {}
-        window.auto_clear_checkbox = _DummyCheckbox()
         window.ghostscript_path_override = None
         data = settings._collect_settings_data(window)
 
@@ -249,7 +177,6 @@ class SettingsResilienceTests(unittest.TestCase):
         self.assertEqual(window.conversion_output_path, r"C:\converted")
 
         window.custom_templates = {}
-        window.auto_clear_checkbox = _DummyCheckbox()
         window.ghostscript_path_override = None
         data = settings._collect_settings_data(window)
         self.assertEqual(data["conversion_output_mode"], "custom")
@@ -270,7 +197,6 @@ class SettingsResilienceTests(unittest.TestCase):
         self.assertFalse(hasattr(window, "rename_numbering_scope"))
 
         window.custom_templates = {}
-        window.auto_clear_checkbox = _DummyCheckbox()
         window.ghostscript_path_override = None
         data = settings._collect_settings_data(window)
         self.assertNotIn("rename_folder_mode", data)
@@ -292,7 +218,6 @@ class SettingsResilienceTests(unittest.TestCase):
         self.assertEqual(window._column_sort_order, Qt.SortOrder.DescendingOrder)
 
         window.custom_templates = {}
-        window.auto_clear_checkbox = _DummyCheckbox()
         window.ghostscript_path_override = None
         data = settings._collect_settings_data(window)
         self.assertEqual(

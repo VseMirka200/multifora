@@ -38,7 +38,8 @@ def build_operations_settings_button_style(theme: str) -> str:
             border: none;
             border-bottom: 1px solid transparent;
             border-radius: 0px;
-            padding: 0px 2px;
+            padding: 0px 3px;
+            font-size: 10px;
             font-weight: 500;
         }}
         QPushButton:checked {{
@@ -441,6 +442,7 @@ def build_standard_field_style(theme: str, kind: str) -> str:
             QListView#files_list::item {{
                 background-color: {p["bg"]};
                 color: {p["fg"]};
+                padding: 0px 6px;
             }}
             QAbstractItemView#files_list::item:alternate,
             QTableView#files_list::item:alternate,

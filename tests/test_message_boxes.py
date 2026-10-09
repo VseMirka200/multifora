@@ -10,6 +10,8 @@ from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
     QDialog,
+    QHBoxLayout,
+    QLabel,
     QMessageBox,
     QPushButton,
     QSizePolicy,
@@ -66,7 +68,7 @@ class MessageBoxTests(unittest.TestCase):
             self.assertEqual(button.height(), FIELD_HEIGHT)
             self.assertEqual(
                 button.sizePolicy().horizontalPolicy(),
-                QSizePolicy.Policy.Minimum,
+                QSizePolicy.Policy.Expanding,
             )
         self.assertEqual(
             dialog.findChild(QPushButton, "appMessageButton_first").property("buttonVariant"),
@@ -166,6 +168,14 @@ class MessageBoxTests(unittest.TestCase):
         self.assertTrue(accepted)
         self.assertTrue(checked)
         self.assertLessEqual(captured["dialog"].maximumWidth(), 560)
+        icon = captured["dialog"].findChild(QLabel, "appMessageIcon")
+        self.assertEqual(icon.width(), 28)
+        self.assertEqual(
+            icon.sizePolicy().verticalPolicy(),
+            QSizePolicy.Policy.Expanding,
+        )
+        extra_row = captured["dialog"].findChild(QHBoxLayout, "appMessageExtraRow")
+        self.assertEqual(extra_row.itemAt(0).spacerItem().sizeHint().width(), 38)
 
 
 if __name__ == "__main__":

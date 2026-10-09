@@ -10,7 +10,6 @@ from PyQt6.QtWidgets import (
     QDialog,
     QFileDialog,
     QLineEdit,
-    QListWidget,
     QMessageBox,
     QPlainTextEdit,
     QSpinBox,
@@ -143,11 +142,6 @@ class LoggingMixin:
             if isinstance(widget, QTabBar):
                 widget.currentChanged.connect(
                     lambda index, w=widget: self._log_tab_action(w, index)
-                )
-                return
-            if isinstance(widget, QListWidget) and widget.objectName() == "settings_nav":
-                widget.currentTextChanged.connect(
-                    lambda text, w=widget: self._log_list_navigation_action(w, text)
                 )
                 return
             if isinstance(widget, QAbstractButton):
@@ -328,13 +322,6 @@ class LoggingMixin:
             caption = ""
         if caption:
             self.log_event(f"Открыта вкладка: {caption}")
-
-    def _log_list_navigation_action(self, _widget: QListWidget, text: str):
-        if not self._is_action_logging_ready():
-            return
-        value = self._normalize_log_value(text)
-        if value:
-            self.log_event(f"Открыт раздел настроек: {value}")
 
     @pyqtSlot(str)
     def _append_log_line(self, line: str):

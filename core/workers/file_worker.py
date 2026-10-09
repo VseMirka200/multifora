@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from collections.abc import Callable, Iterable
 
 from PyQt6.QtCore import QThread, pyqtSignal
@@ -11,7 +12,6 @@ from .common import emit_progress, get_unique_path, record_file_error
 from .compression import CompressionMixin
 from .conversion import ConversionMixin
 from .merge import MergeMixin
-from .metadata import MetadataMixin
 from .result import OperationResult
 
 
@@ -19,7 +19,6 @@ class FileWorker(
     ConversionMixin,
     CompressionMixin,
     MergeMixin,
-    MetadataMixin,
     QThread,
 ):
     """Выполняет файловые операции в отдельном потоке Qt."""
@@ -47,20 +46,42 @@ class FileWorker(
         self.image_output_dir = ""
         self.merge_output_format = "pdf"
         self.merge_output_path = ""
-        self.metadata_remove_all = True
-        self.metadata_fields: set[str] = set()
         self._last_pdf_error = ""
         self._cancel_requested = False
+        self._cancel_lock = threading.Lock()
+        self._active_cancel_action: Callable[[], None] | None = None
         self.errors: list[dict[str, object]] = []
         self._word_warmup_done = False
         self._word_pdf_unavailable = False
         self._conversion_reserved_paths: set[str] = set()
 
     def request_cancel(self) -> None:
-        self._cancel_requested = True
+        with self._cancel_lock:
+            self._cancel_requested = True
+            cancel_action = self._active_cancel_action
+        if cancel_action is not None:
+            try:
+                cancel_action()
+            except Exception:
+                pass
 
     def _should_cancel(self) -> bool:
         return self._cancel_requested
+
+    def _set_active_cancel_action(self, action: Callable[[], None]) -> None:
+        with self._cancel_lock:
+            self._active_cancel_action = action
+            cancel_requested = self._cancel_requested
+        if cancel_requested:
+            try:
+                action()
+            except Exception:
+                pass
+
+    def _clear_active_cancel_action(self, action: Callable[[], None]) -> None:
+        with self._cancel_lock:
+            if self._active_cancel_action is action:
+                self._active_cancel_action = None
 
     def _record_error(self, file_item: FileItem | None, message: str) -> None:
         entry: dict[str, object] = {"message": message}
@@ -83,9 +104,11 @@ class FileWorker(
         )
 
     def _prepare_operation(self, operation: str, files: list[FileItem]) -> None:
+        with self._cancel_lock:
+            self._cancel_requested = False
+            self._active_cancel_action = None
         self.operation = operation
         self.files = files
-        self._cancel_requested = False
         self.errors = []
 
     def set_conversion(
@@ -151,16 +174,6 @@ class FileWorker(
         self.merge_output_format = output_format
         self.merge_output_path = output_path
 
-    def set_metadata_cleanup(
-        self,
-        files: list[FileItem],
-        remove_all: bool = True,
-        fields: Iterable[str] | None = None,
-    ) -> None:
-        self._prepare_operation("metadata", files)
-        self.metadata_remove_all = bool(remove_all)
-        self.metadata_fields = set(fields or [])
-
     def _compression_handler(self) -> Callable[[], None]:
         if self.compression_type == "pdf":
             return self._compress_pdf_files
@@ -207,7 +220,6 @@ class FileWorker(
             "rename": self._rename_files,
             "compress": self._compression_handler(),
             "merge": self._merge_files,
-            "metadata": self._remove_metadata_files,
         }
 
     def run(self) -> None:

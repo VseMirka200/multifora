@@ -1027,9 +1027,9 @@ class FileListModel(QAbstractTableModel):
 
 
 class FileListItemDelegate(QStyledItemDelegate):
-    def __init__(self, parent=None, right_padding: int = 6):
+    def __init__(self, parent=None, horizontal_padding: int = 6):
         super().__init__(parent)
-        self._right_padding = max(0, int(right_padding))
+        self._horizontal_padding = max(0, int(horizontal_padding))
 
     def sizeHint(self, option, index):
         hint = super().sizeHint(option, index)
@@ -1039,7 +1039,7 @@ class FileListItemDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):
         view_option = QStyleOptionViewItem(option)
         self.initStyleOption(view_option, index)
-        available_width = max(0, view_option.rect.width() - 12 - self._right_padding)
+        available_width = max(0, view_option.rect.width() - 2 * self._horizontal_padding)
         view_option.text = view_option.fontMetrics.elidedText(
             view_option.text,
             Qt.TextElideMode.ElideRight,
@@ -1052,7 +1052,6 @@ class FileListWidget(QTableView):
     _COLUMN_RESIZE_PRECISION = 100
 
     filesDropped = pyqtSignal(list)
-    emptyAreaClicked = pyqtSignal()
     itemDoubleClicked = pyqtSignal(object)
     itemSelectionChanged = pyqtSignal()
     orderChanged = pyqtSignal()
@@ -1141,14 +1140,6 @@ class FileListWidget(QTableView):
         )
         if enabled:
             self.setDefaultDropAction(Qt.DropAction.MoveAction)
-
-    def mousePressEvent(self, event):
-        if (
-            event.button() == Qt.MouseButton.LeftButton
-            and not self.indexAt(event.position().toPoint()).isValid()
-        ):
-            self.emptyAreaClicked.emit()
-        super().mousePressEvent(event)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Delete:

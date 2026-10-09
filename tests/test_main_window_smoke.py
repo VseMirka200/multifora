@@ -44,8 +44,8 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(window.windowTitle(), "Мультифора")
                 self.assertFalse(hasattr(window, "tabs"))
                 self.assertIsNotNone(window.operations_stack)
-                self.assertGreaterEqual(window.operations_stack.count(), 5)
-                self.assertEqual(window.operations_tab_bar.count(), 5)
+                self.assertEqual(window.operations_stack.count(), 4)
+                self.assertEqual(window.operations_tab_bar.count(), 4)
                 self.assertEqual(window.main_splitter.widget(0).minimumWidth(), 220)
                 self.assertFalse(hasattr(window, "combo_merge_format"))
                 self.assertEqual(
@@ -188,16 +188,23 @@ class MainWindowSmokeTests(unittest.TestCase):
                         "Конвертация",
                         "Сжатие",
                         "Объединение",
-                        "Удаление метаданных",
                     ],
                 )
-                self.assertIsNotNone(window.btn_remove_metadata)
-                self.assertTrue(window.metadata_field_checkboxes)
+                header_layout = window.operations_header_widget.layout()
+                self.assertLess(
+                    header_layout.indexOf(window.btn_settings),
+                    header_layout.indexOf(window.operations_tab_bar),
+                )
+                self.assertLess(
+                    header_layout.indexOf(window.btn_help),
+                    header_layout.indexOf(window.operations_tab_bar),
+                )
 
                 settings_widget = window._ensure_settings_panel_widget()
                 self.assertIsNotNone(settings_widget)
-                window._ensure_about_settings_page()
-                about_page = window.settings_stack.widget(window._about_settings_row)
+                help_widget = window._ensure_help_panel_widget()
+                self.assertIsNotNone(help_widget)
+                about_page = window.help_stack.widget(window._about_help_row)
                 about_texts = [label.text() for label in about_page.findChildren(QLabel)]
                 self.assertIn("Версия: 1.0.0", about_texts)
                 self.assertEqual(
@@ -213,29 +220,19 @@ class MainWindowSmokeTests(unittest.TestCase):
                     Qt.AlignmentFlag.AlignCenter,
                 )
                 self.assertTrue(window.about_version_label.property("aboutVersionBadge"))
-                self.assertEqual(
-                    [button.text() for button in window.about_link_buttons],
-                    ["Описание и исходный код"],
-                )
-                links_layout = window.about_link_buttons[0].parentWidget().layout()
+                self.assertEqual(window.btn_open_repo.text(), "Описание и исходный код")
+                links_layout = window.btn_open_repo.parentWidget().layout()
                 self.assertIsInstance(links_layout, QHBoxLayout)
                 self.assertIs(links_layout.itemAt(0).widget(), window.btn_open_repo)
                 self.assertIs(links_layout.itemAt(1).widget(), window.btn_check_updates)
                 self.assertIsNotNone(
                     links_layout.itemAt(links_layout.count() - 1).spacerItem()
                 )
-                self.assertTrue(
-                    all(
-                        button.parentWidget() is window.about_link_buttons[0].parentWidget()
-                        for button in window.about_link_buttons
-                    )
-                )
                 with patch(
                     "app.ui.mixins.settings_panel_mixin.QDesktopServices.openUrl",
                     return_value=True,
                 ) as open_url:
-                    for button in window.about_link_buttons:
-                        button.click()
+                    window.btn_open_repo.click()
                 self.assertEqual(
                     [call.args[0].toString() for call in open_url.call_args_list],
                     ["https://github.com/VseMirka200/multifora"],
@@ -271,11 +268,14 @@ class MainWindowSmokeTests(unittest.TestCase):
                 )
                 self.assertEqual(window.logs_search_input.height(), FIELD_HEIGHT)
                 self.assertEqual(window.logs_level_filter.height(), FIELD_HEIGHT)
-                self.assertEqual(window.settings_stack.count(), 3)
+                self.assertEqual(window.settings_stack.count(), 1)
+                self.assertEqual(window.help_stack.count(), 3)
                 self.assertEqual(
-                    [window.settings_nav.item(index).text() for index in range(3)],
-                    ["Основное", "Логи", "О программе"],
+                    [action.text() for action in window.help_menu_actions],
+                    ["О программе", "Логи", "Поддержать проект"],
                 )
+                support_page = window.help_stack.widget(window._support_help_row)
+                self.assertEqual(support_page.findChildren(QLabel), [])
                 main_settings_page = window.settings_stack.widget(0)
                 main_settings_labels = [
                     label.text() for label in main_settings_page.findChildren(QLabel)
@@ -293,24 +293,10 @@ class MainWindowSmokeTests(unittest.TestCase):
                     main_settings_labels.index("АВТООЧИСТКА СПИСКА"),
                     main_settings_labels.index("ЯРЛЫКИ"),
                 )
-                self.assertEqual(
-                    window.settings_nav.findItems(
-                        "Автоочистка",
-                        Qt.MatchFlag.MatchExactly,
-                    ),
-                    [],
-                )
                 self.assertFalse(window.auto_clear_enabled_checkbox.isChecked())
                 self.assertFalse(window.auto_clear_rename_checkbox.isEnabled())
                 self.assertTrue(window.auto_clear_convert_checkbox.isChecked())
                 self.assertFalse(window.auto_clear_convert_checkbox.isEnabled())
-                self.assertEqual(
-                    window.settings_nav.findItems(
-                        "История переименований",
-                        Qt.MatchFlag.MatchExactly,
-                    ),
-                    [],
-                )
                 self.assertFalse(hasattr(window, "rename_history_settings_page"))
                 self.assertEqual(
                     window.btn_open_rename_history.text(),
@@ -326,6 +312,10 @@ class MainWindowSmokeTests(unittest.TestCase):
                 original_index = window.operations_tab_bar.currentIndex()
                 window.btn_settings.click()
                 self.assertFalse(window.settings_panel_host.isHidden())
+                self.assertFalse(window.settings_panel_widget.isHidden())
+                self.assertTrue(window.help_panel_widget.isHidden())
+                self.assertTrue(window.btn_settings.isChecked())
+                self.assertFalse(window.btn_help.isChecked())
                 self.assertEqual(window.operations_tab_bar.currentIndex(), original_index)
                 self.assertTrue(
                     all(
@@ -333,9 +323,16 @@ class MainWindowSmokeTests(unittest.TestCase):
                         for index in range(window.operations_tab_bar.count())
                     )
                 )
+                window.help_menu_actions[1].trigger()
+                self.assertTrue(window.settings_panel_widget.isHidden())
+                self.assertFalse(window.help_panel_widget.isHidden())
+                self.assertEqual(window.help_stack.currentIndex(), 0)
+                self.assertFalse(window.btn_settings.isChecked())
+                self.assertTrue(window.btn_help.isChecked())
                 window.operations_tab_bar.tabBarClicked.emit(original_index)
                 self.assertTrue(window.settings_panel_host.isHidden())
                 self.assertFalse(window.btn_settings.isChecked())
+                self.assertFalse(window.btn_help.isChecked())
 
                 running_worker = Mock()
                 running_worker.isRunning.return_value = True
@@ -347,10 +344,9 @@ class MainWindowSmokeTests(unittest.TestCase):
                         window.convert_files_dual_combo,
                         window.compress_files,
                         window.merge_files,
-                        window.remove_document_metadata,
                     ):
                         callback()
-                    self.assertEqual(warning.call_count, 6)
+                    self.assertEqual(warning.call_count, 5)
                 self.assertIs(window.file_worker, running_worker)
             finally:
                 if hasattr(window, "queue_timer"):
@@ -957,72 +953,6 @@ class MainWindowSmokeTests(unittest.TestCase):
                 if hasattr(window, "_settings_save_timer"):
                     window._settings_save_timer.stop()
                 window.deleteLater()
-
-    def test_metadata_buttons_dispatch_selected_and_all_fields(self):
-        with (
-            tempfile.TemporaryDirectory() as tmp_dir,
-            patch(
-                "app.core.settings.get_settings_file_path",
-                return_value=os.path.join(tmp_dir, "settings.json"),
-            ),
-            patch.object(MultiforaMainWindow, "apply_shortcut_settings"),
-            patch.object(MultiforaMainWindow, "create_ipc_server"),
-            patch.object(MultiforaMainWindow, "create_file_worker", return_value=True),
-        ):
-            window = MultiforaMainWindow()
-            try:
-                self.assertFalse(window.btn_remove_metadata.isEnabled())
-                self.assertFalse(window.btn_remove_all_metadata.isEnabled())
-                document = Mock(path=os.path.join(tmp_dir, "document.pdf"))
-                window.file_worker = Mock()
-                window.file_worker.isRunning.return_value = False
-                with (
-                    patch.object(
-                        window, "_get_selected_or_all_file_items", return_value=[document]
-                    ),
-                    patch.object(window, "show_russian_message_box", return_value=True),
-                    patch.object(window, "_show_progress_dialog"),
-                ):
-                    window._update_metadata_controls()
-                    self.assertFalse(window.btn_remove_metadata.isEnabled())
-                    self.assertTrue(window.btn_remove_all_metadata.isEnabled())
-                    window.metadata_field_checkboxes["author"].setChecked(True)
-                    window.btn_remove_metadata.click()
-                    window.file_worker.set_metadata_cleanup.assert_called_with(
-                        [document], remove_all=False, fields=["author"]
-                    )
-                    window.btn_remove_all_metadata.click()
-                    window.file_worker.set_metadata_cleanup.assert_called_with(
-                        [document], remove_all=True, fields=[]
-                    )
-                    window.metadata_field_checkboxes["author"].setChecked(False)
-                    self.assertFalse(window.btn_remove_metadata.isEnabled())
-                    window.btn_remove_all_metadata.click()
-                    self.assertEqual(window.file_worker.start.call_count, 3)
-                for name in ("document.pdf", "image.png"):
-                    with open(os.path.join(tmp_dir, name), "wb") as source:
-                        source.write(b"test")
-                document_item = FileItem(os.path.join(tmp_dir, "document.pdf"))
-                image_item = FileItem(os.path.join(tmp_dir, "image.png"))
-                window.files = [document_item, image_item]
-                window.update_file_list()
-                self.assertTrue(window.btn_remove_all_metadata.isEnabled())
-                window.metadata_field_checkboxes["author"].setChecked(True)
-                self.assertTrue(window.btn_remove_metadata.isEnabled())
-                window.list_files.select_paths([image_item.path])
-                self.assertFalse(window.btn_remove_all_metadata.isEnabled())
-                self.assertFalse(window.btn_remove_metadata.isEnabled())
-                window.list_files.clearSelection()
-                self.assertTrue(window.btn_remove_all_metadata.isEnabled())
-                window.files = []
-                window.update_file_list()
-                self.assertFalse(window.btn_remove_all_metadata.isEnabled())
-                self.assertFalse(window.btn_remove_metadata.isEnabled())
-            finally:
-                window.queue_timer.stop()
-                window._settings_save_timer.stop()
-                window.deleteLater()
-
 
 if __name__ == "__main__":
     unittest.main()

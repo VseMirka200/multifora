@@ -126,4 +126,10 @@ class LifecycleMixin:
                 self.ipc_server = None
             except Exception as exc:
                 self.log_event(f"Ошибка закрытия IPC: {exc}", "WARN")
+        update_timer = getattr(self, "_update_poll_timer", None)
+        if update_timer is not None:
+            update_timer.stop()
+        update_executor = getattr(self, "_update_executor", None)
+        if update_executor is not None:
+            update_executor.shutdown(wait=False, cancel_futures=True)
         event.accept()

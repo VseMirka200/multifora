@@ -8,6 +8,7 @@ import time
 import urllib.parse
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
 
 from app.core.app_utils import _debug_log
 from app.core.conversion_formats import (
@@ -78,6 +79,35 @@ def _hide_window(window_handle: int) -> None:
         ctypes.windll.user32.ShowWindow(window_handle, _SW_HIDE)
     except Exception as error:
         _debug_log(f"Не удалось скрыть окно Microsoft Word: {error}")
+
+
+def _terminate_window_process(window_handle: int) -> None:
+    """Принудительно завершает только изолированный процесс по HWND."""
+    if os.name != "nt" or not window_handle:
+        return
+    try:
+        import ctypes
+
+        process_id = ctypes.c_ulong()
+        ctypes.windll.user32.GetWindowThreadProcessId(
+            window_handle,
+            ctypes.byref(process_id),
+        )
+        if not process_id.value:
+            return
+        process_handle = ctypes.windll.kernel32.OpenProcess(
+            0x0001,  # PROCESS_TERMINATE
+            False,
+            process_id.value,
+        )
+        if not process_handle:
+            return
+        try:
+            ctypes.windll.kernel32.TerminateProcess(process_handle, 1)
+        finally:
+            ctypes.windll.kernel32.CloseHandle(process_handle)
+    except Exception as error:
+        _debug_log(f"Не удалось немедленно остановить Microsoft Word: {error}")
 
 
 def _foreground_window() -> int:
@@ -1015,6 +1045,7 @@ class ConversionMixin(ImageEncodingMixin):
         self._warmup_word()
         word_app = None
         window_guard = None
+        cancel_action = None
         pythoncom.CoInitialize()
         try:
             # Один COM-экземпляр Word на всю пачку файлов заметно ускоряет конвертацию.
@@ -1027,6 +1058,12 @@ class ConversionMixin(ImageEncodingMixin):
                     list(self.files),
                     self._convert_word_to_pdf,
                 )
+            word_handle = _word_window_handle(word_app)
+            if word_handle:
+                cancel_action = partial(_terminate_window_process, word_handle)
+                register_cancel = getattr(self, "_set_active_cancel_action", None)
+                if callable(register_cancel):
+                    register_cancel(cancel_action)
             for index, file in enumerate(self.files):
                 if self._should_cancel():
                     self.status.emit("Операция отменена пользователем")
@@ -1049,6 +1086,9 @@ class ConversionMixin(ImageEncodingMixin):
                         self._report_file_conversion_error(file, error)
                 self.progress.emit(int((index + 1) / total * 100))
         finally:
+            clear_cancel = getattr(self, "_clear_active_cancel_action", None)
+            if cancel_action is not None and callable(clear_cancel):
+                clear_cancel(cancel_action)
             _quit_word_application(word_app)
             if window_guard is not None:
                 window_guard.stop()
@@ -1207,6 +1247,7 @@ class ConversionMixin(ImageEncodingMixin):
         word_app = None
         document = None
         window_guard = None
+        cancel_action = None
         normalized_src = self._normalize_word_com_path(src_path)
         normalized_dst = self._normalize_word_com_path(dst_pdf_path)
         if not os.path.exists(normalized_src):
@@ -1214,6 +1255,12 @@ class ConversionMixin(ImageEncodingMixin):
         pythoncom.CoInitialize()
         try:
             word_app, window_guard = _start_hidden_word_application(win32)
+            word_handle = _word_window_handle(word_app)
+            if word_handle:
+                cancel_action = partial(_terminate_window_process, word_handle)
+                register_cancel = getattr(self, "_set_active_cancel_action", None)
+                if callable(register_cancel):
+                    register_cancel(cancel_action)
 
             document = word_app.Documents.Open(
                 normalized_src,
@@ -1231,6 +1278,9 @@ class ConversionMixin(ImageEncodingMixin):
             )
             return os.path.exists(normalized_dst)
         finally:
+            clear_cancel = getattr(self, "_clear_active_cancel_action", None)
+            if cancel_action is not None and callable(clear_cancel):
+                clear_cancel(cancel_action)
             _close_word_document(document)
             _quit_word_application(word_app)
             if window_guard is not None:

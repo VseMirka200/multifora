@@ -348,39 +348,6 @@ QListWidget::item:selected {
     background-color: #3d74b3;
     color: white;
 }
-QListWidget#settings_nav {
-    background-color: transparent;
-    border: none;
-    border-radius: 0px;
-    padding: 0px;
-    margin: 0px;
-    outline: 0px;
-}
-QListWidget#settings_nav::item {
-    padding: 0px 7px;
-    margin: 0px;
-    border-radius: 4px;
-    color: #ffffff;
-    font-family: "Segoe UI";
-    font-size: 13px;
-    font-weight: 400;
-    background-color: transparent;
-    border: none;
-    min-height: 36px;
-    max-height: 36px;
-}
-QListWidget#settings_nav::item:hover {
-    background-color: rgba(255, 255, 255, 0.07);
-    color: #ffffff;
-    border-radius: 0px;
-}
-QListWidget#settings_nav::item:selected {
-    background-color: rgba(255, 255, 255, 0.12);
-    color: #ffffff;
-    font-weight: 400;
-    border-radius: 0px;
-    border: none;
-}
 QTabBar::tab {
     padding: 2px 7px;
     font-size: 14px;
@@ -680,39 +647,6 @@ QDateTimeEdit {
 }
 QLineEdit::placeholder {
     color: #6f7785;
-}
-QListWidget#settings_nav {
-    background-color: transparent;
-    border: none;
-    border-radius: 0px;
-    padding: 0px;
-    margin: 0px;
-    outline: 0px;
-}
-QListWidget#settings_nav::item {
-    padding: 0px 7px;
-    margin: 0px;
-    border-radius: 4px;
-    color: #1f2328;
-    font-family: "Segoe UI";
-    font-size: 13px;
-    font-weight: 400;
-    background-color: transparent;
-    border: none;
-    min-height: 36px;
-    max-height: 36px;
-}
-QListWidget#settings_nav::item:hover {
-    background-color: rgba(61, 116, 179, 0.10);
-    color: #1f2328;
-    border-radius: 0px;
-}
-QListWidget#settings_nav::item:selected {
-    background-color: rgba(61, 116, 179, 0.18);
-    color: #1f2328;
-    font-weight: 400;
-    border-radius: 0px;
-    border: none;
 }
 QListWidget {
     font-size: 13px;

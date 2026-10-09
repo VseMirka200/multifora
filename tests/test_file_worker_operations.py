@@ -2,18 +2,28 @@ import os
 import tempfile
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from core.workers.file_worker import FileWorker
 
 
 class FileWorkerOperationTests(unittest.TestCase):
+    def test_cancel_immediately_calls_active_operation_stop(self):
+        worker = FileWorker()
+        stop = Mock()
+        worker._set_active_cancel_action(stop)
+
+        worker.request_cancel()
+
+        self.assertTrue(worker._should_cancel())
+        stop.assert_called_once_with()
+
     def test_operation_handlers_can_be_built_for_every_operation(self):
         worker = FileWorker()
 
         self.assertEqual(
             set(worker._operation_handlers()),
-            {"convert", "rename", "compress", "merge", "metadata"},
+            {"convert", "rename", "compress", "merge"},
         )
 
     @patch("core.workers.file_worker.os.rename")

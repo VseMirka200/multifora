@@ -36,7 +36,7 @@ def _setup_message_box_button(
     button.setFixedHeight(ACTION_BUTTON_HEIGHT)
     button.setCursor(Qt.CursorShape.PointingHandCursor)
     button.setProperty("buttonVariant", variant)
-    button.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+    button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
     theme = getattr(button.parent(), "_effective_theme_mode", "dark")
     button.setStyleSheet(build_standard_button_style(theme, variant))
     try:
@@ -84,7 +84,6 @@ def show_app_choice(
     default_key: str | None = None,
     cancel_key: str | None = None,
     extra_widget=None,
-    maximum_width: int | None = None,
 ) -> str | None:
     """Показывает единый диалог приложения и возвращает ключ выбранной кнопки."""
     choices = tuple(choices)
@@ -104,17 +103,20 @@ def show_app_choice(
     layout.setSpacing(10)
 
     content_row = QHBoxLayout()
+    content_row.setObjectName("appMessageContentRow")
     content_row.setContentsMargins(0, 0, 0, 0)
     content_row.setSpacing(10)
 
     icon_label = QLabel()
     icon_label.setObjectName("appMessageIcon")
     icon_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
-    icon_label.setFixedSize(_ICON_SIZE, _ICON_SIZE)
+    icon_label.setFixedWidth(_ICON_SIZE)
+    icon_label.setMinimumHeight(_ICON_SIZE)
+    icon_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
     resolved_icon = _resolve_message_box_icon(dialog, icon)
     if resolved_icon is not None:
         icon_label.setPixmap(resolved_icon.pixmap(_ICON_SIZE, _ICON_SIZE))
-    content_row.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignVCenter)
+    content_row.addWidget(icon_label)
 
     text_label = QLabel(str(text))
     text_label.setObjectName("appMessageText")
@@ -125,12 +127,17 @@ def show_app_choice(
     layout.addLayout(content_row)
 
     if extra_widget is not None:
-        layout.addWidget(extra_widget)
+        extra_row = QHBoxLayout()
+        extra_row.setObjectName("appMessageExtraRow")
+        extra_row.setContentsMargins(0, 0, 0, 0)
+        extra_row.setSpacing(0)
+        extra_row.addSpacing(_ICON_SIZE + content_row.spacing())
+        extra_row.addWidget(extra_widget, 1)
+        layout.addLayout(extra_row)
 
     button_row = QHBoxLayout()
     button_row.setContentsMargins(0, 0, 0, 0)
     button_row.setSpacing(8)
-    button_row.addStretch()
     selected = {"key": None}
     buttons: list[QPushButton] = []
 
@@ -147,7 +154,7 @@ def show_app_choice(
         if key == default_key:
             button.setDefault(True)
             button.setFocus()
-        button_row.addWidget(button)
+        button_row.addWidget(button, 1)
         buttons.append(button)
 
     choice_keys = {str(key) for key, _label, _variant in choices}
@@ -166,14 +173,10 @@ def show_app_choice(
     layout.addLayout(button_row)
 
     metrics = QFontMetrics(text_label.font())
-    effective_max_width = max(
-        _DIALOG_MIN_WIDTH,
-        int(maximum_width) if maximum_width is not None else _DIALOG_MAX_WIDTH,
-    )
     longest_line = max(
         (metrics.horizontalAdvance(line) for line in str(text).splitlines()), default=0
     )
-    content_width = max(_DIALOG_MIN_WIDTH, min(effective_max_width, longest_line + 90))
+    content_width = max(_DIALOG_MIN_WIDTH, min(_DIALOG_MAX_WIDTH, longest_line + 90))
     text_label.setMaximumWidth(max(240, content_width - 76))
     buttons_width = (
         sum(button.minimumWidth() for button in buttons) + max(0, len(buttons) - 1) * 8 + 24
@@ -244,7 +247,6 @@ def show_app_confirmation_with_checkbox(
         default_key="no" if default_no else "yes",
         cancel_key="no",
         extra_widget=checkbox,
-        maximum_width=560,
     )
     return result == "yes", checked_state["value"]
 

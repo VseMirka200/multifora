@@ -5,11 +5,12 @@ from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QAbstractItemView, QApplication, QHeaderView
 
 from app.ui.ui_components import FileListModel, FileListWidget
+from app.ui.ui_styles import build_standard_field_style
 
 
 class FileTableTests(unittest.TestCase):
@@ -117,6 +118,10 @@ class FileTableTests(unittest.TestCase):
             QHeaderView.ResizeMode.Interactive,
         )
         self.assertEqual(header.resizeContentsPrecision(), 100)
+        self.assertIn(
+            "padding: 0px 6px;",
+            build_standard_field_style("dark", "surface"),
+        )
 
     def test_preview_refresh_does_not_remeasure_column_widths(self):
         widget = FileListWidget()
@@ -169,6 +174,56 @@ class FileTableTests(unittest.TestCase):
         self.assertEqual(
             [index.row() for index in widget.selectionModel().selectedRows()],
             [1, 2],
+        )
+        widget.close()
+
+    def test_empty_area_click_clears_selection(self):
+        widget = FileListWidget()
+        widget.resize(640, 240)
+        widget.set_files(
+            [SimpleNamespace(path="one.pdf", name="one.pdf", is_file=True)]
+        )
+        widget.show()
+        self.app.processEvents()
+
+        row = widget.model().index(0, 0)
+        QTest.mouseClick(
+            widget.viewport(),
+            Qt.MouseButton.LeftButton,
+            pos=widget.visualRect(row).center(),
+        )
+        self.assertTrue(widget.selectionModel().hasSelection())
+
+        empty_point = QPoint(20, widget.viewport().height() - 10)
+        self.assertFalse(widget.indexAt(empty_point).isValid())
+        QTest.mouseClick(widget.viewport(), Qt.MouseButton.LeftButton, pos=empty_point)
+
+        self.assertFalse(widget.selectionModel().hasSelection())
+        widget.close()
+
+    def test_system_mouse_drag_selects_row_range(self):
+        widget = FileListWidget()
+        widget.resize(640, 240)
+        widget.set_files(
+            [
+                SimpleNamespace(path="one.pdf", name="one.pdf", is_file=True),
+                SimpleNamespace(path="two.pdf", name="two.pdf", is_file=True),
+                SimpleNamespace(path="three.pdf", name="three.pdf", is_file=True),
+            ]
+        )
+        widget.show()
+        self.app.processEvents()
+
+        start = widget.visualRect(widget.model().index(0, 0)).center()
+        end = widget.visualRect(widget.model().index(2, 0)).center()
+
+        QTest.mousePress(widget.viewport(), Qt.MouseButton.LeftButton, pos=start)
+        QTest.mouseMove(widget.viewport(), end, delay=10)
+        QTest.mouseRelease(widget.viewport(), Qt.MouseButton.LeftButton, pos=end)
+
+        self.assertEqual(
+            [index.row() for index in widget.selectionModel().selectedRows()],
+            [0, 1, 2],
         )
         widget.close()
 

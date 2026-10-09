@@ -8,21 +8,18 @@ from app.core.app_utils import _debug_log
 _DEFAULT_THEME_MODE = "system"
 _VALID_THEME_MODES = {_DEFAULT_THEME_MODE, "dark", "light"}
 _SETTINGS_FILENAME = "multifora_settings.json"
-_SETTINGS_NAV_LAYOUT_VERSION = 2
 
 _AUTO_CLEAR_CHECKBOXES = {
     "rename": "auto_clear_rename_checkbox",
     "convert": "auto_clear_convert_checkbox",
     "merge": "auto_clear_merge_checkbox",
     "compress": "auto_clear_compress_checkbox",
-    "metadata": "auto_clear_metadata_checkbox",
 }
 _AUTO_CLEAR_DEFAULTS = {
     "rename": False,
     "convert": True,
     "merge": False,
     "compress": False,
-    "metadata": False,
 }
 
 def _log_settings_error(context: str, error: Exception) -> None:
@@ -175,7 +172,6 @@ def _initialize_settings_defaults(window) -> None:
     window.image_compression_output_mode = "alongside"
     window.image_compression_output_path = ""
     window._pending_template_session_state = None
-    window._pending_settings_nav_row = 0
     window._rename_history = []
 
     checkbox_defaults = {
@@ -209,28 +205,7 @@ def _restore_boolean_option(
     _set_checkbox_state(getattr(window, checkbox_name, None), value)
 
 
-def _restore_navigation_state(window, data: dict) -> None:
-    if "settings_nav_current_row" in data:
-        try:
-            settings_row = int(data.get("settings_nav_current_row"))
-        except (TypeError, ValueError) as error:
-            _log_settings_error("восстановления раздела настроек", error)
-        else:
-            try:
-                layout_version = int(data.get("settings_nav_layout_version", 0))
-            except (TypeError, ValueError):
-                layout_version = 0
-            if layout_version < _SETTINGS_NAV_LAYOUT_VERSION:
-                # «Обновления» теперь входят в «О программе», а «Логи» стали
-                # второй строкой. Старую отдельную «Автоочистку» возвращаем
-                # на основную страницу.
-                settings_row = {0: 0, 1: 2, 2: 1, 3: 0, 4: 2}.get(settings_row, 0)
-            if settings_row >= 0:
-                window._pending_settings_nav_row = settings_row
-                settings_nav = getattr(window, "settings_nav", None)
-                if settings_nav is not None and settings_row < settings_nav.count():
-                    settings_nav.setCurrentRow(settings_row)
-
+def _restore_operations_tab_state(window, data: dict) -> None:
     if "operations_tab_index" not in data and "operations_tab_label" not in data:
         return
     operations_tab_bar = getattr(window, "operations_tab_bar", None)
@@ -251,14 +226,20 @@ def _restore_navigation_state(window, data: dict) -> None:
                 index = 0
         elif "operations_tab_index" in data:
             legacy_index = int(data.get("operations_tab_index"))
-            # До появления вкладки «Метаданные» индексы были:
+            # В старой раскладке индексы были:
             # 0 Переименование, 1 Конвертация, 2 Объединение, 3 Сжатие, 4 Настройки.
-            # Сохраняем поведение старых settings.json после вставки новой вкладки.
-            has_metadata_tab = any(
-                operations_tab_bar.tabText(candidate) == "Метаданные"
-                for candidate in range(operations_tab_bar.count())
-            )
-            if has_metadata_tab and legacy_index == 3:
+            # Сохраняем поведение старых settings.json после изменения порядка вкладок.
+            if legacy_index == 2:
+                target_label = "Объединение"
+                index = next(
+                    (
+                        candidate
+                        for candidate in range(operations_tab_bar.count())
+                        if operations_tab_bar.tabText(candidate) == target_label
+                    ),
+                    0,
+                )
+            elif legacy_index == 3:
                 index = next(
                     (
                         candidate
@@ -267,7 +248,7 @@ def _restore_navigation_state(window, data: dict) -> None:
                     ),
                     0,
                 )
-            elif has_metadata_tab and legacy_index == 4:
+            elif legacy_index == 4:
                 index = 0
             else:
                 index = legacy_index
@@ -427,7 +408,7 @@ def _apply_settings_data(window, data: dict) -> None:
     if callable(sync_auto_clear_controls):
         sync_auto_clear_controls()
 
-    _restore_navigation_state(window, data)
+    _restore_operations_tab_state(window, data)
     _restore_main_splitter_sizes(window, data)
     _restore_pending_state(window, data)
 
@@ -529,7 +510,6 @@ def _encoded_geometry(widget):
 
 def _collect_settings_data(window) -> dict:
     is_maximized, saved_position, saved_size = _resolve_saved_geometry(window)
-    settings_nav = getattr(window, "settings_nav", None)
     auto_update_checkbox = getattr(window, "auto_update_check_checkbox", None)
 
     return {
@@ -560,8 +540,6 @@ def _collect_settings_data(window) -> dict:
             window, "image_compression_output_mode", "alongside"
         ),
         "image_compression_output_path": getattr(window, "image_compression_output_path", ""),
-        "settings_nav_current_row": settings_nav.currentRow() if settings_nav is not None else 0,
-        "settings_nav_layout_version": _SETTINGS_NAV_LAYOUT_VERSION,
         "operations_tab_index": _current_widget_index(window, "operations_tab_bar"),
         "main_splitter_sizes": (
             [int(value) for value in window.main_splitter.sizes()]
