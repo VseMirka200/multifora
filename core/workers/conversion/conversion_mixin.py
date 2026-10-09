@@ -7,7 +7,7 @@ import threading
 import time
 import urllib.parse
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from functools import partial
 
 from app.core.app_utils import _debug_log
@@ -32,8 +32,11 @@ from app.core.deps import (
     text,
 )
 from app.core.models import FileItem
+from core.workers.atomic_output import atomic_output_path
+from core.workers.common import record_file_error
 
 from .image_encoding_mixin import ImageEncodingMixin
+from .image_conversion_mixin import ImageConversionMixin
 
 _TEXT_ENCODINGS = ("utf-8-sig", "utf-8", "cp1251", "cp1252", "latin-1")
 
@@ -255,7 +258,7 @@ def prewarm_word_background(status_callback=None, log_callback=None) -> bool:
             return False
 
 
-class ConversionMixin(ImageEncodingMixin):
+class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
     CONVERTED_FOLDER_NAME = "Конвертированные"
 
     def _conversion_output_directory(self, file: FileItem) -> str:
@@ -331,8 +334,7 @@ class ConversionMixin(ImageEncodingMixin):
     ) -> None:
         """Сохраняет и публикует ошибку конвертации одного файла."""
         message = f"Ошибка конвертации файла {file.name}: {error}"
-        self._record_error(file, message)
-        self.error.emit(message)
+        record_file_error(self, file, message)
 
     @staticmethod
     def _converted_file_item(path: str | None) -> FileItem | None:
@@ -369,53 +371,6 @@ class ConversionMixin(ImageEncodingMixin):
             value = value[1:]
         value = value.replace("/", "\\")
         return os.path.normpath(value)
-
-    def _convert_image_to_image(self, file: FileItem, target_format: str) -> str:
-        if not HAS_PIL:
-            raise Exception("Установите Pillow для конвертации изображений")
-
-        source_format = format_for_path(file.path)
-        if source_format not in source_formats_for_category(IMAGE_CATEGORY):
-            extension = os.path.splitext(file.path)[1]
-            raise Exception(f"Неподдерживаемый формат изображения: {extension}")
-        target_format = str(target_format or "").upper()
-        target_ext = suffix_for_format(target_format)
-        if not target_ext:
-            raise Exception(f"Неизвестный формат изображения: {target_format}")
-        if source_format == target_format:
-            return None
-        if target_format == "PDF":
-            return self._convert_image_to_pdf(file)
-
-        output_path = self._conversion_output_path(file, target_ext)
-        image = None
-        try:
-            if source_format == "SVG":
-                image = self._load_svg_as_pillow_image(file.path)
-            else:
-                image = Image.open(file.path)
-            self._save_pillow_image(image, output_path, target_format)
-            return output_path
-        except Exception as error:
-            self._discard_conversion_output(output_path)
-            raise Exception(
-                f"Ошибка конвертации изображения {source_format} → {target_format}: {error}"
-            ) from error
-        finally:
-            if image is not None:
-                try:
-                    image.close()
-                except Exception as close_error:
-                    _debug_log(f"Не удалось закрыть изображение {file.path}: {close_error}")
-
-    def _convert_image_auto(self, file: FileItem, target_format: str) -> str:
-        source_format = format_for_path(file.path)
-        if source_format not in source_formats_for_category(IMAGE_CATEGORY):
-            raise Exception("Файл не является поддерживаемым изображением")
-        if source_format == str(target_format or "").upper():
-            self.status.emit(f"Пропущен {file.name}: уже {target_format}")
-            return None
-        return self._convert_image_to_image(file, target_format)
 
     @staticmethod
     def _read_text_file(path: str) -> str:
@@ -844,6 +799,7 @@ class ConversionMixin(ImageEncodingMixin):
             else:
                 temp_docx = os.path.join(temp_dir, "intermediate.docx")
                 content = self._extract_document_text(file)
+                self._warn_text_only_conversion(file)
                 self._write_docx_file(temp_docx, content)
 
             try:
@@ -883,7 +839,16 @@ class ConversionMixin(ImageEncodingMixin):
             raise Exception("Для DOC → PDF требуется Microsoft Word и pywin32")
 
         content = self._extract_document_text(file)
+        self._warn_text_only_conversion(file)
         return self._write_text_pdf(file, content)
+
+    def _warn_text_only_conversion(self, file: FileItem) -> None:
+        """Предупреждает, если текстовый маршрут отбросит оформление документа."""
+        if format_for_path(file.path) in {"TXT", "MD"}:
+            return
+        reporter = getattr(self, "_record_warning", None)
+        if callable(reporter):
+            reporter(file, f"{file.name}: выполнен текстовый экспорт; изображения, стили и таблицы могут быть потеряны")
 
     def _convert_document_auto(
         self,
@@ -917,6 +882,7 @@ class ConversionMixin(ImageEncodingMixin):
                 return direct_result
 
         content = self._extract_document_text(file)
+        self._warn_text_only_conversion(file)
         return self._write_text_output(file, normalized_target, content)
 
     def _convert_files(self) -> None:
@@ -1105,8 +1071,7 @@ class ConversionMixin(ImageEncodingMixin):
 
         if not HAS_PDF_TO_WORD:
             msg = "Установите pdf2docx"
-            self._record_error(None, msg)
-            self.error.emit(msg)
+            record_file_error(self, None, msg)
             return results
 
         max_workers = min(4, max(1, ((os.cpu_count() or 2) // 2)))
@@ -1120,30 +1085,54 @@ class ConversionMixin(ImageEncodingMixin):
         ) as executor:
             future_map = {}
             for file in files:
+                if self._should_cancel():
+                    break
                 if file.path.lower().endswith(".pdf"):
                     future_map[executor.submit(self._convert_pdf_to_word, file)] = file
                 else:
                     processed += 1
                     self.progress.emit(int(processed / total * 100))
 
-            for future in as_completed(future_map):
-                file = future_map[future]
+            pending = set(future_map)
+            while pending:
                 if self._should_cancel():
-                    for pending in future_map:
-                        pending.cancel()
-                    self.status.emit("Операция отменена пользователем")
+                    for future in pending:
+                        future.cancel()
+                    self.status.emit(
+                        "Отмена: ожидаем завершения уже запущенных конвертаций…"
+                    )
                     break
-                self.status.emit(f"Конвертация: {file.name}")
-                try:
-                    converted_item = self._converted_file_item(future.result())
-                    if converted_item is None:
-                        raise Exception("pdf2docx не создал выходной DOCX-файл")
-                    results.append(converted_item)
-                except Exception as error:
-                    self._report_file_conversion_error(file, error)
-                finally:
-                    processed += 1
-                    self.progress.emit(int(processed / total * 100))
+                # wait с таймаутом позволяет проверить запрос отмены, даже если
+                # pdf2docx долго обрабатывает одну страницу документа.
+                done, pending = wait(pending, timeout=0.2, return_when=FIRST_COMPLETED)
+                for future in done:
+                    file = future_map[future]
+                    self.status.emit(f"Конвертация: {file.name}")
+                    try:
+                        converted_item = self._converted_file_item(future.result())
+                        if converted_item is None:
+                            raise Exception("pdf2docx не создал выходной DOCX-файл")
+                        results.append(converted_item)
+                    except Exception as error:
+                        self._report_file_conversion_error(file, error)
+                    finally:
+                        processed += 1
+                        self.progress.emit(int(processed / total * 100))
+
+            # ThreadPoolExecutor дожидается активных заданий перед выходом из with.
+            # Результаты, успевшие закончиться после запроса отмены, убираем,
+            # чтобы не оставить на диске файлы, не показанные пользователю.
+            if self._should_cancel():
+                published = {item.path for item in results}
+                for future in pending:
+                    if future.cancelled():
+                        continue
+                    try:
+                        path = future.result()
+                    except Exception:
+                        continue
+                    if path and path not in published:
+                        self._discard_conversion_output(path)
 
         return results
 
@@ -1229,6 +1218,7 @@ class ConversionMixin(ImageEncodingMixin):
         content = self._extract_document_text(file)
         if self._should_cancel():
             raise Exception("Конвертация отменена пользователем")
+        self._warn_text_only_conversion(file)
         return self._write_text_pdf(
             file,
             content,
@@ -1288,21 +1278,25 @@ class ConversionMixin(ImageEncodingMixin):
             _uninitialize_com(pythoncom)
 
     def _convert_pdf_to_word(self, file: FileItem) -> str:
-        if file.path.lower().endswith(".pdf"):
-            docx_path = self._conversion_output_path(file, ".docx")
+        if not file.path.lower().endswith(".pdf"):
+            return None
+        if not HAS_PDF_TO_WORD:
+            raise Exception("Установите pdf2docx")
 
-            if HAS_PDF_TO_WORD:
+        docx_path = self._conversion_output_path(file, ".docx")
+        try:
+            with atomic_output_path(docx_path) as temporary:
+                converter = pdf2docx.Converter(file.path)
                 try:
-                    converter = pdf2docx.Converter(file.path)
-                    converter.convert(docx_path)
+                    converter.convert(temporary)
+                finally:
                     converter.close()
-                    return docx_path
-                except Exception as error:
-                    raise Exception(f"Ошибка конвертации PDF в Word: {error}") from error
-            else:
-                raise Exception("Установите pdf2docx")
-
-        return None
+                if self._should_cancel():
+                    raise InterruptedError("Конвертация отменена пользователем")
+            return docx_path
+        except Exception as error:
+            self._release_conversion_output_path(docx_path)
+            raise Exception(f"Ошибка конвертации PDF в Word: {error}") from error
 
     def _convert_word_to_odt(
         self,
@@ -1317,6 +1311,7 @@ class ConversionMixin(ImageEncodingMixin):
                 import docx
 
                 doc = docx.Document(file.path)
+                self._warn_text_only_conversion(file)
                 odt_doc = OpenDocumentText()
                 for para in doc.paragraphs:
                     p = text.P(text=para.text)
@@ -1326,7 +1321,8 @@ class ConversionMixin(ImageEncodingMixin):
                     ".odt",
                     reference_file=output_reference,
                 )
-                odt_doc.save(odt_path)
+                with atomic_output_path(odt_path) as temporary:
+                    odt_doc.save(temporary)
                 return odt_path
             except Exception as error:
                 raise Exception(f"Ошибка конвертации Word в ODT: {error}") from error
@@ -1340,13 +1336,15 @@ class ConversionMixin(ImageEncodingMixin):
                 import docx
 
                 odt_doc = load(file.path)
+                self._warn_text_only_conversion(file)
                 docx_doc = docx.Document()
                 for elem in odt_doc.getElementsByType(text.P):
                     txt = teletype.extractText(elem)
                     if txt and txt.strip():
                         docx_doc.add_paragraph(txt)
                 docx_path = self._conversion_output_path(file, ".docx")
-                docx_doc.save(docx_path)
+                with atomic_output_path(docx_path) as temporary:
+                    docx_doc.save(temporary)
                 return docx_path
             except Exception as error:
                 raise Exception(f"Ошибка конвертации ODT в DOCX: {error}") from error
@@ -1388,61 +1386,3 @@ class ConversionMixin(ImageEncodingMixin):
                     _debug_log(f"Не удалось удалить промежуточный DOCX: {error}")
         return None
 
-    def _convert_pdf_to_image(self, file: FileItem) -> str:
-        if not file.path.lower().endswith(".pdf"):
-            return None
-        if not HAS_PYMUPDF:
-            raise Exception("Установите PyMuPDF для конвертации PDF в изображение")
-
-        image_path = self._conversion_output_path(file, ".jpg")
-        try:
-            import pymupdf as fitz
-
-            with fitz.open(file.path) as pdf_document:
-                if pdf_document.page_count < 1:
-                    raise Exception("PDF не содержит страниц")
-                page = pdf_document.load_page(0)
-                # ~200 DPI при стандартных 72 DPI PDF.
-                pix = page.get_pixmap(matrix=fitz.Matrix(200 / 72, 200 / 72), alpha=False)
-                pix.save(image_path)
-            return image_path
-        except Exception as error:
-            raise Exception(f"Ошибка конвертации PDF в изображение: {error}") from error
-
-    def _convert_image_to_pdf(self, file: FileItem) -> str:
-        source_format = format_for_path(file.path)
-        if source_format not in source_formats_for_category(IMAGE_CATEGORY):
-            return None
-        if not HAS_PIL:
-            raise Exception("Установите Pillow для конвертации изображения в PDF")
-
-        pdf_path = self._conversion_output_path(file, ".pdf")
-        image = None
-        try:
-            if source_format == "SVG":
-                image = self._load_svg_as_pillow_image(file.path)
-            else:
-                image = Image.open(file.path)
-            frame_count = int(getattr(image, "n_frames", 1) or 1)
-            if frame_count > 1:
-                from PIL import ImageSequence
-
-                frames = [
-                    self._flatten_transparency(frame.copy())
-                    for frame in ImageSequence.Iterator(image)
-                ]
-                first, rest = frames[0], frames[1:]
-                first.save(pdf_path, "PDF", resolution=100.0, save_all=True, append_images=rest)
-            else:
-                frame = self._flatten_transparency(image)
-                frame.save(pdf_path, "PDF", resolution=100.0)
-            return pdf_path
-        except Exception as error:
-            self._discard_conversion_output(pdf_path)
-            raise Exception(f"Ошибка конвертации изображения в PDF: {error}") from error
-        finally:
-            if image is not None:
-                try:
-                    image.close()
-                except Exception as close_error:
-                    _debug_log(f"Не удалось закрыть изображение {file.path}: {close_error}")

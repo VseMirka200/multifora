@@ -10,10 +10,13 @@ from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import (
     QApplication,
     QDialog,
+    QFrame,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QListWidget,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
 )
 
@@ -41,12 +44,23 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window = MultiforaMainWindow()
 
             try:
+                app_margins = window.centralWidget().layout().contentsMargins()
+                self.assertEqual(app_margins.left(), app_margins.right())
+                self.assertEqual(app_margins.left(), 4)
                 self.assertEqual(window.windowTitle(), "Мультифора")
                 self.assertFalse(hasattr(window, "tabs"))
                 self.assertIsNotNone(window.operations_stack)
                 self.assertEqual(window.operations_stack.count(), 4)
                 self.assertEqual(window.operations_tab_bar.count(), 4)
-                self.assertEqual(window.main_splitter.widget(0).minimumWidth(), 220)
+                self.assertEqual(window.main_splitter.widget(0).minimumWidth(), 240)
+                for page_index in range(window.operations_stack.count()):
+                    page = window.operations_stack.widget(page_index)
+                    scroll = page.findChild(QScrollArea, "operation_page_scroll")
+                    card = scroll.widget().layout().itemAt(0).widget()
+                    operation_content = card.layout().itemAt(0).widget()
+                    content_margins = operation_content.layout().contentsMargins()
+                    self.assertEqual(content_margins.left(), content_margins.right())
+                    self.assertEqual(content_margins.left(), 4)
                 self.assertFalse(hasattr(window, "combo_merge_format"))
                 self.assertEqual(
                     window.merge_format_hint_label.text(),
@@ -192,12 +206,51 @@ class MainWindowSmokeTests(unittest.TestCase):
                 )
                 header_layout = window.operations_header_widget.layout()
                 self.assertLess(
-                    header_layout.indexOf(window.btn_settings),
-                    header_layout.indexOf(window.operations_tab_bar),
+                    header_layout.indexOf(window.operations_header_actions_widget),
+                    header_layout.indexOf(window.operations_navigation_widget),
+                )
+                self.assertIs(
+                    window.btn_settings.parentWidget(),
+                    window.operations_navigation_widget,
+                )
+                self.assertIs(
+                    window.btn_help.parentWidget(),
+                    window.operations_header_actions_widget,
+                )
+                self.assertEqual(window.btn_help.height(), 22)
+                self.assertEqual(window.btn_help.objectName(), "help_button")
+                self.assertEqual(window.btn_settings.height(), 22)
+                self.assertEqual(window.btn_settings.objectName(), "settings_button")
+                self.assertEqual(window.operations_tab_bar.height(), 24)
+                self.assertEqual(window.help_menu.objectName(), "help_menu_popup")
+                help_margins = window.operations_header_actions_widget.layout().contentsMargins()
+                self.assertEqual(
+                    (
+                        help_margins.left(),
+                        help_margins.top(),
+                        help_margins.right(),
+                        help_margins.bottom(),
+                    ),
+                    (2, 0, 2, 0),
+                )
+                self.assertIs(
+                    window.operations_tab_bar.parentWidget(),
+                    window.operations_navigation_widget,
+                )
+                navigation_layout = window.operations_navigation_widget.layout()
+                navigation_margins = navigation_layout.contentsMargins()
+                self.assertEqual(
+                    (
+                        navigation_margins.left(),
+                        navigation_margins.top(),
+                        navigation_margins.right(),
+                        navigation_margins.bottom(),
+                    ),
+                    (2, 0, 2, 0),
                 )
                 self.assertLess(
-                    header_layout.indexOf(window.btn_help),
-                    header_layout.indexOf(window.operations_tab_bar),
+                    navigation_layout.indexOf(window.operations_tab_bar),
+                    navigation_layout.indexOf(window.btn_settings),
                 )
 
                 settings_widget = window._ensure_settings_panel_widget()
@@ -268,31 +321,74 @@ class MainWindowSmokeTests(unittest.TestCase):
                 )
                 self.assertEqual(window.logs_search_input.height(), FIELD_HEIGHT)
                 self.assertEqual(window.logs_level_filter.height(), FIELD_HEIGHT)
-                self.assertEqual(window.settings_stack.count(), 1)
+                self.assertEqual(window.settings_stack.objectName(), "settings_stack")
+                self.assertEqual(window.settings_stack.count(), 4)
+                self.assertEqual(
+                    [
+                        window.settings_nav.item(index).text()
+                        for index in range(window.settings_nav.count())
+                    ],
+                    ["Внешний вид", "Поведение", "Автоочистка", "Ярлыки"],
+                )
+                self.assertEqual(window.settings_nav.currentRow(), 0)
+                self.assertEqual(window.settings_nav.width(), 192)
+                self.assertEqual(window.settings_nav.frameShape(), QFrame.Shape.NoFrame)
+                settings_nav_style = window.settings_nav.styleSheet()
+                self.assertIn("border: none", settings_nav_style)
+                self.assertIn("outline: none", settings_nav_style)
+                selected_nav_style = settings_nav_style.split(
+                    "QListWidget#settings_nav::item:selected {", 1
+                )[1].split("}", 1)[0]
+                self.assertIn("background-color: transparent", selected_nav_style)
+                self.assertIn("color: #3d74b3", selected_nav_style)
                 self.assertEqual(window.help_stack.count(), 3)
                 self.assertEqual(
                     [action.text() for action in window.help_menu_actions],
-                    ["О программе", "Логи", "Поддержать проект"],
+                    [
+                        "О программе",
+                        "Логи",
+                        "Поддержать проект",
+                        "Сообщить об ошибке",
+                    ],
+                )
+                with patch(
+                    "app.ui.mixins.operations_tab_layout_mixin.QDesktopServices.openUrl",
+                    return_value=True,
+                ) as open_url:
+                    window.help_menu_actions[3].trigger()
+                open_url.assert_called_once()
+                self.assertEqual(
+                    open_url.call_args.args[0].toString(),
+                    "https://gitflic.ru/project/vsemirka200/multifora/issue/create",
                 )
                 support_page = window.help_stack.widget(window._support_help_row)
                 self.assertEqual(support_page.findChildren(QLabel), [])
-                main_settings_page = window.settings_stack.widget(0)
-                main_settings_labels = [
-                    label.text() for label in main_settings_page.findChildren(QLabel)
+                behavior_page = window.settings_stack.widget(1)
+                behavior_labels = [
+                    label.text() for label in behavior_page.findChildren(QLabel)
                 ]
-                self.assertIn("Проверять обновления при запуске", main_settings_labels)
+                self.assertIn("Проверять обновления при запуске", behavior_labels)
                 self.assertNotIn(
                     "Проверять обновления при запуске",
                     about_texts,
                 )
-                self.assertLess(
-                    main_settings_labels.index("Проверять обновления при запуске"),
-                    main_settings_labels.index("АВТООЧИСТКА СПИСКА"),
+                self.assertIn(
+                    "Очищать весь список после:",
+                    [label.text() for label in window.settings_stack.widget(2).findChildren(QLabel)],
                 )
-                self.assertLess(
-                    main_settings_labels.index("АВТООЧИСТКА СПИСКА"),
-                    main_settings_labels.index("ЯРЛЫКИ"),
+                self.assertIn(
+                    "Добавить ярлык на рабочий стол",
+                    [label.text() for label in window.settings_stack.widget(3).findChildren(QLabel)],
                 )
+                settings_hints = [
+                    label
+                    for index in range(window.settings_stack.count())
+                    for label in window.settings_stack.widget(index).findChildren(QLabel)
+                    if label.property("settingsHint")
+                ]
+                self.assertEqual(len(settings_hints), 11)
+                self.assertTrue(all(label.text().strip() for label in settings_hints))
+                self.assertTrue(all(label.wordWrap() for label in settings_hints))
                 self.assertFalse(window.auto_clear_enabled_checkbox.isChecked())
                 self.assertFalse(window.auto_clear_rename_checkbox.isEnabled())
                 self.assertTrue(window.auto_clear_convert_checkbox.isChecked())
@@ -300,7 +396,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertFalse(hasattr(window, "rename_history_settings_page"))
                 self.assertEqual(
                     window.btn_open_rename_history.text(),
-                    "Открыть историю переименований",
+                    "История",
                 )
                 self.assertEqual(
                     window.btn_open_rename_history.property("buttonVariant"),
@@ -323,12 +419,33 @@ class MainWindowSmokeTests(unittest.TestCase):
                         for index in range(window.operations_tab_bar.count())
                     )
                 )
-                window.help_menu_actions[1].trigger()
-                self.assertTrue(window.settings_panel_widget.isHidden())
-                self.assertFalse(window.help_panel_widget.isHidden())
+                captured_help_dialog = {}
+
+                def inspect_help_dialog(dialog):
+                    captured_help_dialog["dialog"] = dialog
+                    self.assertTrue(dialog.isModal())
+                    self.assertEqual(dialog.windowTitle(), "Логи")
+                    self.assertIs(window.help_panel_widget.parentWidget(), dialog)
+                    self.assertFalse(window.help_panel_widget.isHidden())
+                    close_button = next(
+                        button
+                        for button in dialog.findChildren(QPushButton)
+                        if button.text() == "Закрыть"
+                    )
+                    self.assertEqual(
+                        close_button.sizePolicy().horizontalPolicy(),
+                        QSizePolicy.Policy.Expanding,
+                    )
+                    return int(QDialog.DialogCode.Rejected)
+
+                with patch.object(QDialog, "exec", new=inspect_help_dialog):
+                    window.help_menu_actions[1].trigger()
+                self.assertIn("dialog", captured_help_dialog)
+                self.assertFalse(window.settings_panel_widget.isHidden())
+                self.assertTrue(window.help_panel_widget.isHidden())
                 self.assertEqual(window.help_stack.currentIndex(), 0)
-                self.assertFalse(window.btn_settings.isChecked())
-                self.assertTrue(window.btn_help.isChecked())
+                self.assertTrue(window.btn_settings.isChecked())
+                self.assertFalse(window.btn_help.isChecked())
                 window.operations_tab_bar.tabBarClicked.emit(original_index)
                 self.assertTrue(window.settings_panel_host.isHidden())
                 self.assertFalse(window.btn_settings.isChecked())
@@ -590,8 +707,10 @@ class MainWindowSmokeTests(unittest.TestCase):
     def test_conversion_button_enables_after_target_format_selection(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             source_docx = os.path.join(tmp_dir, "source.docx")
-            with open(source_docx, "wb") as f:
-                f.write(b"x")
+            second_docx = os.path.join(tmp_dir, "second.docx")
+            for path in (source_docx, second_docx):
+                with open(path, "wb") as f:
+                    f.write(b"x")
 
             settings_path = os.path.join(tmp_dir, "settings.json")
             with (
@@ -603,16 +722,34 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window = MultiforaMainWindow()
 
             try:
-                window.files = [FileItem(source_docx)]
+                window.files = [FileItem(source_docx), FileItem(second_docx)]
                 window.update_file_list()
-                window.list_files.select_paths([source_docx])
-                window.on_file_selection_changed()
+                self.assertFalse(window.list_files.selectionModel().hasSelection())
 
                 window.convert_file_type_combo.setCurrentText("Документы")
                 window.from_convert_combo.setCurrentText("DOCX")
                 window.to_convert_combo.setCurrentText("PDF")
 
                 self.assertTrue(window.btn_convert.isEnabled())
+                conversion_files, skipped = window._collect_compatible_conversion_files(
+                    "Документы", "DOCX", "PDF"
+                )
+                self.assertEqual(
+                    [item.path for item in conversion_files],
+                    [source_docx, second_docx],
+                )
+                self.assertEqual(skipped, 0)
+                window.list_files.select_paths([source_docx])
+                selected_conversion_files, _ = window._collect_compatible_conversion_files(
+                    "Документы", "DOCX", "PDF"
+                )
+                self.assertEqual(
+                    [item.path for item in selected_conversion_files],
+                    [source_docx],
+                )
+                window.convert_file_type_combo.setCurrentText("Документы")
+                window.from_convert_combo.setCurrentText("DOCX")
+                window.to_convert_combo.setCurrentText("PDF")
                 self.assertEqual(window.combo_conversion_output_mode.currentData(), "ask")
                 self.assertTrue(window.conversion_output_path_section.isHidden())
 
@@ -699,6 +836,21 @@ class MainWindowSmokeTests(unittest.TestCase):
             try:
                 window.files = [FileItem(image_path), FileItem(pdf_path)]
                 window.update_file_list()
+                self.assertFalse(window.list_files.selectionModel().hasSelection())
+
+                window.combo_compress_type.setCurrentText("Изображения")
+                window._update_compress_button()
+                self.assertTrue(window.btn_compress.isEnabled())
+                compression_worker = Mock()
+                window.file_worker = compression_worker
+                with (
+                    patch.object(window, "create_file_worker", return_value=True),
+                    patch.object(window, "show_russian_message_box", return_value=True),
+                ):
+                    window.compress_files()
+                compressed_files = compression_worker.set_compression.call_args.args[0]
+                self.assertEqual([item.path for item in compressed_files], [image_path])
+                compression_worker.start.assert_called_once_with()
 
                 window.list_files.select_paths([pdf_path])
                 window.on_file_selection_changed()
@@ -789,6 +941,20 @@ class MainWindowSmokeTests(unittest.TestCase):
 
                 self.assertEqual(window.template_custom.text(), "A{name}B")
                 self.assertEqual(window.template_custom.textCursor().position(), 7)
+
+                window.resize(900, 550)
+                window.show()
+                window.main_splitter.setSizes([240, 654])
+                QApplication.processEvents()
+                for token, button in window.template_quick_insert_buttons.items():
+                    with self.subTest(token=token):
+                        self.assertGreaterEqual(button.width(), button.sizeHint().width())
+                for button in (window.btn_save_template, window.btn_manage_templates):
+                    self.assertGreaterEqual(button.width(), button.sizeHint().width())
+                self.assertGreaterEqual(
+                    window.btn_open_rename_history.width(),
+                    window.btn_open_rename_history.sizeHint().width(),
+                )
             finally:
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()
@@ -914,18 +1080,24 @@ class MainWindowSmokeTests(unittest.TestCase):
                         dialog_margins.right(),
                         dialog_margins.bottom(),
                     ),
-                    (6, 6, 6, 6),
+                    DIALOG_MARGINS,
                 )
-                card_layout = window.templates_table.parentWidget().layout()
-                self.assertEqual(card_layout.spacing(), 4)
-                actions_row = window.btn_apply_template.parentWidget()
-                self.assertGreater(
-                    card_layout.indexOf(actions_row), card_layout.indexOf(window.templates_table)
+                self.assertGreaterEqual(dialog.minimumWidth(), 520)
+                self.assertGreaterEqual(dialog.minimumHeight(), 320)
+                self.assertEqual(window.templates_table.objectName(), "template_manager_table")
+                self.assertIs(window.templates_table.parentWidget(), dialog)
+                self.assertEqual(
+                    window.templates_table.horizontalHeader().sectionResizeMode(0),
+                    QHeaderView.ResizeMode.Stretch,
                 )
 
                 action_buttons = {
-                    button.text(): button for button in actions_row.findChildren(QPushButton)
+                    button.text(): button for button in dialog.findChildren(QPushButton)
                 }
+                self.assertEqual(
+                    set(action_buttons),
+                    {"Экспорт шаблонов", "Импорт шаблонов", "Применить"},
+                )
                 for button in (
                     action_buttons["Экспорт шаблонов"],
                     action_buttons["Импорт шаблонов"],

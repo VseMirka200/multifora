@@ -4,6 +4,7 @@ from pathlib import Path
 from app.ui.theme_styles import DARK_APPLICATION_STYLE, LIGHT_APPLICATION_STYLE
 from app.ui.ui_styles import (
     build_drop_zone_surface_style,
+    build_operations_settings_button_style,
     build_operations_tab_bar_style,
     build_standard_button_style,
     build_standard_field_style,
@@ -29,6 +30,17 @@ def _contrast(a: str, b: str) -> float:
 
 
 class ThemeStyleAuditTests(unittest.TestCase):
+    def test_settings_hints_are_small_and_theme_aware(self):
+        selector = 'QFrame#settings_card QLabel[settingsHint="true"] {'
+        for style, color in (
+            (DARK_APPLICATION_STYLE, "#a8a8a8"),
+            (LIGHT_APPLICATION_STYLE, "#6f7785"),
+        ):
+            self.assertIn(selector, style)
+            hint_style = style.split(selector, 1)[1].split("}", 1)[0]
+            self.assertIn(f"color: {color}", hint_style)
+            self.assertIn("font-size: 11px", hint_style)
+
     def test_all_button_roles_use_the_same_neutral_style(self):
         accent_colors = ("#3d74b3", "#8f3b3b", "#c55353")
         for theme in ("light", "dark"):
@@ -78,6 +90,42 @@ class ThemeStyleAuditTests(unittest.TestCase):
             self.assertIn("padding-left: 4px", menu_items)
             self.assertIn("padding-right: 4px", menu_items)
 
+    def test_help_menu_matches_compact_help_button(self):
+        for style in (LIGHT_APPLICATION_STYLE, DARK_APPLICATION_STYLE):
+            selector = "QMenu#help_menu_popup::item {"
+            self.assertIn(selector, style)
+            menu_items = style.split(selector, 1)[1].split("}", 1)[0]
+            self.assertIn("min-height: 18px", menu_items)
+            self.assertIn("max-height: 18px", menu_items)
+            self.assertIn("padding: 0px 4px", menu_items)
+            self.assertIn("font-size: 12px", menu_items)
+            self.assertIn("font-weight: 500", menu_items)
+
+    def test_help_button_uses_larger_text(self):
+        for theme in ("light", "dark"):
+            style = build_operations_settings_button_style(theme)
+            base_button = style.split("QPushButton {", 1)[1].split("}", 1)[0]
+            self.assertIn("font-size: 12px", base_button)
+            selector = "QPushButton#help_button {"
+            self.assertIn(selector, style)
+            help_button = style.split(selector, 1)[1].split("}", 1)[0]
+            self.assertIn("font-size: 12px", help_button)
+            self.assertIn("text-align: left", help_button)
+            self.assertIn("padding-left: 2px", help_button)
+
+    def test_settings_button_matches_main_navigation_text(self):
+        for theme in ("light", "dark"):
+            style = build_operations_settings_button_style(theme)
+            selector = "QPushButton#settings_button {"
+            self.assertIn(selector, style)
+            settings_button = style.split(selector, 1)[1].split("}", 1)[0]
+            self.assertIn("font-size: 14px", settings_button)
+            active_selector = "QPushButton#settings_button:checked {"
+            self.assertIn(active_selector, style)
+            active_button = style.split(active_selector, 1)[1].split("}", 1)[0]
+            self.assertIn("color: #3d74b3", active_button)
+            self.assertIn("border-bottom: 1px solid #3d74b3", active_button)
+
     def test_scrollable_dropdown_has_vertical_arrow_buttons(self):
         for style, track, handle in (
             (LIGHT_APPLICATION_STYLE, "#eef1f5", "#8f99a6"),
@@ -113,6 +161,12 @@ class ThemeStyleAuditTests(unittest.TestCase):
         dark = build_operations_tab_bar_style("dark")
         for style in (light, dark):
             self.assertIn("border-bottom: 1px solid #3d74b3", style)
+            self.assertIn("min-height: 22px", style)
+            self.assertIn("max-height: 22px", style)
+            selected = style.split(
+                "QTabBar#operations_tab_bar::tab:selected {", 1
+            )[1].split("}", 1)[0]
+            self.assertIn("color: #3d74b3", selected)
             self.assertNotIn("QTabBar#operations_tab_bar::tab:hover", style)
 
     def test_light_theme_does_not_reintroduce_dark_template_surface(self):

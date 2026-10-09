@@ -345,9 +345,11 @@ class TemplateParamsNumberingMixin:
             for token, button in self.template_quick_insert_buttons.items()
             if token != number_token
         ]
-        for start in range(0, len(remaining_buttons), 3):
+        # Даже в узкой левой панели три кнопки в ряд
+        # на такой ширине обрезают длинные токены вроде {exif_date}.
+        for start in range(0, len(remaining_buttons), 2):
             quick_buttons_container, _quick_buttons_layout = self._build_rename_action_row(
-                remaining_buttons[start : start + 3]
+                remaining_buttons[start : start + 2]
             )
             layout.addWidget(quick_buttons_container)
 

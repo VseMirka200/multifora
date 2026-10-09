@@ -101,6 +101,16 @@ class FileTableTests(unittest.TestCase):
         header = widget.horizontalHeader()
         self.assertTrue(header.sectionsClickable())
         self.assertFalse(header.isSortIndicatorShown())
+        unsorted_width = header.sectionSize(widget.model().COLUMN_OLD_NAME)
+        header.setSortIndicator(widget.model().COLUMN_OLD_NAME, Qt.SortOrder.AscendingOrder)
+        header.setSortIndicatorShown(True)
+        widget._resize_columns_to_contents()
+        self.assertGreaterEqual(
+            header.sectionSize(widget.model().COLUMN_OLD_NAME),
+            unsorted_width + 6,
+        )
+        header.setSortIndicatorShown(False)
+        widget._resize_columns_to_contents()
         self.assertEqual(
             header.sectionResizeMode(widget.model().COLUMN_OLD_NAME),
             QHeaderView.ResizeMode.Interactive,

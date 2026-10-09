@@ -26,7 +26,7 @@ if errorlevel 1 goto :error
 if exist "build" rmdir /s /q "build"
 if exist "dist\%APP_BUILD_NAME%" rmdir /s /q "dist\%APP_BUILD_NAME%"
 
-python -m PyInstaller --noconfirm --clean --windowed --name "%APP_BUILD_NAME%" --icon "assets\icon.ico" --add-data "assets;assets" --add-data "app\ui\checkbox_checked.svg;app\ui" multifora_start.py
+python -m PyInstaller --noconfirm --clean "Multifora.spec"
 if errorlevel 1 goto :error
 
 if exist "bin" (

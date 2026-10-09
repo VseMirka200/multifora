@@ -3,7 +3,6 @@ import os
 from PyQt6.QtWidgets import QFileDialog
 
 from app.core.app_utils import _log_ignored_error
-from app.ui.ui_components import selected_file_items
 
 
 class OperationsCompressUiMixin:
@@ -12,13 +11,7 @@ class OperationsCompressUiMixin:
         if not hasattr(self, "list_files") or not hasattr(self, "combo_compress_type"):
             return
 
-        candidates = selected_file_items(self.list_files, files_only=True)
-        if not candidates:
-            candidates = [
-                file_item
-                for file_item in getattr(self, "files", [])
-                if getattr(file_item, "is_file", False)
-            ]
+        candidates = self._get_selected_or_all_file_items()
 
         has_pdf = False
         has_image = False
@@ -54,9 +47,7 @@ class OperationsCompressUiMixin:
     def _has_selected_files_for_current_compress_type(self) -> bool:
         if not hasattr(self, "list_files"):
             return False
-        selected_files = selected_file_items(self.list_files, files_only=True)
-        if not selected_files:
-            return False
+        selected_files = self._get_selected_or_all_file_items()
 
         compress_type = (
             self.combo_compress_type.currentText() if hasattr(self, "combo_compress_type") else ""
@@ -147,7 +138,7 @@ class OperationsCompressUiMixin:
     def select_image_output_folder(self):
         initial_path = self._image_output_path()
         if not initial_path or not os.path.isdir(initial_path):
-            selected_files = selected_file_items(getattr(self, "list_files", None))
+            selected_files = self._get_selected_or_all_file_items()
             if selected_files:
                 file_item = selected_files[0]
                 initial_path = os.path.dirname(str(getattr(file_item, "path", "") or ""))

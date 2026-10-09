@@ -96,6 +96,8 @@ class RepositoryHygieneTests(unittest.TestCase):
     def test_tracked_text_files_are_utf8_without_bom(self):
         if shutil.which("git") is None:
             self.skipTest("Git не установлен или не доступен в PATH")
+        if not Path(".git").exists():
+            self.skipTest("Проверка git ls-files требует исходного Git-репозитория")
         tracked_files = subprocess.check_output(
             ["git", "ls-files"], text=True, encoding="utf-8"
         ).splitlines()

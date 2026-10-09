@@ -31,6 +31,7 @@ def build_splitter_style() -> str:
 
 def build_operations_settings_button_style(theme: str) -> str:
     foreground = "#202833" if str(theme).lower() == "light" else "#e3e6ea"
+    active = "#3d74b3"
     return f"""
         QPushButton {{
             color: {foreground};
@@ -39,11 +40,24 @@ def build_operations_settings_button_style(theme: str) -> str:
             border-bottom: 1px solid transparent;
             border-radius: 0px;
             padding: 0px 3px;
-            font-size: 10px;
+            font-size: 12px;
             font-weight: 500;
         }}
         QPushButton:checked {{
             border-bottom: 1px solid {foreground};
+        }}
+        QPushButton#help_button {{
+            font-size: 12px;
+            text-align: left;
+            padding-left: 2px;
+            padding-right: 2px;
+        }}
+        QPushButton#settings_button {{
+            font-size: 14px;
+        }}
+        QPushButton#settings_button:checked {{
+            color: {active};
+            border-bottom: 1px solid {active};
         }}
     """
 
@@ -154,15 +168,19 @@ def build_standard_button_style(theme: str, role: str) -> str:
 
 def build_template_table_style(theme: str) -> str:
     light = str(theme).lower() == "light"
-    foreground = "#1f2328" if light else "#f0f0f0"
+    palette = standard_palette(theme)
+    foreground = palette["fg"]
+    background = palette["bg"]
+    border = palette["border"]
     alternate = "#eef1f5" if light else "#454545"
     hover = "rgba(61, 116, 179, 0.10)" if light else "rgba(255, 255, 255, 0.07)"
     selected = "rgba(61, 116, 179, 0.22)" if light else "#5c5c5c"
     header = alternate if light else "#2b2b2b"
     return f"""
         QTableWidget {{
-            background-color: transparent; alternate-background-color: {alternate};
-            color: {foreground}; border: none; selection-background-color: {selected};
+            background-color: {background}; alternate-background-color: {alternate};
+            color: {foreground}; border: 1px solid {border}; border-radius: 4px;
+            selection-background-color: {selected};
             selection-color: {foreground}; show-decoration-selected: 1;
         }}
         QTableWidget:focus, QTableWidget::item:focus {{ outline: none; border: none; }}
@@ -481,7 +499,6 @@ def build_standard_field_style(theme: str, kind: str) -> str:
 def build_operations_tab_bar_style(theme: str) -> str:
     is_light = str(theme).lower() == "light"
     foreground = "#202833" if is_light else "#e3e6ea"
-    selected_fg = "#ffffff" if not is_light else "#1d2f45"
     base_bg = "transparent"
     underline = "#3d74b3"
     return f"""
@@ -495,8 +512,8 @@ def build_operations_tab_bar_style(theme: str) -> str:
             margin: 0px 12px 0px 0px;
             padding: 0px 2px;
             min-width: 24px;
-            min-height: 30px;
-            max-height: 30px;
+            min-height: 22px;
+            max-height: 22px;
             font-weight: 500;
             color: {foreground};
             background-color: {base_bg};
@@ -504,7 +521,7 @@ def build_operations_tab_bar_style(theme: str) -> str:
             border-bottom: 1px solid transparent;
         }}
         QTabBar#operations_tab_bar::tab:selected {{
-            color: {selected_fg};
+            color: {underline};
             border-bottom: 1px solid {underline};
         }}
         QTabBar#operations_tab_bar::tab:!selected {{

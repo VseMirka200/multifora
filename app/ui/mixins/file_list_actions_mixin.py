@@ -224,6 +224,7 @@ class FileListActionsMixin:
         if current_section == section and current_order == Qt.SortOrder.DescendingOrder:
             self._column_sort_section = None
             self.list_files.horizontalHeader().setSortIndicatorShown(False)
+            self.list_files._resize_columns_to_contents()
             self.list_files.set_manual_sorting(True)
             if callable(getattr(self, "_schedule_settings_save", None)):
                 self._schedule_settings_save()
@@ -317,6 +318,7 @@ class FileListActionsMixin:
             self.files = visible_files
         self._column_sort_section = None
         self.list_files.horizontalHeader().setSortIndicatorShown(False)
+        self.list_files._resize_columns_to_contents()
         self.list_files.set_manual_sorting(True)
         if callable(getattr(self, "_schedule_settings_save", None)):
             self._schedule_settings_save()

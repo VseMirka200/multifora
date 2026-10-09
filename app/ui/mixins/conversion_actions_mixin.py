@@ -77,7 +77,22 @@ class ConversionActionsMixin:
         self._schedule_conversion_settings_save()
 
     def _selected_file_items(self) -> list[FileItem]:
-        return selected_file_items(getattr(self, "list_files", None), files_only=True)
+        """Возвращает область текущей операции.
+
+        Выделение имеет приоритет; если его нет, операция
+        применяется ко всем файлам списка.
+        """
+        resolver = getattr(self, "_get_selected_or_all_file_items", None)
+        if callable(resolver):
+            return list(resolver())
+        selected = selected_file_items(getattr(self, "list_files", None), files_only=True)
+        if selected:
+            return selected
+        return [
+            file_item
+            for file_item in (getattr(self, "files", []) or [])
+            if getattr(file_item, "is_file", False)
+        ]
 
     def _initial_conversion_folder(self) -> str:
         current_path = self._conversion_custom_output_path()
@@ -241,12 +256,10 @@ class ConversionActionsMixin:
             return
         source_combo = getattr(self, "from_convert_combo", None)
         target_combo = getattr(self, "to_convert_combo", None)
-        list_widget = getattr(self, "list_files", None)
-
         category_selected = self._selected_convert_category()
         source_selected = source_combo is not None and source_combo.currentIndex() > 0
         target_selected = target_combo is not None and target_combo.currentIndex() > 0
-        has_files = bool(selected_file_items(list_widget, files_only=True))
+        has_files = bool(self._selected_file_items())
         output_ready = not (
             str(getattr(self, "conversion_output_mode", "ask") or "ask") == "custom"
             and not self._conversion_custom_output_path()
@@ -332,14 +345,14 @@ class ConversionActionsMixin:
             QMessageBox.information(
                 self,
                 "Конвертация",
-                f"Все выбранные файлы уже имеют формат {target_label}.",
+                f"Все подходящие файлы уже имеют формат {target_label}.",
             )
             return
 
         QMessageBox.warning(
             self,
             "Ошибка",
-            f"Среди выбранных файлов нет совместимых с режимом «{source_label}».",
+            f"Среди файлов для обработки нет совместимых с режимом «{source_label}».",
         )
 
     @staticmethod
@@ -379,7 +392,7 @@ class ConversionActionsMixin:
 
         selected_files = self._selected_file_items()
         if not selected_files:
-            QMessageBox.warning(self, "Ошибка", "Выберите файлы для конвертации!")
+            QMessageBox.warning(self, "Ошибка", "Добавьте файлы для конвертации!")
             return
 
         files, skipped_same_target = self._collect_compatible_conversion_files(

@@ -13,6 +13,8 @@ from .compression import CompressionMixin
 from .conversion import ConversionMixin
 from .merge import MergeMixin
 from .result import OperationResult
+from .rename_transaction import rename_batch
+from app.core.rename_plan import resolve_rename_targets
 
 
 class FileWorker(
@@ -26,7 +28,8 @@ class FileWorker(
     progress = pyqtSignal(int)
     status = pyqtSignal(str)
     finished = pyqtSignal(object)
-    error = pyqtSignal(str)
+    error = pyqtSignal(str)  # Только критическая ошибка всей операции
+    file_error = pyqtSignal(str)  # Ошибка отдельного файла, обработка продолжается
     _get_unique_path = staticmethod(get_unique_path)
 
     def __init__(self) -> None:
@@ -38,6 +41,7 @@ class FileWorker(
         self.conversion_output_mode = "source_subfolder"
         self.conversion_output_dir = ""
         self.new_names: list[str] = []
+        self.strict_rename = False
         self.compression_level = 85
         self.compression_type = "image"
         self.pdf_method = "auto"
@@ -51,6 +55,7 @@ class FileWorker(
         self._cancel_lock = threading.Lock()
         self._active_cancel_action: Callable[[], None] | None = None
         self.errors: list[dict[str, object]] = []
+        self.warnings: list[dict[str, object]] = []
         self._word_warmup_done = False
         self._word_pdf_unavailable = False
         self._conversion_reserved_paths: set[str] = set()
@@ -90,6 +95,9 @@ class FileWorker(
             entry["name"] = getattr(file_item, "name", None)
         self.errors.append(entry)
 
+    def _record_warning(self, file_item: FileItem | None, message: str) -> None:
+        self.warnings.append({"path": getattr(file_item, "path", None), "message": message})
+
     def _emit_finished(
         self,
         new_files: Iterable[object] | None = None,
@@ -100,6 +108,7 @@ class FileWorker(
                 new_files=list(new_files or []),
                 updated_files=list(updated_files or []),
                 errors=list(self.errors),
+                warnings=list(self.warnings),
             )
         )
 
@@ -110,6 +119,7 @@ class FileWorker(
         self.operation = operation
         self.files = files
         self.errors = []
+        self.warnings = []
 
     def set_conversion(
         self,
@@ -138,9 +148,12 @@ class FileWorker(
         self,
         files: list[FileItem],
         new_names: list[str],
+        *,
+        strict: bool = False,
     ) -> None:
         self._prepare_operation("rename", files)
         self.new_names = new_names
+        self.strict_rename = strict
 
     def set_compression(
         self,
@@ -180,39 +193,43 @@ class FileWorker(
         return self._compress_image_files
 
     def _rename_files(self) -> None:
-        if len(self.files) != len(self.new_names):
-            message = "Ошибка переименования: несоответствие количества файлов и новых имён"
-            record_file_error(self, None, message)
+        """Сначала рассчитывает всю пачку, затем безопасно меняет имена."""
+        try:
+            targets = resolve_rename_targets(self.files, self.new_names)
+            if self.strict_rename:
+                requested = [
+                    os.path.join(file.folder, name)
+                    for file, name in zip(self.files, self.new_names, strict=True)
+                ]
+                if any(
+                    os.path.normcase(actual).casefold() != os.path.normcase(desired).casefold()
+                    for actual, desired in zip(targets, requested, strict=True)
+                ):
+                    raise ValueError("Откат невозможен: исходные имена заняты другими файлами")
+        except ValueError as error:
+            record_file_error(self, None, f"Ошибка плана переименования: {error}")
             self._emit_finished([], [])
             return
 
         total = len(self.files)
-        updated_files: list[tuple[FileItem, str]] = []
-        for index, (file_item, new_name) in enumerate(zip(self.files, self.new_names, strict=True)):
-            if self._should_cancel():
-                break
-
-            old_name = file_item.name
-            old_path = file_item.path
-            new_path = os.path.join(file_item.folder, new_name)
-
-            try:
-                same_path = (
-                    os.path.normcase(os.path.abspath(old_path)).casefold()
-                    == os.path.normcase(os.path.abspath(new_path)).casefold()
-                )
-                if os.path.exists(new_path) and not same_path:
-                    new_path = self._get_unique_path(new_path)
-                os.rename(old_path, new_path)
-                updated_files.append((file_item, new_path))
-            except Exception as error:
-                record_file_error(self, file_item, f"Ошибка переименования {old_name}: {error}")
-
-            self.status.emit(f"Переименование: {old_name}")
-            emit_progress(self, index, total)
+        successes, errors = rename_batch(
+            [file.path for file in self.files],
+            targets,
+            cancelled=self._should_cancel,
+            on_done=lambda index: (
+                self.status.emit(f"Переименование: {self.files[index].name}"),
+                emit_progress(self, index, total),
+            ),
+        )
+        for index, error in errors:
+            record_file_error(
+                self,
+                self.files[index] if 0 <= index < total else None,
+                f"Ошибка переименования: {error}",
+            )
         if self._should_cancel():
             self.status.emit("Операция отменена пользователем")
-        self._emit_finished([], updated_files)
+        self._emit_finished([], [(self.files[index], target) for index, target in successes])
 
     def _operation_handlers(self) -> dict[str, Callable[[], None]]:
         return {

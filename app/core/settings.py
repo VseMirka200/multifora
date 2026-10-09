@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 
 from PyQt6.QtCore import Qt
 
@@ -571,9 +572,25 @@ def save_settings(window) -> None:
         return
 
     settings_file = get_settings_file_path()
+    temporary = None
     try:
         data = _collect_settings_data(window)
-        with open(settings_file, "w", encoding="utf-8") as settings_stream:
+        folder = os.path.dirname(os.path.abspath(settings_file))
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=folder,
+            prefix=".__multifora_settings_", suffix=".tmp", delete=False,
+        ) as settings_stream:
+            temporary = settings_stream.name
             json.dump(data, settings_stream, ensure_ascii=False, indent=2)
+            settings_stream.flush()
+            os.fsync(settings_stream.fileno())
+        os.replace(temporary, settings_file)
+        temporary = None
     except Exception as error:
         _log_settings_error("сохранения настроек", error)
+    finally:
+        if temporary and os.path.exists(temporary):
+            try:
+                os.remove(temporary)
+            except OSError as error:
+                _log_settings_error("удаления временных настроек", error)

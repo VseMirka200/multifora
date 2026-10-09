@@ -48,6 +48,11 @@ QFrame#settings_card {
 QFrame#settings_card QWidget {
     background-color: transparent;
 }
+QFrame#settings_card QLabel[settingsHint="true"] {
+    color: #a8a8a8;
+    font-size: 11px;
+    font-weight: 400;
+}
 QFrame#settings_card QLabel[aboutVersionBadge="true"] {
     background-color: #383838;
     color: #c9d1d9;
@@ -500,6 +505,11 @@ QFrame#settings_card {
 QFrame#settings_card QWidget {
     background-color: transparent;
 }
+QFrame#settings_card QLabel[settingsHint="true"] {
+    color: #6f7785;
+    font-size: 11px;
+    font-weight: 400;
+}
 QFrame#settings_card QLabel[aboutVersionBadge="true"] {
     background-color: #ffffff;
     color: #57606a;
@@ -828,7 +838,8 @@ QMenu {{
     border-radius: 0px;
 }}
 QMenu#menu_like_combo_popup,
-QMenu#header_dropdown_popup {{
+QMenu#header_dropdown_popup,
+QMenu#help_menu_popup {{
     border-top-left-radius: 0px;
     border-top-right-radius: 0px;
     border-bottom-left-radius: 4px;
@@ -846,6 +857,13 @@ QMenu QListWidget#scrollable_filter_list::item {{
 QMenu#header_dropdown_popup::item {{
     padding-left: 4px;
     padding-right: 4px;
+}}
+QMenu#help_menu_popup::item {{
+    min-height: 18px;
+    max-height: 18px;
+    padding: 0px 4px;
+    font-size: 12px;
+    font-weight: 500;
 }}
 QMenu::item:hover,
 QMenu::item:selected,

@@ -67,6 +67,8 @@ def record_file_error(
     file_item: object | None,
     message: str,
 ) -> None:
-    """Сохраняет ошибку файла и отправляет её в UI."""
+    """Сохраняет ошибку файла в итоге операции, не завершая её визуально."""
     worker._record_error(file_item, message)
-    worker.error.emit(message)
+    file_error_signal = getattr(worker, "file_error", None)
+    if file_error_signal is not None:
+        file_error_signal.emit(message)

@@ -145,7 +145,7 @@ class RenameHistoryMixin:
             "op": "rename",
             "new_names_by_path": dict(zip(paths, new_names, strict=True)),
         }
-        self.file_worker.set_rename(files, new_names)
+        self.file_worker.set_rename(files, new_names, strict=True)
         self.file_worker.start()
         if callable(getattr(self, "_show_progress_dialog", None)):
             self._show_progress_dialog(f"Переименование {len(pairs)} файлов...")

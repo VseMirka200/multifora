@@ -10,6 +10,7 @@ class OperationResult:
     new_files: list[object] = field(default_factory=list)
     updated_files: list[object] = field(default_factory=list)
     errors: list[dict[str, object]] = field(default_factory=list)
+    warnings: list[dict[str, object]] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, object]:
         """Возвращает совместимое со старым API словарное представление."""
@@ -17,6 +18,7 @@ class OperationResult:
             "new_files": self.new_files,
             "updated_files": self.updated_files,
             "errors": self.errors,
+            "warnings": self.warnings,
         }
 
     def get(self, key: str, default: object = None) -> object:

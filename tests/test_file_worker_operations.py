@@ -71,21 +71,33 @@ class FileWorkerOperationTests(unittest.TestCase):
             self.assertEqual(results[0].updated_files, [(source, target_path)])
             self.assertEqual(results[0].errors, [])
 
-    @patch("core.workers.file_worker.os.rename")
-    @patch("core.workers.file_worker.os.path.exists", return_value=True)
-    def test_rename_conflict_always_uses_a_unique_path(self, _exists, rename):
-        source = SimpleNamespace(
-            path="C:/files/source.txt",
-            folder="C:/files",
-            name="source.txt",
-        )
-        worker = FileWorker()
-        worker._get_unique_path = lambda _path: "C:/files/renamed_1.txt"
-        worker.set_rename([source], ["renamed.txt"])
+    def test_rename_conflict_always_uses_a_unique_path(self):
+        """Проверяем реальную файловую систему, а не exists=True для всех путей."""
+        with tempfile.TemporaryDirectory() as directory:
+            source_path = os.path.join(directory, "source.txt")
+            occupied_path = os.path.join(directory, "renamed.txt")
+            with open(source_path, "w", encoding="utf-8") as stream:
+                stream.write("source")
+            with open(occupied_path, "w", encoding="utf-8") as stream:
+                stream.write("existing")
+            source = SimpleNamespace(
+                path=source_path,
+                folder=directory,
+                name="source.txt",
+            )
+            worker = FileWorker()
+            results = []
+            worker.finished.connect(results.append)
+            worker.set_rename([source], ["renamed.txt"])
+            worker.run()
 
-        worker.run()
-
-        rename.assert_called_once_with(source.path, "C:/files/renamed_1.txt")
+            expected = os.path.join(directory, "renamed_1.txt")
+            self.assertEqual(results[0].updated_files, [(source, expected)])
+            self.assertEqual(results[0].errors, [])
+            with open(occupied_path, encoding="utf-8") as stream:
+                self.assertEqual(stream.read(), "existing")
+            with open(expected, encoding="utf-8") as stream:
+                self.assertEqual(stream.read(), "source")
 
 
 if __name__ == "__main__":

@@ -157,7 +157,9 @@ class ConversionMixinTests(unittest.TestCase):
 
             self.assertEqual(result, os.path.join(tmpdir, "source.pdf"))
             fallback_mock.assert_called_once_with(source_item, output_reference=None)
-            self.assertTrue(worker._word_pdf_unavailable)
+            # COM недоступен за пределами Windows: внутренний экспорт
+            # выбирается сразу, без попытки пометить Word неисправным.
+            self.assertEqual(worker._word_pdf_unavailable, os.name == "nt")
 
     def test_word_to_pdf_uses_internal_fallback_when_word_dependency_is_missing(self):
         worker = _DummyConversionWorker()

@@ -5,9 +5,9 @@ from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QDialog,
-    QFrame,
     QHBoxLayout,
     QHeaderView,
+    QLabel,
     QMenu,
     QMessageBox,
     QPushButton,
@@ -15,7 +15,6 @@ from PyQt6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
-    QWidget,
 )
 
 from app.core.app_utils import _log_ignored_error
@@ -25,7 +24,7 @@ from app.ui.ui_components import (
     setup_standard_primary_button,
     setup_standard_secondary_button,
 )
-from app.ui.ui_spacing import MARGINS_NONE, SPACE_MD, SPACE_SM
+from app.ui.ui_spacing import DIALOG_MARGINS, MARGINS_NONE, SPACE_SM
 from app.ui.ui_styles import build_template_table_style
 
 
@@ -178,18 +177,6 @@ class TemplateCrudMixin:
             self._rename_selected_template(parent_window)
         elif selected_action == action_delete:
             self.delete_selected_template(parent_window)
-
-    def _on_templates_table_section_resized(self, logical_index, _old_size, new_size):
-        if not hasattr(self, "templates_table") or self.templates_table is None:
-            return
-        min_widths = getattr(self, "_templates_table_min_widths", {})
-        min_width = min_widths.get(logical_index)
-        if min_width is None or new_size >= min_width:
-            return
-        header = self.templates_table.horizontalHeader()
-        header.blockSignals(True)
-        self.templates_table.setColumnWidth(logical_index, min_width)
-        header.blockSignals(False)
 
     def save_current_template(self):
         """Сохранение текущего шаблона как пользовательского"""
@@ -391,8 +378,9 @@ class TemplateCrudMixin:
                 name_item.setData(Qt.ItemDataRole.UserRole, name)
                 name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 self.templates_table.setItem(row, 0, name_item)
-            self.templates_table.horizontalHeader().setStretchLastSection(False)
-            self.templates_table.setColumnWidth(0, 390)
+            self.templates_table.horizontalHeader().setSectionResizeMode(
+                QHeaderView.ResizeMode.Stretch
+            )
             if current_name:
                 for row in range(self.templates_table.rowCount()):
                     item = self.templates_table.item(row, 0)
@@ -408,60 +396,59 @@ class TemplateCrudMixin:
                 self.templates_table.setCurrentIndex(QModelIndex())
 
     def _build_template_manager_action_buttons(self, dialog):
-        actions_row = QWidget()
-        actions_row.setObjectName("template_manager_action_row")
-        actions_row.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-
-        actions_layout = QHBoxLayout(actions_row)
+        actions_layout = QHBoxLayout()
         actions_layout.setContentsMargins(*MARGINS_NONE)
         actions_layout.setSpacing(SPACE_SM)
 
         export_btn = QPushButton("Экспорт шаблонов")
-        setup_standard_secondary_button(export_btn)
-        export_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        setup_standard_secondary_button(export_btn, expand=True)
         export_btn.clicked.connect(self.export_templates)
         actions_layout.addWidget(export_btn, 1)
 
         import_btn = QPushButton("Импорт шаблонов")
-        setup_standard_secondary_button(import_btn)
-        import_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        setup_standard_secondary_button(import_btn, expand=True)
         import_btn.clicked.connect(lambda: self.import_templates(dialog))
         actions_layout.addWidget(import_btn, 1)
 
         apply_btn = QPushButton("Применить")
-        setup_standard_primary_button(apply_btn)
-        apply_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        setup_standard_primary_button(apply_btn, expand=True)
         apply_btn.setEnabled(False)
         apply_btn.clicked.connect(lambda: self.load_selected_template(dialog))
         actions_layout.addWidget(apply_btn, 1)
 
         self.btn_apply_template = apply_btn
 
-        return actions_row
+        return actions_layout
 
     def show_template_manager(self):
         """Показывает модальное окно управления шаблонами"""
         dialog = QDialog(self)
         dialog._effective_theme_mode = getattr(self, "_effective_theme_mode", "dark")
-        setup_standard_dialog(dialog, title="Управление шаблонами")
+        setup_standard_dialog(
+            dialog,
+            title="Управление шаблонами",
+            min_width=520,
+            min_height=320,
+        )
         try:
             dialog.setStyleSheet(self.styleSheet())
         except Exception as error:
             _log_ignored_error("TemplateCrudMixin.show_template_manager", error)
 
         layout = QVBoxLayout(dialog)
-        layout.setContentsMargins(SPACE_MD, SPACE_MD, SPACE_MD, SPACE_MD)
+        layout.setContentsMargins(*DIALOG_MARGINS)
         layout.setSpacing(SPACE_SM)
 
-        card = QFrame()
-        card.setObjectName("settings_card")
-        card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-        card.setFrameShape(QFrame.Shape.NoFrame)
-        card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(0, 0, 0, 0)
-        card_layout.setSpacing(SPACE_SM)
+        description = QLabel("Сохранённые пользовательские шаблоны", dialog)
+        description.setWordWrap(True)
+        layout.addWidget(description)
 
-        self.templates_table = QTableWidget()
+        self.templates_table = QTableWidget(dialog)
+        self.templates_table.setObjectName("template_manager_table")
+        self.templates_table.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
+        )
         self.templates_table.setColumnCount(1)
         self.templates_table.setHorizontalHeaderLabels(["Название шаблона"])
         self.templates_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -476,26 +463,23 @@ class TemplateCrudMixin:
         self.templates_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.templates_table.setStyleSheet(self._templates_table_stylesheet())
         header = self.templates_table.horizontalHeader()
-        header.setStretchLastSection(False)
-        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         header.setMinimumSectionSize(36)
-        self._templates_table_min_widths = {0: 220}
-        header.sectionResized.connect(self._on_templates_table_section_resized)
         self.templates_table.cellDoubleClicked.connect(
             lambda *_args: self.load_selected_template(dialog)
         )
         self.templates_table.customContextMenuRequested.connect(
             lambda pos: self._show_templates_context_menu(pos, dialog)
         )
-        card_layout.addWidget(self.templates_table)
+        layout.addWidget(self.templates_table, 1)
 
-        actions_row = self._build_template_manager_action_buttons(dialog)
+        actions_layout = self._build_template_manager_action_buttons(dialog)
         self.templates_table.itemSelectionChanged.connect(
             lambda: self.btn_apply_template.setEnabled(
                 bool(self.templates_table.selectionModel().selectedRows())
             )
         )
-        card_layout.addWidget(actions_row)
+        layout.addLayout(actions_layout)
 
         self._templates_apply_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Return), dialog)
         self._templates_apply_shortcut.activated.connect(
@@ -514,26 +498,7 @@ class TemplateCrudMixin:
             lambda: self._rename_selected_template(dialog)
         )
 
-        layout.addWidget(card)
-
         self.update_templates_table(dialog)
-        dialog.adjustSize()
-        table_width = self.templates_table.frameWidth() * 2
-        table_width += sum(
-            self.templates_table.columnWidth(i) for i in range(self.templates_table.columnCount())
-        )
-        card_margins = card_layout.contentsMargins()
-        root_margins = layout.contentsMargins()
-        required_width = (
-            table_width
-            + card_margins.left()
-            + card_margins.right()
-            + root_margins.left()
-            + root_margins.right()
-        )
-        dialog.setMinimumWidth(required_width)
-        dialog.resize(required_width, dialog.sizeHint().height())
-
         dialog.exec()
 
     def update_template_combo(self):

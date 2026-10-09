@@ -1,11 +1,13 @@
 import os
 import subprocess
+import tempfile
 import time
 
 import app.core.deps as deps
 from app.core.app_utils import _debug_log
 from app.core.models import FileItem
 from core.workers.common import emit_progress, finish_if_cancelled, record_file_error
+from .image_optimizer import save_optimized_image
 
 _PDF_PROCESS_TIMEOUT_SECONDS = 120
 _PDF_PROCESS_POLL_INTERVAL_SECONDS = 0.1
@@ -166,30 +168,9 @@ class CompressionMixin:
                     if deps.HAS_PIL:
                         try:
                             with deps.Image.open(file.path) as img:
-                                if img.mode in ("RGBA", "LA", "P"):
-                                    rgb_img = deps.Image.new("RGB", img.size, (255, 255, 255))
-                                    rgb_img.paste(
-                                        img, mask=img.split()[-1] if img.mode == "RGBA" else None
-                                    )
-                                    img = rgb_img
-
-                                if ext in [".jpg", ".jpeg"]:
-                                    img.save(
-                                        compressed_path,
-                                        "JPEG",
-                                        quality=self.compression_level,
-                                        optimize=True,
-                                        progressive=True,
-                                    )
-                                elif ext == ".png":
-                                    img.save(
-                                        compressed_path,
-                                        "PNG",
-                                        optimize=True,
-                                        compress_level=min(9, int(self.compression_level / 10)),
-                                    )
-                                else:
-                                    img.save(compressed_path)
+                                save_optimized_image(
+                                    img, compressed_path, ext, self.compression_level
+                                )
 
                                 original_size = os.path.getsize(file.path)
                                 compressed_size = os.path.getsize(compressed_path)
@@ -217,6 +198,7 @@ class CompressionMixin:
                                     self.status.emit(f"Изображение уже оптимизировано: {file.name}")
 
                         except Exception as img_error:
+                            _remove_file_safely(compressed_path)
                             msg = f"Ошибка сжатия {file.name}: {img_error}"
                             record_file_error(self, file, msg)
                     else:
@@ -294,8 +276,7 @@ class CompressionMixin:
                                 )
                             except Exception as e:
                                 msg = f"Ошибка замены PDF {file.name}: {e!s}"
-                                self._record_error(file, msg)
-                                self.error.emit(msg)
+                                record_file_error(self, file, msg)
                                 _remove_file_safely(compressed_path)
                         else:
                             results.append(FileItem(compressed_path))
@@ -331,8 +312,7 @@ class CompressionMixin:
 
             except Exception as e:
                 msg = f"Ошибка PDF: {str(e)[:100]}"
-                self._record_error(file, msg)
-                self.error.emit(msg)
+                record_file_error(self, file, msg)
 
             self.progress.emit(int((i + 1) / total * 100))
 
@@ -375,13 +355,20 @@ class CompressionMixin:
             ]
 
             _debug_log(f"Запуск Ghostscript: {' '.join(cmd[:10])}...")
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-            )
+            # Файловый поток вместо PIPE исключает deadlock, когда Ghostscript
+            # записывает больше данных, чем вмещает буфер ОС.
+            error_log = tempfile.TemporaryFile(mode="w+t", encoding="utf-8", errors="replace")
+            try:
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=error_log,
+                    text=True,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+                )
+            except Exception:
+                error_log.close()
+                raise
             cancel_action = process.terminate
             register_cancel = getattr(self, "_set_active_cancel_action", None)
             clear_cancel = getattr(self, "_clear_active_cancel_action", None)
@@ -404,8 +391,12 @@ class CompressionMixin:
             finally:
                 if callable(clear_cancel):
                     clear_cancel(cancel_action)
+                # После завершения процесса лог можно безопасно дочитать.
+                error_log.flush()
+                error_log.seek(0)
+                stderr = error_log.read(4096)
+                error_log.close()
 
-            _stdout, stderr = process.communicate()
             result_returncode = process.returncode
 
             if result_returncode == 0:

@@ -1130,6 +1130,13 @@ class FileListWidget(QTableView):
         self.resizeColumnToContents(self.model().COLUMN_OLD_NAME)
         self.resizeColumnToContents(self.model().COLUMN_NEW_NAME)
         self.resizeColumnToContents(self.model().COLUMN_TYPE)
+        header = self.horizontalHeader()
+        if header.isSortIndicatorShown():
+            section = header.sortIndicatorSection()
+            if 0 <= section < self.model().columnCount():
+                # Qt не всегда учитывает ширину системной стрелки
+                # при resizeColumnToContents, и она накладывается на заголовок.
+                header.resizeSection(section, header.sectionSize(section) + 6)
 
     def set_manual_sorting(self, enabled: bool):
         self.setDragEnabled(enabled)

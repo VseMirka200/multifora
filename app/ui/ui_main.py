@@ -3,7 +3,7 @@ import os
 
 from PyQt6.QtCore import QEvent, Qt, QTimer
 from PyQt6.QtGui import QAction, QColor, QIcon, QPalette
-from PyQt6.QtNetwork import QLocalServer
+from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QDialog,
@@ -146,6 +146,7 @@ class MultiforaMainWindow(
         self.theme_mode = "system"
         self.ghostscript_path_override = None
         self.ipc_server = None
+        self._ipc_buffers = {}
         self.logs_view = None
         self._log_lines = []
         self.max_log_lines = 1000
@@ -218,52 +219,75 @@ class MultiforaMainWindow(
         self.log_event(f"IPC сервер запущен: {server_name}")
 
     def _on_ipc_connection(self):
+        """Обрабатывает IPC по событиям Qt, не блокируя интерфейс на чтении."""
         if not self.ipc_server:
             return
         while self.ipc_server.hasPendingConnections():
-            socket_conn = self.ipc_server.nextPendingConnection()
-            if socket_conn:
-                self._read_ipc_socket(socket_conn)
+            connection = self.ipc_server.nextPendingConnection()
+            if connection is None:
+                continue
+            self._ipc_buffers[connection] = bytearray()
+            connection.readyRead.connect(
+                lambda socket=connection: self._read_ipc_socket(socket)
+            )
+            connection.disconnected.connect(
+                lambda socket=connection: self._finish_ipc_socket(socket)
+            )
+            QTimer.singleShot(5000, lambda socket=connection: self._expire_ipc_socket(socket))
+            self._read_ipc_socket(connection)
 
     def _read_ipc_socket(self, socket_conn):
-        max_bytes = 1024 * 1024
-        data = b""
-        for _ in range(20):
-            if not socket_conn.waitForReadyRead(50):
-                break
-            chunk = socket_conn.readAll()
-            if not chunk:
-                break
-            data += bytes(chunk)
-            if len(data) > max_bytes:
-                self.log_event("IPC: превышен лимит данных", "WARN")
-                break
-        socket_conn.disconnectFromServer()
+        """Считывает только доступные байты, без waitForReadyRead в GUI-потоке."""
+        buffer = self._ipc_buffers.get(socket_conn)
+        if buffer is None:
+            return
+        buffer.extend(bytes(socket_conn.readAll()))
+        if len(buffer) > 1024 * 1024:
+            self.log_event("IPC: превышен лимит данных", "WARN")
+            self._ipc_buffers.pop(socket_conn, None)
+            socket_conn.disconnectFromServer()
+            socket_conn.deleteLater()
+            return
+        if socket_conn.state() == QLocalSocket.LocalSocketState.UnconnectedState:
+            self._finish_ipc_socket(socket_conn)
 
+    def _expire_ipc_socket(self, socket_conn):
+        if socket_conn not in self._ipc_buffers:
+            return
+        self.log_event("IPC: соединение не завершено за 5 секунд", "WARN")
+        self._ipc_buffers.pop(socket_conn, None)
+        socket_conn.disconnectFromServer()
+        socket_conn.deleteLater()
+
+    def _finish_ipc_socket(self, socket_conn):
+        buffer = self._ipc_buffers.pop(socket_conn, None)
+        if buffer is None:
+            return
+        try:
+            buffer.extend(bytes(socket_conn.readAll()))
+        finally:
+            socket_conn.deleteLater()
+        if len(buffer) > 1024 * 1024:
+            self.log_event("IPC: превышен лимит данных", "WARN")
+            return
+        self._process_ipc_payload(bytes(buffer))
+
+    def _process_ipc_payload(self, data: bytes):
         if not data:
             return
-
-        try:
-            lines = data.decode("utf-8", errors="replace").splitlines()
-        except Exception:
-            self.log_event("IPC: ошибка декодирования данных", "ERROR")
-            return
-
+        lines = data.decode("utf-8", errors="replace").splitlines()
         if not lines:
             return
-
         token = _load_ipc_token()
         if not token or not lines[0].startswith("TOKEN:") or lines[0][6:] != token:
             self.log_event("IPC: неверный токен", "WARN")
             return
-
         file_paths = []
         for line in lines[1:]:
             if line.startswith("ADD_FILE:"):
                 file_path = _normalize_path_candidate(line[9:].strip())
                 if file_path and os.path.exists(file_path):
                     file_paths.append(file_path)
-
         if file_paths:
             self.add_files_from_ipc(file_paths)
         else:
@@ -537,9 +561,9 @@ class MultiforaMainWindow(
     def _create_left_panel(self, main_layout: QVBoxLayout) -> QWidget:
         """Создаёт левую панель операций и подключает панель настроек."""
         left_widget = QWidget()
-        # Поля и кнопки внутри адаптивны, поэтому панель можно заметно сужать
-        # разделителем, оставляя достаточно места для основных элементов.
-        left_widget.setMinimumWidth(220)
+        # Длинные подписи шаблонов и истории не должны обрезаться
+        # при сужении панели разделителем.
+        left_widget.setMinimumWidth(240)
         left_layout = QVBoxLayout(left_widget)
         left_layout.setContentsMargins(*MARGINS_NONE)
         left_layout.setSpacing(SPACE_NONE)
@@ -1322,7 +1346,7 @@ class MultiforaMainWindow(
 
     def update_converter_from_format(self):
         """Обновляет конвертер и автоматически включает смешанный режим."""
-        selected_files = selected_file_items(self.list_files, files_only=True)
+        selected_files = self._get_selected_or_all_file_items()
         category_combo = getattr(self, "convert_file_type_combo", None)
 
         category_label = ""

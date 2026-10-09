@@ -1,7 +1,10 @@
+import os
+
 from PyQt6.QtWidgets import QMessageBox
 
 from app.core.conversion_formats import CATEGORY_FILE_TYPES, suffix_for_format
 from app.core.rename_validation import analyze_rename_plan, format_rename_plan_issues
+from app.core.rename_plan import resolve_rename_targets
 from app.ui.ui_components import selected_file_items
 
 
@@ -17,32 +20,27 @@ class FileListPreviewMixin:
         if callable(getattr(self, "refresh_preview_panel", None)):
             self.refresh_preview_panel()
 
-    def _active_operations_tab_label(self) -> str:
+    def _active_operation_id(self) -> str:
         tab_bar = getattr(self, "operations_tab_bar", None)
         if tab_bar is None:
             return ""
-        try:
-            idx = tab_bar.currentIndex()
-            if idx < 0:
-                return ""
-            return str(tab_bar.tabText(idx)).strip().casefold()
-        except Exception:
+        index = tab_bar.currentIndex()
+        if index < 0:
             return ""
+        return str(tab_bar.tabData(index) or "")
 
     def refresh_active_file_preview(self):
-        """Обновляет предпросмотр в списке в зависимости от активного режима."""
-        tab_label = self._active_operations_tab_label()
-        if "переимен" in tab_label:
+        """Обновляет предпросмотр независимо от пользовательского языка интерфейса."""
+        operation = self._active_operation_id()
+        if operation == "rename":
             self.refresh_rename_preview(show_empty_warning=False)
-            return
-        if "конверта" in tab_label:
+        elif operation == "convert":
             self.refresh_conversion_preview(show_empty_warning=False)
-            return
-        if "сжат" in tab_label:
+        elif operation == "compress":
             self.refresh_compression_preview(show_empty_warning=False)
-            return
-        self._set_preview_names_to_original()
-        self._refresh_list_preview()
+        else:
+            self._set_preview_names_to_original()
+            self._refresh_list_preview()
 
     def refresh_rename_preview(self, show_empty_warning=False):
         """Автоматически обновляет предпросмотр переименования."""
@@ -88,17 +86,28 @@ class FileListPreviewMixin:
             [name for _item, name in changed_pairs],
         )
         blocking = any(issue.blocking for issue in self._rename_plan_issues)
+        if has_changes and not blocking:
+            try:
+                actual_paths = resolve_rename_targets(
+                    [item for item, _name in changed_pairs],
+                    [name for _item, name in changed_pairs],
+                )
+                for (item, _name), target in zip(changed_pairs, actual_paths, strict=True):
+                    item.preview_name = os.path.basename(target)
+            except ValueError as error:
+                blocking = True
+                self._rename_template_error = str(error)
         self.btn_apply_rename.setEnabled(has_changes and not blocking)
         validation_label = getattr(self, "rename_validation_label", None)
         if validation_label is not None:
             if blocking:
                 validation_label.setText(
-                    format_rename_plan_issues(self._rename_plan_issues, limit=3)
+                    self._rename_template_error or format_rename_plan_issues(self._rename_plan_issues, limit=3)
                 )
             elif self._rename_plan_issues:
                 validation_label.setText(
                     f"Найдено конфликтов: {len(self._rename_plan_issues)}; "
-                    "файлы получат свободный номер."
+                    "свободные имена уже показаны в предпросмотре."
                 )
             else:
                 validation_label.setText("Конфликты не обнаружены.")

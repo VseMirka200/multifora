@@ -1,4 +1,5 @@
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QCheckBox,
     QFrame,
@@ -42,6 +43,9 @@ from app.ui.ui_styles import (
     build_operations_settings_button_style,
     build_operations_tab_bar_style,
 )
+
+
+BUG_REPORT_PAGE = "https://gitflic.ru/project/vsemirka200/multifora/issue/create"
 
 
 class OperationsTabLayoutMixin:
@@ -199,16 +203,39 @@ class OperationsTabLayoutMixin:
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed,
         )
-        operations_header_layout = QHBoxLayout(self.operations_header_widget)
+        operations_header_layout = QVBoxLayout(self.operations_header_widget)
         operations_header_layout.setContentsMargins(*MARGINS_NONE)
         operations_header_layout.setSpacing(SPACE_NONE)
         operations_header_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        operations_header_layout.addWidget(
+
+        self.operations_header_actions_widget = QWidget(self.operations_header_widget)
+        self.operations_header_actions_widget.setObjectName("operations_header_actions_widget")
+        self.operations_header_actions_widget.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
+        )
+        operations_header_actions_layout = QHBoxLayout(self.operations_header_actions_widget)
+        operations_header_actions_layout.setContentsMargins(*OPERATIONS_PAGE_MARGINS)
+        operations_header_actions_layout.setSpacing(SPACE_SM)
+        operations_header_actions_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        operations_header_layout.addWidget(self.operations_header_actions_widget)
+
+        self.operations_navigation_widget = QWidget(self.operations_header_widget)
+        self.operations_navigation_widget.setObjectName("operations_navigation_widget")
+        self.operations_navigation_widget.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
+        )
+        operations_navigation_layout = QHBoxLayout(self.operations_navigation_widget)
+        operations_navigation_layout.setContentsMargins(*OPERATIONS_PAGE_MARGINS)
+        operations_navigation_layout.setSpacing(SPACE_SM)
+        operations_navigation_layout.addWidget(
             self.operations_tab_bar,
             0,
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
         )
-        operations_header_layout.addStretch(1)
+        operations_navigation_layout.addStretch(1)
+        operations_header_layout.addWidget(self.operations_navigation_widget)
 
         self.operations_stack = QStackedWidget()
         self.operations_stack.setObjectName("operations_stack")
@@ -228,34 +255,33 @@ class OperationsTabLayoutMixin:
         )
 
         self.btn_settings = QPushButton("Настройки")
+        self.btn_settings.setObjectName("settings_button")
         self.btn_settings.setCheckable(True)
-        self.btn_settings.setFixedSize(76, 24)
+        self.btn_settings.setFixedSize(76, 22)
         self.btn_settings.setCursor(Qt.CursorShape.PointingHandCursor)
-        operations_header_layout.insertWidget(
-            0,
+        operations_navigation_layout.addWidget(
             self.btn_settings,
             0,
-            Qt.AlignmentFlag.AlignTop,
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
         )
         self.btn_settings.clicked.connect(
             lambda checked: self.show_settings_modal() if checked else self.hide_settings_panel()
         )
 
         self.btn_help = QPushButton("Справка")
+        self.btn_help.setObjectName("help_button")
         self.btn_help.setCheckable(True)
-        self.btn_help.setFixedSize(58, 24)
+        self.btn_help.setFixedSize(58, 22)
         self.btn_help.setCursor(Qt.CursorShape.PointingHandCursor)
-        operations_header_layout.insertSpacing(1, SPACE_SM)
-        operations_header_layout.insertWidget(
-            2,
+        operations_header_actions_layout.addWidget(
             self.btn_help,
             0,
             Qt.AlignmentFlag.AlignTop,
         )
-        operations_header_layout.insertSpacing(3, SPACE_SM)
+        operations_header_actions_layout.addStretch(1)
         self.help_menu = QMenu(self.btn_help)
         setup_standard_popup_menu(self.help_menu)
-        self.help_menu.setObjectName("header_dropdown_popup")
+        self.help_menu.setObjectName("help_menu_popup")
         help_sections = (
             ("О программе", 1),
             ("Логи", 0),
@@ -268,6 +294,11 @@ class OperationsTabLayoutMixin:
                 lambda _checked=False, index=section_index: self.show_help_modal(index)
             )
             self.help_menu_actions.append(action)
+        report_bug_action = self.help_menu.addAction("Сообщить об ошибке")
+        report_bug_action.triggered.connect(
+            lambda: QDesktopServices.openUrl(QUrl(BUG_REPORT_PAGE))
+        )
+        self.help_menu_actions.append(report_bug_action)
         self.help_menu.aboutToHide.connect(self._sync_help_button_after_menu)
         self.btn_help.clicked.connect(self._show_help_menu)
         self._apply_operations_tab_bar_theme()
@@ -293,7 +324,7 @@ class OperationsTabLayoutMixin:
     def _create_rename_operation_page(self) -> None:
         """Создаёт страницу переименования."""
         rename_card, rename_layout = self._create_operation_card()
-        rename_layout.setContentsMargins(SPACE_SM, SPACE_NONE, SPACE_NONE, SPACE_NONE)
+        rename_layout.setContentsMargins(*OPERATIONS_PAGE_MARGINS)
 
         self.combo_templates = MenuLikeComboBox()
         self.combo_templates.setProperty("renameTemplateField", True)
@@ -328,7 +359,7 @@ class OperationsTabLayoutMixin:
         rename_layout.addWidget(rename_buttons_widget)
         rename_layout.addSpacing(SPACE_SM)
 
-        self.btn_open_rename_history = QPushButton("Открыть историю переименований")
+        self.btn_open_rename_history = QPushButton("История")
         setup_standard_secondary_button(self.btn_open_rename_history)
         self.btn_open_rename_history.clicked.connect(self.show_rename_history_dialog)
         history_button_widget, _ = self._build_rename_action_row(
@@ -345,7 +376,7 @@ class OperationsTabLayoutMixin:
     def _create_conversion_operation_page(self) -> None:
         """Создаёт страницу конвертации."""
         convert_card, convert_layout = self._create_operation_card()
-        convert_layout.setContentsMargins(SPACE_SM, SPACE_NONE, SPACE_NONE, SPACE_NONE)
+        convert_layout.setContentsMargins(*OPERATIONS_PAGE_MARGINS)
 
         self.convert_file_type_combo = MenuLikeComboBox()
         self.convert_file_type_combo.addItems(["Выберите тип файла:", *CONVERSION_CATEGORIES])
@@ -431,7 +462,7 @@ class OperationsTabLayoutMixin:
     def _create_merge_operation_page(self) -> None:
         """Создаёт страницу объединения документов."""
         merge_card, merge_layout = self._create_operation_card()
-        merge_layout.setContentsMargins(SPACE_SM, SPACE_NONE, SPACE_NONE, SPACE_NONE)
+        merge_layout.setContentsMargins(*OPERATIONS_PAGE_MARGINS)
 
         self.merge_format_hint_label = self._create_operation_hint_label(
             "Можно объединять только файлы одного формата: PDF с PDF или DOCX с DOCX."
@@ -590,12 +621,7 @@ class OperationsTabLayoutMixin:
     def _create_compression_operation_page(self) -> None:
         """Создаёт страницу сжатия."""
         compress_card, compress_layout = self._create_operation_card(align_top=True)
-        compress_layout.setContentsMargins(
-            SPACE_SM,
-            SPACE_NONE,
-            SPACE_NONE,
-            SPACE_NONE,
-        )
+        compress_layout.setContentsMargins(*OPERATIONS_PAGE_MARGINS)
 
         self.combo_compress_type = MenuLikeComboBox()
         self.combo_compress_type.addItems(["Изображения", "PDF документы"])
@@ -646,7 +672,9 @@ class OperationsTabLayoutMixin:
 
     def _add_operations_page(self, page: QWidget, label: str) -> None:
         self.operations_stack.addWidget(page)
-        self.operations_tab_bar.addTab(label)
+        tab_index = self.operations_tab_bar.addTab(label)
+        # Не привязываем логику операций к переводу видимых названий вкладок.
+        self.operations_tab_bar.setTabData(tab_index, page.objectName().removesuffix("_page"))
         if self.operations_stack.count() == 1:
             self.operations_tab_bar.setCurrentIndex(0)
             self.operations_stack.setCurrentIndex(0)

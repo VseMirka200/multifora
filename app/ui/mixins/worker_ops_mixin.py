@@ -103,9 +103,9 @@ class WorkerOpsMixin:
         """Сжатие файлов."""
         if not self._ensure_operation_can_start():
             return
-        selected_files = selected_file_items(self.list_files, files_only=True)
+        selected_files = self._get_selected_or_all_file_items()
         if not selected_files:
-            QMessageBox.warning(self, "Ошибка", "Выберите файлы для сжатия!")
+            QMessageBox.warning(self, "Ошибка", "Добавьте файлы для сжатия!")
             return
 
         compress_type = self.combo_compress_type.currentText()
@@ -120,7 +120,7 @@ class WorkerOpsMixin:
             file_type = (
                 "изображения (JPG/PNG)" if compress_type == "Изображения" else "PDF документы"
             )
-            QMessageBox.warning(self, "Ошибка", f"Выберите {file_type} для сжатия!")
+            QMessageBox.warning(self, "Ошибка", f"В списке нет подходящих файлов: {file_type}.")
             return
 
         pdf_method = "auto"
@@ -281,10 +281,12 @@ class WorkerOpsMixin:
     def on_operation_finished(self, result):
         """Завершение операции."""
         errors = []
+        warnings = []
         if hasattr(result, "get"):
             new_files = result.get("new_files", [])
             updated_files = result.get("updated_files", [])
             errors = result.get("errors", [])
+            warnings = result.get("warnings", [])
         else:
             new_files = result
             updated_files = []
@@ -333,7 +335,7 @@ class WorkerOpsMixin:
         if callable(getattr(self, "_update_compress_button", None)):
             self._update_compress_button()
 
-        if not errors and self._should_auto_clear_after_operation():
+        if not errors and not warnings and self._should_auto_clear_after_operation():
             self.files.clear()
             self.list_files.clear()
             self.update_file_info()
@@ -383,50 +385,50 @@ class WorkerOpsMixin:
                 f"Операция завершена. Создано {self._ru_files_label(len(new_files))}."
             )
 
+        if warnings:
+            lines = [f"• {entry.get('message', '')}" for entry in warnings[:8]]
+            extra = f"\n…и ещё {len(warnings)-8}" if len(warnings) > 8 else ""
+            QMessageBox.warning(
+                self,
+                "Предупреждения о результате",
+                "Некоторые документы преобразованы только как текст.\n"
+                + "\n".join(lines) + extra,
+            )
+        if errors:
+            self._offer_retry_for_errors(errors)
+
         if self._pending_close and not (self.file_worker and self.file_worker.isRunning()):
             self._pending_close = False
             QTimer.singleShot(0, self.close)
+
+    def on_file_error(self, message: str) -> None:
+        """Ошибка одного файла: не скрываем прогресс и не прерываем обработку."""
+        self.log_event(f"Ошибка файла: {message}", "ERROR")
 
     def on_operation_error(self, error_msg):
-        """Ошибка операции."""
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setValue(0)
-        self.btn_cancel_operation.setVisible(False)
-        self.btn_cancel_operation.setEnabled(True)
-        if callable(getattr(self, "_hide_progress_dialog", None)):
-            self._hide_progress_dialog()
-        if callable(getattr(self, "_update_compress_button", None)):
-            self._update_compress_button()
-        self._operation_errors.append({"message": error_msg})
-        self.log_event(f"Ошибка операции: {error_msg}", "ERROR")
-        self.status_bar.showMessage("Ошибка при выполнении операции")
-        if self._pending_close and not (self.file_worker and self.file_worker.isRunning()):
-            self._pending_close = False
-            QTimer.singleShot(0, self.close)
+        """Аварийная ошибка: сообщаем при окончательном сигнале finished."""
+        self._operation_errors.append({"message": str(error_msg)})
+        self.log_event(f"Критическая ошибка операции: {error_msg}", "ERROR")
 
-        errors = self._operation_errors
-        if errors:
-            lines = []
-            for entry in errors[:5]:
-                msg = entry.get("message", "")
-                name = entry.get("name")
-                if name and name not in msg:
-                    msg = f"{name}: {msg}"
-                lines.append(f"• {msg}")
-            more = ""
-            if len(errors) > 5:
-                more = f"\n...и еще {len(errors) - 5}"
-            text = (
-                "Обнаружены ошибки в некоторых файлах:\n"
-                + "\n".join(lines)
-                + more
-                + "\n\nПовторить только ошибки?"
-            )
-            reply = self.show_russian_message_box(
-                "Ошибки операции",
-                text,
-                QMessageBox.Icon.Warning,
-                True,
-            )
-            if reply:
-                self._retry_failed_operation(errors)
+    def _offer_retry_for_errors(self, errors: list[dict]) -> None:
+        lines = []
+        for entry in errors[:8]:
+            msg = str(entry.get("message", ""))
+            name = entry.get("name")
+            if name and name not in msg:
+                msg = f"{name}: {msg}"
+            lines.append(f"• {msg}")
+        more = f"\n…и ещё {len(errors) - 8}" if len(errors) > 8 else ""
+        can_retry = bool(
+            self._last_operation
+            and self._last_operation.get("op") in {"rename", "convert", "compress"}
+            and any(e.get("path") for e in errors)
+        )
+        message = "Ошибки при обработке файлов:\n" + "\n".join(lines) + more
+        if can_retry:
+            message += "\n\nПовторить только ошибочные файлы?"
+        reply = self.show_russian_message_box(
+            "Ошибки операции", message, QMessageBox.Icon.Warning, can_retry,
+        )
+        if can_retry and reply:
+            self._retry_failed_operation(errors)
