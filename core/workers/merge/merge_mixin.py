@@ -134,8 +134,13 @@ def _requires_docx_composer(document) -> bool:
 
     relationship_attributes = {qn("r:id"), qn("r:embed"), qn("r:link")}
     specialized_elements = {
-        qn("w:numPr"), qn("w:pStyle"), qn("w:rStyle"), qn("w:tblStyle"),
-        qn("w:drawing"), qn("w:pict"), qn("w:object"),
+        qn("w:numPr"),
+        qn("w:pStyle"),
+        qn("w:rStyle"),
+        qn("w:tblStyle"),
+        qn("w:drawing"),
+        qn("w:pict"),
+        qn("w:object"),
     }
     for element in document.element.body.iter():
         if element.tag in specialized_elements:

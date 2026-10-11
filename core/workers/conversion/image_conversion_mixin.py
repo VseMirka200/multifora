@@ -1,4 +1,5 @@
 """Конвертация графики: отдельная зона ответственности и зависимости."""
+
 from __future__ import annotations
 
 import os
@@ -112,7 +113,9 @@ class ImageConversionMixin:
                 ]
                 first, rest = frames[0], frames[1:]
                 with atomic_output_path(pdf_path) as temporary:
-                    first.save(temporary, "PDF", resolution=100.0, save_all=True, append_images=rest)
+                    first.save(
+                        temporary, "PDF", resolution=100.0, save_all=True, append_images=rest
+                    )
             else:
                 frame = self._flatten_transparency(image)
                 with atomic_output_path(pdf_path) as temporary:

@@ -7,14 +7,14 @@ from collections.abc import Callable, Iterable
 from PyQt6.QtCore import QThread, pyqtSignal
 
 from app.core.models import FileItem
+from app.core.rename_plan import resolve_rename_targets
 
 from .common import emit_progress, get_unique_path, record_file_error
 from .compression import CompressionMixin
 from .conversion import ConversionMixin
 from .merge import MergeMixin
-from .result import OperationResult
 from .rename_transaction import rename_batch
-from app.core.rename_plan import resolve_rename_targets
+from .result import OperationResult
 
 
 class FileWorker(

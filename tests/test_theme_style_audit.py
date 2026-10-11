@@ -111,7 +111,7 @@ class ThemeStyleAuditTests(unittest.TestCase):
             help_button = style.split(selector, 1)[1].split("}", 1)[0]
             self.assertIn("font-size: 12px", help_button)
             self.assertIn("text-align: left", help_button)
-            self.assertIn("padding-left: 2px", help_button)
+            self.assertIn("padding-left: 0px", help_button)
 
     def test_settings_button_matches_main_navigation_text(self):
         for theme in ("light", "dark"):
@@ -163,9 +163,9 @@ class ThemeStyleAuditTests(unittest.TestCase):
             self.assertIn("border-bottom: 1px solid #3d74b3", style)
             self.assertIn("min-height: 22px", style)
             self.assertIn("max-height: 22px", style)
-            selected = style.split(
-                "QTabBar#operations_tab_bar::tab:selected {", 1
-            )[1].split("}", 1)[0]
+            selected = style.split("QTabBar#operations_tab_bar::tab:selected {", 1)[1].split(
+                "}", 1
+            )[0]
             self.assertIn("color: #3d74b3", selected)
             self.assertNotIn("QTabBar#operations_tab_bar::tab:hover", style)
 

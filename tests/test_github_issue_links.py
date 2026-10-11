@@ -33,12 +33,18 @@ class GitHubLinksTests(unittest.TestCase):
         candidates = [root / "README.md"]
         for folder in paths:
             if folder.exists():
-                candidates.extend(p for p in folder.rglob("*") if p.is_file() and p.suffix in (".py", ".md", ".yml", ".yaml", ".txt"))
+                candidates.extend(
+                    p
+                    for p in folder.rglob("*")
+                    if p.is_file() and p.suffix in (".py", ".md", ".yml", ".yaml", ".txt")
+                )
         # Собираем строку, чтобы сама проверка не содержала искомое имя.
         legacy_name = "Git" + "Flic"
         for file in candidates:
             with self.subTest(file=str(file.relative_to(root))):
-                self.assertNotIn(legacy_name.casefold(), file.read_text(encoding="utf-8").casefold())
+                self.assertNotIn(
+                    legacy_name.casefold(), file.read_text(encoding="utf-8").casefold()
+                )
 
 
 if __name__ == "__main__":

@@ -3,8 +3,8 @@ import os
 from PyQt6.QtWidgets import QMessageBox
 
 from app.core.conversion_formats import CATEGORY_FILE_TYPES, suffix_for_format
-from app.core.rename_validation import analyze_rename_plan, format_rename_plan_issues
 from app.core.rename_plan import resolve_rename_targets
+from app.core.rename_validation import analyze_rename_plan, format_rename_plan_issues
 from app.ui.ui_components import selected_file_items
 
 
@@ -102,7 +102,8 @@ class FileListPreviewMixin:
         if validation_label is not None:
             if blocking:
                 validation_label.setText(
-                    self._rename_template_error or format_rename_plan_issues(self._rename_plan_issues, limit=3)
+                    self._rename_template_error
+                    or format_rename_plan_issues(self._rename_plan_issues, limit=3)
                 )
             elif self._rename_plan_issues:
                 validation_label.setText(

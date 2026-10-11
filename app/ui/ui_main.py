@@ -71,7 +71,6 @@ from app.ui.ui_components import (
     apply_standard_field_style,
     refresh_standard_button_styles,
     refresh_standard_field_styles,
-    selected_file_items,
     setup_standard_danger_button,
     setup_standard_dialog,
     setup_standard_header_dropdown,
@@ -227,9 +226,7 @@ class MultiforaMainWindow(
             if connection is None:
                 continue
             self._ipc_buffers[connection] = bytearray()
-            connection.readyRead.connect(
-                lambda socket=connection: self._read_ipc_socket(socket)
-            )
+            connection.readyRead.connect(lambda socket=connection: self._read_ipc_socket(socket))
             connection.disconnected.connect(
                 lambda socket=connection: self._finish_ipc_socket(socket)
             )
@@ -554,7 +551,7 @@ class MultiforaMainWindow(
         """Создаёт изменяемый разделитель рабочих панелей."""
         splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter = splitter
-        splitter.setHandleWidth(max(6, SPACE_SM))
+        splitter.setHandleWidth(SPACE_LG)
         splitter.setStyleSheet(build_splitter_style())
         return splitter
 
@@ -604,9 +601,7 @@ class MultiforaMainWindow(
         menu.aboutToHide.connect(lambda: self._set_header_menu_open_state(button, False))
 
     @staticmethod
-    def _set_filter_actions_checked(
-        menu, actions: dict, checked: bool, changed_callback
-    ) -> None:
+    def _set_filter_actions_checked(menu, actions: dict, checked: bool, changed_callback) -> None:
         for action in actions.values():
             previous_state = action.blockSignals(True)
             try:
@@ -851,7 +846,7 @@ class MultiforaMainWindow(
 
         self.btn_add_folder = DropActionTile(
             QIcon(_find_bundled_icon("folder.svg") or ""),
-            "Добавить\nпапку",
+            "Добавить\nпапки",
         )
         self.btn_add_folder.clicked.connect(self.select_folder)
         drop_buttons_row.addWidget(self.btn_add_folder, 0, 1)
@@ -991,7 +986,7 @@ class MultiforaMainWindow(
         self._splitter_grip_label.setToolTip("Перетащите, чтобы изменить ширину панели разделов")
         self._splitter_grip_label.setObjectName("splitter_grip_label")
         self._splitter_grip_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._splitter_grip_label.setFixedSize(6, 56)
+        self._splitter_grip_label.setFixedSize(SPACE_LG, 56)
         self._splitter_grip_label.setAttribute(
             Qt.WidgetAttribute.WA_TransparentForMouseEvents,
             True,

@@ -26,8 +26,9 @@ def _run_build_smoke_test() -> int:
     import importlib
     import json
     import os
-    from pathlib import Path
     import traceback
+    from pathlib import Path
+    from unittest.mock import patch
 
     report_path = os.environ.get("MULTIFORA_SMOKE_REPORT")
     report = {"status": "failed", "imports": [], "window_visible": False}
@@ -35,10 +36,19 @@ def _run_build_smoke_test() -> int:
     window = None
     try:
         for module in (
-            "PyQt6.QtCore", "PyQt6.QtGui", "PyQt6.QtWidgets",
-            "PyQt6.QtNetwork", "fitz", "pdf2docx", "PIL.Image",
-            "pillow_heif", "docx", "docxcompose.composer",
-            "odf.opendocument", "pythoncom", "win32com.client",
+            "PyQt6.QtCore",
+            "PyQt6.QtGui",
+            "PyQt6.QtWidgets",
+            "PyQt6.QtNetwork",
+            "pymupdf",
+            "pdf2docx",
+            "PIL.Image",
+            "pillow_heif",
+            "docx",
+            "docxcompose.composer",
+            "odf.opendocument",
+            "pythoncom",
+            "win32com.client",
         ):
             importlib.import_module(module)
             report["imports"].append(module)
@@ -49,7 +59,18 @@ def _run_build_smoke_test() -> int:
         application.setStyle("Fusion")
         from app.ui.ui_main import MultiforaMainWindow
 
-        window = MultiforaMainWindow()
+        # Smoke-проверка не должна менять ярлыки, реестр, IPC-файлы и настройки
+        # рабочей установки или обращаться к сети.
+        with (
+            patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
+            patch.object(
+                MultiforaMainWindow, "ensure_context_menu_registration", return_value=None
+            ),
+            patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
+            patch.object(MultiforaMainWindow, "process_startup_queue", return_value=None),
+            patch.object(MultiforaMainWindow, "check_updates_on_startup", return_value=None),
+        ):
+            window = MultiforaMainWindow()
         window.show()
         application.processEvents()
         report["window_visible"] = window.isVisible()
@@ -63,7 +84,10 @@ def _run_build_smoke_test() -> int:
     finally:
         if window is not None:
             try:
-                window.close()
+                # closeEvent сохраняет настройки и удаляет IPC-токен, поэтому
+                # здесь достаточно уничтожить тестовое окно через цикл Qt.
+                window.hide()
+                window.deleteLater()
             except Exception:
                 report["cleanup_error"] = traceback.format_exc()
         if application is not None:
@@ -76,7 +100,9 @@ def _run_build_smoke_test() -> int:
             try:
                 destination = Path(report_path)
                 destination.parent.mkdir(parents=True, exist_ok=True)
-                destination.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+                destination.write_text(
+                    json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+                )
             except OSError:
                 pass
     return return_code

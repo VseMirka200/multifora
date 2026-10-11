@@ -4,9 +4,6 @@ STANDARD_RADIUS = 4
 
 STANDARD_FORM_LABEL_STYLE = "font-size: 13px; font-weight: 400; margin: 0px; padding: 0px;"
 FILE_INFO_LABEL_STYLE = "font-size: 13px; font-weight: 600; padding: 0px 2px;"
-SETTINGS_SECTION_TITLE_STYLE = (
-    "font-size: 16px; font-weight: 800; margin: 0px; padding: 0px;"
-)
 COMPACT_CHECKBOX_STYLE = "QCheckBox { margin-top: 1px; }"
 TRANSPARENT_CONTAINER_STYLE = "background-color: transparent;"
 SPLITTER_GRIP_LABEL_STYLE = "background-color: transparent; border: none; padding: 0px;"
@@ -49,11 +46,14 @@ def build_operations_settings_button_style(theme: str) -> str:
         QPushButton#help_button {{
             font-size: 12px;
             text-align: left;
-            padding-left: 2px;
+            padding-left: 0px;
             padding-right: 2px;
         }}
         QPushButton#settings_button {{
             font-size: 14px;
+            text-align: right;
+            padding-left: 0px;
+            padding-right: 0px;
         }}
         QPushButton#settings_button:checked {{
             color: {active};
@@ -510,7 +510,7 @@ def build_operations_tab_bar_style(theme: str) -> str:
         }}
         QTabBar#operations_tab_bar::tab {{
             margin: 0px 12px 0px 0px;
-            padding: 0px 2px;
+            padding: 0px 4px 0px 0px;
             min-width: 24px;
             min-height: 22px;
             max-height: 22px;

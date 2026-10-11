@@ -106,5 +106,6 @@ class AppIpcTests(unittest.TestCase):
         )
         self.assertTrue(socket.disconnected)
 
+
 if __name__ == "__main__":
     unittest.main()

@@ -38,8 +38,8 @@ from app.ui.ui_components import (
     setup_clickable_checkbox_label,
     setup_compact_checkbox,
     setup_standard_action_button,
-    setup_standard_dropdown,
     setup_standard_dialog,
+    setup_standard_dropdown,
     setup_standard_line_input,
     setup_standard_popup_menu,
     setup_standard_primary_button,
@@ -56,7 +56,6 @@ from app.ui.ui_spacing import (
     SPACE_LG,
     SPACE_NONE,
     SPACE_SM,
-    SPACE_XL,
 )
 
 
@@ -295,7 +294,9 @@ class SettingsPanelMixin:
         screen_size = screen.availableGeometry() if screen else None
         requested_width, requested_height = (680, 420) if section_index == 0 else (510, 405)
         width = min(requested_width, screen_size.width() - 32) if screen_size else requested_width
-        height = min(requested_height, screen_size.height() - 48) if screen_size else requested_height
+        height = (
+            min(requested_height, screen_size.height() - 48) if screen_size else requested_height
+        )
         dialog.setFixedSize(max(320, width), max(280, height))
 
         self.log_event(f"Открыт раздел справки: {title}")
@@ -393,9 +394,7 @@ class SettingsPanelMixin:
         capabilities.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         layout.addWidget(capabilities)
 
-        requirements = QLabel(
-            "Для некоторых операций необходимы Microsoft Word или Ghostscript."
-        )
+        requirements = QLabel("Для некоторых операций необходимы Microsoft Word или Ghostscript.")
         requirements.setWordWrap(True)
         requirements.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(requirements)
@@ -446,6 +445,7 @@ class SettingsPanelMixin:
             QListWidget#settings_nav::item {
                 background-color: transparent;
                 border: none;
+                padding: 3px 0px;
             }
             QListWidget#settings_nav::item:selected {
                 background-color: transparent;
@@ -827,9 +827,7 @@ class SettingsPanelMixin:
     def _on_disable_warning_dialogs_changed(self, state):
         checkbox = getattr(self, "disable_warning_dialogs_checkbox", None)
         self.disable_warning_dialogs = bool(
-            checkbox.isChecked()
-            if checkbox is not None
-            else state == Qt.CheckState.Checked.value
+            checkbox.isChecked() if checkbox is not None else state == Qt.CheckState.Checked.value
         )
 
     def _poll_update_future(self):

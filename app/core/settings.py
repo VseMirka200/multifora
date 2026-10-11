@@ -23,6 +23,7 @@ _AUTO_CLEAR_DEFAULTS = {
     "compress": False,
 }
 
+
 def _log_settings_error(context: str, error: Exception) -> None:
     _debug_log(f"Ошибка {context}: {error}")
 
@@ -577,8 +578,12 @@ def save_settings(window) -> None:
         data = _collect_settings_data(window)
         folder = os.path.dirname(os.path.abspath(settings_file))
         with tempfile.NamedTemporaryFile(
-            mode="w", encoding="utf-8", dir=folder,
-            prefix=".__multifora_settings_", suffix=".tmp", delete=False,
+            mode="w",
+            encoding="utf-8",
+            dir=folder,
+            prefix=".__multifora_settings_",
+            suffix=".tmp",
+            delete=False,
         ) as settings_stream:
             temporary = settings_stream.name
             json.dump(data, settings_stream, ensure_ascii=False, indent=2)

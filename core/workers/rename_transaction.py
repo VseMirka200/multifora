@@ -1,4 +1,5 @@
 """Пакетное переименование с поддержкой циклов и откатом временных перемещений."""
+
 from __future__ import annotations
 
 import os
@@ -74,7 +75,7 @@ def rename_batch(
             _move_without_overwriting(source, temp)
             temporary[index] = temp
 
-        for index, (source, target) in enumerate(zip(sources, targets, strict=True)):
+        for index, (_source, target) in enumerate(zip(sources, targets, strict=True)):
             current_index = index
             if cancelled():
                 raise InterruptedError("Операция отменена пользователем")

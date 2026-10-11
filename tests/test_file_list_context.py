@@ -30,8 +30,7 @@ class FileListContextTests(unittest.TestCase):
             host = _Host([item], [item])
 
             with patch(
-                "app.ui.mixins.file_list_context_mixin."
-                "show_app_confirmation_with_checkbox",
+                "app.ui.mixins.file_list_context_mixin.show_app_confirmation_with_checkbox",
                 return_value=(True, False),
             ):
                 host.remove_selected_files_from_list()
@@ -54,8 +53,7 @@ class FileListContextTests(unittest.TestCase):
 
             with (
                 patch(
-                    "app.ui.mixins.file_list_context_mixin."
-                    "show_app_confirmation_with_checkbox",
+                    "app.ui.mixins.file_list_context_mixin.show_app_confirmation_with_checkbox",
                     return_value=(True, True),
                 ),
                 patch(
@@ -77,8 +75,7 @@ class FileListContextTests(unittest.TestCase):
 
         with (
             patch(
-                "app.ui.mixins.file_list_context_mixin."
-                "show_app_confirmation_with_checkbox",
+                "app.ui.mixins.file_list_context_mixin.show_app_confirmation_with_checkbox",
                 return_value=(True, True),
             ),
             patch("app.ui.mixins.file_list_context_mixin.os.path.exists", return_value=True),
@@ -99,13 +96,10 @@ class FileListContextTests(unittest.TestCase):
 
         with (
             patch(
-                "app.ui.mixins.file_list_context_mixin."
-                "show_app_confirmation_with_checkbox",
+                "app.ui.mixins.file_list_context_mixin.show_app_confirmation_with_checkbox",
                 return_value=(True, True),
             ),
-            patch(
-                "app.ui.mixins.file_list_context_mixin.QFile.moveToTrash"
-            ) as move_to_trash,
+            patch("app.ui.mixins.file_list_context_mixin.QFile.moveToTrash") as move_to_trash,
         ):
             host.remove_selected_files_from_list()
 

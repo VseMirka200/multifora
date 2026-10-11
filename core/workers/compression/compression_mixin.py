@@ -7,6 +7,7 @@ import app.core.deps as deps
 from app.core.app_utils import _debug_log
 from app.core.models import FileItem
 from core.workers.common import emit_progress, finish_if_cancelled, record_file_error
+
 from .image_optimizer import save_optimized_image
 
 _PDF_PROCESS_TIMEOUT_SECONDS = 120
@@ -357,8 +358,9 @@ class CompressionMixin:
             _debug_log(f"Запуск Ghostscript: {' '.join(cmd[:10])}...")
             # Файловый поток вместо PIPE исключает deadlock, когда Ghostscript
             # записывает больше данных, чем вмещает буфер ОС.
-            error_log = tempfile.TemporaryFile(mode="w+t", encoding="utf-8", errors="replace")
-            try:
+            with tempfile.TemporaryFile(
+                mode="w+t", encoding="utf-8", errors="replace"
+            ) as error_log:
                 process = subprocess.Popen(
                     cmd,
                     stdout=subprocess.DEVNULL,
@@ -366,36 +368,32 @@ class CompressionMixin:
                     text=True,
                     creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
                 )
-            except Exception:
-                error_log.close()
-                raise
-            cancel_action = process.terminate
-            register_cancel = getattr(self, "_set_active_cancel_action", None)
-            clear_cancel = getattr(self, "_clear_active_cancel_action", None)
-            if callable(register_cancel):
-                register_cancel(cancel_action)
-            try:
-                start = time.time()
-                while True:
-                    if self._should_cancel():
-                        _stop_process(process)
-                        self._last_pdf_error = "отменено пользователем"
-                        return False, "", 0.0
-                    if process.poll() is not None:
-                        break
-                    if time.time() - start > _PDF_PROCESS_TIMEOUT_SECONDS:
-                        _stop_process(process)
-                        self._last_pdf_error = "время сжатия истекло"
-                        return False, "", 0.0
-                    time.sleep(_PDF_PROCESS_POLL_INTERVAL_SECONDS)
-            finally:
-                if callable(clear_cancel):
-                    clear_cancel(cancel_action)
+                cancel_action = process.terminate
+                register_cancel = getattr(self, "_set_active_cancel_action", None)
+                clear_cancel = getattr(self, "_clear_active_cancel_action", None)
+                if callable(register_cancel):
+                    register_cancel(cancel_action)
+                try:
+                    start = time.time()
+                    while True:
+                        if self._should_cancel():
+                            _stop_process(process)
+                            self._last_pdf_error = "отменено пользователем"
+                            return False, "", 0.0
+                        if process.poll() is not None:
+                            break
+                        if time.time() - start > _PDF_PROCESS_TIMEOUT_SECONDS:
+                            _stop_process(process)
+                            self._last_pdf_error = "время сжатия истекло"
+                            return False, "", 0.0
+                        time.sleep(_PDF_PROCESS_POLL_INTERVAL_SECONDS)
+                finally:
+                    if callable(clear_cancel):
+                        clear_cancel(cancel_action)
                 # После завершения процесса лог можно безопасно дочитать.
                 error_log.flush()
                 error_log.seek(0)
                 stderr = error_log.read(4096)
-                error_log.close()
 
             result_returncode = process.returncode
 

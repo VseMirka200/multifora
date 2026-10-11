@@ -1,10 +1,11 @@
 """Безопасное создание выходного файла рядом с конечным расположением."""
+
 from __future__ import annotations
 
 import os
 import tempfile
-from contextlib import contextmanager
 from collections.abc import Iterator
+from contextlib import contextmanager
 
 
 @contextmanager

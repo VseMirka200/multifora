@@ -13,7 +13,6 @@ from functools import partial
 from app.core.app_utils import _debug_log
 from app.core.conversion_formats import (
     DOCUMENT_CATEGORY,
-    IMAGE_CATEGORY,
     format_for_path,
     source_formats_for_category,
     suffix_for_format,
@@ -21,22 +20,23 @@ from app.core.conversion_formats import (
 from app.core.deps import (
     HAS_ODF_PYTHON,
     HAS_PDF_TO_WORD,
-    HAS_PIL,
     HAS_PYMUPDF,
     HAS_WORD_TO_PDF,
-    Image,
     OpenDocumentText,
     load,
     pdf2docx,
     teletype,
     text,
 )
+from app.core.deps import (
+    HAS_PIL as HAS_PIL,
+)
 from app.core.models import FileItem
 from core.workers.atomic_output import atomic_output_path
 from core.workers.common import record_file_error
 
-from .image_encoding_mixin import ImageEncodingMixin
 from .image_conversion_mixin import ImageConversionMixin
+from .image_encoding_mixin import ImageEncodingMixin
 
 _TEXT_ENCODINGS = ("utf-8-sig", "utf-8", "cp1251", "cp1252", "latin-1")
 
@@ -848,7 +848,10 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
             return
         reporter = getattr(self, "_record_warning", None)
         if callable(reporter):
-            reporter(file, f"{file.name}: выполнен текстовый экспорт; изображения, стили и таблицы могут быть потеряны")
+            reporter(
+                file,
+                f"{file.name}: выполнен текстовый экспорт; изображения, стили и таблицы могут быть потеряны",
+            )
 
     def _convert_document_auto(
         self,
@@ -1098,9 +1101,7 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
                 if self._should_cancel():
                     for future in pending:
                         future.cancel()
-                    self.status.emit(
-                        "Отмена: ожидаем завершения уже запущенных конвертаций…"
-                    )
+                    self.status.emit("Отмена: ожидаем завершения уже запущенных конвертаций…")
                     break
                 # wait с таймаутом позволяет проверить запрос отмены, даже если
                 # pdf2docx долго обрабатывает одну страницу документа.
@@ -1385,4 +1386,3 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
                 except OSError as error:
                     _debug_log(f"Не удалось удалить промежуточный DOCX: {error}")
         return None
-

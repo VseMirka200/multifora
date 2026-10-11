@@ -31,6 +31,14 @@ class MainWindowSmokeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication([])
+        cls.update_check_patcher = patch.object(
+            MultiforaMainWindow, "check_updates_on_startup", return_value=None
+        )
+        cls.update_check_patcher.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.update_check_patcher.stop()
 
     def test_main_window_builds_core_ui(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -60,7 +68,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     operation_content = card.layout().itemAt(0).widget()
                     content_margins = operation_content.layout().contentsMargins()
                     self.assertEqual(content_margins.left(), content_margins.right())
-                    self.assertEqual(content_margins.left(), 4)
+                    self.assertEqual(content_margins.left(), 0)
                 self.assertFalse(hasattr(window, "combo_merge_format"))
                 self.assertEqual(
                     window.merge_format_hint_label.text(),
@@ -126,9 +134,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(window.btn_type_filter.text(), "Выбрано: 0")
                 self.assertTrue(
                     all(
-                        not window._type_filter_menu.filter_list.item(index)
-                        .text()
-                        .startswith("✓")
+                        not window._type_filter_menu.filter_list.item(index).text().startswith("✓")
                         for index in range(window._type_filter_menu.filter_list.count())
                     )
                 )
@@ -138,9 +144,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 )
                 self.assertTrue(
                     all(
-                        window._type_filter_menu.filter_list.item(index)
-                        .text()
-                        .startswith("✓")
+                        window._type_filter_menu.filter_list.item(index).text().startswith("✓")
                         for index in range(window._type_filter_menu.filter_list.count())
                     )
                 )
@@ -155,9 +159,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(window.btn_ext_filter.text(), "Выбрано: 0")
                 self.assertTrue(
                     all(
-                        not window._ext_filter_menu.filter_list.item(index)
-                        .text()
-                        .startswith("✓")
+                        not window._ext_filter_menu.filter_list.item(index).text().startswith("✓")
                         for index in range(window._ext_filter_menu.filter_list.count())
                     )
                 )
@@ -231,7 +233,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                         help_margins.right(),
                         help_margins.bottom(),
                     ),
-                    (2, 0, 2, 0),
+                    (0, 0, 0, 0),
                 )
                 self.assertIs(
                     window.operations_tab_bar.parentWidget(),
@@ -246,7 +248,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                         navigation_margins.right(),
                         navigation_margins.bottom(),
                     ),
-                    (2, 0, 2, 0),
+                    (0, 0, 0, 0),
                 )
                 self.assertLess(
                     navigation_layout.indexOf(window.operations_tab_bar),
@@ -373,9 +375,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     "https://github.com/VseMirka200/multifora/issues/new/choose",
                 )
                 behavior_page = window.settings_stack.widget(1)
-                behavior_labels = [
-                    label.text() for label in behavior_page.findChildren(QLabel)
-                ]
+                behavior_labels = [label.text() for label in behavior_page.findChildren(QLabel)]
                 self.assertIn("Проверять обновления при запуске", behavior_labels)
                 self.assertNotIn(
                     "Проверять обновления при запуске",
@@ -383,11 +383,17 @@ class MainWindowSmokeTests(unittest.TestCase):
                 )
                 self.assertIn(
                     "Очищать весь список после:",
-                    [label.text() for label in window.settings_stack.widget(2).findChildren(QLabel)],
+                    [
+                        label.text()
+                        for label in window.settings_stack.widget(2).findChildren(QLabel)
+                    ],
                 )
                 self.assertIn(
                     "Добавить ярлык на рабочий стол",
-                    [label.text() for label in window.settings_stack.widget(3).findChildren(QLabel)],
+                    [
+                        label.text()
+                        for label in window.settings_stack.widget(3).findChildren(QLabel)
+                    ],
                 )
                 settings_hints = [
                     label
@@ -452,7 +458,9 @@ class MainWindowSmokeTests(unittest.TestCase):
                 with patch.object(QDialog, "exec", new=inspect_help_dialog):
                     window.help_menu_actions[1].trigger()
                 self.assertIn("dialog", captured_help_dialog)
-                with patch.object(QDialog, "exec", new=lambda dialog: int(QDialog.DialogCode.Rejected)):
+                with patch.object(
+                    QDialog, "exec", new=lambda dialog: int(QDialog.DialogCode.Rejected)
+                ):
                     window.help_menu_actions[0].trigger()
                 self.assertEqual(window.help_stack.currentIndex(), 1)
                 self.assertFalse(window.settings_panel_widget.isHidden())
@@ -856,6 +864,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window._update_compress_button()
                 self.assertTrue(window.btn_compress.isEnabled())
                 compression_worker = Mock()
+                compression_worker.isRunning.return_value = False
                 window.file_worker = compression_worker
                 with (
                     patch.object(window, "create_file_worker", return_value=True),
@@ -1139,6 +1148,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 if hasattr(window, "_settings_save_timer"):
                     window._settings_save_timer.stop()
                 window.deleteLater()
+
 
 if __name__ == "__main__":
     unittest.main()

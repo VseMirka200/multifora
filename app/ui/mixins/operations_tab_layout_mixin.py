@@ -47,9 +47,6 @@ from app.ui.ui_styles import (
 )
 
 
-BUG_REPORT_PAGE = "https://github.com/VseMirka200/multifora/issues/new/choose"
-
-
 class _HelpMenuClickFilter(QObject):
     """Close an open help popup on a click on its anchor button.
 
@@ -259,7 +256,7 @@ class OperationsTabLayoutMixin:
             QSizePolicy.Policy.Fixed,
         )
         operations_navigation_layout = QHBoxLayout(self.operations_navigation_widget)
-        operations_navigation_layout.setContentsMargins(*OPERATIONS_PAGE_MARGINS)
+        operations_navigation_layout.setContentsMargins(*MARGINS_NONE)
         operations_navigation_layout.setSpacing(SPACE_SM)
         operations_navigation_layout.addWidget(
             self.operations_tab_bar,
@@ -350,9 +347,7 @@ class OperationsTabLayoutMixin:
             self.btn_help.setChecked(False)
             return
         self.btn_help.setChecked(True)
-        self.help_menu.popup(
-            self.btn_help.mapToGlobal(self.btn_help.rect().bottomLeft())
-        )
+        self.help_menu.popup(self.btn_help.mapToGlobal(self.btn_help.rect().bottomLeft()))
 
     def _sync_help_button_after_menu(self) -> None:
         host = getattr(self, "settings_panel_host", None)
@@ -777,7 +772,9 @@ class OperationsTabLayoutMixin:
         scroll.setWidget(content)
 
         page_layout = QVBoxLayout(page)
-        page_layout.setContentsMargins(*OPERATIONS_PAGE_MARGINS)
+        # Внешний отступ уже задают центральный layout и содержимое карточки.
+        # Нулевой margin здесь не удваивает общий левый gutter.
+        page_layout.setContentsMargins(*MARGINS_NONE)
         page_layout.setSpacing(SPACE_NONE)
         page_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         page_layout.addWidget(scroll)

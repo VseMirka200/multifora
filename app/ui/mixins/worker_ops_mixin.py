@@ -387,12 +387,11 @@ class WorkerOpsMixin:
 
         if warnings:
             lines = [f"• {entry.get('message', '')}" for entry in warnings[:8]]
-            extra = f"\n…и ещё {len(warnings)-8}" if len(warnings) > 8 else ""
+            extra = f"\n…и ещё {len(warnings) - 8}" if len(warnings) > 8 else ""
             QMessageBox.warning(
                 self,
                 "Предупреждения о результате",
-                "Некоторые документы преобразованы только как текст.\n"
-                + "\n".join(lines) + extra,
+                "Некоторые документы преобразованы только как текст.\n" + "\n".join(lines) + extra,
             )
         if errors:
             self._offer_retry_for_errors(errors)
@@ -400,10 +399,6 @@ class WorkerOpsMixin:
         if self._pending_close and not (self.file_worker and self.file_worker.isRunning()):
             self._pending_close = False
             QTimer.singleShot(0, self.close)
-
-    def on_file_error(self, message: str) -> None:
-        """Ошибка одного файла: не скрываем прогресс и не прерываем обработку."""
-        self.log_event(f"Ошибка файла: {message}", "ERROR")
 
     def on_operation_error(self, error_msg):
         """Аварийная ошибка: сообщаем при окончательном сигнале finished."""
@@ -428,7 +423,10 @@ class WorkerOpsMixin:
         if can_retry:
             message += "\n\nПовторить только ошибочные файлы?"
         reply = self.show_russian_message_box(
-            "Ошибки операции", message, QMessageBox.Icon.Warning, can_retry,
+            "Ошибки операции",
+            message,
+            QMessageBox.Icon.Warning,
+            can_retry,
         )
         if can_retry and reply:
             self._retry_failed_operation(errors)

@@ -135,9 +135,7 @@ class FileTableTests(unittest.TestCase):
 
     def test_preview_refresh_does_not_remeasure_column_widths(self):
         widget = FileListWidget()
-        widget.set_files(
-            [SimpleNamespace(path="one.pdf", name="one.pdf", is_file=True)]
-        )
+        widget.set_files([SimpleNamespace(path="one.pdf", name="one.pdf", is_file=True)])
 
         with patch.object(widget, "resizeColumnToContents") as resize_column:
             widget.refresh()
@@ -190,9 +188,7 @@ class FileTableTests(unittest.TestCase):
     def test_empty_area_click_clears_selection(self):
         widget = FileListWidget()
         widget.resize(640, 240)
-        widget.set_files(
-            [SimpleNamespace(path="one.pdf", name="one.pdf", is_file=True)]
-        )
+        widget.set_files([SimpleNamespace(path="one.pdf", name="one.pdf", is_file=True)])
         widget.show()
         self.app.processEvents()
 
