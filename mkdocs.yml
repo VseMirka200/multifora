@@ -66,7 +66,7 @@ markdown_extensions:
       alternate_style: true
 
 nav:
-  - Главная: index.md
+  - Главная: https://vsemirka200.github.io/multifora/
   - Начало работы:
       - Установка и обновление: install.md
       - Первые шаги: quick-start.md
@@ -83,7 +83,7 @@ nav:
       - Выпуск Windows-версии: WINDOWS_RELEASE.md
       - Кодекс поведения: CODE_OF_CONDUCT.md
   - English:
-      - Home: en/index.md
+      - Home: https://vsemirka200.github.io/multifora/en/
       - Install and update: en/install.md
       - Quick start: en/quick-start.md
       - Rename files: en/rename.md
