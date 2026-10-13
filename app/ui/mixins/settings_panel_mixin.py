@@ -465,6 +465,10 @@ class SettingsPanelMixin:
             QFontMetrics(nav_font).horizontalAdvance(title) for title in display_titles
         ) + SPACE_LG * 4
         self.settings_nav.setFixedWidth(self._settings_nav_width)
+        self.settings_nav.setSizePolicy(
+            QSizePolicy.Policy.Fixed,
+            QSizePolicy.Policy.Preferred,
+        )
         self.settings_nav_buttons = []
         for index, title in enumerate(display_titles):
             button = QPushButton(title)

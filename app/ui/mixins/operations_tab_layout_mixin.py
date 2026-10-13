@@ -713,12 +713,14 @@ class OperationsTabLayoutMixin:
 
     def _on_operation_tab_clicked(self, index: int) -> None:
         host = getattr(self, "settings_panel_host", None)
-        if (
-            host is not None
-            and not host.isHidden()
-            and index == self.operations_tab_bar.currentIndex()
-        ):
-            self._on_operations_tab_changed(index)
+        if host is None or host.isHidden():
+            return
+
+        if index != self.operations_tab_bar.currentIndex():
+            self.operations_tab_bar.setCurrentIndex(index)
+            return
+
+        self._on_operations_tab_changed(index)
 
     def _on_operations_tab_changed(self, index: int) -> None:
         if index == getattr(self, "_settings_tab_index", -1):
