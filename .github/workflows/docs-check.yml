@@ -1,0 +1,28 @@
+name: Documentation check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "requirements-docs.txt"
+      - ".github/workflows/docs-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mkdocs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install documentation dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-docs.txt
+      - name: Verify documentation build
+        run: python -m mkdocs build --strict
