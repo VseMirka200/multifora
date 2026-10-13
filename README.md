@@ -4,80 +4,109 @@
 
 <h1 align="center">Мультифора</h1>
 
-<p align="center">Пакетное переименование, конвертация и обработка файлов в Windows.</p>
-
 <p align="center">
-  <a href="https://github.com/VseMirka200/multifora/releases/latest"><img alt="Последний выпуск" src="https://img.shields.io/github/v/release/VseMirka200/multifora?display_name=tag&sort=semver"></a>
-  <a href="https://github.com/VseMirka200/multifora/actions/workflows/windows-build.yml"><img alt="Тесты" src="https://github.com/VseMirka200/multifora/actions/workflows/windows-build.yml/badge.svg"></a>
-  <img alt="Платформа: Windows" src="https://img.shields.io/badge/platform-Windows-0078D4">
-  <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-3776AB">
-  <a href="LICENSE"><img alt="Лицензия MIT" src="https://img.shields.io/badge/license-MIT-2ea44f"></a>
+  Пакетная обработка файлов для Windows — локально, быстро и без облачных сервисов.
 </p>
 
-Мультифора — бесплатное настольное приложение с открытым исходным кодом для массовой работы с документами и изображениями. Оно объединяет очередь файлов, предварительный просмотр результатов и несколько операций в одном интерфейсе.
+<p align="center">
+  <a href="https://github.com/VseMirka200/multifora/releases/latest"><img src="https://img.shields.io/github/v/release/VseMirka200/multifora?display_name=tag&sort=semver" alt="Последний выпуск"></a>
+  <a href="https://github.com/VseMirka200/multifora/actions/workflows/ci.yml"><img src="https://github.com/VseMirka200/multifora/actions/workflows/ci.yml/badge.svg" alt="Проверки"></a>
+  <img src="https://img.shields.io/badge/platform-Windows-0078D4" alt="Платформа: Windows">
+  <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB" alt="Python 3.11+">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-2ea44f" alt="Лицензия MIT"></a>
+</p>
 
-> Перед заменой исходных файлов сделайте резервную копию. Проверяйте предварительный результат, особенно при переименовании и конвертации.
+<p align="center">
+  <a href="https://github.com/VseMirka200/multifora/releases/latest"><strong>Скачать</strong></a> ·
+  <a href="https://vsemirka200.github.io/multifora/">Документация</a> ·
+  <a href="https://vsemirka200.github.io/multifora/en/">English</a> ·
+  <a href="https://github.com/VseMirka200/multifora/issues/new/choose">Сообщить об ошибке</a>
+</p>
 
-## Возможности
+## Что умеет Мультифора
 
-- пакетное переименование по готовым и пользовательским шаблонам;
-- нумерация, даты, EXIF, размеры изображений, замена текста и регулярные выражения;
-- конвертация документов и изображений;
-- объединение PDF и DOCX;
-- сжатие PDF и изображений;
-- добавление файлов кнопками, перетаскиванием, аргументами запуска и через меню Проводника;
-- поиск, фильтрация, сортировка и ручное изменение порядка файлов;
-- светлая, тёмная и системная темы;
-- сохранение профилей операций, история переименований и проверка обновлений.
+| Задача | Возможности |
+| --- | --- |
+| Переименование | Шаблоны, нумерация, даты, EXIF, размеры изображений, замена текста и регулярные выражения. |
+| Конвертация | Документы и изображения; выбор источника, результата и папки сохранения. |
+| Объединение | PDF с PDF или DOCX с DOCX — в порядке очереди. |
+| Сжатие | Изображения и PDF с настройкой качества и безопасным сохранением результата. |
+| Очередь | Перетаскивание, поиск, фильтрация, сортировка, ручной порядок и добавление из Проводника. |
+
+Все операции выполняются на вашем компьютере. Приложение не отправляет рабочие файлы в облако.
 
 ## Установка
+
+### Рекомендуемый способ
 
 1. Откройте [последний выпуск](https://github.com/VseMirka200/multifora/releases/latest).
 2. Скачайте `Multifora-Setup-<версия>.exe`.
 3. Запустите установщик и откройте Мультифору через меню «Пуск».
 
-Для переносного запуска скачайте ZIP-архив, распакуйте его полностью и запустите `Multifora.exe`. Контрольные суммы SHA-256 публикуются рядом с файлами выпуска.
+### Portable-версия
 
-### Дополнительные компоненты
+Скачайте ZIP-архив из выпуска, полностью распакуйте его в постоянную папку и запустите `Multifora.exe`. Не запускайте EXE прямо из архива: рядом с ним расположены необходимые компоненты.
 
-Основные функции доступны сразу после установки. Для отдельных операций могут потребоваться:
+В каждом выпуске опубликованы SHA-256 суммы. Для ручной проверки загрузки используйте:
 
-- Microsoft Word — для работы с некоторыми документами DOC и преобразования документов с сохранением сложного оформления;
-- [Ghostscript](https://ghostscript.com/releases/gsdnld.html) — для сжатия PDF.
-- `docxcompose` — для безопасного объединения DOCX с изображениями и форматированием (указан в `requirements.txt`).
+```powershell
+Get-FileHash .\Multifora-Setup-<версия>.exe -Algorithm SHA256
+```
 
 ## Быстрый старт
 
-1. Добавьте файлы или папку в очередь.
-2. Откройте нужную вкладку операции.
-3. Настройте параметры и проверьте результат.
-4. Запустите обработку и подтвердите действие.
+1. Добавьте файлы или папку — кнопкой, перетаскиванием или из контекстного меню Windows.
+2. Проверьте очередь и при необходимости измените порядок файлов.
+3. Выберите операцию: **Переименование**, **Конвертация**, **Объединение** или **Сжатие**.
+4. Настройте параметры и изучите предварительный результат.
+5. Запустите операцию и откройте созданные файлы для проверки.
 
-## Документы репозитория
+> Перед заменой исходников сделайте резервную копию. Это особенно важно для пакетного переименования, конвертации и сжатия с перезаписью.
 
-- [Участие в проекте](docs/CONTRIBUTING.md)
+## Форматы и требования
+
+- **Документы:** DOC, DOCX, PDF, ODT, RTF, TXT, HTML, Markdown, EPUB, FB2, XPS и MOBI.
+- **Изображения:** JPG/JPEG, PNG, WEBP, BMP, TIFF, GIF, ICO, TGA, AVIF, HEIC/HEIF, SVG, PSD и другие форматы.
+- **Система:** Windows 10/11, 64-bit. Для запуска из исходного кода нужен Python 3.11+.
+- **Microsoft Word:** требуется для части операций с офисными документами, где необходимо сохранить сложное оформление.
+
+Полный список входных и выходных форматов, особенности преобразований и инструкции по устранению неполадок есть в [документации](https://vsemirka200.github.io/multifora/conversion/).
+
+## Разработка
+
+```powershell
+git clone https://github.com/VseMirka200/multifora.git
+cd multifora
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe multifora_start.py
+```
+
+Проверки:
+
+```powershell
+$env:QT_QPA_PLATFORM = "offscreen"
+.\.venv\Scripts\python.exe -m unittest discover -s tests
+.\.venv\Scripts\python.exe -m ruff check .
+```
+
+Документация собирается отдельно:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-docs.txt
+.\.venv\Scripts\mkdocs.exe build --strict
+```
+
+## Поддержка и участие
+
+- [Документация для пользователей](https://vsemirka200.github.io/multifora/)
+- [Руководство для участников](docs/CONTRIBUTING.md)
 - [Политика безопасности](docs/SECURITY.md)
 - [Правила защиты репозитория и релизов](docs/REPOSITORY_SECURITY.md)
 - [Кодекс поведения](docs/CODE_OF_CONDUCT.md)
-- [Лицензия MIT](LICENSE)
+- [Сообщить об ошибке или предложить улучшение](https://github.com/VseMirka200/multifora/issues/new/choose)
+- [Конфиденциально сообщить об уязвимости](https://github.com/VseMirka200/multifora/security/advisories/new)
 
 ## Лицензия
 
-Мультифора распространяется по лицензии [MIT](LICENSE). Вы можете использовать, изменять и распространять код при сохранении текста лицензии и уведомления об авторских правах.
-
-
-## Рефакторинг и тестирование
-
-Перечень исправлений, новых регрессионных тестов и ограничений Windows-проверки приведён в [отчёте по рефакторингу](docs/REFACTOR_REPORT.md).
-
-## Сборка и тестирование Windows-версии
-
-Готовая конфигурация GitHub Actions собирает переносной ZIP и установщик Inno Setup на Windows, проверяет EXE и тихую установку, создаёт SHA-256. Подробные инструкции — [docs/WINDOWS_RELEASE.md](docs/WINDOWS_RELEASE.md).
-
-## Обратная связь и справка
-
-В меню **Справка** доступны окна «О программе» и «Логи». Пункт
-**Поддержать проект** открывает [репозиторий Мультифоры на GitHub](https://github.com/VseMirka200/multifora).
-Пункт **Сообщить об ошибке** сразу открывает [GitHub Issues с выбором русскоязычного шаблона](https://github.com/VseMirka200/multifora/issues/new/choose) — без промежуточного окна приложения.
-
-Подробности — в [инструкции по справке](docs/HELP_FEEDBACK.md), шаблоны находятся в [`.github/ISSUE_TEMPLATE`](.github/ISSUE_TEMPLATE).
+Мультифора распространяется по [лицензии MIT](LICENSE).

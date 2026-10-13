@@ -3,7 +3,7 @@
 import unittest
 from pathlib import Path
 
-from app.core.github_links import GITHUB_NEW_ISSUE_URL, PROJECT_SUPPORT_URL
+from app.core.github_links import DOCUMENTATION_URL, GITHUB_NEW_ISSUE_URL, PROJECT_SUPPORT_URL
 from app.core.update_checker import REPO_PAGE
 
 
@@ -14,6 +14,9 @@ class GitHubLinksTests(unittest.TestCase):
 
     def test_reporting_opens_template_chooser(self):
         self.assertEqual(GITHUB_NEW_ISSUE_URL, REPO_PAGE + "/issues/new/choose")
+
+    def test_documentation_uses_the_project_site(self):
+        self.assertEqual(DOCUMENTATION_URL, "https://vsemirka200.github.io/multifora/")
 
     def test_five_russian_issue_templates_exist(self):
         directory = Path(__file__).resolve().parent.parent / ".github/ISSUE_TEMPLATE"

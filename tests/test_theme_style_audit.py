@@ -6,6 +6,7 @@ from app.ui.ui_styles import (
     build_drop_zone_surface_style,
     build_operations_settings_button_style,
     build_operations_tab_bar_style,
+    build_settings_navigation_style,
     build_standard_button_style,
     build_standard_field_style,
     build_template_table_style,
@@ -161,6 +162,10 @@ class ThemeStyleAuditTests(unittest.TestCase):
         dark = build_operations_tab_bar_style("dark")
         for style in (light, dark):
             self.assertIn("border-bottom: 1px solid #3d74b3", style)
+            tab = style.split("QTabBar#operations_tab_bar::tab {", 1)[1].split("}", 1)[0]
+            self.assertIn("padding: 0px", tab)
+            self.assertIn("font-size: 13px", tab)
+            self.assertIn("font-weight: 700", tab)
             self.assertIn("min-height: 22px", style)
             self.assertIn("max-height: 22px", style)
             selected = style.split("QTabBar#operations_tab_bar::tab:selected {", 1)[1].split(
@@ -168,6 +173,21 @@ class ThemeStyleAuditTests(unittest.TestCase):
             )[0]
             self.assertIn("color: #3d74b3", selected)
             self.assertNotIn("QTabBar#operations_tab_bar::tab:hover", style)
+
+    def test_settings_navigation_uses_vertical_tab_selection_style(self):
+        for theme, foreground in (("light", "#202833"), ("dark", "#e3e6ea")):
+            style = build_settings_navigation_style(theme)
+            button = style.split("QPushButton#settings_nav_item {", 1)[1].split("}", 1)[0]
+            selected_button = style.split(
+                "QPushButton#settings_nav_item:checked {", 1
+            )[1].split("}", 1)[0]
+            self.assertIn(f"color: {foreground}", button)
+            self.assertIn("font-size: 13px", button)
+            self.assertIn("font-weight: 700", button)
+            self.assertIn("border-bottom: 1px solid transparent", button)
+            self.assertIn("border-radius: 0px", button)
+            self.assertIn("color: #3d74b3", selected_button)
+            self.assertIn("border-bottom: 1px solid #3d74b3", selected_button)
 
     def test_light_theme_does_not_reintroduce_dark_template_surface(self):
         light = "\n".join(

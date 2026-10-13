@@ -1,9 +1,15 @@
 import concurrent.futures
 
-from PyQt6.QtCore import QSize, Qt, QTimer, QUrl
-from PyQt6.QtGui import QAction, QDesktopServices, QFont, QIcon, QTextCursor
+from PyQt6.QtCore import Qt, QTimer, QUrl
+from PyQt6.QtGui import (
+    QAction,
+    QDesktopServices,
+    QFont,
+    QFontMetrics,
+    QIcon,
+    QTextCursor,
+)
 from PyQt6.QtWidgets import (
-    QAbstractItemView,
     QApplication,
     QCheckBox,
     QDialog,
@@ -11,8 +17,6 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QListWidget,
-    QListWidgetItem,
     QMenu,
     QMessageBox,
     QPlainTextEdit,
@@ -57,9 +61,24 @@ from app.ui.ui_spacing import (
     SPACE_NONE,
     SPACE_SM,
 )
+from app.ui.ui_styles import build_settings_navigation_style
 
 
 class SettingsPanelMixin:
+
+    def _apply_settings_navigation_theme(self, theme: str | None = None) -> None:
+        navigation = getattr(self, "settings_nav", None)
+        if navigation is None:
+            return
+        effective = theme or getattr(self, "_effective_theme_mode", None)
+        if effective not in ("light", "dark"):
+            effective = (
+                "light"
+                if str(getattr(self, "theme_mode", "dark")).lower() == "light"
+                else "dark"
+            )
+        navigation.setStyleSheet(build_settings_navigation_style(effective))
+
     # Создаёт страницы настроек по мере открытия и связывает поля с состоянием окна.
     @staticmethod
     def _create_settings_hint_label(text: str) -> QLabel:
@@ -213,12 +232,12 @@ class SettingsPanelMixin:
                 host_layout.addWidget(self.help_panel_widget)
         return self.help_panel_widget
 
-    def _show_header_panel(self, panel: QWidget, active_button: QPushButton) -> None:
+    def _show_header_panel(self, panel: QWidget, active_button: QPushButton | None = None) -> None:
         for widget_name in ("settings_panel_widget", "help_panel_widget"):
             widget = getattr(self, widget_name, None)
             if widget is not None:
                 widget.setVisible(widget is panel)
-        for button_name in ("btn_settings", "btn_help"):
+        for button_name in ("btn_help",):
             button = getattr(self, button_name, None)
             if button is not None:
                 button.setChecked(button is active_button)
@@ -234,13 +253,12 @@ class SettingsPanelMixin:
 
         tab_bar = getattr(self, "operations_tab_bar", None)
         if tab_bar is not None:
-            tab_bar.setProperty("settingsActive", True)
             self._apply_operations_tab_bar_theme()
 
     def show_settings_modal(self):
         """Показывает панель настроек поверх рабочей области."""
         settings_widget = self._ensure_settings_panel_widget()
-        self._show_header_panel(settings_widget, self.btn_settings)
+        self._show_header_panel(settings_widget)
 
         if callable(getattr(self, "attach_action_logging", None)):
             self.attach_action_logging(settings_widget)
@@ -320,9 +338,8 @@ class SettingsPanelMixin:
     def hide_settings_panel(self):
         tab_bar = getattr(self, "operations_tab_bar", None)
         if tab_bar is not None:
-            tab_bar.setProperty("settingsActive", False)
             self._apply_operations_tab_bar_theme()
-        for button_name in ("btn_settings", "btn_help"):
+        for button_name in ("btn_help",):
             button = getattr(self, button_name, None)
             if button is not None:
                 button.setChecked(False)
@@ -433,45 +450,39 @@ class SettingsPanelMixin:
         root_layout.setContentsMargins(*SETTINGS_PANEL_MARGINS)
         root_layout.setSpacing(SETTINGS_PANEL_COLUMN_GAP)
 
-        self.settings_nav = QListWidget()
+        self.settings_nav = QWidget()
         self.settings_nav.setObjectName("settings_nav")
-        self.settings_nav.setFrameShape(QFrame.Shape.NoFrame)
-        self.settings_nav.setStyleSheet(
-            """
-            QListWidget#settings_nav {
-                border: none;
-                outline: none;
-            }
-            QListWidget#settings_nav::item {
-                background-color: transparent;
-                border: none;
-                padding: 3px 0px;
-            }
-            QListWidget#settings_nav::item:selected {
-                background-color: transparent;
-                color: #3d74b3;
-                border: none;
-                outline: none;
-            }
-            """
-        )
-        self._settings_nav_base_width = 192
-        self.settings_nav.setFixedWidth(self._settings_nav_base_width)
-        self.settings_nav.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.settings_nav.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.settings_nav.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
-        self.settings_nav.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self.settings_nav.setWordWrap(True)
-        self.settings_nav.setTextElideMode(Qt.TextElideMode.ElideNone)
-        self.settings_nav.setSpacing(0)
-        self.settings_nav.setUniformItemSizes(True)
+        self._apply_settings_navigation_theme()
+        navigation_layout = QVBoxLayout(self.settings_nav)
+        navigation_layout.setContentsMargins(*MARGINS_NONE)
+        navigation_layout.setSpacing(12)
         nav_font = QFont()
-        nav_font.setPointSize(10)
-        for title in ("Внешний вид", "Поведение", "Автоочистка", "Ярлыки"):
-            item = QListWidgetItem(title)
-            item.setFont(nav_font)
-            item.setSizeHint(QSize(self._settings_nav_base_width, 36))
-            self.settings_nav.addItem(item)
+        nav_font.setPixelSize(13)
+        nav_font.setBold(True)
+        section_titles = ("Интерфейс", "Поведение", "Автоочистка", "Ярлыки")
+        display_titles = tuple(title.upper() for title in section_titles)
+        self._settings_nav_width = max(
+            QFontMetrics(nav_font).horizontalAdvance(title) for title in display_titles
+        ) + SPACE_LG * 4
+        self.settings_nav.setFixedWidth(self._settings_nav_width)
+        self.settings_nav_buttons = []
+        for index, title in enumerate(display_titles):
+            button = QPushButton(title)
+            button.setObjectName("settings_nav_item")
+            button.setCheckable(True)
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
+            button.setFont(nav_font)
+            button.setFixedSize(QFontMetrics(nav_font).horizontalAdvance(title), 22)
+            button.clicked.connect(
+                lambda _checked=False, row=index: self._select_settings_navigation_row(row)
+            )
+            navigation_layout.addWidget(
+                button,
+                0,
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            )
+            self.settings_nav_buttons.append(button)
+        navigation_layout.addStretch()
         root_layout.addWidget(self.settings_nav, 0)
 
         self.settings_stack = QStackedWidget()
@@ -620,10 +631,17 @@ class SettingsPanelMixin:
         shortcuts_layout.addWidget(context_menu_row)
         shortcuts_layout.addStretch()
 
-        self.settings_nav.currentRowChanged.connect(self.settings_stack.setCurrentIndex)
-        self.settings_nav.setCurrentRow(0)
+        self._select_settings_navigation_row(0)
 
         return tab
+
+    def _sync_settings_navigation_buttons(self, row: int) -> None:
+        for index, button in enumerate(getattr(self, "settings_nav_buttons", ())):
+            button.setChecked(index == row)
+
+    def _select_settings_navigation_row(self, row: int) -> None:
+        self.settings_stack.setCurrentIndex(row)
+        self._sync_settings_navigation_buttons(row)
 
     def create_help_tab(self):
         """Создает отдельную панель справки с логами и сведениями о программе."""

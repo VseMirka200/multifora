@@ -510,11 +510,12 @@ def build_operations_tab_bar_style(theme: str) -> str:
         }}
         QTabBar#operations_tab_bar::tab {{
             margin: 0px 12px 0px 0px;
-            padding: 0px 4px 0px 0px;
+            padding: 0px;
             min-width: 24px;
             min-height: 22px;
             max-height: 22px;
-            font-weight: 500;
+            font-size: 13px;
+            font-weight: 700;
             color: {foreground};
             background-color: {base_bg};
             border: none;
@@ -529,9 +530,37 @@ def build_operations_tab_bar_style(theme: str) -> str:
             background-color: transparent;
             border-bottom: 1px solid transparent;
         }}
-        QTabBar#operations_tab_bar[settingsActive="true"]::tab:selected {{
+    """
+
+
+def build_settings_navigation_style(theme: str) -> str:
+    """Style settings sections as vertical counterparts to operation tabs."""
+    foreground = "#202833" if str(theme).lower() == "light" else "#e3e6ea"
+    underline = "#3d74b3"
+    return f"""
+        QWidget#settings_nav {{
+            background-color: transparent;
+            border: none;
+        }}
+        QPushButton#settings_nav_item {{
+            margin: 0px;
+            padding: 0px;
+            font-size: 13px;
+            font-weight: 700;
             color: {foreground};
+            background-color: transparent;
+            border: none;
             border-bottom: 1px solid transparent;
+            border-radius: 0px;
+            outline: none;
+            text-align: left;
+        }}
+        QPushButton#settings_nav_item:checked {{
+            color: {underline};
+            border-bottom: 1px solid {underline};
+        }}
+        QPushButton#settings_nav_item:focus {{
+            outline: none;
         }}
     """
 

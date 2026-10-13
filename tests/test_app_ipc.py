@@ -106,6 +106,21 @@ class AppIpcTests(unittest.TestCase):
         )
         self.assertTrue(socket.disconnected)
 
+    def test_ipc_server_name_is_bound_to_the_secret_token(self):
+        with patch.object(app_ipc.os.path, "expanduser", return_value=r"C:\\Users\\test"):
+            first = app_ipc._get_ipc_server_name("a" * 32)
+            second = app_ipc._get_ipc_server_name("b" * 32)
+
+        self.assertNotEqual(first, second)
+        self.assertTrue(first.startswith("Multifora_IPC_"))
+
+    def test_load_ipc_token_rejects_invalid_contents(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            token_path = Path(tmp_dir, "ipc_token.txt")
+            token_path.write_text("not-a-token", encoding="utf-8")
+            with patch.object(app_ipc, "_get_ipc_token_path", return_value=str(token_path)):
+                self.assertIsNone(app_ipc._load_ipc_token())
+
 
 if __name__ == "__main__":
     unittest.main()

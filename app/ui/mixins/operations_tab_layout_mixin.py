@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.core.conversion_formats import CONVERSION_CATEGORIES
-from app.core.github_links import GITHUB_NEW_ISSUE_URL, PROJECT_SUPPORT_URL
+from app.core.github_links import DOCUMENTATION_URL, GITHUB_NEW_ISSUE_URL, PROJECT_SUPPORT_URL
 from app.ui.ui_components import (
     MenuLikeComboBox,
     setup_clickable_checkbox_label,
@@ -90,7 +90,7 @@ class OperationsTabLayoutMixin:
                 "light" if str(getattr(self, "theme_mode", "dark")).lower() == "light" else "dark"
             )
         tab_bar.setStyleSheet(build_operations_tab_bar_style(effective))
-        for button_name in ("btn_settings", "btn_help"):
+        for button_name in ("btn_help",):
             button = getattr(self, button_name, None)
             if button is not None:
                 button.setStyleSheet(build_operations_settings_button_style(effective))
@@ -260,10 +260,9 @@ class OperationsTabLayoutMixin:
         operations_navigation_layout.setSpacing(SPACE_SM)
         operations_navigation_layout.addWidget(
             self.operations_tab_bar,
-            0,
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
+            1,
+            Qt.AlignmentFlag.AlignTop,
         )
-        operations_navigation_layout.addStretch(1)
         operations_header_layout.addWidget(self.operations_navigation_widget)
 
         self.operations_stack = QStackedWidget()
@@ -276,25 +275,13 @@ class OperationsTabLayoutMixin:
         self._create_conversion_operation_page()
         self._create_compression_operation_page()
         self._create_merge_operation_page()
+        self._settings_tab_index = self.operations_tab_bar.addTab("НАСТРОЙКИ")
+        self.operations_tab_bar.setTabData(self._settings_tab_index, "settings")
 
         self.operations_tab_bar.tabBarClicked.connect(self._on_operation_tab_clicked)
         self.operations_tab_bar.setUsesScrollButtons(True)
         self.operations_tab_bar.setSizePolicy(
-            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed
-        )
-
-        self.btn_settings = QPushButton("Настройки")
-        self.btn_settings.setObjectName("settings_button")
-        self.btn_settings.setCheckable(True)
-        self.btn_settings.setFixedSize(76, 22)
-        self.btn_settings.setCursor(Qt.CursorShape.PointingHandCursor)
-        operations_navigation_layout.addWidget(
-            self.btn_settings,
-            0,
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-        )
-        self.btn_settings.clicked.connect(
-            lambda checked: self.show_settings_modal() if checked else self.hide_settings_panel()
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
 
         self.btn_help = QPushButton("Справка")
@@ -318,6 +305,12 @@ class OperationsTabLayoutMixin:
         logs_action = self.help_menu.addAction("Логи")
         logs_action.triggered.connect(lambda: self.show_help_modal(0))
         self.help_menu_actions.append(logs_action)
+
+        guide_action = self.help_menu.addAction("Руководство")
+        guide_action.triggered.connect(
+            lambda: QDesktopServices.openUrl(QUrl(DOCUMENTATION_URL))
+        )
+        self.help_menu_actions.append(guide_action)
 
         # Поддержка — обычная ссылка, без пустого диалогового окна.
         support_action = self.help_menu.addAction("Поддержать проект")
@@ -711,7 +704,7 @@ class OperationsTabLayoutMixin:
 
     def _add_operations_page(self, page: QWidget, label: str) -> None:
         self.operations_stack.addWidget(page)
-        tab_index = self.operations_tab_bar.addTab(label)
+        tab_index = self.operations_tab_bar.addTab(label.upper())
         # Не привязываем логику операций к переводу видимых названий вкладок.
         self.operations_tab_bar.setTabData(tab_index, page.objectName().removesuffix("_page"))
         if self.operations_stack.count() == 1:

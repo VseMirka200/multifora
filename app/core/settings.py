@@ -221,7 +221,7 @@ def _restore_operations_tab_state(window, data: dict) -> None:
 
         if saved_label:
             for candidate in range(operations_tab_bar.count()):
-                if operations_tab_bar.tabText(candidate) == saved_label:
+                if operations_tab_bar.tabText(candidate).casefold() == saved_label.casefold():
                     index = candidate
                     break
             if index == settings_index:
@@ -237,7 +237,7 @@ def _restore_operations_tab_state(window, data: dict) -> None:
                     (
                         candidate
                         for candidate in range(operations_tab_bar.count())
-                        if operations_tab_bar.tabText(candidate) == target_label
+                        if operations_tab_bar.tabText(candidate).casefold() == target_label.casefold()
                     ),
                     0,
                 )
@@ -246,7 +246,7 @@ def _restore_operations_tab_state(window, data: dict) -> None:
                     (
                         candidate
                         for candidate in range(operations_tab_bar.count())
-                        if operations_tab_bar.tabText(candidate) == "Сжатие"
+                        if operations_tab_bar.tabText(candidate).casefold() == "Сжатие".casefold()
                     ),
                     0,
                 )

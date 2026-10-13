@@ -1,0 +1,97 @@
+site_name: Мультифора
+site_description: Пакетная обработка файлов для Windows
+site_url: https://vsemirka200.github.io/multifora/
+repo_name: VseMirka200/multifora
+repo_url: https://github.com/VseMirka200/multifora
+copyright: Copyright © 2026 Multifora contributors
+
+theme:
+  name: material
+  language: ru
+  logo: https://raw.githubusercontent.com/VseMirka200/multifora/main/assets/icon.svg
+  favicon: https://raw.githubusercontent.com/VseMirka200/multifora/main/assets/icon.svg
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Тёмная тема
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Светлая тема
+
+extra:
+  alternate:
+    - name: Русский
+      link: ./
+      lang: ru
+    - name: English
+      link: en/
+      lang: en
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/VseMirka200/multifora
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Главная: index.md
+  - Начало работы:
+      - Установка и обновление: install.md
+      - Первые шаги: quick-start.md
+  - Возможности:
+      - Переименование: rename.md
+      - Конвертация и форматы: conversion.md
+      - Объединение и сжатие: optimize.md
+      - Настройки и контекстное меню: settings.md
+  - Поддержка:
+      - FAQ и устранение проблем: troubleshooting.md
+      - Безопасность: SECURITY.md
+  - Для разработчиков:
+      - Вклад в проект: CONTRIBUTING.md
+      - Выпуск Windows-версии: WINDOWS_RELEASE.md
+      - Кодекс поведения: CODE_OF_CONDUCT.md
+  - English:
+      - Home: en/index.md
+      - Install and update: en/install.md
+      - Quick start: en/quick-start.md
+      - Rename files: en/rename.md
+      - Convert files and formats: en/conversion.md
+      - Merge and compress: en/optimize.md
+      - Settings and Explorer menu: en/settings.md
+      - Troubleshooting: en/troubleshooting.md
+      - Security: en/SECURITY.md
+      - Contributing: en/CONTRIBUTING.md
+      - Windows releases: en/WINDOWS_RELEASE.md
+      - Code of conduct: en/CODE_OF_CONDUCT.md

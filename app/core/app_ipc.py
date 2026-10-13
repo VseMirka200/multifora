@@ -22,6 +22,7 @@ from app.core.app_utils import _debug_log, _get_app_data_dir
 MUTEX_HANDLE = None
 ERROR_ALREADY_EXISTS = 183
 _WINDOWS_OPTION_PREFIXES = ("-", "/")
+_IPC_TOKEN_LENGTH = 32
 
 
 def _get_ipc_token_path() -> str:
@@ -36,7 +37,14 @@ def _load_ipc_token() -> str | None:
         if not os.path.exists(token_path):
             return None
         with open(token_path, encoding="utf-8") as token_file:
-            return token_file.read().strip() or None
+            token = token_file.read().strip()
+        if len(token) != _IPC_TOKEN_LENGTH:
+            return None
+        try:
+            int(token, 16)
+        except ValueError:
+            return None
+        return token
     except OSError as error:
         _debug_log(f"Ошибка загрузки IPC-токена: {error}")
         return None
@@ -68,11 +76,15 @@ def _delete_ipc_token() -> None:
         _debug_log(f"Ошибка удаления IPC-токена: {error}")
 
 
-def _get_ipc_server_name() -> str:
+def _get_ipc_server_name(token: str | None = None) -> str:
     """Имя IPC сервера (пер-пользователь)."""
     home = os.path.expanduser("~")
-    suffix = hashlib.sha1(home.encode("utf-8", "ignore")).hexdigest()[:8]
-    return f"Multifora_IPC_{suffix}"
+    user_suffix = hashlib.sha256(home.encode("utf-8", "ignore")).hexdigest()[:12]
+    token = token or _load_ipc_token()
+    if not token:
+        return f"Multifora_IPC_{user_suffix}"
+    token_suffix = hashlib.sha256(token.encode("ascii")).hexdigest()[:24]
+    return f"Multifora_IPC_{user_suffix}_{token_suffix}"
 
 
 def _get_queue_dir() -> str:
@@ -330,7 +342,7 @@ def send_files_to_running_instance(
     for _attempt in range(retries):
         try:
             socket_client = QLocalSocket()
-            socket_client.connectToServer(_get_ipc_server_name())
+            socket_client.connectToServer(_get_ipc_server_name(token))
             if not socket_client.waitForConnected(200):
                 time.sleep(delay)
                 continue

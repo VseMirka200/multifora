@@ -1,3 +1,4 @@
+import hmac
 import json
 import os
 
@@ -203,7 +204,12 @@ class MultiforaMainWindow(
     def create_ipc_server(self):
         """Создает IPC-сервер для приема файлов от других экземпляров."""
         self.ipc_server = QLocalServer(self)
-        server_name = _get_ipc_server_name()
+        token = _load_ipc_token()
+        if not token:
+            self.log_event("IPC сервер не запущен: токен недоступен", "ERROR")
+            self.ipc_server = None
+            return
+        server_name = _get_ipc_server_name(token)
         try:
             QLocalServer.removeServer(server_name)
         except Exception as e:
@@ -276,7 +282,11 @@ class MultiforaMainWindow(
         if not lines:
             return
         token = _load_ipc_token()
-        if not token or not lines[0].startswith("TOKEN:") or lines[0][6:] != token:
+        if (
+            not token
+            or not lines[0].startswith("TOKEN:")
+            or not hmac.compare_digest(lines[0][6:], token)
+        ):
             self.log_event("IPC: неверный токен", "WARN")
             return
         file_paths = []
@@ -1144,6 +1154,11 @@ class MultiforaMainWindow(
         try:
             if callable(getattr(self, "_apply_operations_tab_bar_theme", None)):
                 self._apply_operations_tab_bar_theme(mode)
+        except Exception as error:
+            _log_ignored_error("MultiforaMainWindow._apply_theme_runtime_widgets", error)
+        try:
+            if callable(getattr(self, "_apply_settings_navigation_theme", None)):
+                self._apply_settings_navigation_theme(mode)
         except Exception as error:
             _log_ignored_error("MultiforaMainWindow._apply_theme_runtime_widgets", error)
         for separator in getattr(self, "_file_info_separators", []):

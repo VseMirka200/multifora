@@ -59,7 +59,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertFalse(hasattr(window, "tabs"))
                 self.assertIsNotNone(window.operations_stack)
                 self.assertEqual(window.operations_stack.count(), 4)
-                self.assertEqual(window.operations_tab_bar.count(), 4)
+                self.assertEqual(window.operations_tab_bar.count(), 5)
                 self.assertEqual(window.main_splitter.widget(0).minimumWidth(), 240)
                 for page_index in range(window.operations_stack.count()):
                     page = window.operations_stack.widget(page_index)
@@ -200,10 +200,11 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(
                     tab_labels,
                     [
-                        "Переименование",
-                        "Конвертация",
-                        "Сжатие",
-                        "Объединение",
+                        "ПЕРЕИМЕНОВАНИЕ",
+                        "КОНВЕРТАЦИЯ",
+                        "СЖАТИЕ",
+                        "ОБЪЕДИНЕНИЕ",
+                        "НАСТРОЙКИ",
                     ],
                 )
                 header_layout = window.operations_header_widget.layout()
@@ -212,17 +213,11 @@ class MainWindowSmokeTests(unittest.TestCase):
                     header_layout.indexOf(window.operations_navigation_widget),
                 )
                 self.assertIs(
-                    window.btn_settings.parentWidget(),
-                    window.operations_navigation_widget,
-                )
-                self.assertIs(
                     window.btn_help.parentWidget(),
                     window.operations_header_actions_widget,
                 )
                 self.assertEqual(window.btn_help.height(), 22)
                 self.assertEqual(window.btn_help.objectName(), "help_button")
-                self.assertEqual(window.btn_settings.height(), 22)
-                self.assertEqual(window.btn_settings.objectName(), "settings_button")
                 self.assertEqual(window.operations_tab_bar.height(), 24)
                 self.assertEqual(window.help_menu.objectName(), "help_menu_popup")
                 help_margins = window.operations_header_actions_widget.layout().contentsMargins()
@@ -239,6 +234,10 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window.operations_tab_bar.parentWidget(),
                     window.operations_navigation_widget,
                 )
+                self.assertEqual(
+                    window.operations_tab_bar.sizePolicy().horizontalPolicy(),
+                    QSizePolicy.Policy.Expanding,
+                )
                 navigation_layout = window.operations_navigation_widget.layout()
                 navigation_margins = navigation_layout.contentsMargins()
                 self.assertEqual(
@@ -250,10 +249,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     ),
                     (0, 0, 0, 0),
                 )
-                self.assertLess(
-                    navigation_layout.indexOf(window.operations_tab_bar),
-                    navigation_layout.indexOf(window.btn_settings),
-                )
+                self.assertEqual(window._settings_tab_index, 4)
 
                 settings_widget = window._ensure_settings_panel_widget()
                 self.assertIsNotNone(settings_widget)
@@ -326,29 +322,30 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(window.settings_stack.objectName(), "settings_stack")
                 self.assertEqual(window.settings_stack.count(), 4)
                 self.assertEqual(
-                    [
-                        window.settings_nav.item(index).text()
-                        for index in range(window.settings_nav.count())
-                    ],
-                    ["Внешний вид", "Поведение", "Автоочистка", "Ярлыки"],
+                    [button.text() for button in window.settings_nav_buttons],
+                    ["ИНТЕРФЕЙС", "ПОВЕДЕНИЕ", "АВТООЧИСТКА", "ЯРЛЫКИ"],
                 )
-                self.assertEqual(window.settings_nav.currentRow(), 0)
-                self.assertEqual(window.settings_nav.width(), 192)
-                self.assertEqual(window.settings_nav.frameShape(), QFrame.Shape.NoFrame)
+                self.assertEqual(window.settings_stack.currentIndex(), 0)
+                self.assertEqual(window.settings_nav_buttons[0].font().pixelSize(), 13)
+                self.assertEqual(window.settings_nav.minimumWidth(), window.settings_nav.maximumWidth())
+                self.assertEqual(
+                    window.settings_nav.sizePolicy().horizontalPolicy(),
+                    QSizePolicy.Policy.Fixed,
+                )
                 settings_nav_style = window.settings_nav.styleSheet()
                 self.assertIn("border: none", settings_nav_style)
-                self.assertIn("outline: none", settings_nav_style)
-                selected_nav_style = settings_nav_style.split(
-                    "QListWidget#settings_nav::item:selected {", 1
+                checked_nav_style = settings_nav_style.split(
+                    "QPushButton#settings_nav_item:checked {", 1
                 )[1].split("}", 1)[0]
-                self.assertIn("background-color: transparent", selected_nav_style)
-                self.assertIn("color: #3d74b3", selected_nav_style)
+                self.assertIn("border-bottom: 1px solid #3d74b3", checked_nav_style)
+                self.assertTrue(window.settings_nav_buttons[0].isChecked())
                 self.assertEqual(window.help_stack.count(), 2)
                 self.assertEqual(
                     [action.text() for action in window.help_menu_actions],
                     [
                         "О программе",
                         "Логи",
+                        "Руководство",
                         "Поддержать проект",
                         "Сообщить об ошибке",
                     ],
@@ -361,7 +358,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 open_url.assert_called_once()
                 self.assertEqual(
                     open_url.call_args.args[0].toString(),
-                    "https://github.com/VseMirka200/multifora",
+                    "https://vsemirka200.github.io/multifora/",
                 )
                 self.assertFalse(hasattr(window, "_support_help_row"))
                 with patch(
@@ -369,6 +366,16 @@ class MainWindowSmokeTests(unittest.TestCase):
                     return_value=True,
                 ) as open_url:
                     window.help_menu_actions[3].trigger()
+                open_url.assert_called_once()
+                self.assertEqual(
+                    open_url.call_args.args[0].toString(),
+                    "https://github.com/VseMirka200/multifora",
+                )
+                with patch(
+                    "app.ui.mixins.operations_tab_layout_mixin.QDesktopServices.openUrl",
+                    return_value=True,
+                ) as open_url:
+                    window.help_menu_actions[4].trigger()
                 open_url.assert_called_once()
                 self.assertEqual(
                     open_url.call_args.args[0].toString(),
@@ -421,13 +428,12 @@ class MainWindowSmokeTests(unittest.TestCase):
                 QTest.mouseClick(window.replace_files_label, Qt.MouseButton.LeftButton)
                 self.assertTrue(window.checkbox_replace_pdf.isChecked())
                 original_index = window.operations_tab_bar.currentIndex()
-                window.btn_settings.click()
+                window.operations_tab_bar.setCurrentIndex(window._settings_tab_index)
                 self.assertFalse(window.settings_panel_host.isHidden())
                 self.assertFalse(window.settings_panel_widget.isHidden())
                 self.assertTrue(window.help_panel_widget.isHidden())
-                self.assertTrue(window.btn_settings.isChecked())
                 self.assertFalse(window.btn_help.isChecked())
-                self.assertEqual(window.operations_tab_bar.currentIndex(), original_index)
+                self.assertEqual(window.operations_tab_bar.currentIndex(), window._settings_tab_index)
                 self.assertTrue(
                     all(
                         window.operations_tab_bar.isTabVisible(index)
@@ -466,11 +472,9 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertFalse(window.settings_panel_widget.isHidden())
                 self.assertTrue(window.help_panel_widget.isHidden())
                 self.assertEqual(window.help_stack.currentIndex(), 1)
-                self.assertTrue(window.btn_settings.isChecked())
                 self.assertFalse(window.btn_help.isChecked())
                 window.operations_tab_bar.tabBarClicked.emit(original_index)
                 self.assertTrue(window.settings_panel_host.isHidden())
-                self.assertFalse(window.btn_settings.isChecked())
                 self.assertFalse(window.btn_help.isChecked())
 
                 running_worker = Mock()
