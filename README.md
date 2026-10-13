@@ -57,6 +57,7 @@
 
 - [Участие в проекте](docs/CONTRIBUTING.md)
 - [Политика безопасности](docs/SECURITY.md)
+- [Правила защиты репозитория и релизов](docs/REPOSITORY_SECURITY.md)
 - [Кодекс поведения](docs/CODE_OF_CONDUCT.md)
 - [Лицензия MIT](LICENSE)
 
