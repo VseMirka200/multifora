@@ -15,7 +15,8 @@ permissions:
 
 jobs:
   dependency-audit:
-    runs-on: ubuntu-latest
+    # pywin32 is a production dependency, so audit in the supported target OS.
+    runs-on: windows-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
