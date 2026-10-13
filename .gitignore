@@ -48,3 +48,13 @@ dist/
 
 # Local UI assets (generated/temp)
 app/ui/assets/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.*
