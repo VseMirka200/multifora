@@ -6,7 +6,7 @@ on:
       - "v*"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-windows:
@@ -116,23 +116,42 @@ jobs:
             dist/installer/Multifora-Setup-*.exe
             dist/installer/Multifora-Setup-*.sha256
             dist/CHANGELOG.md
+  
+  # Publishing is isolated from dependency installs, tests, and Windows packaging.
+  publish-release:
+    needs: build-windows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: Multifora-${{ github.ref_name }}-windows-x64
+          path: release-assets
 
-      - name: Create GitHub Release
-        shell: pwsh
+      - name: Verify checksums and publish
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
         run: |
-          $version = $env:GITHUB_REF_NAME
-          $installers = @(Get-ChildItem -Path dist/installer -Filter "Multifora-Setup-*.exe")
-          if ($installers.Count -ne 1) {
-            throw "Ожидался один установщик, найдено: $($installers.Count)."
-          }
-          $installer = $installers[0]
-          $installerChecksum = [System.IO.Path]::ChangeExtension($installer.FullName, ".sha256")
-          gh release create $version `
-            "dist/Multifora-$version-windows-x64.zip" `
-            "dist/Multifora-$version-windows-x64.sha256" `
-            $installer.FullName `
-            $installerChecksum `
-            --title "Мультифора $version" `
-            --notes-file dist/CHANGELOG.md
+          set -euo pipefail
+          root="release-assets"
+          archive="$root/Multifora-$TAG-windows-x64.zip"
+          archive_sum="$root/Multifora-$TAG-windows-x64.sha256"
+          notes="$root/CHANGELOG.md"
+          mapfile -t installers < <(find "$root/installer" -maxdepth 1 -type f -name 'Multifora-Setup-*.exe')
+          if [ "${#installers[@]}" -ne 1 ]; then
+            echo "Expected exactly one installer" >&2
+            exit 1
+          fi
+          installer="${installers[0]}"
+          installer_sum="${installer%.exe}.sha256"
+          test -f "$archive" && test -f "$archive_sum" && test -f "$notes" && test -f "$installer_sum"
+          (cd "$root" && sha256sum -c "$(basename "$archive_sum")")
+          (cd "$root/installer" && sha256sum -c "$(basename "$installer_sum")")
+          gh release create "$TAG" "$archive" "$archive_sum" "$installer" "$installer_sum" \
+            --title "Мультифора $TAG" --notes-file "$notes"
