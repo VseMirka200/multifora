@@ -1,0 +1,104 @@
+import os
+import tempfile
+import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
+
+from core.workers.file_worker import FileWorker
+
+
+class FileWorkerOperationTests(unittest.TestCase):
+    def test_cancel_immediately_calls_active_operation_stop(self):
+        worker = FileWorker()
+        stop = Mock()
+        worker._set_active_cancel_action(stop)
+
+        worker.request_cancel()
+
+        self.assertTrue(worker._should_cancel())
+        stop.assert_called_once_with()
+
+    def test_operation_handlers_can_be_built_for_every_operation(self):
+        worker = FileWorker()
+
+        self.assertEqual(
+            set(worker._operation_handlers()),
+            {"convert", "rename", "compress", "merge"},
+        )
+
+    @patch("core.workers.file_worker.os.rename")
+    @patch("core.workers.file_worker.os.path.exists", return_value=False)
+    def test_rename_operation_moves_file_and_emits_result(self, _exists, rename):
+        source = SimpleNamespace(
+            path="C:/files/source.txt",
+            folder="C:/files",
+            name="source.txt",
+        )
+        worker = FileWorker()
+        results = []
+        worker.finished.connect(results.append)
+        worker.set_rename([source], ["renamed.txt"])
+
+        worker.run()
+
+        expected_target = os.path.join("C:/files", "renamed.txt")
+        rename.assert_called_once_with("C:/files/source.txt", expected_target)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].updated_files[0][1], expected_target)
+        self.assertEqual(results[0].errors, [])
+
+    def test_rename_operation_renames_real_file(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            source_path = os.path.join(tmp_dir, "source.txt")
+            target_path = os.path.join(tmp_dir, "renamed.txt")
+            with open(source_path, "w", encoding="utf-8") as stream:
+                stream.write("test")
+
+            source = SimpleNamespace(
+                path=source_path,
+                folder=tmp_dir,
+                name="source.txt",
+            )
+            worker = FileWorker()
+            results = []
+            worker.finished.connect(results.append)
+            worker.set_rename([source], ["renamed.txt"])
+
+            worker.run()
+
+            self.assertFalse(os.path.exists(source_path))
+            self.assertTrue(os.path.exists(target_path))
+            self.assertEqual(results[0].updated_files, [(source, target_path)])
+            self.assertEqual(results[0].errors, [])
+
+    def test_rename_conflict_always_uses_a_unique_path(self):
+        """Проверяем реальную файловую систему, а не exists=True для всех путей."""
+        with tempfile.TemporaryDirectory() as directory:
+            source_path = os.path.join(directory, "source.txt")
+            occupied_path = os.path.join(directory, "renamed.txt")
+            with open(source_path, "w", encoding="utf-8") as stream:
+                stream.write("source")
+            with open(occupied_path, "w", encoding="utf-8") as stream:
+                stream.write("existing")
+            source = SimpleNamespace(
+                path=source_path,
+                folder=directory,
+                name="source.txt",
+            )
+            worker = FileWorker()
+            results = []
+            worker.finished.connect(results.append)
+            worker.set_rename([source], ["renamed.txt"])
+            worker.run()
+
+            expected = os.path.join(directory, "renamed_1.txt")
+            self.assertEqual(results[0].updated_files, [(source, expected)])
+            self.assertEqual(results[0].errors, [])
+            with open(occupied_path, encoding="utf-8") as stream:
+                self.assertEqual(stream.read(), "existing")
+            with open(expected, encoding="utf-8") as stream:
+                self.assertEqual(stream.read(), "source")
+
+
+if __name__ == "__main__":
+    unittest.main()

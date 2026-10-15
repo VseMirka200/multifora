@@ -1,0 +1,36 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#111214"><title>Защита репозитория Мультифора — Мультифора</title><link rel="icon" href="../../assets/icon.ico" sizes="any"><link rel="stylesheet" href="../../assets/site.css"><link rel="stylesheet" href="../../assets/message-fixes.css"></head><body><div class="layout"><aside><a class="brand" href="../../index.html"><img class="mark" src="../../assets/icon.ico" alt="">Мультифора</a><a class="search" href="../../index.html">Поиск по руководству <kbd>Ctrl K</kbd></a><nav><a href="../../index.html">Начало</a><a href="https://github.com/VseMirka200/multifora/releases/latest">Скачать</a><div class="nav-label">Начало работы</div><a href="../../ru/guide/quick-start.html">Полное руководство</a><a href="../../ru/guide/install.html">Установка</a><div class="nav-label">Возможности</div><a href="../../ru/guide/rename.html">Переименование</a><a href="../../ru/guide/conversion.html">Конвертация</a><a href="../../ru/guide/optimize.html">Объединение и сжатие</a><div class="nav-label">Помощь</div><a href="../../ru/reference/settings.html">Настройки</a><a href="../../ru/reference/troubleshooting.html">Неполадки</a><a href="https://github.com/VseMirka200/multifora/issues/new/choose">Сообщить об ошибке</a></nav></aside><main><header class="top"><a href="../../index.html">← На главную</a><a class="download" href="https://github.com/VseMirka200/multifora/releases">Скачать Мультифору</a></header><div class="crumbs">Документация / Защита репозитория Мультифора</div><article><h1 id="защита-репозитория-мультифора">Защита репозитория Мультифора</h1>
+<p>Этот документ — чек-лист для владельца репозитория. <strong>Файлы в Git не включают настройки доступа GitHub автоматически</strong>: пункты в интерфейсе GitHub нужно проверить и включить отдельно.</p>
+<h2 id="ветка-main">Ветка <code>main</code></h2>
+<p>Откройте <strong>Settings → Rules → Rulesets</strong> (или <strong>Settings → Branches</strong>, если используются старые правила защиты). Для <code>main</code>:</p>
+<ol>
+<li>Требуйте прохождения изменений через Pull Request. Не разрешайте принудительную перезапись (<code>force push</code>) и удаление ветки.</li>
+<li>Требуйте актуальную ветку перед слиянием и успешные проверки: <code>test-windows</code>, <code>windows-build</code>, <code>dependency-audit</code>, <code>CodeQL (Python)</code>. Если проверка переименована, обновите правило <strong>после</strong> её первого успешного запуска. После проверки нового workflow можно добавить <code>dependency-review</code>.</li>
+<li>Включите применение защиты к администраторам, если такой вариант доступен. Не выдавайте обход правил Actions-ботам и интеграциям без конкретной причины.</li>
+<li><strong>Для единственного разработчика</strong> не включайте обязательное одобрение другого человека: автор не может одобрить свой PR, и это заблокирует работу. Когда появится независимый сопровождающий — требуйте минимум одно одобрение и сбрасывайте старые одобрения при изменении PR.</li>
+<li>Не требуйте подписанные коммиты, пока не настроена подпись всех легитимных путей внесения изменений (включая GitHub UI и ботов). Для новых веток используйте PR, а не прямые коммиты в <code>main</code>.</li>
+</ol>
+<h2 id="безопасность-и-оповещения">Безопасность и оповещения</h2>
+<p>Проверьте <strong>Settings → Advanced Security</strong> или <strong>Security and quality</strong> (названия могут отличаться):</p>
+<ul>
+<li>Включите <strong>Dependabot alerts</strong> и <strong>Dependabot security updates</strong> при их доступности. Плановые PR обновления версий отдельно отключены намеренно; не путайте их с экстренными исправлениями уязвимостей.</li>
+<li>Включите <strong>Secret scanning</strong> и <strong>Push protection</strong> (если доступны). При обнаружении настоящего секрета отзовите и перевыпустите его, а не ограничивайтесь удалением строки из новой версии.</li>
+<li>Убедитесь, что <strong>Private vulnerability reporting</strong> доступен по ссылке в <a href="SECURITY.html">разделе безопасности</a>; периодически просматривайте CodeQL, Dependabot и результаты <code>pip-audit</code>.</li>
+<li>Для Actions задайте <strong>default GITHUB_TOKEN permissions: read-only</strong> и запретите Actions автоматически создавать/одобрять PR, если это не требуется. В релизном процессе право <code>contents: write</code> выдаётся только отдельной задаче публикации.</li>
+<li>Проверяйте изменения workflow вручную. Для сторонних actions по возможности используйте проверенные неизменяемые SHA коммитов вместо плавающих ссылок на ветки или теги.</li>
+</ul>
+<h2 id="публикация-релизов">Публикация релизов</h2>
+<ol>
+<li>Выпускайте релизы только из проверенного кода <code>main</code>. Перед созданием тега убедитесь, что все обязательные проверки прошли, а версия соответствует <code>app/core/app_identity.py</code>.</li>
+<li>Защитите теги по шаблону <code>v*</code> через <strong>Rulesets</strong>, запретите нежелательное удаление/перезапись тегов и ограничьте их создание доверенными сопровождающими, если это поддерживается тарифом и настройками.</li>
+<li>Проверяйте результаты Windows-сборки и smoke-тестов перед распространением. Workflow публикует ZIP и установщик вместе с SHA-256; эти суммы служат для проверки целостности, <strong>не являются цифровой подписью издателя</strong>.</li>
+<li>Бинарные файлы <code>bin/gswin64/</code> входят в репозиторий: перед заменой проверяйте официальный источник, версию, лицензию, SHA-256 и наличие исправлений известных уязвимостей. Не принимайте бинарники из непроверенных PR.</li>
+<li>Рассмотрите подписывание Windows-установщика сертификатом издателя и аттестации сборок (artifact attestations) перед публичным распространением приложения.</li>
+</ol>
+<h2 id="при-инциденте">При инциденте</h2>
+<ul>
+<li>Утечка ключа: немедленно отзовите его, изучите действия с момента утечки и только затем очистите код и историю.</li>
+<li>Уязвимая библиотека: проверьте затронутые релизы, обновите зависимость, повторите тесты и опубликуйте исправление.</li>
+<li>Уязвимость продукта: используйте <a href="https://github.com/VseMirka200/multifora/security/advisories/new" target="_blank" rel="noreferrer">приватный GitHub Advisory</a>, не раскрывайте эксплойт в публичном Issue до согласованного исправления.</li>
+<li>Подозрительная сборка: приостановите распространение, проверьте исходники, зависимости и логи CI, затем перевыпустите артефакты.</li>
+</ul>
+<p>Ограничение: защита <code>main</code>, сканирование секретов, частные уведомления и правила тегов требуют <strong>настроек GitHub</strong>, этот документ сам по себе их не включает.</p></article></main></div></body></html>

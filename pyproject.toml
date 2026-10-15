@@ -1,0 +1,20 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "C4", "PERF", "RUF", "SIM", "UP"]
+ignore = [
+  "B008",    # Qt переопределяет методы модели с QModelIndex() в сигнатуре.
+  "RUF001",  # Русские тексты намеренно содержат похожие символы разных алфавитов.
+  "RUF002",
+  "RUF003",
+  "SIM105",  # Явные try/except документируют best-effort очистку внешних ресурсов.
+]
+
+[tool.ruff.lint.per-file-ignores]
+"app/core/deps.py" = ["F401"]
+"tests/*" = ["SIM117"]
+
+[tool.ruff.format]
+line-ending = "lf"

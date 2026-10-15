@@ -1,0 +1,10 @@
+/* Consistent message blocks and callouts across the documentation. */
+.admonition{color:#d8d1bb;line-height:1.55}
+.admonition strong{display:block;margin-bottom:4px;color:#fff;font-weight:700;line-height:1.35}
+.admonition.note{color:#c1d8ef}
+.support{min-height:140px!important;padding:28px 32px!important}
+.support>div{min-width:0}
+.support h2{margin:0 0 8px!important;padding:0!important;border:0!important;color:#fff;font-size:26px!important;font-weight:700!important;line-height:1.2!important;letter-spacing:-.02em!important;text-shadow:none!important;filter:none!important;-webkit-font-smoothing:antialiased}
+.support p{margin:0!important;line-height:1.55!important}
+.support .button{flex:none}
+.card .icon-img{display:block;width:26px;height:26px;margin-bottom:10px}

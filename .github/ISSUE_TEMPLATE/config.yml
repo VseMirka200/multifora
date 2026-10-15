@@ -1,0 +1,6 @@
+# Показывать только подготовленные русскоязычные шаблоны.
+blank_issues_enabled: false
+contact_links:
+  - name: "🔒 Сообщить об уязвимости конфиденциально"
+    url: "https://github.com/VseMirka200/multifora/security/advisories/new"
+    about: "Не публикуйте сведения об уязвимостях в открытых обращениях."

@@ -1,0 +1,50 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#111214"><title>Участие в разработке — Мультифора</title><link rel="icon" href="../../assets/icon.ico" sizes="any"><link rel="stylesheet" href="../../assets/site.css"><link rel="stylesheet" href="../../assets/message-fixes.css"></head><body><div class="layout"><aside><a class="brand" href="../../index.html"><img class="mark" src="../../assets/icon.ico" alt="">Мультифора</a><a class="search" href="../../index.html">Поиск по руководству <kbd>Ctrl K</kbd></a><nav><a href="../../index.html">Начало</a><a href="https://github.com/VseMirka200/multifora/releases/latest">Скачать</a><div class="nav-label">Начало работы</div><a href="../../ru/guide/quick-start.html">Полное руководство</a><a href="../../ru/guide/install.html">Установка</a><div class="nav-label">Возможности</div><a href="../../ru/guide/rename.html">Переименование</a><a href="../../ru/guide/conversion.html">Конвертация</a><a href="../../ru/guide/optimize.html">Объединение и сжатие</a><div class="nav-label">Помощь</div><a href="../../ru/reference/settings.html">Настройки</a><a href="../../ru/reference/troubleshooting.html">Неполадки</a><a href="https://github.com/VseMirka200/multifora/issues/new/choose">Сообщить об ошибке</a></nav></aside><main><header class="top"><a href="../../index.html">← На главную</a><a class="download" href="https://github.com/VseMirka200/multifora/releases">Скачать Мультифору</a></header><div class="crumbs">Документация / Участие в разработке</div><article><h1 id="участие-в-разработке">Участие в разработке</h1>
+<p>Спасибо за желание помочь Мультифоре. Принимаются исправления ошибок, тесты, улучшения интерфейса и документации, а также согласованные новые функции.</p>
+<h2 id="перед-началом">Перед началом</h2>
+<ul>
+<li>Уязвимости отправляйте по инструкции из <a href="SECURITY.html">раздела безопасности</a>, а не публично.</li>
+<li>Соблюдайте <a href="CODE_OF_CONDUCT.html">Кодекс поведения</a>.</li>
+</ul>
+<h2 id="среда-разработки">Среда разработки</h2>
+<p>Проект рассчитан на Windows и Python 3.11+.</p>
+<p>```powershell</p>
+<p>git clone https://github.com/VseMirka200/multifora.git</p>
+<p>cd multifora</p>
+<p>py -3 -m venv .venv</p>
+<p>.\.venv\Scripts\python.exe -m pip install -r requirements.txt</p>
+<p>.\.venv\Scripts\python.exe multifora_start.py</p>
+<p>```</p>
+<p>Microsoft Word требуется только для части операций с документами, Ghostscript — для сжатия PDF.</p>
+<h2 id="внесение-изменений">Внесение изменений</h2>
+<ol>
+<li>Создайте ветку от актуальной <code>main</code>.</li>
+<li>Ограничьте Pull Request одной понятной задачей.</li>
+<li>Сохраняйте существующую структуру <code>app</code>, <code>core/workers</code> и <code>tests</code>.</li>
+<li>Добавляйте тест для исправленной ошибки или нового поведения.</li>
+<li>Не добавляйте виртуальные окружения, сборки, кэши, локальные настройки и пользовательские файлы.</li>
+</ol>
+<h2 id="проверки">Проверки</h2>
+<p>```powershell</p>
+<p>$env:QT_QPA_PLATFORM = &quot;offscreen&quot;</p>
+<p>.\.venv\Scripts\python.exe -m unittest discover -s tests</p>
+<p>.\.venv\Scripts\python.exe -m ruff check .</p>
+<p>```</p>
+<p>Если Ruff не установлен:</p>
+<p>```powershell</p>
+<p>.\.venv\Scripts\python.exe -m pip install ruff</p>
+<p>```</p>
+<h2 id="pull-request">Pull Request</h2>
+<p>В описании укажите:</p>
+<ul>
+<li>какую проблему решает изменение;</li>
+<li>что именно изменено;</li>
+<li>как это проверено;</li>
+<li>известные ограничения;</li>
+<li>снимки экрана для заметных изменений интерфейса.</li>
+</ul>
+<p>Изменения в <code>main</code> следует вносить через Pull Request. Все обязательные проверки CI должны завершиться успешно. Если у проекта появится второй сопровождающий, рекомендуется требовать одобрение независимого ревьюера. Автор не может одобрить собственный PR. Сопровождающий может запросить более узкий объём, дополнительные тесты или изменение реализации.</p>
+<p>Не добавляйте токены, ключи и приватные файлы ни в коммиты, ни в Pull Request. Проверяйте изменения GitHub Actions и сторонних исполняемых файлов особенно тщательно.</p>
+<h2 id="стиль-коммитов">Стиль коммитов</h2>
+<p>Используйте короткие сообщения в повелительной форме, описывающие результат, например <code>Исправить добавление нескольких файлов</code>. Не смешивайте рефакторинг и изменение поведения без необходимости.</p>
+<h2 id="лицензирование-вкладов">Лицензирование вкладов</h2>
+<p>Проект распространяется по лицензии [MIT](../../../LICENSE). Отправляя изменения, вы соглашаетесь с публикацией своего вклада на этих условиях.</p></article></main></div></body></html>
