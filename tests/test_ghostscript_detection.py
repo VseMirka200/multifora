@@ -32,11 +32,17 @@ class _DummyCompressionWorker(CompressionMixin):
         return self._cancel_requested
 
     def _emit_finished(self, new_files=None, updated_files=None):
-        self.finished.emit(OperationResult(new_files or [], updated_files or [], list(self.errors)))
+        self.finished.emit(
+            OperationResult(
+                new_files or [], updated_files or [], list(self.errors)
+            )
+        )
 
 
 class GhostscriptDetectionTests(unittest.TestCase):
-    def test_ensure_ghostscript_detected_invokes_detection_when_state_is_empty(self):
+    def test_ensure_ghostscript_detected_invokes_detection_when_state_is_empty(
+        self,
+    ):
         original_has = deps.HAS_GHOSTSCRIPT
         original_path = deps.GHOSTSCRIPT_PATH
         try:
@@ -47,7 +53,9 @@ class GhostscriptDetectionTests(unittest.TestCase):
                 deps.HAS_GHOSTSCRIPT = True
                 deps.GHOSTSCRIPT_PATH = custom_path or r"C:\fake\gswin64c.exe"
 
-            with patch.object(deps, "_detect_ghostscript", side_effect=_fake_detect) as detect_mock:
+            with patch.object(
+                deps, "_detect_ghostscript", side_effect=_fake_detect
+            ) as detect_mock:
                 has_gs, path = deps.ensure_ghostscript_detected()
 
             self.assertEqual(detect_mock.call_count, 1)
@@ -80,13 +88,20 @@ class GhostscriptDetectionTests(unittest.TestCase):
 
                 sys.argv[0] = os.path.join(tmpdir, "Multifora.exe")
                 with patch.dict(os.environ, {}, clear=True):
-                    with patch.object(deps, "_find_ghostscript_in_registry", return_value=None):
-                        with patch("app.core.deps.shutil.which", return_value=None):
+                    with patch.object(
+                        deps,
+                        "_find_ghostscript_in_registry",
+                        return_value=None,
+                    ):
+                        with patch(
+                            "app.core.deps.shutil.which", return_value=None
+                        ):
                             deps._detect_ghostscript()
 
                 self.assertTrue(deps.HAS_GHOSTSCRIPT)
                 self.assertEqual(
-                    os.path.normcase(deps.GHOSTSCRIPT_PATH), os.path.normcase(bundled_exe)
+                    os.path.normcase(deps.GHOSTSCRIPT_PATH),
+                    os.path.normcase(bundled_exe),
                 )
         finally:
             deps.HAS_GHOSTSCRIPT = original_has
@@ -96,7 +111,9 @@ class GhostscriptDetectionTests(unittest.TestCase):
     def test_compression_emits_result_when_cancelled(self):
         worker = _DummyCompressionWorker()
         worker._cancel_requested = True
-        with patch("core.workers.compression.compression_mixin.deps.ensure_ghostscript_detected"):
+        with patch(
+            "core.workers.compression.compression_mixin.deps.ensure_ghostscript_detected"
+        ):
             worker._compress_pdf_files()
         self.assertEqual(len(worker.finished.emitted), 1)
         self.assertEqual(worker.finished.emitted[0].get("updated_files"), [])

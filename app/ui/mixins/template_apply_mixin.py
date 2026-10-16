@@ -2,7 +2,13 @@ import os
 import re
 from datetime import datetime
 
-from PyQt6.QtWidgets import QCheckBox, QComboBox, QLineEdit, QSpinBox, QTextEdit
+from PyQt6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QLineEdit,
+    QSpinBox,
+    QTextEdit,
+)
 
 import app.core.rename_templates as rt
 from app.core.app_utils import _log_ignored_error
@@ -77,17 +83,31 @@ class TemplateApplyMixin:
 
         if numbering_mode == "Простая нумерация":
             current_num = (
-                self.template_num_start.value() if hasattr(self, "template_num_start") else 1
+                self.template_num_start.value()
+                if hasattr(self, "template_num_start")
+                else 1
             )
-            step = self.template_num_step.value() if hasattr(self, "template_num_step") else 1
+            step = (
+                self.template_num_step.value()
+                if hasattr(self, "template_num_step")
+                else 1
+            )
             num_digits = (
-                self.template_num_digits.value() if hasattr(self, "template_num_digits") else 3
+                self.template_num_digits.value()
+                if hasattr(self, "template_num_digits")
+                else 3
             )
         elif numbering_mode == "Нумерация с префиксом":
             current_num = (
-                self.template_prefix_start.value() if hasattr(self, "template_prefix_start") else 1
+                self.template_prefix_start.value()
+                if hasattr(self, "template_prefix_start")
+                else 1
             )
-            step = self.template_prefix_step.value() if hasattr(self, "template_prefix_step") else 1
+            step = (
+                self.template_prefix_step.value()
+                if hasattr(self, "template_prefix_step")
+                else 1
+            )
             num_digits = (
                 self.template_prefix_digits.value()
                 if hasattr(self, "template_prefix_digits")
@@ -95,14 +115,26 @@ class TemplateApplyMixin:
             )
         elif numbering_mode == "Нумерация с датой":
             current_num = (
-                self.template_date_start.value() if hasattr(self, "template_date_start") else 1
+                self.template_date_start.value()
+                if hasattr(self, "template_date_start")
+                else 1
             )
-            step = self.template_date_step.value() if hasattr(self, "template_date_step") else 1
+            step = (
+                self.template_date_step.value()
+                if hasattr(self, "template_date_step")
+                else 1
+            )
             num_digits = (
-                self.template_date_digits.value() if hasattr(self, "template_date_digits") else 3
+                self.template_date_digits.value()
+                if hasattr(self, "template_date_digits")
+                else 3
             )
         elif self.current_template == "Пользовательский шаблон":
-            template = self.template_custom.text() if hasattr(self, "template_custom") else ""
+            template = (
+                self.template_custom.text()
+                if hasattr(self, "template_custom")
+                else ""
+            )
             custom_settings = rt.parse_custom_template_settings(template)
             use_numbering = bool(custom_settings.get("use_numbering", False))
             current_num = int(custom_settings.get("start", 1))
@@ -123,7 +155,9 @@ class TemplateApplyMixin:
                 new_name = f"{name_without_ext}{suffix}{ext}"
 
             elif self.current_template == "Удалить символы с начала":
-                remove_chars = getattr(self, "template_remove_start", QSpinBox()).value()
+                remove_chars = getattr(
+                    self, "template_remove_start", QSpinBox()
+                ).value()
                 new_name = (
                     f"{name_without_ext[remove_chars:]}{ext}"
                     if len(name_without_ext) > remove_chars
@@ -131,7 +165,9 @@ class TemplateApplyMixin:
                 )
 
             elif self.current_template == "Удалить символы с конца":
-                remove_chars = getattr(self, "template_remove_end", QSpinBox()).value()
+                remove_chars = getattr(
+                    self, "template_remove_end", QSpinBox()
+                ).value()
                 new_name = (
                     f"{name_without_ext[:-remove_chars]}{ext}"
                     if len(name_without_ext) > remove_chars
@@ -139,17 +175,35 @@ class TemplateApplyMixin:
                 )
 
             elif self.current_template == "Удалить определенный текст":
-                text_to_remove = getattr(self, "template_remove_text", QLineEdit("")).text()
-                new_name = old_name.replace(text_to_remove, "") if text_to_remove else old_name
+                text_to_remove = getattr(
+                    self, "template_remove_text", QLineEdit("")
+                ).text()
+                new_name = (
+                    old_name.replace(text_to_remove, "")
+                    if text_to_remove
+                    else old_name
+                )
 
             elif self.current_template == "Заменить текст другим":
-                find_text = getattr(self, "template_find", QLineEdit("")).text()
-                replace_text = getattr(self, "template_replace", QLineEdit("")).text()
-                new_name = old_name.replace(find_text, replace_text) if find_text else old_name
+                find_text = getattr(
+                    self, "template_find", QLineEdit("")
+                ).text()
+                replace_text = getattr(
+                    self, "template_replace", QLineEdit("")
+                ).text()
+                new_name = (
+                    old_name.replace(find_text, replace_text)
+                    if find_text
+                    else old_name
+                )
 
             elif self.current_template == "Регулярное выражение":
-                pattern = getattr(self, "template_regex_pattern", QLineEdit("")).text()
-                replacement = getattr(self, "template_regex_replace", QLineEdit("")).text()
+                pattern = getattr(
+                    self, "template_regex_pattern", QLineEdit("")
+                ).text()
+                replacement = getattr(
+                    self, "template_regex_replace", QLineEdit("")
+                ).text()
                 ignore_case = bool(
                     getattr(
                         getattr(self, "template_regex_ignore_case", None),
@@ -167,11 +221,17 @@ class TemplateApplyMixin:
                         )
                         new_name = f"{new_stem}{ext}"
                     except re.error as error:
-                        self._rename_template_error = f"Ошибка регулярного выражения: {error}"
+                        self._rename_template_error = (
+                            f"Ошибка регулярного выражения: {error}"
+                        )
 
             elif self.current_template == "Изменить регистр":
                 mode_widget = getattr(self, "template_case_mode", None)
-                mode = str(mode_widget.currentData() or "") if mode_widget is not None else ""
+                mode = (
+                    str(mode_widget.currentData() or "")
+                    if mode_widget is not None
+                    else ""
+                )
                 new_name = f"{rt.apply_case_mode(name_without_ext, mode)}{ext}"
 
             elif numbering_mode == "Простая нумерация":
@@ -181,14 +241,20 @@ class TemplateApplyMixin:
                 current_num += step
 
             elif numbering_mode == "Нумерация с префиксом":
-                prefix = getattr(self, "template_prefix_text", QLineEdit("фото_")).text()
+                prefix = getattr(
+                    self, "template_prefix_text", QLineEdit("фото_")
+                ).text()
                 num_str = f"{current_num:0{num_digits}d}"
                 new_name = f"{prefix}{num_str}{ext}"
                 current_num += step
 
             elif numbering_mode == "Нумерация с датой":
-                date_format_name = getattr(self, "template_date_format", QComboBox()).currentText()
-                date_str = datetime.now().strftime(rt.get_date_format(date_format_name))
+                date_format_name = getattr(
+                    self, "template_date_format", QComboBox()
+                ).currentText()
+                date_str = datetime.now().strftime(
+                    rt.get_date_format(date_format_name)
+                )
                 num_str = f"{current_num:0{num_digits}d}"
                 new_name = f"{date_str}_{num_str}{ext}"
                 current_num += step
@@ -197,7 +263,9 @@ class TemplateApplyMixin:
                 date_format_name = getattr(
                     self, "template_original_date_format", QComboBox()
                 ).currentText()
-                date_str = datetime.now().strftime(rt.get_date_format(date_format_name))
+                date_str = datetime.now().strftime(
+                    rt.get_date_format(date_format_name)
+                )
                 new_name = f"{date_str}{old_name}"
 
             elif self.current_template == "Пользовательский шаблон":
@@ -219,7 +287,9 @@ class TemplateApplyMixin:
 
             file_item.preview_name = new_name
 
-        self.status_bar.showMessage(f"Применен шаблон: {self.current_template}")
+        self.status_bar.showMessage(
+            f"Применен шаблон: {self.current_template}"
+        )
 
     def _connect_template_param_preview_signals(self):
         """Подключает автопредпросмотр для динамических параметров шаблона."""
@@ -228,14 +298,26 @@ class TemplateApplyMixin:
             return
 
         for field in container.findChildren(QLineEdit):
-            field.textChanged.connect(lambda _value, self=self: self.refresh_rename_preview())
-            field.textChanged.connect(lambda _value, self=self: self._schedule_settings_save())
+            field.textChanged.connect(
+                lambda _value, self=self: self.refresh_rename_preview()
+            )
+            field.textChanged.connect(
+                lambda _value, self=self: self._schedule_settings_save()
+            )
         for field in container.findChildren(QTextEdit):
-            field.textChanged.connect(lambda *_args, self=self: self.refresh_rename_preview())
-            field.textChanged.connect(lambda *_args, self=self: self._schedule_settings_save())
+            field.textChanged.connect(
+                lambda *_args, self=self: self.refresh_rename_preview()
+            )
+            field.textChanged.connect(
+                lambda *_args, self=self: self._schedule_settings_save()
+            )
         for field in container.findChildren(QSpinBox):
-            field.valueChanged.connect(lambda _value, self=self: self.refresh_rename_preview())
-            field.valueChanged.connect(lambda _value, self=self: self._schedule_settings_save())
+            field.valueChanged.connect(
+                lambda _value, self=self: self.refresh_rename_preview()
+            )
+            field.valueChanged.connect(
+                lambda _value, self=self: self._schedule_settings_save()
+            )
         for field in container.findChildren(QComboBox):
             field.currentIndexChanged.connect(
                 lambda _value, self=self: self.refresh_rename_preview()
@@ -244,8 +326,12 @@ class TemplateApplyMixin:
                 lambda _value, self=self: self._schedule_settings_save()
             )
         for field in container.findChildren(QCheckBox):
-            field.stateChanged.connect(lambda _value, self=self: self.refresh_rename_preview())
-            field.stateChanged.connect(lambda _value, self=self: self._schedule_settings_save())
+            field.stateChanged.connect(
+                lambda _value, self=self: self.refresh_rename_preview()
+            )
+            field.stateChanged.connect(
+                lambda _value, self=self: self._schedule_settings_save()
+            )
 
     def _apply_template_params_theme(self):
         """Применяет текущую тему к динамически созданным полям шаблона."""
@@ -258,8 +344,12 @@ class TemplateApplyMixin:
             try:
                 combo._effective_theme_mode = mode
             except Exception as error:
-                _log_ignored_error("TemplateApplyMixin._apply_template_params_theme", error)
+                _log_ignored_error(
+                    "TemplateApplyMixin._apply_template_params_theme", error
+                )
             try:
                 setup_standard_dropdown(combo)
             except Exception as error:
-                _log_ignored_error("TemplateApplyMixin._apply_template_params_theme", error)
+                _log_ignored_error(
+                    "TemplateApplyMixin._apply_template_params_theme", error
+                )

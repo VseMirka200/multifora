@@ -85,7 +85,9 @@ class ConversionActionsMixin:
         resolver = getattr(self, "_get_selected_or_all_file_items", None)
         if callable(resolver):
             return list(resolver())
-        selected = selected_file_items(getattr(self, "list_files", None), files_only=True)
+        selected = selected_file_items(
+            getattr(self, "list_files", None), files_only=True
+        )
         if selected:
             return selected
         return [
@@ -151,7 +153,11 @@ class ConversionActionsMixin:
                 "папку «Конвертированные» рядом с ним или выбрать общую папку.",
                 (
                     ("alongside", "Рядом с файлом", "secondary"),
-                    ("source_subfolder", "В папку «Конвертированные»", "secondary"),
+                    (
+                        "source_subfolder",
+                        "В папку «Конвертированные»",
+                        "secondary",
+                    ),
                     ("custom", "Выбрать папку…", "secondary"),
                     ("cancel", "Отмена", "secondary"),
                 ),
@@ -182,7 +188,9 @@ class ConversionActionsMixin:
         source_label: str,
         target_label: str,
     ) -> tuple[bool, str, str]:
-        mode = str(getattr(self, "conversion_output_mode", "ask") or "ask").strip()
+        mode = str(
+            getattr(self, "conversion_output_mode", "ask") or "ask"
+        ).strip()
         if mode == "ask":
             return self._ask_conversion_output_destination(
                 file_count=file_count,
@@ -214,9 +222,14 @@ class ConversionActionsMixin:
         category_label: str,
     ) -> bool:
         normalized_category = str(category_label or "").strip()
-        if not normalized_category or normalized_category == _CATEGORY_PLACEHOLDER:
+        if (
+            not normalized_category
+            or normalized_category == _CATEGORY_PLACEHOLDER
+        ):
             return True
-        return self._display_category_for_file(file_item) == normalized_category
+        return (
+            self._display_category_for_file(file_item) == normalized_category
+        )
 
     def update_to_combo_based_on_from(self) -> None:
         """Обновляет список целей для точного или смешанного источника."""
@@ -241,7 +254,9 @@ class ConversionActionsMixin:
                 target_combo.setEnabled(False)
                 return
 
-            targets = compatible_targets_for_source(category_label, source_label)
+            targets = compatible_targets_for_source(
+                category_label, source_label
+            )
             for target in targets:
                 target_combo.addItem(target)
             target_combo.setEnabled(bool(targets))
@@ -257,11 +272,16 @@ class ConversionActionsMixin:
         source_combo = getattr(self, "from_convert_combo", None)
         target_combo = getattr(self, "to_convert_combo", None)
         category_selected = self._selected_convert_category()
-        source_selected = source_combo is not None and source_combo.currentIndex() > 0
-        target_selected = target_combo is not None and target_combo.currentIndex() > 0
+        source_selected = (
+            source_combo is not None and source_combo.currentIndex() > 0
+        )
+        target_selected = (
+            target_combo is not None and target_combo.currentIndex() > 0
+        )
         has_files = bool(self._selected_file_items())
         output_ready = not (
-            str(getattr(self, "conversion_output_mode", "ask") or "ask") == "custom"
+            str(getattr(self, "conversion_output_mode", "ask") or "ask")
+            == "custom"
             and not self._conversion_custom_output_path()
         )
 
@@ -284,7 +304,9 @@ class ConversionActionsMixin:
         target_label: str,
     ) -> bool:
         if category_label not in CONVERSION_CATEGORIES:
-            QMessageBox.warning(self, "Ошибка", "Выберите тип файла для конвертации!")
+            QMessageBox.warning(
+                self, "Ошибка", "Выберите тип файла для конвертации!"
+            )
             return False
 
         source_combo = getattr(self, "from_convert_combo", None)
@@ -323,9 +345,13 @@ class ConversionActionsMixin:
         mixed_mode = is_mixed_source_label(category_label, source_label)
 
         for file_item in self._selected_file_items():
-            if not self._file_matches_convert_category(file_item, category_label):
+            if not self._file_matches_convert_category(
+                file_item, category_label
+            ):
                 continue
-            if not self._check_file_compatibility_dual(file_item, source_label):
+            if not self._check_file_compatibility_dual(
+                file_item, source_label
+            ):
                 continue
             if mixed_mode and matches_format(file_item.path, target_label):
                 skipped_same_target += 1
@@ -392,7 +418,9 @@ class ConversionActionsMixin:
 
         selected_files = self._selected_file_items()
         if not selected_files:
-            QMessageBox.warning(self, "Ошибка", "Добавьте файлы для конвертации!")
+            QMessageBox.warning(
+                self, "Ошибка", "Добавьте файлы для конвертации!"
+            )
             return
 
         files, skipped_same_target = self._collect_compatible_conversion_files(
@@ -408,10 +436,12 @@ class ConversionActionsMixin:
             )
             return
 
-        accepted, output_mode, output_dir = self._resolve_conversion_output_destination(
-            file_count=len(files),
-            source_label=source_label,
-            target_label=target_label,
+        accepted, output_mode, output_dir = (
+            self._resolve_conversion_output_destination(
+                file_count=len(files),
+                source_label=source_label,
+                target_label=target_label,
+            )
         )
         if not accepted or not self.create_file_worker():
             return
@@ -442,9 +472,13 @@ class ConversionActionsMixin:
         show_progress = getattr(self, "_show_progress_dialog", None)
         if callable(show_progress):
             skipped_suffix = (
-                f" (пропущено уже готовых: {skipped_same_target})" if skipped_same_target else ""
+                f" (пропущено уже готовых: {skipped_same_target})"
+                if skipped_same_target
+                else ""
             )
-            show_progress(f"Конвертация {len(files)} файлов в {target_label}{skipped_suffix}...")
+            show_progress(
+                f"Конвертация {len(files)} файлов в {target_label}{skipped_suffix}..."
+            )
 
     def _check_file_compatibility_dual(
         self,

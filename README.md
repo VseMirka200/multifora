@@ -84,7 +84,19 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-Перед предложением изменений прочитайте [правила участия](docs/ru/project/CONTRIBUTING.html) и [политику безопасности](docs/ru/project/SECURITY.html).
+Перед предложением изменений прочитайте [правила участия](docs/project/CONTRIBUTING.md), [Кодекс поведения](docs/project/CODE_OF_CONDUCT.md) и [политику безопасности](docs/project/SECURITY.md).
+
+## Документы проекта
+
+| Документ | Назначение |
+| --- | --- |
+| [Правила участия](docs/project/CONTRIBUTING.md) | Как подготовить и проверить Pull Request. |
+| [Кодекс поведения](docs/project/CODE_OF_CONDUCT.md) | Правила общения в пространствах проекта. |
+| [Политика безопасности](docs/project/SECURITY.md) | Как конфиденциально сообщить об уязвимости. |
+| [Поддержка](docs/project/SUPPORT.md) | Где задать вопрос или сообщить о проблеме. |
+| [Выпуск версии](docs/project/RELEASING.md) | Как создать проверенный Windows-релиз. |
+| [Журнал изменений](docs/project/CHANGELOG.md) | Где отслеживать изменения версий. |
+| [Лицензия MIT](LICENSE) | Условия использования и вкладов. |
 
 ## Помощь и обратная связь
 

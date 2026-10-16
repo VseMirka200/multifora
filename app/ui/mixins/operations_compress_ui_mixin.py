@@ -8,7 +8,9 @@ from app.core.app_utils import _log_ignored_error
 class OperationsCompressUiMixin:
     # Согласует параметры сжатия с типами выбранных файлов и доступными средствами.
     def _auto_select_compress_type(self):
-        if not hasattr(self, "list_files") or not hasattr(self, "combo_compress_type"):
+        if not hasattr(self, "list_files") or not hasattr(
+            self, "combo_compress_type"
+        ):
             return
 
         candidates = self._get_selected_or_all_file_items()
@@ -50,7 +52,9 @@ class OperationsCompressUiMixin:
         selected_files = self._get_selected_or_all_file_items()
 
         compress_type = (
-            self.combo_compress_type.currentText() if hasattr(self, "combo_compress_type") else ""
+            self.combo_compress_type.currentText()
+            if hasattr(self, "combo_compress_type")
+            else ""
         )
         for file_item in selected_files:
             if compress_type == "PDF документы":
@@ -80,14 +84,22 @@ class OperationsCompressUiMixin:
 
     def _image_output_mode(self) -> str:
         combo = getattr(self, "combo_image_output_mode", None)
-        mode = str(combo.currentData() or "alongside") if combo is not None else "alongside"
-        return mode if mode in {"replace", "alongside", "custom"} else "alongside"
+        mode = (
+            str(combo.currentData() or "alongside")
+            if combo is not None
+            else "alongside"
+        )
+        return (
+            mode if mode in {"replace", "alongside", "custom"} else "alongside"
+        )
 
     def _image_output_path(self) -> str:
         field = getattr(self, "input_image_output_path", None)
         if field is not None:
             return str(field.text() or "").strip()
-        return str(getattr(self, "image_compression_output_path", "") or "").strip()
+        return str(
+            getattr(self, "image_compression_output_path", "") or ""
+        ).strip()
 
     def _sync_compress_mode_stack_height(self, target=None) -> None:
         """Fits the mode stack to dynamic controls of the currently shown page."""
@@ -127,7 +139,9 @@ class OperationsCompressUiMixin:
         if select_button is not None:
             select_button.setEnabled(custom_enabled)
 
-        self._sync_compress_mode_stack_height(getattr(self, "image_mode_widget", None))
+        self._sync_compress_mode_stack_height(
+            getattr(self, "image_mode_widget", None)
+        )
 
         self._update_compress_button()
         callback = getattr(self, "_schedule_settings_save", None)
@@ -141,7 +155,9 @@ class OperationsCompressUiMixin:
             selected_files = self._get_selected_or_all_file_items()
             if selected_files:
                 file_item = selected_files[0]
-                initial_path = os.path.dirname(str(getattr(file_item, "path", "") or ""))
+                initial_path = os.path.dirname(
+                    str(getattr(file_item, "path", "") or "")
+                )
 
         folder = QFileDialog.getExistingDirectory(
             self,
@@ -165,10 +181,16 @@ class OperationsCompressUiMixin:
         is_pdf_mode = "PDF" in str(compress_type)
 
         tips_text = ""
-        if hasattr(self, "compress_tips_label") and self.compress_tips_label is not None:
+        if (
+            hasattr(self, "compress_tips_label")
+            and self.compress_tips_label is not None
+        ):
             tips_text = self.compress_tips_label.text().strip()
 
-        if hasattr(self, "compress_mode_stack") and self.compress_mode_stack is not None:
+        if (
+            hasattr(self, "compress_mode_stack")
+            and self.compress_mode_stack is not None
+        ):
             target = (
                 getattr(self, "pdf_mode_widget", None)
                 if is_pdf_mode
@@ -178,11 +200,19 @@ class OperationsCompressUiMixin:
                 self.compress_mode_stack.setCurrentWidget(target)
                 self._sync_compress_mode_stack_height(target)
 
-        if hasattr(self, "compress_tips_label") and self.compress_tips_label is not None:
+        if (
+            hasattr(self, "compress_tips_label")
+            and self.compress_tips_label is not None
+        ):
             self.compress_tips_label.setVisible(bool(tips_text))
-            self.compress_tips_label.setMaximumHeight(16777215 if tips_text else 0)
+            self.compress_tips_label.setMaximumHeight(
+                16777215 if tips_text else 0
+            )
 
-        if hasattr(self, "compress_info_label") and self.compress_info_label is not None:
+        if (
+            hasattr(self, "compress_info_label")
+            and self.compress_info_label is not None
+        ):
             self.compress_info_label.setVisible(False)
             self.compress_info_label.setMaximumHeight(0)
 

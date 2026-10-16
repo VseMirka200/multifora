@@ -18,7 +18,9 @@ def _move_without_overwriting(source: str, target: str) -> None:
 def _temp_path(source: str) -> str:
     folder = os.path.dirname(source)
     while True:
-        candidate = os.path.join(folder, f".__multifora_{uuid.uuid4().hex}.tmp")
+        candidate = os.path.join(
+            folder, f".__multifora_{uuid.uuid4().hex}.tmp"
+        )
         if not os.path.lexists(candidate):
             return candidate
 
@@ -43,13 +45,16 @@ def rename_batch(
         if path_key(source) != path_key(target)
     }
     dependencies = any(
-        path_key(target) in vacated_sources and path_key(source) != path_key(target)
+        path_key(target) in vacated_sources
+        and path_key(source) != path_key(target)
         for source, target in zip(sources, targets, strict=True)
     )
     successes: list[tuple[int, str]] = []
     errors: list[tuple[int, Exception]] = []
     if not dependencies:
-        for index, (source, target) in enumerate(zip(sources, targets, strict=True)):
+        for index, (source, target) in enumerate(
+            zip(sources, targets, strict=True)
+        ):
             if cancelled():
                 break
             try:
@@ -75,7 +80,9 @@ def rename_batch(
             _move_without_overwriting(source, temp)
             temporary[index] = temp
 
-        for index, (_source, target) in enumerate(zip(sources, targets, strict=True)):
+        for index, (_source, target) in enumerate(
+            zip(sources, targets, strict=True)
+        ):
             current_index = index
             if cancelled():
                 raise InterruptedError("Операция отменена пользователем")

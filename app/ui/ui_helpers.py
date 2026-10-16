@@ -24,7 +24,9 @@ def configure_layout(layout, *, margins=MARGINS_NONE, spacing=SPACE_NONE):
     return layout
 
 
-def create_param_block(label_text: str, field: QWidget, *, spacing: int = SPACE_SM) -> QWidget:
+def create_param_block(
+    label_text: str, field: QWidget, *, spacing: int = SPACE_SM
+) -> QWidget:
     container = QWidget()
     layout = QVBoxLayout(container)
     configure_layout(layout, margins=MARGINS_NONE, spacing=spacing)

@@ -26,7 +26,10 @@ class RuntimeLoggingTests(unittest.TestCase):
                 runtime_logging.QtMsgType.QtWarningMsg, context, "warning"
             )
 
-        self.assertEqual(debug_log.call_args.args, ("Qt: warning (widget.cpp:12)", "WARNING"))
+        self.assertEqual(
+            debug_log.call_args.args,
+            ("Qt: warning (widget.cpp:12)", "WARNING"),
+        )
 
     def test_install_is_idempotent(self):
         original_state = runtime_logging._runtime_logging_installed
@@ -35,11 +38,15 @@ class RuntimeLoggingTests(unittest.TestCase):
             with (
                 patch.object(runtime_logging.sys, "excepthook"),
                 patch.object(runtime_logging.threading, "excepthook"),
-                patch.object(runtime_logging, "qInstallMessageHandler") as install_handler,
+                patch.object(
+                    runtime_logging, "qInstallMessageHandler"
+                ) as install_handler,
             ):
                 runtime_logging.install_runtime_logging()
                 runtime_logging.install_runtime_logging()
 
-            install_handler.assert_called_once_with(runtime_logging._log_qt_message)
+            install_handler.assert_called_once_with(
+                runtime_logging._log_qt_message
+            )
         finally:
             runtime_logging._runtime_logging_installed = original_state

@@ -3,7 +3,10 @@ import unittest
 from pathlib import Path
 
 from app.core.models import FileItem
-from app.core.rename_validation import analyze_rename_plan, format_rename_plan_issues
+from app.core.rename_validation import (
+    analyze_rename_plan,
+    format_rename_plan_issues,
+)
 
 
 class RenameValidationTests(unittest.TestCase):
@@ -17,7 +20,10 @@ class RenameValidationTests(unittest.TestCase):
                 [FileItem(str(first)), FileItem(str(second))],
                 ["same.txt", "SAME.txt"],
             )
-        self.assertEqual([issue.kind for issue in issues], ["duplicate_target", "duplicate_target"])
+        self.assertEqual(
+            [issue.kind for issue in issues],
+            ["duplicate_target", "duplicate_target"],
+        )
         self.assertFalse(any(issue.blocking for issue in issues))
 
     def test_existing_target_and_invalid_windows_name_are_reported(self):

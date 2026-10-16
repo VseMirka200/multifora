@@ -29,7 +29,9 @@ class FileWorker(
     status = pyqtSignal(str)
     finished = pyqtSignal(object)
     error = pyqtSignal(str)  # Только критическая ошибка всей операции
-    file_error = pyqtSignal(str)  # Ошибка отдельного файла, обработка продолжается
+    file_error = pyqtSignal(
+        str
+    )  # Ошибка отдельного файла, обработка продолжается
     _get_unique_path = staticmethod(get_unique_path)
 
     def __init__(self) -> None:
@@ -95,8 +97,12 @@ class FileWorker(
             entry["name"] = getattr(file_item, "name", None)
         self.errors.append(entry)
 
-    def _record_warning(self, file_item: FileItem | None, message: str) -> None:
-        self.warnings.append({"path": getattr(file_item, "path", None), "message": message})
+    def _record_warning(
+        self, file_item: FileItem | None, message: str
+    ) -> None:
+        self.warnings.append(
+            {"path": getattr(file_item, "path", None), "message": message}
+        )
 
     def _emit_finished(
         self,
@@ -112,7 +118,9 @@ class FileWorker(
             )
         )
 
-    def _prepare_operation(self, operation: str, files: list[FileItem]) -> None:
+    def _prepare_operation(
+        self, operation: str, files: list[FileItem]
+    ) -> None:
         with self._cancel_lock:
             self._cancel_requested = False
             self._active_cancel_action = None
@@ -134,7 +142,9 @@ class FileWorker(
         self.conversion_format = conversion_format
         self.conversion_output_dir = str(output_dir or "").strip()
         if output_mode is None:
-            output_mode = "custom" if self.conversion_output_dir else "source_subfolder"
+            output_mode = (
+                "custom" if self.conversion_output_dir else "source_subfolder"
+            )
         self.conversion_output_mode = (
             output_mode
             if output_mode in {"alongside", "source_subfolder", "custom"}
@@ -199,15 +209,22 @@ class FileWorker(
             if self.strict_rename:
                 requested = [
                     os.path.join(file.folder, name)
-                    for file, name in zip(self.files, self.new_names, strict=True)
+                    for file, name in zip(
+                        self.files, self.new_names, strict=True
+                    )
                 ]
                 if any(
-                    os.path.normcase(actual).casefold() != os.path.normcase(desired).casefold()
+                    os.path.normcase(actual).casefold()
+                    != os.path.normcase(desired).casefold()
                     for actual, desired in zip(targets, requested, strict=True)
                 ):
-                    raise ValueError("Откат невозможен: исходные имена заняты другими файлами")
+                    raise ValueError(
+                        "Откат невозможен: исходные имена заняты другими файлами"
+                    )
         except ValueError as error:
-            record_file_error(self, None, f"Ошибка плана переименования: {error}")
+            record_file_error(
+                self, None, f"Ошибка плана переименования: {error}"
+            )
             self._emit_finished([], [])
             return
 
@@ -229,7 +246,9 @@ class FileWorker(
             )
         if self._should_cancel():
             self.status.emit("Операция отменена пользователем")
-        self._emit_finished([], [(self.files[index], target) for index, target in successes])
+        self._emit_finished(
+            [], [(self.files[index], target) for index, target in successes]
+        )
 
     def _operation_handlers(self) -> dict[str, Callable[[], None]]:
         return {

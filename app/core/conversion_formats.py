@@ -17,7 +17,9 @@ CATEGORY_FILE_TYPES: dict[str, str] = {
     DOCUMENT_CATEGORY: "document",
     IMAGE_CATEGORY: "image",
 }
-_FILE_TYPE_CATEGORIES = {file_type: category for category, file_type in CATEGORY_FILE_TYPES.items()}
+_FILE_TYPE_CATEGORIES = {
+    file_type: category for category, file_type in CATEGORY_FILE_TYPES.items()
+}
 
 MIXED_SOURCE_LABELS: dict[str, str] = {
     DOCUMENT_CATEGORY: "Любой поддерживаемый документ",
@@ -182,8 +184,12 @@ def _extensions_for_formats(format_labels: Iterable[str]) -> tuple[str, ...]:
 
 
 FILE_TYPE_EXTENSIONS: dict[str, frozenset[str]] = {
-    "document": frozenset(_extensions_for_formats(CATEGORY_SOURCE_FORMATS[DOCUMENT_CATEGORY])),
-    "image": frozenset(_extensions_for_formats(CATEGORY_SOURCE_FORMATS[IMAGE_CATEGORY])),
+    "document": frozenset(
+        _extensions_for_formats(CATEGORY_SOURCE_FORMATS[DOCUMENT_CATEGORY])
+    ),
+    "image": frozenset(
+        _extensions_for_formats(CATEGORY_SOURCE_FORMATS[IMAGE_CATEGORY])
+    ),
     "archive": frozenset((".zip", ".rar", ".7z", ".tar", ".gz")),
 }
 KNOWN_FILE_EXTENSIONS = frozenset().union(*FILE_TYPE_EXTENSIONS.values())
@@ -207,10 +213,14 @@ def mixed_source_label_for_category(category: str) -> str:
 def is_mixed_source_label(category: str, label: str) -> bool:
     """Проверяет, выбран ли режим смешанных исходных форматов."""
     normalized_label = _normalize_label(label)
-    return bool(normalized_label) and normalized_label == mixed_source_label_for_category(category)
+    return bool(
+        normalized_label
+    ) and normalized_label == mixed_source_label_for_category(category)
 
 
-def compatible_targets_for_source(category: str, source_label: str) -> list[str]:
+def compatible_targets_for_source(
+    category: str, source_label: str
+) -> list[str]:
     """Возвращает доступные цели для одного источника или смешанного режима."""
     normalized_category = _normalize_label(category)
     normalized_source = _normalize_label(source_label)
@@ -243,7 +253,9 @@ def suffix_for_format(format_label: str) -> str:
 def matches_format(path: str, format_label: str) -> bool:
     """Проверяет соответствие расширения пути выбранному формату."""
     extension = os.path.splitext(str(path or ""))[1].lower()
-    return extension in FORMAT_EXTENSIONS.get(_normalize_label(format_label), ())
+    return extension in FORMAT_EXTENSIONS.get(
+        _normalize_label(format_label), ()
+    )
 
 
 def extensions_for_category(category: str) -> tuple[str, ...]:
@@ -256,6 +268,8 @@ def build_file_dialog_filter() -> str:
     """Формирует фильтр выбора файлов из общего реестра конвертации."""
     groups = ["Все файлы (*.*)"]
     for category in CONVERSION_CATEGORIES:
-        masks = " ".join(f"*{extension}" for extension in extensions_for_category(category))
+        masks = " ".join(
+            f"*{extension}" for extension in extensions_for_category(category)
+        )
         groups.append(f"{category} ({masks})")
     return ";;".join(groups)

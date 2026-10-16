@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 
-def save_optimized_image(image, destination: str, extension: str, quality: int) -> None:
+def save_optimized_image(
+    image, destination: str, extension: str, quality: int
+) -> None:
     """Сохраняет формат и режим изображения, кроме JPEG, не поддерживающего alpha."""
     ext = extension.lower()
     quality = max(1, min(95, int(quality)))
     info = image.info
-    metadata = {key: info[key] for key in ("icc_profile", "exif") if info.get(key)}
+    metadata = {
+        key: info[key] for key in ("icc_profile", "exif") if info.get(key)
+    }
     if ext in {".jpg", ".jpeg"}:
         if image.mode == "RGB":
             rgb = image
@@ -38,6 +42,8 @@ def save_optimized_image(image, destination: str, extension: str, quality: int) 
             **metadata,
         )
     elif ext == ".webp":
-        image.save(destination, format="WEBP", quality=quality, method=6, **metadata)
+        image.save(
+            destination, format="WEBP", quality=quality, method=6, **metadata
+        )
     else:
         image.save(destination)

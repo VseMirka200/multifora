@@ -63,13 +63,27 @@ def _run_build_smoke_test() -> int:
         # Smoke-проверка не должна менять ярлыки, реестр, IPC-файлы и настройки
         # рабочей установки или обращаться к сети.
         with (
-            patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
             patch.object(
-                MultiforaMainWindow, "ensure_context_menu_registration", return_value=None
+                MultiforaMainWindow,
+                "apply_shortcut_settings",
+                return_value=None,
             ),
-            patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
-            patch.object(MultiforaMainWindow, "process_startup_queue", return_value=None),
-            patch.object(MultiforaMainWindow, "check_updates_on_startup", return_value=None),
+            patch.object(
+                MultiforaMainWindow,
+                "ensure_context_menu_registration",
+                return_value=None,
+            ),
+            patch.object(
+                MultiforaMainWindow, "create_ipc_server", return_value=None
+            ),
+            patch.object(
+                MultiforaMainWindow, "process_startup_queue", return_value=None
+            ),
+            patch.object(
+                MultiforaMainWindow,
+                "check_updates_on_startup",
+                return_value=None,
+            ),
         ):
             window = MultiforaMainWindow()
         window.show()
@@ -102,7 +116,8 @@ def _run_build_smoke_test() -> int:
                 destination = Path(report_path)
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 destination.write_text(
-                    json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+                    json.dumps(report, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
                 )
             except OSError:
                 pass
@@ -129,7 +144,9 @@ def main():
     if not first:
         sent = send_files_to_running_instance(startup_files)
         if startup_files and not sent:
-            _debug_log("Не удалось передать стартовые файлы уже запущенному экземпляру")
+            _debug_log(
+                "Не удалось передать стартовые файлы уже запущенному экземпляру"
+            )
             _enqueue_files(startup_files)
         sys.exit(0)
 

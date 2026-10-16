@@ -6,7 +6,11 @@ import time
 import app.core.deps as deps
 from app.core.app_utils import _debug_log
 from app.core.models import FileItem
-from core.workers.common import emit_progress, finish_if_cancelled, record_file_error
+from core.workers.common import (
+    emit_progress,
+    finish_if_cancelled,
+    record_file_error,
+)
 
 from .image_optimizer import save_optimized_image
 
@@ -121,7 +125,9 @@ def _stop_process(process: subprocess.Popen) -> None:
     try:
         process.terminate()
     except OSError as terminate_error:
-        _debug_log(f"Не удалось отправить процессу сигнал завершения: {terminate_error}")
+        _debug_log(
+            f"Не удалось отправить процессу сигнал завершения: {terminate_error}"
+        )
     else:
         try:
             process.wait(timeout=0.5)
@@ -134,23 +140,31 @@ def _stop_process(process: subprocess.Popen) -> None:
     try:
         process.kill()
     except OSError as kill_error:
-        _debug_log(f"Не удалось принудительно остановить процесс сжатия: {kill_error}")
+        _debug_log(
+            f"Не удалось принудительно остановить процесс сжатия: {kill_error}"
+        )
 
 
 class CompressionMixin:
     # Сжимает изображения и PDF, сохраняя исходник до успешного завершения записи.
     def _image_compression_target_path(self, file, extension: str) -> str:
-        mode = str(getattr(self, "image_output_mode", "alongside") or "alongside")
+        mode = str(
+            getattr(self, "image_output_mode", "alongside") or "alongside"
+        )
         source_stem = os.path.splitext(file.name)[0]
         output_folder = os.path.dirname(file.path)
 
         if mode == "custom":
-            output_folder = str(getattr(self, "image_output_dir", "") or "").strip()
+            output_folder = str(
+                getattr(self, "image_output_dir", "") or ""
+            ).strip()
             if not output_folder:
                 raise Exception("Не указана папка для сжатых изображений.")
             os.makedirs(output_folder, exist_ok=True)
 
-        target_path = os.path.join(output_folder, f"{source_stem}_compressed{extension}")
+        target_path = os.path.join(
+            output_folder, f"{source_stem}_compressed{extension}"
+        )
         return self._get_unique_path(target_path)
 
     def _compress_image_files(self):
@@ -164,23 +178,41 @@ class CompressionMixin:
             try:
                 if file.is_file and file.file_type == "image":
                     ext = os.path.splitext(file.name)[1].lower()
-                    compressed_path = self._image_compression_target_path(file, ext)
+                    compressed_path = self._image_compression_target_path(
+                        file, ext
+                    )
 
                     if deps.HAS_PIL:
                         try:
                             with deps.Image.open(file.path) as img:
                                 save_optimized_image(
-                                    img, compressed_path, ext, self.compression_level
+                                    img,
+                                    compressed_path,
+                                    ext,
+                                    self.compression_level,
                                 )
 
                                 original_size = os.path.getsize(file.path)
-                                compressed_size = os.path.getsize(compressed_path)
+                                compressed_size = os.path.getsize(
+                                    compressed_path
+                                )
 
                                 if compressed_size < original_size:
-                                    ratio = (1 - compressed_size / original_size) * 100
-                                    if getattr(self, "image_output_mode", "alongside") == "replace":
+                                    ratio = (
+                                        1 - compressed_size / original_size
+                                    ) * 100
+                                    if (
+                                        getattr(
+                                            self,
+                                            "image_output_mode",
+                                            "alongside",
+                                        )
+                                        == "replace"
+                                    ):
                                         try:
-                                            os.replace(compressed_path, file.path)
+                                            os.replace(
+                                                compressed_path, file.path
+                                            )
                                             updated.append((file, file.path))
                                             self.status.emit(
                                                 f"Изображение сжато и заменено: {file.name} (-{ratio:.1f}%)"
@@ -188,15 +220,21 @@ class CompressionMixin:
                                         except Exception as replace_error:
                                             msg = f"Ошибка замены {file.name}: {replace_error}"
                                             record_file_error(self, file, msg)
-                                            _remove_file_safely(compressed_path)
+                                            _remove_file_safely(
+                                                compressed_path
+                                            )
                                     else:
-                                        results.append(FileItem(compressed_path))
+                                        results.append(
+                                            FileItem(compressed_path)
+                                        )
                                         self.status.emit(
                                             f"Изображение сжато: {file.name} (-{ratio:.1f}%)"
                                         )
                                 else:
                                     os.remove(compressed_path)
-                                    self.status.emit(f"Изображение уже оптимизировано: {file.name}")
+                                    self.status.emit(
+                                        f"Изображение уже оптимизировано: {file.name}"
+                                    )
 
                         except Exception as img_error:
                             _remove_file_safely(compressed_path)
@@ -243,8 +281,10 @@ class CompressionMixin:
                 success = False
                 compression_method = ""
                 if deps.HAS_GHOSTSCRIPT:
-                    success, compression_method, _ = self._compress_pdf_with_ghostscript(
-                        file.path, compressed_path
+                    success, compression_method, _ = (
+                        self._compress_pdf_with_ghostscript(
+                            file.path, compressed_path
+                        )
                     )
                 if self._should_cancel():
                     self.status.emit("Операция отменена пользователем")
@@ -253,8 +293,10 @@ class CompressionMixin:
                     return
 
                 if not success and deps.HAS_PYMUPDF:
-                    success, compression_method, _ = self._compress_pdf_with_pymupdf(
-                        file.path, compressed_path
+                    success, compression_method, _ = (
+                        self._compress_pdf_with_pymupdf(
+                            file.path, compressed_path
+                        )
                     )
                 if self._should_cancel():
                     self.status.emit("Операция отменена пользователем")
@@ -299,15 +341,25 @@ class CompressionMixin:
                                 elif out_size >= original_size:
                                     self._last_pdf_error = "уже оптимизирован"
                             except OSError as error:
-                                _debug_log(f"Не удалось проверить результат сжатия PDF: {error}")
-                                self._last_pdf_error = "не удалось проверить результат"
+                                _debug_log(
+                                    f"Не удалось проверить результат сжатия PDF: {error}"
+                                )
+                                self._last_pdf_error = (
+                                    "не удалось проверить результат"
+                                )
                         else:
                             self._last_pdf_error = "выходной файл не создан"
                     if self._last_pdf_error == "уже оптимизирован":
                         self.status.emit(f"PDF уже оптимален: {file.name}")
                     else:
-                        reason = f" ({self._last_pdf_error})" if self._last_pdf_error else ""
-                        self.status.emit(f"Не удалось сжать PDF: {file.name}{reason}")
+                        reason = (
+                            f" ({self._last_pdf_error})"
+                            if self._last_pdf_error
+                            else ""
+                        )
+                        self.status.emit(
+                            f"Не удалось сжать PDF: {file.name}{reason}"
+                        )
                     _remove_file_safely(compressed_path)
                     self._last_pdf_error = ""
 
@@ -366,11 +418,17 @@ class CompressionMixin:
                     stdout=subprocess.DEVNULL,
                     stderr=error_log,
                     text=True,
-                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+                    creationflags=subprocess.CREATE_NO_WINDOW
+                    if os.name == "nt"
+                    else 0,
                 )
                 cancel_action = process.terminate
-                register_cancel = getattr(self, "_set_active_cancel_action", None)
-                clear_cancel = getattr(self, "_clear_active_cancel_action", None)
+                register_cancel = getattr(
+                    self, "_set_active_cancel_action", None
+                )
+                clear_cancel = getattr(
+                    self, "_clear_active_cancel_action", None
+                )
                 if callable(register_cancel):
                     register_cancel(cancel_action)
                 try:
@@ -398,11 +456,16 @@ class CompressionMixin:
             result_returncode = process.returncode
 
             if result_returncode == 0:
-                if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                if (
+                    os.path.exists(output_path)
+                    and os.path.getsize(output_path) > 0
+                ):
                     new_size = os.path.getsize(output_path)
                     ratio = (1 - new_size / original_size) * 100
                     if new_size < original_size:
-                        method_name = self._get_compression_method_name(settings)
+                        method_name = self._get_compression_method_name(
+                            settings
+                        )
                         return True, f"Ghostscript ({method_name})", ratio
                     return False, "", 0.0
                 _debug_log("Ghostscript создал пустой файл")
@@ -412,7 +475,9 @@ class CompressionMixin:
             err = (stderr or "").strip()[:500]
             _debug_log(f"Ghostscript ошибка: {err}")
             self._last_pdf_error = (
-                f"Ghostscript: {err}" if err else "Ghostscript: неизвестная ошибка"
+                f"Ghostscript: {err}"
+                if err
+                else "Ghostscript: неизвестная ошибка"
             )
             return False, "", 0.0
 
@@ -441,11 +506,16 @@ class CompressionMixin:
                     self.pdf_method,
                     _PYMUPDF_PROFILES["auto"],
                 )
-                document.save(output_path, garbage=garbage, deflate=True, clean=True)
+                document.save(
+                    output_path, garbage=garbage, deflate=True, clean=True
+                )
             finally:
                 document.close()
 
-            if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+            if (
+                os.path.exists(output_path)
+                and os.path.getsize(output_path) > 0
+            ):
                 new_size = os.path.getsize(output_path)
                 ratio = (1 - new_size / original_size) * 100
                 if new_size < original_size:
@@ -466,11 +536,16 @@ class CompressionMixin:
             if self.files:
                 file_size = os.path.getsize(self.files[0].path)
                 profile_name = (
-                    "auto_large" if file_size > _LARGE_PDF_THRESHOLD_BYTES else "auto_standard"
+                    "auto_large"
+                    if file_size > _LARGE_PDF_THRESHOLD_BYTES
+                    else "auto_standard"
                 )
             else:
                 profile_name = "standard"
-        return {**_GHOSTSCRIPT_COMMON_SETTINGS, **_GHOSTSCRIPT_PROFILES[profile_name]}
+        return {
+            **_GHOSTSCRIPT_COMMON_SETTINGS,
+            **_GHOSTSCRIPT_PROFILES[profile_name],
+        }
 
     def _get_compression_method_name(self, settings):
         return settings.get("method_name", "Стандарт")

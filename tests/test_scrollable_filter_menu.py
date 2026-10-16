@@ -25,7 +25,9 @@ class ScrollableFilterMenuTests(unittest.TestCase):
         previous_style = self.app.styleSheet()
         self.app.setStyleSheet(DARK_APPLICATION_STYLE)
         menu = ScrollableFilterMenu(max_visible_items=8)
-        self.assertTrue(menu.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground))
+        self.assertTrue(
+            menu.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        )
         self.assertTrue(menu.windowFlags() & Qt.WindowType.FramelessWindowHint)
         menu.addAction("Снять все отметки")
         menu.addSeparator()
@@ -57,7 +59,9 @@ class ScrollableFilterMenuTests(unittest.TestCase):
         self.assertTrue(filter_list.verticalScrollBar().isVisible())
         self.assertEqual(filter_list.verticalScrollBar().width(), 14)
         scroll_bar = filter_list.verticalScrollBar()
-        scroll_bar_right = scroll_bar.mapTo(menu, QPoint(0, 0)).x() + scroll_bar.width()
+        scroll_bar_right = (
+            scroll_bar.mapTo(menu, QPoint(0, 0)).x() + scroll_bar.width()
+        )
         self.assertLessEqual(scroll_bar_right, menu.width())
 
         menu._update_filter_list_height(FIELD_HEIGHT * 5)
@@ -83,8 +87,14 @@ class ScrollableFilterMenuTests(unittest.TestCase):
 
     def test_menu_like_combo_uses_transparent_popup_corners(self):
         combo = MenuLikeComboBox()
-        self.assertTrue(combo.menu().testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground))
-        self.assertTrue(combo.menu().windowFlags() & Qt.WindowType.FramelessWindowHint)
+        self.assertTrue(
+            combo.menu().testAttribute(
+                Qt.WidgetAttribute.WA_TranslucentBackground
+            )
+        )
+        self.assertTrue(
+            combo.menu().windowFlags() & Qt.WindowType.FramelessWindowHint
+        )
         combo.deleteLater()
 
 

@@ -59,13 +59,19 @@ class RenameHistoryMixin:
             ts = entry.get("timestamp")
             count = entry.get("count", 0)
             label = entry.get("label")
-            time_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts)) if ts else ""
+            time_str = (
+                time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
+                if ts
+                else ""
+            )
             if not label:
                 label = f"{count} файлов"
             text = f"{time_str} • {label}" if time_str else label
             history_list.addItem(text)
         if history_list.count():
-            target_row = current_row if 0 <= current_row < history_list.count() else 0
+            target_row = (
+                current_row if 0 <= current_row < history_list.count() else 0
+            )
             history_list.setCurrentRow(target_row)
         history_list.blockSignals(False)
         self._is_history_refresh = False
@@ -77,7 +83,9 @@ class RenameHistoryMixin:
         dialog.setModal(True)
         dialog.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
         dialog.setMinimumSize(520, 320)
-        dialog._effective_theme_mode = getattr(self, "_effective_theme_mode", "dark")
+        dialog._effective_theme_mode = getattr(
+            self, "_effective_theme_mode", "dark"
+        )
         dialog.setStyleSheet(self.styleSheet())
 
         layout = QVBoxLayout(dialog)
@@ -90,8 +98,12 @@ class RenameHistoryMixin:
 
         history_list = QListWidget(dialog)
         history_list.setObjectName("rename_history_list")
-        history_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        history_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        history_list.setSelectionMode(
+            QAbstractItemView.SelectionMode.SingleSelection
+        )
+        history_list.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
         history_list.currentRowChanged.connect(self.on_history_row_changed)
         layout.addWidget(history_list, 1)
 
@@ -129,7 +141,9 @@ class RenameHistoryMixin:
         entry.setdefault("count", len(entry.get("pairs", [])))
         self._rename_history.append(entry)
         if len(self._rename_history) > self._max_rename_history:
-            self._rename_history = self._rename_history[-self._max_rename_history :]
+            self._rename_history = self._rename_history[
+                -self._max_rename_history :
+            ]
         self._refresh_rename_history_view()
 
     def _start_rename_from_pairs(self, pairs):
@@ -148,14 +162,18 @@ class RenameHistoryMixin:
         self.file_worker.set_rename(files, new_names, strict=True)
         self.file_worker.start()
         if callable(getattr(self, "_show_progress_dialog", None)):
-            self._show_progress_dialog(f"Переименование {len(pairs)} файлов...")
+            self._show_progress_dialog(
+                f"Переименование {len(pairs)} файлов..."
+            )
         return True
 
     def undo_last_rename(self):
         if not self._ensure_operation_can_start():
             return
         if not self._rename_history:
-            QMessageBox.information(self, "Информация", "Нет операций для отката.")
+            QMessageBox.information(
+                self, "Информация", "Нет операций для отката."
+            )
             return
 
         selected = self._get_selected_history_entry()
@@ -196,5 +214,7 @@ class RenameHistoryMixin:
             return
 
         self.log_event(f"Откат переименования: {len(pairs)} файлов")
-        self.status_bar.showMessage(f"Откат переименования {len(pairs)} файлов...")
+        self.status_bar.showMessage(
+            f"Откат переименования {len(pairs)} файлов..."
+        )
         self._update_undo_button()

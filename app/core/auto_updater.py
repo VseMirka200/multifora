@@ -28,7 +28,10 @@ def _find_asset(release: dict, predicate) -> dict:
 
 def _download(url: str, destination: Path, timeout: int = 30) -> None:
     request = Request(url, headers={"User-Agent": _USER_AGENT})
-    with urlopen(request, timeout=timeout) as response, destination.open("wb") as file:
+    with (
+        urlopen(request, timeout=timeout) as response,
+        destination.open("wb") as file,
+    ):
         while chunk := response.read(1024 * 1024):
             file.write(chunk)
 
@@ -36,7 +39,9 @@ def _download(url: str, destination: Path, timeout: int = 30) -> None:
 def _verify_checksum(installer: Path, checksum_file: Path) -> None:
     parts = checksum_file.read_text(encoding="utf-8").split()
     if not parts:
-        raise RuntimeError("Не удалось прочитать контрольную сумму установщика.")
+        raise RuntimeError(
+            "Не удалось прочитать контрольную сумму установщика."
+        )
     expected = parts[0].lower()
     digest = hashlib.sha256()
     with installer.open("rb") as file:
@@ -44,7 +49,9 @@ def _verify_checksum(installer: Path, checksum_file: Path) -> None:
             digest.update(chunk)
     actual = digest.hexdigest().lower()
     if expected != actual:
-        raise RuntimeError("Контрольная сумма загруженного установщика не совпадает.")
+        raise RuntimeError(
+            "Контрольная сумма загруженного установщика не совпадает."
+        )
 
 
 def download_and_launch_latest_installer(timeout: int = 30) -> str:
@@ -62,7 +69,10 @@ def download_and_launch_latest_installer(timeout: int = 30) -> str:
     release = _fetch_json(RELEASES_LATEST_API, timeout=timeout)
     installer_asset = _find_asset(
         release,
-        lambda name: name.startswith(_INSTALLER_PREFIX) and name.lower().endswith(".exe"),
+        lambda name: (
+            name.startswith(_INSTALLER_PREFIX)
+            and name.lower().endswith(".exe")
+        ),
     )
     checksum_asset = _find_asset(
         release,

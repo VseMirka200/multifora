@@ -53,7 +53,9 @@ class StartupDispatchTests(unittest.TestCase):
     @patch("multifora_start._set_app_user_model_id")
     @patch("multifora_start._get_app_icon_qt_path", return_value=None)
     @patch("multifora_start.QApplication", return_value=_DummyApp())
-    @patch("multifora_start.collect_startup_files", return_value=[r"C:\tmp\a.pdf"])
+    @patch(
+        "multifora_start.collect_startup_files", return_value=[r"C:\tmp\a.pdf"]
+    )
     @patch("multifora_start.is_first_instance", return_value=False)
     @patch("multifora_start.send_files_to_running_instance", return_value=True)
     @patch("multifora_start._enqueue_files")
@@ -78,9 +80,13 @@ class StartupDispatchTests(unittest.TestCase):
     @patch("multifora_start._set_app_user_model_id")
     @patch("multifora_start._get_app_icon_qt_path", return_value=None)
     @patch("multifora_start.QApplication", return_value=_DummyApp())
-    @patch("multifora_start.collect_startup_files", return_value=[r"C:\tmp\a.pdf"])
+    @patch(
+        "multifora_start.collect_startup_files", return_value=[r"C:\tmp\a.pdf"]
+    )
     @patch("multifora_start.is_first_instance", return_value=False)
-    @patch("multifora_start.send_files_to_running_instance", return_value=False)
+    @patch(
+        "multifora_start.send_files_to_running_instance", return_value=False
+    )
     @patch("multifora_start._enqueue_files")
     @patch("multifora_start._debug_log")
     @patch("multifora_start.sys.exit", side_effect=SystemExit)

@@ -1,6 +1,13 @@
 import os
 
-from PyQt6.QtCore import QFile, QItemSelectionModel, QMimeData, QPoint, Qt, QUrl
+from PyQt6.QtCore import (
+    QFile,
+    QItemSelectionModel,
+    QMimeData,
+    QPoint,
+    Qt,
+    QUrl,
+)
 from PyQt6.QtWidgets import QApplication, QMenu, QMessageBox
 
 from app.core.message_boxes import show_app_confirmation_with_checkbox
@@ -19,9 +26,13 @@ class FileListContextMixin:
         if not self.files:
             return
         index = self.list_files.indexAt(pos)
-        if index.isValid() and not self.list_files.selectionModel().isSelected(index):
+        if index.isValid() and not self.list_files.selectionModel().isSelected(
+            index
+        ):
             self.list_files.clearSelection()
-            self.list_files.selectionModel().select(index, QItemSelectionModel.SelectionFlag.Select)
+            self.list_files.selectionModel().select(
+                index, QItemSelectionModel.SelectionFlag.Select
+            )
 
         selected_items = self._get_selected_file_items()
         if not selected_items:
@@ -56,7 +67,9 @@ class FileListContextMixin:
                     os.startfile(file_item.path)
                     self.log_event(f"Открыт файл: {file_item.path}")
                 else:
-                    QMessageBox.information(self, "Информация", f"Файл не найден: {file_item.name}")
+                    QMessageBox.information(
+                        self, "Информация", f"Файл не найден: {file_item.name}"
+                    )
             except Exception as e:
                 QMessageBox.information(
                     self,
@@ -77,7 +90,9 @@ class FileListContextMixin:
                 else:
                     self.log_event(f"Файл не найден: {file_item.path}", "WARN")
             except Exception as e:
-                self.log_event(f"Ошибка открытия: {file_item.path} ({e})", "ERROR")
+                self.log_event(
+                    f"Ошибка открытия: {file_item.path} ({e})", "ERROR"
+                )
         if opened:
             self.status_bar.showMessage(f"Открыто: {opened}")
 
@@ -91,7 +106,9 @@ class FileListContextMixin:
             if os.path.exists(file_item.path)
         ]
         if not urls:
-            QMessageBox.information(self, "Информация", "Не удалось скопировать: файлы не найдены")
+            QMessageBox.information(
+                self, "Информация", "Не удалось скопировать: файлы не найдены"
+            )
             return
         mime = QMimeData()
         mime.setUrls(urls)
@@ -101,7 +118,9 @@ class FileListContextMixin:
     def rename_selected_item(self):
         selected = self._get_selected_file_items()
         if len(selected) != 1:
-            QMessageBox.information(self, "Информация", "Выберите один файл для переименования")
+            QMessageBox.information(
+                self, "Информация", "Выберите один файл для переименования"
+            )
             return
         file_item = selected[0]
         if not os.path.exists(file_item.path):
@@ -124,7 +143,9 @@ class FileListContextMixin:
             return
         new_path = os.path.join(os.path.dirname(file_item.path), new_name)
         if os.path.exists(new_path):
-            QMessageBox.warning(self, "Ошибка", "Файл с таким именем уже существует")
+            QMessageBox.warning(
+                self, "Ошибка", "Файл с таким именем уже существует"
+            )
             return
         try:
             os.rename(file_item.path, new_path)
@@ -135,7 +156,9 @@ class FileListContextMixin:
             self.update_file_info()
             self.status_bar.showMessage("Переименовано")
         except Exception as e:
-            QMessageBox.warning(self, "Ошибка", f"Не удалось переименовать: {e}")
+            QMessageBox.warning(
+                self, "Ошибка", f"Не удалось переименовать: {e}"
+            )
 
     def remove_selected_files_from_list(self):
         selected = self._get_selected_file_items()
@@ -167,7 +190,9 @@ class FileListContextMixin:
                 try:
                     if os.path.exists(item.path):
                         if not QFile.moveToTrash(item.path):
-                            raise OSError("операционная система отклонила перемещение")
+                            raise OSError(
+                                "операционная система отклонила перемещение"
+                            )
                         trashed_files += 1
                 except (OSError, RuntimeError) as error:
                     failed_moves.append(f"{item.path}: {error}")

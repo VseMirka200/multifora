@@ -45,7 +45,9 @@ def _set_widget_value_without_signals(widget, setter, context: str) -> None:
             try:
                 widget.blockSignals(previous_state)
             except Exception as error:
-                _log_settings_error(f"восстановления сигналов после {context}", error)
+                _log_settings_error(
+                    f"восстановления сигналов после {context}", error
+                )
 
 
 def _set_checkbox_state(checkbox, checked: bool) -> None:
@@ -104,7 +106,10 @@ def _restore_file_list_view_state(window, state: dict) -> None:
         window._column_sort_section = section
         window._column_sort_order = order
         file_list = getattr(window, "list_files", None)
-        if file_list is not None and 0 <= section < file_list.model().columnCount():
+        if (
+            file_list is not None
+            and 0 <= section < file_list.model().columnCount()
+        ):
             header = file_list.horizontalHeader()
             header.setSortIndicator(section, order)
             header.setSortIndicatorShown(True)
@@ -129,7 +134,9 @@ def _migrate_legacy_settings(target_file: str) -> None:
             if os.path.exists(candidate):
                 existing_candidates.append(candidate)
         except OSError as error:
-            _log_settings_error(f"проверки старого файла настроек {candidate}", error)
+            _log_settings_error(
+                f"проверки старого файла настроек {candidate}", error
+            )
 
     if not existing_candidates:
         return
@@ -137,13 +144,13 @@ def _migrate_legacy_settings(target_file: str) -> None:
     try:
         newest_candidate = max(existing_candidates, key=os.path.getmtime)
         target_exists = os.path.exists(target_file)
-        target_is_older = target_exists and os.path.getmtime(newest_candidate) > os.path.getmtime(
-            target_file
-        )
+        target_is_older = target_exists and os.path.getmtime(
+            newest_candidate
+        ) > os.path.getmtime(target_file)
         should_migrate = not target_exists or target_is_older
-        if not should_migrate or os.path.normcase(newest_candidate) == os.path.normcase(
-            target_file
-        ):
+        if not should_migrate or os.path.normcase(
+            newest_candidate
+        ) == os.path.normcase(target_file):
             return
 
         with open(newest_candidate, encoding="utf-8") as source:
@@ -156,7 +163,9 @@ def _migrate_legacy_settings(target_file: str) -> None:
 
 def get_settings_file_path() -> str:
     """Возвращает полный путь к файлу настроек (в Documents пользователя)."""
-    target_dir = os.path.join(os.path.expanduser("~"), "Documents", "Multifora")
+    target_dir = os.path.join(
+        os.path.expanduser("~"), "Documents", "Multifora"
+    )
     os.makedirs(target_dir, exist_ok=True)
     target_file = os.path.join(target_dir, _SETTINGS_FILENAME)
     _migrate_legacy_settings(target_file)
@@ -208,7 +217,10 @@ def _restore_boolean_option(
 
 
 def _restore_operations_tab_state(window, data: dict) -> None:
-    if "operations_tab_index" not in data and "operations_tab_label" not in data:
+    if (
+        "operations_tab_index" not in data
+        and "operations_tab_label" not in data
+    ):
         return
     operations_tab_bar = getattr(window, "operations_tab_bar", None)
     if operations_tab_bar is None:
@@ -221,7 +233,10 @@ def _restore_operations_tab_state(window, data: dict) -> None:
 
         if saved_label:
             for candidate in range(operations_tab_bar.count()):
-                if operations_tab_bar.tabText(candidate).casefold() == saved_label.casefold():
+                if (
+                    operations_tab_bar.tabText(candidate).casefold()
+                    == saved_label.casefold()
+                ):
                     index = candidate
                     break
             if index == settings_index:
@@ -237,7 +252,8 @@ def _restore_operations_tab_state(window, data: dict) -> None:
                     (
                         candidate
                         for candidate in range(operations_tab_bar.count())
-                        if operations_tab_bar.tabText(candidate).casefold() == target_label.casefold()
+                        if operations_tab_bar.tabText(candidate).casefold()
+                        == target_label.casefold()
                     ),
                     0,
                 )
@@ -246,7 +262,8 @@ def _restore_operations_tab_state(window, data: dict) -> None:
                     (
                         candidate
                         for candidate in range(operations_tab_bar.count())
-                        if operations_tab_bar.tabText(candidate).casefold() == "Сжатие".casefold()
+                        if operations_tab_bar.tabText(candidate).casefold()
+                        == "Сжатие".casefold()
                     ),
                     0,
                 )
@@ -255,7 +272,11 @@ def _restore_operations_tab_state(window, data: dict) -> None:
             else:
                 index = legacy_index
 
-        if index is None or index == settings_index or not 0 <= index < operations_tab_bar.count():
+        if (
+            index is None
+            or index == settings_index
+            or not 0 <= index < operations_tab_bar.count()
+        ):
             index = 0
 
         operations_tab_bar.setCurrentIndex(index)
@@ -273,7 +294,11 @@ def _nonempty_string(value):
 def _restore_main_splitter_sizes(window, data: dict) -> None:
     raw_sizes = data.get("main_splitter_sizes")
     splitter = getattr(window, "main_splitter", None)
-    if splitter is None or not isinstance(raw_sizes, (list, tuple)) or len(raw_sizes) != 2:
+    if (
+        splitter is None
+        or not isinstance(raw_sizes, (list, tuple))
+        or len(raw_sizes) != 2
+    ):
         return
     try:
         sizes = [max(1, int(raw_sizes[0])), max(1, int(raw_sizes[1]))]
@@ -302,11 +327,15 @@ def _restore_pending_state(window, data: dict) -> None:
 def _restore_theme(window, data: dict) -> None:
     if "theme_mode" not in data:
         return
-    theme_mode = str(data.get("theme_mode") or _DEFAULT_THEME_MODE).strip().lower()
+    theme_mode = (
+        str(data.get("theme_mode") or _DEFAULT_THEME_MODE).strip().lower()
+    )
     if theme_mode not in _VALID_THEME_MODES:
         theme_mode = _DEFAULT_THEME_MODE
     window.theme_mode = theme_mode
-    _set_combo_current_data(getattr(window, "theme_mode_combo", None), theme_mode)
+    _set_combo_current_data(
+        getattr(window, "theme_mode_combo", None), theme_mode
+    )
 
 
 def _restore_conversion_output_settings(window, data: dict) -> None:
@@ -327,13 +356,17 @@ def _restore_conversion_output_settings(window, data: dict) -> None:
             lambda: path_field.setText(path),
             "восстановления папки конвертации",
         )
-    inline_updater = getattr(window, "_update_inline_conversion_output_controls", None)
+    inline_updater = getattr(
+        window, "_update_inline_conversion_output_controls", None
+    )
     if callable(inline_updater):
         inline_updater()
 
 
 def _restore_image_compression_output_settings(window, data: dict) -> None:
-    mode = str(data.get("image_compression_output_mode") or "alongside").strip()
+    mode = str(
+        data.get("image_compression_output_mode") or "alongside"
+    ).strip()
     if mode not in {"replace", "alongside", "custom"}:
         mode = "alongside"
     path = str(data.get("image_compression_output_path") or "").strip()
@@ -363,17 +396,25 @@ def _apply_settings_data(window, data: dict) -> None:
     auto_clear_by_operation = data.get("auto_clear_by_operation")
     if isinstance(auto_clear_by_operation, dict):
         for operation, attribute_name in _AUTO_CLEAR_CHECKBOXES.items():
-            value = auto_clear_by_operation.get(operation, _AUTO_CLEAR_DEFAULTS[operation])
-            _set_checkbox_state(getattr(window, attribute_name, None), bool(value))
+            value = auto_clear_by_operation.get(
+                operation, _AUTO_CLEAR_DEFAULTS[operation]
+            )
+            _set_checkbox_state(
+                getattr(window, attribute_name, None), bool(value)
+            )
     elif "auto_clear" in data:
         legacy_value = bool(data["auto_clear"])
         for attribute_name in _AUTO_CLEAR_CHECKBOXES.values():
-            _set_checkbox_state(getattr(window, attribute_name, None), legacy_value)
+            _set_checkbox_state(
+                getattr(window, attribute_name, None), legacy_value
+            )
 
     if "auto_clear_enabled" in data:
         auto_clear_enabled = bool(data["auto_clear_enabled"])
     elif isinstance(auto_clear_by_operation, dict):
-        auto_clear_enabled = any(bool(value) for value in auto_clear_by_operation.values())
+        auto_clear_enabled = any(
+            bool(value) for value in auto_clear_by_operation.values()
+        )
     elif "auto_clear" in data:
         auto_clear_enabled = bool(data["auto_clear"])
     else:
@@ -388,9 +429,21 @@ def _apply_settings_data(window, data: dict) -> None:
             "disable_warning_dialogs",
             "disable_warning_dialogs_checkbox",
         ),
-        ("windows_context_menu", "windows_context_menu_enabled", "context_menu_checkbox"),
-        ("desktop_shortcut", "desktop_shortcut_enabled", "desktop_shortcut_checkbox"),
-        ("start_menu_shortcut", "start_menu_shortcut_enabled", "start_menu_shortcut_checkbox"),
+        (
+            "windows_context_menu",
+            "windows_context_menu_enabled",
+            "context_menu_checkbox",
+        ),
+        (
+            "desktop_shortcut",
+            "desktop_shortcut_enabled",
+            "desktop_shortcut_checkbox",
+        ),
+        (
+            "start_menu_shortcut",
+            "start_menu_shortcut_enabled",
+            "start_menu_shortcut_checkbox",
+        ),
     )
     for setting_name, attribute_name, checkbox_name in boolean_options:
         _restore_boolean_option(
@@ -406,7 +459,9 @@ def _apply_settings_data(window, data: dict) -> None:
             bool(data["auto_check_updates"]),
         )
 
-    sync_auto_clear_controls = getattr(window, "_sync_auto_clear_controls", None)
+    sync_auto_clear_controls = getattr(
+        window, "_sync_auto_clear_controls", None
+    )
     if callable(sync_auto_clear_controls):
         sync_auto_clear_controls()
 
@@ -437,7 +492,9 @@ def load_settings(window) -> None:
             with open(settings_file, encoding="utf-8") as settings_stream:
                 data = json.load(settings_stream)
             if not isinstance(data, dict):
-                raise ValueError("корневое значение файла настроек должно быть объектом")
+                raise ValueError(
+                    "корневое значение файла настроек должно быть объектом"
+                )
             _apply_settings_data(window, data)
     except Exception as error:
         _log_settings_error("загрузки настроек", error)
@@ -453,7 +510,9 @@ def load_settings(window) -> None:
 
 
 def _resolve_saved_geometry(window):
-    is_maximized = bool(window.isMaximized()) if hasattr(window, "isMaximized") else False
+    is_maximized = (
+        bool(window.isMaximized()) if hasattr(window, "isMaximized") else False
+    )
     geometry_source = None
 
     geometry_getters = []
@@ -473,7 +532,10 @@ def _resolve_saved_geometry(window):
 
     if geometry_source is not None:
         saved_position = [int(geometry_source.x()), int(geometry_source.y())]
-        saved_size = [int(geometry_source.width()), int(geometry_source.height())]
+        saved_size = [
+            int(geometry_source.width()),
+            int(geometry_source.height()),
+        ]
         return is_maximized, saved_position, saved_size
 
     saved_position = None
@@ -489,7 +551,9 @@ def _resolve_saved_geometry(window):
     return is_maximized, saved_position, saved_size
 
 
-def _current_widget_index(window, attribute_name: str, default: int = 0) -> int:
+def _current_widget_index(
+    window, attribute_name: str, default: int = 0
+) -> int:
     widget = getattr(window, attribute_name, None)
     if widget is None:
         return default
@@ -500,7 +564,11 @@ def _collect_file_list_view_state(window) -> dict:
     order = getattr(window, "_column_sort_order", Qt.SortOrder.AscendingOrder)
     return {
         "sort_column": getattr(window, "_column_sort_section", None),
-        "sort_order": ("descending" if order == Qt.SortOrder.DescendingOrder else "ascending"),
+        "sort_order": (
+            "descending"
+            if order == Qt.SortOrder.DescendingOrder
+            else "ascending"
+        ),
     }
 
 
@@ -531,25 +599,39 @@ def _collect_settings_data(window) -> dict:
         "ghostscript_path": window.ghostscript_path_override,
         "desktop_shortcut": window.desktop_shortcut_enabled,
         "start_menu_shortcut": window.start_menu_shortcut_enabled,
-        "disable_warning_dialogs": getattr(window, "disable_warning_dialogs", False),
+        "disable_warning_dialogs": getattr(
+            window, "disable_warning_dialogs", False
+        ),
         "auto_check_updates": (
-            auto_update_checkbox.isChecked() if auto_update_checkbox is not None else True
+            auto_update_checkbox.isChecked()
+            if auto_update_checkbox is not None
+            else True
         ),
         "theme_mode": getattr(window, "theme_mode", _DEFAULT_THEME_MODE),
-        "conversion_output_mode": getattr(window, "conversion_output_mode", "ask"),
-        "conversion_output_path": getattr(window, "conversion_output_path", ""),
+        "conversion_output_mode": getattr(
+            window, "conversion_output_mode", "ask"
+        ),
+        "conversion_output_path": getattr(
+            window, "conversion_output_path", ""
+        ),
         "image_compression_output_mode": getattr(
             window, "image_compression_output_mode", "alongside"
         ),
-        "image_compression_output_path": getattr(window, "image_compression_output_path", ""),
-        "operations_tab_index": _current_widget_index(window, "operations_tab_bar"),
+        "image_compression_output_path": getattr(
+            window, "image_compression_output_path", ""
+        ),
+        "operations_tab_index": _current_widget_index(
+            window, "operations_tab_bar"
+        ),
         "main_splitter_sizes": (
             [int(value) for value in window.main_splitter.sizes()]
             if getattr(window, "main_splitter", None) is not None
             else None
         ),
         "operations_tab_label": (
-            window.operations_tab_bar.tabText(window.operations_tab_bar.currentIndex())
+            window.operations_tab_bar.tabText(
+                window.operations_tab_bar.currentIndex()
+            )
             if getattr(window, "operations_tab_bar", None) is not None
             and window.operations_tab_bar.currentIndex() >= 0
             else ""

@@ -35,7 +35,11 @@ class _DummyMergeWorker(MergeMixin):
         self.errors.append({"file": file_item, "message": message})
 
     def _emit_finished(self, new_files=None, updated_files=None):
-        self.finished.emit(OperationResult(new_files or [], updated_files or [], list(self.errors)))
+        self.finished.emit(
+            OperationResult(
+                new_files or [], updated_files or [], list(self.errors)
+            )
+        )
 
     def _get_unique_path(self, path):
         if not os.path.exists(path):

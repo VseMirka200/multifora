@@ -147,6 +147,8 @@ class MultiforaMainWindow(
         self.ghostscript_path_override = None
         self.ipc_server = None
         self._ipc_buffers = {}
+        self._pending_ipc_file_paths = []
+        self._ipc_file_batch_timer = None
         self._log_lines = []
         self.max_log_lines = 1000
         self._log_file_path = None
@@ -180,7 +182,9 @@ class MultiforaMainWindow(
         self.load_settings()
         self.ensure_context_menu_registration()
         self.update_template_combo()
-        pending_template_session = getattr(self, "_pending_template_session_state", None)
+        pending_template_session = getattr(
+            self, "_pending_template_session_state", None
+        )
         if pending_template_session:
             try:
                 self.restore_template_session_state(pending_template_session)
@@ -215,7 +219,10 @@ class MultiforaMainWindow(
             self.log_event(f"Ошибка IPC при removeServer: {e}", "WARN")
 
         if not self.ipc_server.listen(server_name):
-            self.log_event(f"IPC сервер не запущен: {self.ipc_server.errorString()}", "ERROR")
+            self.log_event(
+                f"IPC сервер не запущен: {self.ipc_server.errorString()}",
+                "ERROR",
+            )
             self.ipc_server = None
             return
 
@@ -231,11 +238,15 @@ class MultiforaMainWindow(
             if connection is None:
                 continue
             self._ipc_buffers[connection] = bytearray()
-            connection.readyRead.connect(lambda socket=connection: self._read_ipc_socket(socket))
+            connection.readyRead.connect(
+                lambda socket=connection: self._read_ipc_socket(socket)
+            )
             connection.disconnected.connect(
                 lambda socket=connection: self._finish_ipc_socket(socket)
             )
-            QTimer.singleShot(5000, lambda socket=connection: self._expire_ipc_socket(socket))
+            QTimer.singleShot(
+                5000, lambda socket=connection: self._expire_ipc_socket(socket)
+            )
             self._read_ipc_socket(connection)
 
     def _read_ipc_socket(self, socket_conn):
@@ -250,7 +261,10 @@ class MultiforaMainWindow(
             socket_conn.disconnectFromServer()
             socket_conn.deleteLater()
             return
-        if socket_conn.state() == QLocalSocket.LocalSocketState.UnconnectedState:
+        if (
+            socket_conn.state()
+            == QLocalSocket.LocalSocketState.UnconnectedState
+        ):
             self._finish_ipc_socket(socket_conn)
 
     def _expire_ipc_socket(self, socket_conn):
@@ -299,7 +313,9 @@ class MultiforaMainWindow(
         else:
             self.log_event("IPC: нет допустимых файлов", "WARN")
 
-    def _add_files_with_source_message(self, file_paths: list[str], source_suffix: str) -> bool:
+    def _add_files_with_source_message(
+        self, file_paths: list[str], source_suffix: str
+    ) -> bool:
         """Добавляет файлы и показывает унифицированный статус по источнику."""
         if not file_paths:
             return False
@@ -315,13 +331,39 @@ class MultiforaMainWindow(
         self.activateWindow()
         self.raise_()
         self.setWindowState(
-            self.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive
+            self.windowState() & ~Qt.WindowState.WindowMinimized
+            | Qt.WindowState.WindowActive
         )
 
     def add_files_from_ipc(self, file_paths):
-        """Добавляет файлы, пришедшие через IPC."""
-        if self._add_files_with_source_message(file_paths, "через контекстное меню"):
-            self._bring_main_window_to_front()
+        """Группирует файлы от контекстного меню перед добавлением.
+
+        Проводник Windows иногда запускает отдельный процесс для каждой
+        выделенной папки. Небольшая задержка собирает такие IPC-сообщения в
+        один вызов ``add_files``, поэтому выбор способа добавления папки
+        показывается только один раз.
+        """
+        if not file_paths:
+            return
+
+        self._pending_ipc_file_paths.extend(file_paths)
+        if self._ipc_file_batch_timer is None:
+            self._ipc_file_batch_timer = QTimer(self)
+            self._ipc_file_batch_timer.setSingleShot(True)
+            self._ipc_file_batch_timer.setInterval(350)
+            self._ipc_file_batch_timer.timeout.connect(
+                self._flush_ipc_file_batch
+            )
+        self._ipc_file_batch_timer.start()
+        self._bring_main_window_to_front()
+
+    def _flush_ipc_file_batch(self):
+        """Добавляет одну накопленную группу путей от контекстного меню."""
+        file_paths = self._pending_ipc_file_paths
+        self._pending_ipc_file_paths = []
+        self._add_files_with_source_message(
+            file_paths, "через контекстное меню"
+        )
 
     def process_startup_queue(self):
         """Забирает файлы из очереди и добавляет в список."""
@@ -370,7 +412,9 @@ class MultiforaMainWindow(
     def _operation_is_running(self) -> bool:
         worker = getattr(self, "file_worker", None)
         is_running = getattr(worker, "isRunning", None)
-        return bool(worker is not None and callable(is_running) and is_running())
+        return bool(
+            worker is not None and callable(is_running) and is_running()
+        )
 
     def _ensure_operation_can_start(self) -> bool:
         if not self._operation_is_running():
@@ -402,7 +446,9 @@ class MultiforaMainWindow(
 
         left, _top, right, _bottom = DIALOG_MARGINS
         available_width = max(1, dialog.width() - left - right)
-        required_height = max(label.fontMetrics().height(), label.heightForWidth(available_width))
+        required_height = max(
+            label.fontMetrics().height(), label.heightForWidth(available_width)
+        )
         label.setMinimumHeight(required_height)
         if dialog.layout() is not None:
             dialog.layout().activate()
@@ -410,9 +456,13 @@ class MultiforaMainWindow(
 
     def _create_progress_dialog(self):
         dialog = QDialog(self)
-        dialog._effective_theme_mode = getattr(self, "_effective_theme_mode", "dark")
+        dialog._effective_theme_mode = getattr(
+            self, "_effective_theme_mode", "dark"
+        )
         dialog.setObjectName("progress_dialog")
-        setup_standard_dialog(dialog, title="Выполнение операции", fixed_width=360)
+        setup_standard_dialog(
+            dialog, title="Выполнение операции", fixed_width=360
+        )
         dialog.setModal(False)
         dialog.setWindowModality(Qt.WindowModality.NonModal)
         dialog.setWindowFlag(Qt.WindowType.WindowCloseButtonHint, False)
@@ -440,20 +490,31 @@ class MultiforaMainWindow(
 
         self.progress_dialog = dialog
 
-    def _show_progress_dialog(self, status_text: str = "Выполняется операция..."):
+    def _show_progress_dialog(
+        self, status_text: str = "Выполняется операция..."
+    ):
         self._set_progress_status_text(status_text)
         if hasattr(self, "progress_bar") and self.progress_bar is not None:
             self.progress_bar.setVisible(True)
-        if hasattr(self, "btn_cancel_operation") and self.btn_cancel_operation is not None:
+        if (
+            hasattr(self, "btn_cancel_operation")
+            and self.btn_cancel_operation is not None
+        ):
             self.btn_cancel_operation.setVisible(True)
             self.btn_cancel_operation.setEnabled(True)
-        if hasattr(self, "progress_dialog") and self.progress_dialog is not None:
+        if (
+            hasattr(self, "progress_dialog")
+            and self.progress_dialog is not None
+        ):
             self.progress_dialog.show()
             self.progress_dialog.raise_()
             self.progress_dialog.activateWindow()
 
     def _hide_progress_dialog(self):
-        if hasattr(self, "progress_dialog") and self.progress_dialog is not None:
+        if (
+            hasattr(self, "progress_dialog")
+            and self.progress_dialog is not None
+        ):
             self.progress_dialog.hide()
 
     def _collect_file_items_by_paths(self, paths: list[str]) -> list[FileItem]:
@@ -499,8 +560,12 @@ class MultiforaMainWindow(
                 files,
                 self._last_operation.get("conversion_type", ""),
                 self._last_operation.get("conversion_format", ""),
-                output_mode=self._last_operation.get("conversion_output_mode", "source_subfolder"),
-                output_dir=self._last_operation.get("conversion_output_dir", ""),
+                output_mode=self._last_operation.get(
+                    "conversion_output_mode", "source_subfolder"
+                ),
+                output_dir=self._last_operation.get(
+                    "conversion_output_dir", ""
+                ),
             )
         elif op == "compress":
             self.file_worker.set_compression(
@@ -523,7 +588,9 @@ class MultiforaMainWindow(
         try:
             self.list_files.refresh()
         except Exception as error:
-            _log_ignored_error("MultiforaMainWindow.refresh_preview_panel", error)
+            _log_ignored_error(
+                "MultiforaMainWindow.refresh_preview_panel", error
+            )
 
     @staticmethod
     def _setup_info_label(label: QLabel) -> QLabel:
@@ -579,12 +646,20 @@ class MultiforaMainWindow(
             main_layout.addWidget(self.operations_header_widget)
         elif hasattr(self, "operations_tab_bar"):
             main_layout.addWidget(self.operations_tab_bar)
-        if not hasattr(self, "settings_panel_widget") or self.settings_panel_widget is None:
+        if (
+            not hasattr(self, "settings_panel_widget")
+            or self.settings_panel_widget is None
+        ):
             self.settings_panel_widget = self.create_settings_tab()
         if self.settings_panel_widget.parent() is not self.settings_panel_host:
             self.settings_panel_widget.setParent(None)
-            self.settings_panel_host_layout.addWidget(self.settings_panel_widget)
-        if not hasattr(self, "help_panel_widget") or self.help_panel_widget is None:
+            self.settings_panel_host_layout.addWidget(
+                self.settings_panel_widget
+            )
+        if (
+            not hasattr(self, "help_panel_widget")
+            or self.help_panel_widget is None
+        ):
             self.help_panel_widget = self.create_help_tab()
         if self.help_panel_widget.parent() is not self.settings_panel_host:
             self.help_panel_widget.setParent(None)
@@ -603,14 +678,22 @@ class MultiforaMainWindow(
             button.style().polish(button)
             button.update()
         except RuntimeError as error:
-            _log_ignored_error("MultiforaMainWindow._set_header_menu_open_state", error)
+            _log_ignored_error(
+                "MultiforaMainWindow._set_header_menu_open_state", error
+            )
 
     def _bind_header_menu_state(self, button, menu) -> None:
-        menu.aboutToShow.connect(lambda: self._set_header_menu_open_state(button, True))
-        menu.aboutToHide.connect(lambda: self._set_header_menu_open_state(button, False))
+        menu.aboutToShow.connect(
+            lambda: self._set_header_menu_open_state(button, True)
+        )
+        menu.aboutToHide.connect(
+            lambda: self._set_header_menu_open_state(button, False)
+        )
 
     @staticmethod
-    def _set_filter_actions_checked(menu, actions: dict, checked: bool, changed_callback) -> None:
+    def _set_filter_actions_checked(
+        menu, actions: dict, checked: bool, changed_callback
+    ) -> None:
         for action in actions.values():
             previous_state = action.blockSignals(True)
             try:
@@ -621,7 +704,9 @@ class MultiforaMainWindow(
             menu.sync_filter_items()
         changed_callback(False)
 
-    def _add_filter_selection_actions(self, menu, actions: dict, changed_callback):
+    def _add_filter_selection_actions(
+        self, menu, actions: dict, changed_callback
+    ):
         clear_action = QAction("Снять все отметки", menu)
         clear_action.triggered.connect(
             lambda _checked=False: self._set_filter_actions_checked(
@@ -707,7 +792,9 @@ class MultiforaMainWindow(
                 self.btn_ext_filter,
             )
         )
-        self._bind_header_menu_state(self.btn_ext_filter, self._ext_filter_menu)
+        self._bind_header_menu_state(
+            self.btn_ext_filter, self._ext_filter_menu
+        )
         self._update_ext_filter_button_text()
 
     def _create_type_filter(self) -> None:
@@ -755,7 +842,9 @@ class MultiforaMainWindow(
                 self.btn_type_filter,
             )
         )
-        self._bind_header_menu_state(self.btn_type_filter, self._type_filter_menu)
+        self._bind_header_menu_state(
+            self.btn_type_filter, self._type_filter_menu
+        )
         self._update_type_filter_button_text()
 
     def _create_list_header(self) -> QGridLayout:
@@ -798,34 +887,50 @@ class MultiforaMainWindow(
         list_header.setColumnStretch(2, 2)
         return list_header
 
-    def _create_file_list_widget(self, files_panel_layout: QVBoxLayout) -> None:
+    def _create_file_list_widget(
+        self, files_panel_layout: QVBoxLayout
+    ) -> None:
         self.list_files = FileListWidget()
         self.list_files.setObjectName("files_list")
         self.list_files.setFrameShape(QFrame.Shape.NoFrame)
         self.list_files.setWordWrap(False)
         self.list_files.setTextElideMode(Qt.TextElideMode.ElideRight)
-        self.list_files.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self.list_files.setVerticalScrollMode(
+            QAbstractItemView.ScrollMode.ScrollPerPixel
+        )
 
         list_palette = self.list_files.palette()
         list_palette.setColor(QPalette.ColorRole.Highlight, QColor("#3d74b3"))
-        list_palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#ffffff"))
+        list_palette.setColor(
+            QPalette.ColorRole.HighlightedText, QColor("#ffffff")
+        )
         self.list_files.setPalette(list_palette)
         apply_standard_field_style(self.list_files)
         self.list_files.setProperty("preview_mode", True)
         self.list_files.filesDropped.connect(self.add_files)
         self.list_files.itemDoubleClicked.connect(self.open_file)
-        self.list_files.itemSelectionChanged.connect(self.on_file_selection_changed)
+        self.list_files.itemSelectionChanged.connect(
+            self.on_file_selection_changed
+        )
         self.list_files.orderChanged.connect(self.on_list_order_changed)
-        self.list_files.deleteRequested.connect(self.remove_selected_files_from_list)
+        self.list_files.deleteRequested.connect(
+            self.remove_selected_files_from_list
+        )
         self.list_files.openRequested.connect(self.open_selected_items)
-        self.list_files.copyRequested.connect(self.copy_selected_files_to_clipboard)
+        self.list_files.copyRequested.connect(
+            self.copy_selected_files_to_clipboard
+        )
         self.list_files.renameRequested.connect(self.rename_selected_item)
         table_header = self.list_files.horizontalHeader()
         table_header.setSectionsClickable(True)
         table_header.setSortIndicatorShown(False)
         table_header.sectionClicked.connect(self.on_file_header_clicked)
-        self.list_files.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.list_files.customContextMenuRequested.connect(self.show_file_context_menu)
+        self.list_files.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu
+        )
+        self.list_files.customContextMenuRequested.connect(
+            self.show_file_context_menu
+        )
         files_panel_layout.addWidget(self.list_files, 1)
 
     def _create_drop_zone(self, files_panel: QWidget) -> None:
@@ -833,11 +938,15 @@ class MultiforaMainWindow(
         self.drop_zone_controls.setObjectName("drop_zone_overlay")
         self.drop_zone_controls.setAcceptDrops(True)
         self.drop_zone_controls.installEventFilter(self)
-        self.drop_zone_controls.setStyleSheet(build_drop_zone_overlay_style("dark"))
+        self.drop_zone_controls.setStyleSheet(
+            build_drop_zone_overlay_style("dark")
+        )
         drop_zone_layout = QVBoxLayout(self.drop_zone_controls)
         drop_zone_layout.setContentsMargins(*DROP_ZONE_MARGINS)
         drop_zone_layout.setSpacing(SPACE_XL)
-        drop_zone_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+        drop_zone_layout.setAlignment(
+            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
+        )
         drop_zone_layout.addStretch()
 
         drop_buttons_row = QGridLayout()
@@ -865,7 +974,9 @@ class MultiforaMainWindow(
 
         self.drop_zone_hint_label = QLabel("Или перетащите сюда файлы/папки")
         self.drop_zone_hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.drop_zone_hint_label.setStyleSheet(build_drop_zone_hint_style("dark"))
+        self.drop_zone_hint_label.setStyleSheet(
+            build_drop_zone_hint_style("dark")
+        )
         drop_zone_layout.addWidget(
             self.drop_zone_hint_label,
             0,
@@ -875,9 +986,15 @@ class MultiforaMainWindow(
 
     def _connect_drop_zone_updates(self, files_panel: QWidget) -> None:
         model = self.list_files.model()
-        model.rowsInserted.connect(lambda *_args: self._update_drop_zone_controls())
-        model.rowsRemoved.connect(lambda *_args: self._update_drop_zone_controls())
-        model.modelReset.connect(lambda *_args: self._update_drop_zone_controls())
+        model.rowsInserted.connect(
+            lambda *_args: self._update_drop_zone_controls()
+        )
+        model.rowsRemoved.connect(
+            lambda *_args: self._update_drop_zone_controls()
+        )
+        model.modelReset.connect(
+            lambda *_args: self._update_drop_zone_controls()
+        )
         files_panel.installEventFilter(self)
         self.list_files.installEventFilter(self)
         self.list_files.viewport().installEventFilter(self)
@@ -914,7 +1031,9 @@ class MultiforaMainWindow(
         self._connect_drop_zone_updates(files_panel)
 
         files_preview_layout.addWidget(files_panel, 1)
-        self._configure_right_panel_spacing(right_layout, self._list_header_layout)
+        self._configure_right_panel_spacing(
+            right_layout, self._list_header_layout
+        )
         right_layout.addWidget(files_preview_row, 1)
 
     def _create_file_info_layout(self) -> QHBoxLayout:
@@ -943,7 +1062,9 @@ class MultiforaMainWindow(
             size_total_separator,
         ]
 
-        self.label_total_size = self._setup_info_label(QLabel("Общий объем: 0 MB"))
+        self.label_total_size = self._setup_info_label(
+            QLabel("Общий объем: 0 MB")
+        )
         info_layout.addWidget(self.label_total_size)
         info_layout.addStretch()
         return info_layout
@@ -1032,7 +1153,9 @@ class MultiforaMainWindow(
         if has_pending_geometry:
             QTimer.singleShot(100, self._restore_window_geometry_from_pending)
         else:
-            QTimer.singleShot(150, lambda: setattr(self, "initial_load_complete", True))
+            QTimer.singleShot(
+                150, lambda: setattr(self, "initial_load_complete", True)
+            )
 
     def _restore_window_geometry_from_pending(self):
         if self._geometry_restore_applied:
@@ -1044,25 +1167,41 @@ class MultiforaMainWindow(
             pending_size = getattr(self, "_pending_window_size", None)
             pending_geom = getattr(self, "_pending_window_geometry", None)
 
-            settings_path_getter = getattr(self, "get_settings_file_path", None)
+            settings_path_getter = getattr(
+                self, "get_settings_file_path", None
+            )
             if callable(settings_path_getter):
                 try:
                     settings_path = settings_path_getter()
                     if settings_path and os.path.exists(settings_path):
                         with open(settings_path, encoding="utf-8") as f:
                             settings_data = json.load(f)
-                        pending_pos = settings_data.get("window_pos", pending_pos)
-                        pending_size = settings_data.get("window_size", pending_size)
-                        pending_geom = settings_data.get("window_geometry", pending_geom)
+                        pending_pos = settings_data.get(
+                            "window_pos", pending_pos
+                        )
+                        pending_size = settings_data.get(
+                            "window_size", pending_size
+                        )
+                        pending_geom = settings_data.get(
+                            "window_geometry", pending_geom
+                        )
                         if settings_data.get("window_maximized"):
                             self._pending_window_maximized = True
                 except Exception as e:
-                    _debug_log(f"Error reading window geometry from settings file: {e}")
+                    _debug_log(
+                        f"Error reading window geometry from settings file: {e}"
+                    )
 
             applied = False
-            if isinstance(pending_pos, (list, tuple)) and len(pending_pos) == 2:
+            if (
+                isinstance(pending_pos, (list, tuple))
+                and len(pending_pos) == 2
+            ):
                 try:
-                    if isinstance(pending_size, (list, tuple)) and len(pending_size) == 2:
+                    if (
+                        isinstance(pending_size, (list, tuple))
+                        and len(pending_size) == 2
+                    ):
                         self.setGeometry(
                             int(pending_pos[0]),
                             int(pending_pos[1]),
@@ -1077,21 +1216,28 @@ class MultiforaMainWindow(
 
             if not applied and isinstance(pending_geom, str) and pending_geom:
                 try:
-                    applied = bool(self.restoreGeometry(bytes.fromhex(pending_geom)))
+                    applied = bool(
+                        self.restoreGeometry(bytes.fromhex(pending_geom))
+                    )
                 except Exception as e:
                     _debug_log(f"Error restoring window geometry: {e}")
 
-            if not applied and not getattr(self, "_pending_window_maximized", False):
+            if not applied and not getattr(
+                self, "_pending_window_maximized", False
+            ):
                 try:
                     self.setGeometry(100, 100, 1200, 700)
                 except Exception as error:
                     _log_ignored_error(
-                        "MultiforaMainWindow._restore_window_geometry_from_pending", error
+                        "MultiforaMainWindow._restore_window_geometry_from_pending",
+                        error,
                     )
 
             if getattr(self, "_pending_window_maximized", False):
                 try:
-                    self.setWindowState(self.windowState() | Qt.WindowState.WindowMaximized)
+                    self.setWindowState(
+                        self.windowState() | Qt.WindowState.WindowMaximized
+                    )
                 except Exception as e:
                     _debug_log(f"Error restoring maximized state: {e}")
         finally:
@@ -1114,7 +1260,9 @@ class MultiforaMainWindow(
         right_layout.setContentsMargins(*MARGINS_NONE)
         right_layout.setSpacing(SPACE_NONE)
 
-        list_header.setContentsMargins(SPACE_NONE, SPACE_XS, SPACE_NONE, SPACE_SM)
+        list_header.setContentsMargins(
+            SPACE_NONE, SPACE_XS, SPACE_NONE, SPACE_SM
+        )
         list_header.setHorizontalSpacing(SPACE_SM)
         list_header.setVerticalSpacing(SPACE_SM)
 
@@ -1123,25 +1271,37 @@ class MultiforaMainWindow(
         try:
             signal.connect(callback)
         except Exception as error:
-            _log_ignored_error("MultiforaMainWindow._safe_connect_signal", error)
+            _log_ignored_error(
+                "MultiforaMainWindow._safe_connect_signal", error
+            )
 
     def _apply_theme_runtime_widgets(self):
         mode = getattr(self, "_effective_theme_mode", "dark")
         try:
-            if callable(getattr(self, "_apply_operations_tab_bar_theme", None)):
+            if callable(
+                getattr(self, "_apply_operations_tab_bar_theme", None)
+            ):
                 self._apply_operations_tab_bar_theme(mode)
         except Exception as error:
-            _log_ignored_error("MultiforaMainWindow._apply_theme_runtime_widgets", error)
+            _log_ignored_error(
+                "MultiforaMainWindow._apply_theme_runtime_widgets", error
+            )
         try:
-            if callable(getattr(self, "_apply_settings_navigation_theme", None)):
+            if callable(
+                getattr(self, "_apply_settings_navigation_theme", None)
+            ):
                 self._apply_settings_navigation_theme(mode)
         except Exception as error:
-            _log_ignored_error("MultiforaMainWindow._apply_theme_runtime_widgets", error)
+            _log_ignored_error(
+                "MultiforaMainWindow._apply_theme_runtime_widgets", error
+            )
         for separator in getattr(self, "_file_info_separators", []):
             try:
                 separator.setStyleSheet(build_file_info_separator_style(mode))
             except Exception as error:
-                _log_ignored_error("MultiforaMainWindow._apply_theme_runtime_widgets", error)
+                _log_ignored_error(
+                    "MultiforaMainWindow._apply_theme_runtime_widgets", error
+                )
         # Кнопки фильтров хранят маркер темы для локального оформления самих полей.
         # Выпадающие меню получают оформление из общего стиля приложения.
         for widget_name in ("btn_ext_filter", "btn_type_filter"):
@@ -1150,25 +1310,45 @@ class MultiforaMainWindow(
                 try:
                     widget._effective_theme_mode = mode
                 except Exception as error:
-                    _log_ignored_error("MultiforaMainWindow._apply_theme_runtime_widgets", error)
-        if hasattr(self, "progress_dialog") and self.progress_dialog is not None:
+                    _log_ignored_error(
+                        "MultiforaMainWindow._apply_theme_runtime_widgets",
+                        error,
+                    )
+        if (
+            hasattr(self, "progress_dialog")
+            and self.progress_dialog is not None
+        ):
             self.progress_dialog._effective_theme_mode = mode
         try:
             refresh_standard_button_styles(self)
             refresh_standard_field_styles(self)
         except Exception as error:
-            _log_ignored_error("MultiforaMainWindow._apply_theme_runtime_widgets", error)
-        if hasattr(self, "_splitter_grip_label") and self._splitter_grip_label is not None:
+            _log_ignored_error(
+                "MultiforaMainWindow._apply_theme_runtime_widgets", error
+            )
+        if (
+            hasattr(self, "_splitter_grip_label")
+            and self._splitter_grip_label is not None
+        ):
             self._splitter_grip_label.setStyleSheet(SPLITTER_GRIP_LABEL_STYLE)
         if hasattr(self, "files_panel") and self.files_panel is not None:
             self.files_panel.setStyleSheet(build_drop_zone_surface_style(mode))
-        if hasattr(self, "drop_zone_controls") and self.drop_zone_controls is not None:
-            self.drop_zone_controls.setStyleSheet(build_drop_zone_overlay_style(mode))
+        if (
+            hasattr(self, "drop_zone_controls")
+            and self.drop_zone_controls is not None
+        ):
+            self.drop_zone_controls.setStyleSheet(
+                build_drop_zone_overlay_style(mode)
+            )
             if hasattr(self, "drop_zone_hint_label"):
-                self.drop_zone_hint_label.setStyleSheet(build_drop_zone_hint_style(mode))
+                self.drop_zone_hint_label.setStyleSheet(
+                    build_drop_zone_hint_style(mode)
+                )
         for tile_name in ("btn_add_files", "btn_add_folder"):
             tile = getattr(self, tile_name, None)
-            if tile is not None and callable(getattr(tile, "set_theme_mode", None)):
+            if tile is not None and callable(
+                getattr(tile, "set_theme_mode", None)
+            ):
                 tile.set_theme_mode(mode)
 
     def _schedule_settings_save(self):
@@ -1186,10 +1366,15 @@ class MultiforaMainWindow(
             _debug_log(f"Ошибка автосохранения настроек: {e}")
 
     def _update_type_filter_button_text(self):
-        if not hasattr(self, "_type_filter_actions") or not self._type_filter_actions:
+        if (
+            not hasattr(self, "_type_filter_actions")
+            or not self._type_filter_actions
+        ):
             return
         total = len(self._type_filter_actions)
-        checked = sum(1 for a in self._type_filter_actions.values() if a.isChecked())
+        checked = sum(
+            1 for a in self._type_filter_actions.values() if a.isChecked()
+        )
         if hasattr(self, "_clear_type_filter_action"):
             self._clear_type_filter_action.setEnabled(checked > 0)
         if hasattr(self, "_select_all_type_filter_action"):
@@ -1200,10 +1385,15 @@ class MultiforaMainWindow(
             self.btn_type_filter.setText(f"Выбрано: {checked}")
 
     def _update_ext_filter_button_text(self):
-        if not hasattr(self, "_ext_filter_actions") or not self._ext_filter_actions:
+        if (
+            not hasattr(self, "_ext_filter_actions")
+            or not self._ext_filter_actions
+        ):
             return
         total = len(self._ext_filter_actions)
-        checked = sum(1 for a in self._ext_filter_actions.values() if a.isChecked())
+        checked = sum(
+            1 for a in self._ext_filter_actions.values() if a.isChecked()
+        )
         if hasattr(self, "_clear_ext_filter_action"):
             self._clear_ext_filter_action.setEnabled(checked > 0)
         if hasattr(self, "_select_all_ext_filter_action"):
@@ -1232,7 +1422,9 @@ class MultiforaMainWindow(
                 layout.setColumnStretch(1, 1)
                 layout.setColumnStretch(2, 2)
             except Exception as error:
-                _log_ignored_error("MultiforaMainWindow._update_header_compact_mode", error)
+                _log_ignored_error(
+                    "MultiforaMainWindow._update_header_compact_mode", error
+                )
 
     def _update_drop_zone_controls(self):
         if not hasattr(self, "drop_zone_controls"):
@@ -1243,8 +1435,16 @@ class MultiforaMainWindow(
         self.drop_zone_controls.setGeometry(host.rect())
         has_files = False
         try:
-            model = self.list_files.model() if hasattr(self, "list_files") else None
-            has_files = bool(model and callable(getattr(model, "files", None)) and model.files())
+            model = (
+                self.list_files.model()
+                if hasattr(self, "list_files")
+                else None
+            )
+            has_files = bool(
+                model
+                and callable(getattr(model, "files", None))
+                and model.files()
+            )
         except Exception:
             has_files = False
         self.drop_zone_controls.setVisible(not has_files)
@@ -1266,14 +1466,19 @@ class MultiforaMainWindow(
             self._update_drop_zone_controls()
         if hasattr(self, "list_files"):
             viewport = self.list_files.viewport()
-            if (obj is self.list_files or obj is viewport) and event.type() in (
+            if (
+                obj is self.list_files or obj is viewport
+            ) and event.type() in (
                 QEvent.Type.Resize,
                 QEvent.Type.Show,
                 QEvent.Type.Move,
                 QEvent.Type.LayoutRequest,
             ):
                 self._update_drop_zone_controls()
-        if hasattr(self, "drop_zone_controls") and obj is self.drop_zone_controls:
+        if (
+            hasattr(self, "drop_zone_controls")
+            and obj is self.drop_zone_controls
+        ):
             if event.type() in (QEvent.Type.DragEnter, QEvent.Type.DragMove):
                 if event.mimeData().hasUrls():
                     event.acceptProposedAction()
@@ -1338,7 +1543,9 @@ class MultiforaMainWindow(
         category_label = ""
         if category_combo is not None:
             try:
-                category_label = str(category_combo.currentText() or "").strip()
+                category_label = str(
+                    category_combo.currentText() or ""
+                ).strip()
             except Exception:
                 category_label = ""
 
@@ -1381,7 +1588,9 @@ class MultiforaMainWindow(
             and format_for_path(file_item.path)
         }
 
-        previous_source = str(self.from_convert_combo.currentText() or "").strip()
+        previous_source = str(
+            self.from_convert_combo.currentText() or ""
+        ).strip()
         self.from_convert_combo.blockSignals(True)
         self.from_convert_combo.clear()
         self.from_convert_combo.addItem("Выберите исходный формат:")
@@ -1396,7 +1605,10 @@ class MultiforaMainWindow(
             selected_source = mixed_label
         elif len(category_source_formats) == 1:
             selected_source = next(iter(category_source_formats))
-        elif previous_source == mixed_label or previous_source in available_formats:
+        elif (
+            previous_source == mixed_label
+            or previous_source in available_formats
+        ):
             selected_source = previous_source
 
         if selected_source:
@@ -1431,7 +1643,11 @@ class MultiforaMainWindow(
         """Выбор файлов для обработки"""
         options = QFileDialog.Option.ReadOnly
         files, _ = QFileDialog.getOpenFileNames(
-            self, "Выберите файлы", "", build_file_dialog_filter(), options=options
+            self,
+            "Выберите файлы",
+            "",
+            build_file_dialog_filter(),
+            options=options,
         )
 
         if files:
@@ -1440,7 +1656,9 @@ class MultiforaMainWindow(
     def select_folder(self):
         """Выбор папки для добавления в список"""
         options = QFileDialog.Option.ShowDirsOnly
-        folder = QFileDialog.getExistingDirectory(self, "Выберите папку", "", options=options)
+        folder = QFileDialog.getExistingDirectory(
+            self, "Выберите папку", "", options=options
+        )
 
         if folder:
             self.add_files([folder])

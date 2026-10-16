@@ -78,12 +78,17 @@ class FileListContextTests(unittest.TestCase):
                 "app.ui.mixins.file_list_context_mixin.show_app_confirmation_with_checkbox",
                 return_value=(True, True),
             ),
-            patch("app.ui.mixins.file_list_context_mixin.os.path.exists", return_value=True),
+            patch(
+                "app.ui.mixins.file_list_context_mixin.os.path.exists",
+                return_value=True,
+            ),
             patch(
                 "app.ui.mixins.file_list_context_mixin.QFile.moveToTrash",
                 return_value=False,
             ),
-            patch("app.ui.mixins.file_list_context_mixin.QMessageBox.warning") as warning,
+            patch(
+                "app.ui.mixins.file_list_context_mixin.QMessageBox.warning"
+            ) as warning,
         ):
             host.remove_selected_files_from_list()
 
@@ -99,7 +104,9 @@ class FileListContextTests(unittest.TestCase):
                 "app.ui.mixins.file_list_context_mixin.show_app_confirmation_with_checkbox",
                 return_value=(True, True),
             ),
-            patch("app.ui.mixins.file_list_context_mixin.QFile.moveToTrash") as move_to_trash,
+            patch(
+                "app.ui.mixins.file_list_context_mixin.QFile.moveToTrash"
+            ) as move_to_trash,
         ):
             host.remove_selected_files_from_list()
 
@@ -130,13 +137,19 @@ class AutoClearBehaviorTests(unittest.TestCase):
         host.auto_clear_enabled_checkbox.isChecked.return_value = False
         host.auto_clear_convert_checkbox.isChecked.return_value = True
 
-        self.assertFalse(WorkerOpsMixin._should_auto_clear_after_operation(host))
+        self.assertFalse(
+            WorkerOpsMixin._should_auto_clear_after_operation(host)
+        )
 
         host.auto_clear_enabled_checkbox.isChecked.return_value = True
-        self.assertTrue(WorkerOpsMixin._should_auto_clear_after_operation(host))
+        self.assertTrue(
+            WorkerOpsMixin._should_auto_clear_after_operation(host)
+        )
 
         host._last_operation = {"op": "rename"}
-        self.assertFalse(WorkerOpsMixin._should_auto_clear_after_operation(host))
+        self.assertFalse(
+            WorkerOpsMixin._should_auto_clear_after_operation(host)
+        )
 
 
 if __name__ == "__main__":

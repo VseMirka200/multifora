@@ -1,4 +1,4 @@
-# Produce a portable ZIP and SHA-256 checksums for all Windows release files.
+# Создаёт переносимый ZIP и контрольные суммы SHA-256 для файлов Windows-выпуска.
 [CmdletBinding()]
 param()
 $ErrorActionPreference = 'Stop'

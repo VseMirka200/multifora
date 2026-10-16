@@ -31,7 +31,9 @@ def apply_case_mode(value: str, mode: str) -> str:
     return text
 
 
-def regex_replace(value: str, pattern: str, replacement: str, *, ignore_case: bool = False) -> str:
+def regex_replace(
+    value: str, pattern: str, replacement: str, *, ignore_case: bool = False
+) -> str:
     """Выполняет regex-замену и оставляет сообщения об ошибках вызывающему коду."""
     flags = re.IGNORECASE if ignore_case else 0
     return re.sub(pattern, replacement, value, flags=flags)
@@ -80,8 +82,12 @@ def build_file_token_values(file_path: str) -> dict[str, str]:
     }
     if file_path:
         try:
-            values["created"] = _formatted_timestamp(os.path.getctime(file_path))
-            values["modified"] = _formatted_timestamp(os.path.getmtime(file_path))
+            values["created"] = _formatted_timestamp(
+                os.path.getctime(file_path)
+            )
+            values["modified"] = _formatted_timestamp(
+                os.path.getmtime(file_path)
+            )
             values["file_date"] = values["modified"]
         except OSError:
             pass
@@ -168,12 +174,27 @@ def apply_custom_template(
 ):
     new_name = template.replace("{name}", name_without_ext)
     new_name = new_name.replace("{date}", date_str)
-    new_name = new_name.replace("{ext}", ext[1:] if ext.startswith(".") else ext)
-    metadata_tokens = ("created", "modified", "file_date", "exif_date", "width", "height")
+    new_name = new_name.replace(
+        "{ext}", ext[1:] if ext.startswith(".") else ext
+    )
+    metadata_tokens = (
+        "created",
+        "modified",
+        "file_date",
+        "exif_date",
+        "width",
+        "height",
+    )
     if any(f"{{{token}}}" in new_name for token in metadata_tokens):
-        metadata = build_file_token_values(file_path) if token_values is None else token_values
+        metadata = (
+            build_file_token_values(file_path)
+            if token_values is None
+            else token_values
+        )
         for token in metadata_tokens:
-            new_name = new_name.replace(f"{{{token}}}", str(metadata.get(token, "") or ""))
+            new_name = new_name.replace(
+                f"{{{token}}}", str(metadata.get(token, "") or "")
+            )
 
     if use_numbering:
         num_token_match = _CUSTOM_NUM_TOKEN_RE.search(new_name)
@@ -181,10 +202,14 @@ def apply_custom_template(
         if num_token_match:
             token_spec = str(num_token_match.group(1) or "").strip()
             has_explicit_digits = bool(
-                re.search(r"(^|,)\s*(?::|fmt=|digits=|width=|\d+d)", token_spec)
+                re.search(
+                    r"(^|,)\s*(?::|fmt=|digits=|width=|\d+d)", token_spec
+                )
             )
             if has_explicit_digits:
-                token_settings = parse_custom_template_settings(num_token_match.group(0))
+                token_settings = parse_custom_template_settings(
+                    num_token_match.group(0)
+                )
                 token_digits = int(token_settings.get("digits", num_digits))
 
         number = f"{current_num:0{token_digits}d}"

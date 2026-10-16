@@ -40,7 +40,9 @@ def _windows_name_error(name: str) -> str:
     return ""
 
 
-def analyze_rename_plan(file_items, new_names: list[str]) -> list[RenamePlanIssue]:
+def analyze_rename_plan(
+    file_items, new_names: list[str]
+) -> list[RenamePlanIssue]:
     """Проверяет пакетное переименование до изменения файлов на диске."""
     pairs = list(zip(file_items, new_names, strict=False))
     normalized_targets = [
@@ -49,18 +51,26 @@ def analyze_rename_plan(file_items, new_names: list[str]) -> list[RenamePlanIssu
     ]
     target_counts = Counter(target.casefold() for target in normalized_targets)
     source_paths = {
-        os.path.normcase(os.path.abspath(str(getattr(item, "path", "")))).casefold()
+        os.path.normcase(
+            os.path.abspath(str(getattr(item, "path", "")))
+        ).casefold()
         for item, _name in pairs
     }
 
     issues: list[RenamePlanIssue] = []
-    for (item, raw_name), normalized_target in zip(pairs, normalized_targets, strict=True):
+    for (item, raw_name), normalized_target in zip(
+        pairs, normalized_targets, strict=True
+    ):
         name = str(raw_name or "")
         source = str(getattr(item, "path", ""))
         target = os.path.join(str(getattr(item, "folder", "")), name)
         name_error = _windows_name_error(name)
         if name_error:
-            issues.append(RenamePlanIssue("invalid_name", source, target, name_error, True))
+            issues.append(
+                RenamePlanIssue(
+                    "invalid_name", source, target, name_error, True
+                )
+            )
             continue
 
         target_key = normalized_target.casefold()
@@ -73,24 +83,29 @@ def analyze_rename_plan(file_items, new_names: list[str]) -> list[RenamePlanIssu
                     "несколько файлов получат одинаковое имя",
                 )
             )
-        if target_key != os.path.normcase(os.path.abspath(source)).casefold() and os.path.exists(
-            target
-        ):
+        if target_key != os.path.normcase(
+            os.path.abspath(source)
+        ).casefold() and os.path.exists(target):
             message = (
                 "целевое имя занято другим файлом из пакета"
                 if target_key in source_paths
                 else "целевой файл уже существует"
             )
-            issues.append(RenamePlanIssue("existing_target", source, target, message))
+            issues.append(
+                RenamePlanIssue("existing_target", source, target, message)
+            )
     return issues
 
 
-def format_rename_plan_issues(issues: list[RenamePlanIssue], limit: int = 5) -> str:
+def format_rename_plan_issues(
+    issues: list[RenamePlanIssue], limit: int = 5
+) -> str:
     if not issues:
         return "Конфликты не обнаружены."
     lines = [f"Обнаружено конфликтов: {len(issues)}."]
     lines.extend(
-        f"• {os.path.basename(issue.target)} — {issue.message}" for issue in issues[: max(0, limit)]
+        f"• {os.path.basename(issue.target)} — {issue.message}"
+        for issue in issues[: max(0, limit)]
     )
     remaining = len(issues) - max(0, limit)
     if remaining > 0:

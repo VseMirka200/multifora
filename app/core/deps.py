@@ -91,7 +91,9 @@ def _ghostscript_executable_from_registry_key(key) -> str | None:
     library_path = _registry_value(key, "GS_LIB")
     if library_path and os.path.exists(library_path):
         executable = os.path.normpath(
-            os.path.join(os.path.dirname(library_path), "..", "bin", "gswin64c.exe")
+            os.path.join(
+                os.path.dirname(library_path), "..", "bin", "gswin64c.exe"
+            )
         )
         if os.path.exists(executable):
             return executable
@@ -120,7 +122,11 @@ def _find_ghostscript_in_registry() -> str | None:
                     for version in sorted(versions, reverse=True):
                         try:
                             with winreg.OpenKey(key, version) as version_key:
-                                executable = _ghostscript_executable_from_registry_key(version_key)
+                                executable = (
+                                    _ghostscript_executable_from_registry_key(
+                                        version_key
+                                    )
+                                )
                                 if executable:
                                     return executable
                         except OSError:
@@ -135,9 +141,9 @@ def _ghostscript_candidates(custom_path: str | None = None) -> list[str]:
     if custom_path:
         candidates.append(custom_path)
 
-    environment_path = os.environ.get("MULTIFORA_GHOSTSCRIPT_PATH") or os.environ.get(
-        "GHOSTSCRIPT_PATH"
-    )
+    environment_path = os.environ.get(
+        "MULTIFORA_GHOSTSCRIPT_PATH"
+    ) or os.environ.get("GHOSTSCRIPT_PATH")
     if environment_path:
         candidates.append(environment_path)
 
@@ -146,10 +152,14 @@ def _ghostscript_candidates(custom_path: str | None = None) -> list[str]:
         candidates.append(registry_path)
 
     executable = sys.argv[0] if sys.argv else ""
-    base_dir = os.path.dirname(os.path.abspath(executable)) if executable else None
+    base_dir = (
+        os.path.dirname(os.path.abspath(executable)) if executable else None
+    )
 
     if base_dir:
-        candidates.append(os.path.join(base_dir, "bin", "gswin64", "gswin64c.exe"))
+        candidates.append(
+            os.path.join(base_dir, "bin", "gswin64", "gswin64c.exe")
+        )
 
     candidates.append(r"C:\\Program Files\\gs\\gs*\\bin\\gswin64c.exe")
     candidates.extend(_GHOSTSCRIPT_EXECUTABLES)
@@ -181,7 +191,9 @@ def _detect_ghostscript(custom_path: str | None = None) -> None:
         try:
             resolved_path = _resolve_ghostscript_candidate(candidate)
         except OSError as error:
-            _debug_log(f"Ошибка проверки пути Ghostscript {candidate!r}: {error}")
+            _debug_log(
+                f"Ошибка проверки пути Ghostscript {candidate!r}: {error}"
+            )
             continue
         if not resolved_path:
             continue

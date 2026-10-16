@@ -10,7 +10,6 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-
 from app.ui.ui_components import (
     AutoHeightTextEdit,
     MenuLikeComboBox,
@@ -20,7 +19,11 @@ from app.ui.ui_components import (
     setup_standard_line_input,
     setup_standard_spin_input,
 )
-from app.ui.ui_helpers import create_param_block, create_spin_param_block, signals_blocked
+from app.ui.ui_helpers import (
+    create_param_block,
+    create_spin_param_block,
+    signals_blocked,
+)
 from app.ui.ui_spacing import (
     MARGINS_NONE,
     SPACE_NONE,
@@ -68,11 +71,20 @@ class TemplateParamsNumberingMixin:
             if widget is not None:
                 widget.setVisible(False)
 
-        if simple_visible and getattr(self, "template_num_simple_widget", None) is not None:
+        if (
+            simple_visible
+            and getattr(self, "template_num_simple_widget", None) is not None
+        ):
             self.template_num_simple_widget.setVisible(True)
-        elif prefix_visible and getattr(self, "template_num_prefix_widget", None) is not None:
+        elif (
+            prefix_visible
+            and getattr(self, "template_num_prefix_widget", None) is not None
+        ):
             self.template_num_prefix_widget.setVisible(True)
-        elif date_visible and getattr(self, "template_num_date_widget", None) is not None:
+        elif (
+            date_visible
+            and getattr(self, "template_num_date_widget", None) is not None
+        ):
             self.template_num_date_widget.setVisible(True)
 
     def _on_numbering_mode_changed(self, _index=None):
@@ -100,7 +112,11 @@ class TemplateParamsNumberingMixin:
         self._set_numbering_mode_visibility(target)
 
     def _create_labeled_spin_block(
-        self, label_text: str, spinbox: QSpinBox, *, label: QLabel | None = None
+        self,
+        label_text: str,
+        spinbox: QSpinBox,
+        *,
+        label: QLabel | None = None,
     ):
         if label is None:
             return create_spin_param_block(label_text, spinbox)
@@ -132,8 +148,12 @@ class TemplateParamsNumberingMixin:
         self.template_numbering_mode = MenuLikeComboBox()
         self.template_numbering_mode.addItems(self._numbering_mode_items())
         setup_standard_dropdown(self.template_numbering_mode)
-        self.template_numbering_mode.currentIndexChanged.connect(self._on_numbering_mode_changed)
-        layout.addWidget(create_param_block("Как нумеровать:", self.template_numbering_mode))
+        self.template_numbering_mode.currentIndexChanged.connect(
+            self._on_numbering_mode_changed
+        )
+        layout.addWidget(
+            create_param_block("Как нумеровать:", self.template_numbering_mode)
+        )
 
         self.template_num_simple_widget = QWidget()
         simple_layout = QVBoxLayout(self.template_num_simple_widget)
@@ -146,7 +166,9 @@ class TemplateParamsNumberingMixin:
         self.template_num_start.setValue(1)
         setup_standard_spin_input(self.template_num_start)
         simple_layout.addWidget(
-            self._create_labeled_spin_block("Начальный номер:", self.template_num_start)
+            self._create_labeled_spin_block(
+                "Начальный номер:", self.template_num_start
+            )
         )
 
         self.template_num_step = QSpinBox()
@@ -155,7 +177,9 @@ class TemplateParamsNumberingMixin:
         self.template_num_step.setValue(1)
         setup_standard_spin_input(self.template_num_step)
         simple_layout.addWidget(
-            self._create_labeled_spin_block("Шаг нумерации:", self.template_num_step)
+            self._create_labeled_spin_block(
+                "Шаг нумерации:", self.template_num_step
+            )
         )
 
         self.template_num_digits = QSpinBox()
@@ -164,7 +188,9 @@ class TemplateParamsNumberingMixin:
         self.template_num_digits.setValue(3)
         setup_standard_spin_input(self.template_num_digits)
         simple_layout.addWidget(
-            self._create_labeled_spin_block("Кол-во цифр:", self.template_num_digits)
+            self._create_labeled_spin_block(
+                "Кол-во цифр:", self.template_num_digits
+            )
         )
 
         sep_label = QLabel("Разделитель:")
@@ -186,14 +212,18 @@ class TemplateParamsNumberingMixin:
         self.template_prefix_text = QLineEdit("фото_")
         self.template_prefix_text.setProperty("renameTemplateField", True)
         setup_standard_line_input(self.template_prefix_text)
-        prefix_layout.addWidget(create_param_block("Префикс:", self.template_prefix_text))
+        prefix_layout.addWidget(
+            create_param_block("Префикс:", self.template_prefix_text)
+        )
 
         self.template_prefix_start = QSpinBox()
         self.template_prefix_start.setRange(1, 9999)
         self.template_prefix_start.setValue(1)
         setup_standard_spin_input(self.template_prefix_start)
         prefix_layout.addWidget(
-            self._create_labeled_spin_block("Начальный номер:", self.template_prefix_start)
+            self._create_labeled_spin_block(
+                "Начальный номер:", self.template_prefix_start
+            )
         )
 
         self.template_prefix_step = QSpinBox()
@@ -201,7 +231,9 @@ class TemplateParamsNumberingMixin:
         self.template_prefix_step.setValue(1)
         setup_standard_spin_input(self.template_prefix_step)
         prefix_layout.addWidget(
-            self._create_labeled_spin_block("Шаг нумерации:", self.template_prefix_step)
+            self._create_labeled_spin_block(
+                "Шаг нумерации:", self.template_prefix_step
+            )
         )
 
         self.template_prefix_digits = QSpinBox()
@@ -209,7 +241,9 @@ class TemplateParamsNumberingMixin:
         self.template_prefix_digits.setValue(3)
         setup_standard_spin_input(self.template_prefix_digits)
         prefix_layout.addWidget(
-            self._create_labeled_spin_block("Кол-во цифр:", self.template_prefix_digits)
+            self._create_labeled_spin_block(
+                "Кол-во цифр:", self.template_prefix_digits
+            )
         )
 
         self.template_num_date_widget = QWidget()
@@ -225,14 +259,18 @@ class TemplateParamsNumberingMixin:
             ]
         )
         setup_standard_dropdown(self.template_date_format)
-        date_layout.addWidget(create_param_block("Формат даты:", self.template_date_format))
+        date_layout.addWidget(
+            create_param_block("Формат даты:", self.template_date_format)
+        )
 
         self.template_date_start = QSpinBox()
         self.template_date_start.setRange(1, 9999)
         self.template_date_start.setValue(1)
         setup_standard_spin_input(self.template_date_start)
         date_layout.addWidget(
-            self._create_labeled_spin_block("Начальный номер:", self.template_date_start)
+            self._create_labeled_spin_block(
+                "Начальный номер:", self.template_date_start
+            )
         )
 
         self.template_date_step = QSpinBox()
@@ -240,7 +278,9 @@ class TemplateParamsNumberingMixin:
         self.template_date_step.setValue(1)
         setup_standard_spin_input(self.template_date_step)
         date_layout.addWidget(
-            self._create_labeled_spin_block("Шаг нумерации:", self.template_date_step)
+            self._create_labeled_spin_block(
+                "Шаг нумерации:", self.template_date_step
+            )
         )
 
         self.template_date_digits = QSpinBox()
@@ -248,14 +288,18 @@ class TemplateParamsNumberingMixin:
         self.template_date_digits.setValue(3)
         setup_standard_spin_input(self.template_date_digits)
         date_layout.addWidget(
-            self._create_labeled_spin_block("Кол-во цифр:", self.template_date_digits)
+            self._create_labeled_spin_block(
+                "Кол-во цифр:", self.template_date_digits
+            )
         )
 
         layout.addWidget(self.template_num_simple_widget)
         layout.addWidget(self.template_num_prefix_widget)
         layout.addWidget(self.template_num_date_widget)
 
-        self._set_numbering_mode_visibility(getattr(self, "current_template", ""))
+        self._set_numbering_mode_visibility(
+            getattr(self, "current_template", "")
+        )
 
         self.template_params_layout.addWidget(container)
 
@@ -274,7 +318,11 @@ class TemplateParamsNumberingMixin:
             ]
         )
         setup_standard_dropdown(self.template_original_date_format)
-        layout.addWidget(create_param_block("Дата в начале:", self.template_original_date_format))
+        layout.addWidget(
+            create_param_block(
+                "Дата в начале:", self.template_original_date_format
+            )
+        )
         self.template_params_layout.addWidget(container)
 
     def _insert_custom_template_token(self, token: str):
@@ -299,23 +347,32 @@ class TemplateParamsNumberingMixin:
         input_layout = QHBoxLayout(input_container)
         input_layout.setContentsMargins(*MARGINS_NONE)
         input_layout.setSpacing(SPACE_NONE)
-        input_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        input_container.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
 
         self.template_custom = AutoHeightTextEdit()
         self.template_custom._auto_min_height = 44
         self.template_custom.setPlaceholderText(
             "например: фото_{num:03d,start=1,step=1}_{date}_{name}"
         )
-        self.template_custom.setText("фото_{num:03d,start=1,step=1}_{date}_{name}")
+        self.template_custom.setText(
+            "фото_{num:03d,start=1,step=1}_{date}_{name}"
+        )
         self.template_custom.setProperty("renameTemplateField", True)
-        self.template_custom.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.template_custom.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
         input_layout.addWidget(self.template_custom, 1)
 
         layout.addWidget(input_container)
 
         quick_tokens = (
             ("{name}", "Исходное имя файла"),
-            ("{num:03d,start=1,step=1}", "Порядковый номер: три цифры, начало с 1, шаг 1"),
+            (
+                "{num:03d,start=1,step=1}",
+                "Порядковый номер: три цифры, начало с 1, шаг 1",
+            ),
             ("{date}", "Текущая дата"),
             ("{ext}", "Расширение файла без точки"),
             ("{created}", "Дата создания файла"),
@@ -330,14 +387,16 @@ class TemplateParamsNumberingMixin:
             button.setToolTip(tooltip)
             button.setProperty("buttonVariant", "secondary")
             button.clicked.connect(
-                lambda _checked=False, value=token: self._insert_custom_template_token(value)
+                lambda _checked=False, value=token: (
+                    self._insert_custom_template_token(value)
+                )
             )
             self.template_quick_insert_buttons[token] = button
 
         number_token = "{num:03d,start=1,step=1}"
         number_button = self.template_quick_insert_buttons[number_token]
-        number_button_container, _number_button_layout = self._build_rename_action_row(
-            [number_button]
+        number_button_container, _number_button_layout = (
+            self._build_rename_action_row([number_button])
         )
         layout.addWidget(number_button_container)
 
@@ -349,8 +408,10 @@ class TemplateParamsNumberingMixin:
         # Даже в узкой левой панели три кнопки в ряд
         # на такой ширине обрезают длинные токены вроде {exif_date}.
         for start in range(0, len(remaining_buttons), 2):
-            quick_buttons_container, _quick_buttons_layout = self._build_rename_action_row(
-                remaining_buttons[start : start + 2]
+            quick_buttons_container, _quick_buttons_layout = (
+                self._build_rename_action_row(
+                    remaining_buttons[start : start + 2]
+                )
             )
             layout.addWidget(quick_buttons_container)
 

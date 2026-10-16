@@ -21,10 +21,23 @@ class WindowGeometryPersistenceTests(unittest.TestCase):
             settings_path = os.path.join(tmp_dir, "settings.json")
 
             with (
-                patch("app.core.settings.get_settings_file_path", return_value=settings_path),
-                patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
-                patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
-                patch.object(MultiforaMainWindow, "create_file_worker", return_value=True),
+                patch(
+                    "app.core.settings.get_settings_file_path",
+                    return_value=settings_path,
+                ),
+                patch.object(
+                    MultiforaMainWindow,
+                    "apply_shortcut_settings",
+                    return_value=None,
+                ),
+                patch.object(
+                    MultiforaMainWindow, "create_ipc_server", return_value=None
+                ),
+                patch.object(
+                    MultiforaMainWindow,
+                    "create_file_worker",
+                    return_value=True,
+                ),
             ):
                 window = MultiforaMainWindow()
                 try:

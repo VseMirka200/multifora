@@ -117,7 +117,7 @@ jobs:
             dist/installer/Multifora-Setup-*.sha256
             dist/CHANGELOG.md
   
-  # Publishing is isolated from dependency installs, tests, and Windows packaging.
+  # Публикация изолирована от установки зависимостей, тестов и Windows-сборки.
   publish-release:
     needs: build-windows
     runs-on: ubuntu-latest

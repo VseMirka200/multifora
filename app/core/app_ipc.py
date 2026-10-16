@@ -79,7 +79,9 @@ def _delete_ipc_token() -> None:
 def _get_ipc_server_name(token: str | None = None) -> str:
     """Имя IPC сервера (пер-пользователь)."""
     home = os.path.expanduser("~")
-    user_suffix = hashlib.sha256(home.encode("utf-8", "ignore")).hexdigest()[:12]
+    user_suffix = hashlib.sha256(home.encode("utf-8", "ignore")).hexdigest()[
+        :12
+    ]
     token = token or _load_ipc_token()
     if not token:
         return f"Multifora_IPC_{user_suffix}"
@@ -104,7 +106,11 @@ def _is_option_argument(argument: str) -> bool:
 
 
 def _candidate_arguments(args: list[str]) -> list[str]:
-    return [argument for argument in args if argument and not _is_option_argument(argument)]
+    return [
+        argument
+        for argument in args
+        if argument and not _is_option_argument(argument)
+    ]
 
 
 def _safe_absolute_path(path: str) -> str:
@@ -128,7 +134,9 @@ def _normalize_path_candidate(path: str) -> str:
         return path
 
 
-def _add_existing_candidate(candidate, *, excluded_paths, seen, result) -> None:
+def _add_existing_candidate(
+    candidate, *, excluded_paths, seen, result
+) -> None:
     if not candidate:
         return
     normalized = _normalize_path_candidate(str(candidate).strip("\"'"))
@@ -172,7 +180,9 @@ def _collect_paths_from_args(args: list[str]) -> list[str]:
 
     try:
         split_candidates = [
-            part for argument in arguments for part in shlex.split(argument, posix=False)
+            part
+            for argument in arguments
+            for part in shlex.split(argument, posix=False)
         ]
     except (TypeError, ValueError) as error:
         _debug_log(f"Ошибка резервного разбора аргументов запуска: {error}")
@@ -202,7 +212,9 @@ def _enqueue_files(file_paths: list[str]) -> None:
             for path in file_paths:
                 if path:
                     queue_stream.write(f"{path}\n")
-        _debug_log(f"Файлы добавлены в очередь: {file_paths!r} -> {queue_file}")
+        _debug_log(
+            f"Файлы добавлены в очередь: {file_paths!r} -> {queue_file}"
+        )
     except OSError as error:
         _debug_log(f"Ошибка добавления файлов в очередь: {error}")
 
@@ -211,7 +223,9 @@ def _read_queue_file(path: str) -> list[str]:
     queued_paths = []
     try:
         with open(path, encoding="utf-8") as queue_stream:
-            queued_paths.extend(line.strip() for line in queue_stream if line.strip())
+            queued_paths.extend(
+                line.strip() for line in queue_stream if line.strip()
+            )
     finally:
         try:
             os.remove(path)
@@ -229,7 +243,9 @@ def _drain_queued_files() -> list[str]:
             try:
                 queued_paths.extend(_read_queue_file(queue_file))
             except Exception as error:
-                _debug_log(f"Ошибка чтения файла очереди {queue_file}: {error}")
+                _debug_log(
+                    f"Ошибка чтения файла очереди {queue_file}: {error}"
+                )
     except Exception as error:
         _debug_log(f"Ошибка чтения очереди файлов: {error}")
 
@@ -237,7 +253,11 @@ def _drain_queued_files() -> list[str]:
     seen = set()
     for path in queued_paths:
         normalized = _normalize_path_candidate(path)
-        if not normalized or not os.path.exists(normalized) or normalized in seen:
+        if (
+            not normalized
+            or not os.path.exists(normalized)
+            or normalized in seen
+        ):
             continue
         seen.add(normalized)
         result.append(normalized)
@@ -256,11 +276,17 @@ def is_first_instance() -> bool:
     try:
         kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
         create_mutex = kernel32.CreateMutexW
-        create_mutex.argtypes = (wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR)
+        create_mutex.argtypes = (
+            wintypes.LPVOID,
+            wintypes.BOOL,
+            wintypes.LPCWSTR,
+        )
         create_mutex.restype = wintypes.HANDLE
 
         # Local\ ограничивает mutex текущим пользовательским сеансом Windows.
-        MUTEX_HANDLE = create_mutex(None, False, "Local\\Multifora_SingleInstance_Mutex")
+        MUTEX_HANDLE = create_mutex(
+            None, False, "Local\\Multifora_SingleInstance_Mutex"
+        )
         return ctypes.get_last_error() != ERROR_ALREADY_EXISTS
     except Exception as error:
         # Ошибка системного mutex не должна блокировать запуск приложения.
@@ -287,7 +313,9 @@ def _get_command_line_args() -> list[str]:
 
         raw_command = kernel32.GetCommandLineW()
         argument_count = ctypes.c_int()
-        arguments = shell32.CommandLineToArgvW(raw_command, ctypes.byref(argument_count))
+        arguments = shell32.CommandLineToArgvW(
+            raw_command, ctypes.byref(argument_count)
+        )
         if not arguments:
             return []
         try:
@@ -350,7 +378,9 @@ def send_files_to_running_instance(
             socket_client.flush()
             socket_client.waitForBytesWritten(500)
             socket_client.disconnectFromServer()
-            _debug_log(f"Файлы отправлены запущенному экземпляру: {file_paths!r}")
+            _debug_log(
+                f"Файлы отправлены запущенному экземпляру: {file_paths!r}"
+            )
             return True
         except Exception as error:
             last_error = error

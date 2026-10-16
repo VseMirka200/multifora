@@ -16,12 +16,19 @@ from app.core.models import (
 
 class FileListActionsMixin:
     # Добавляет и удаляет файлы, сохраняя согласованность списка и предпросмотра.
-    _FILTERABLE_FILE_TYPES = frozenset(("document", "image", "archive", "folder", "other"))
+    _FILTERABLE_FILE_TYPES = frozenset(
+        ("document", "image", "archive", "folder", "other")
+    )
 
     def _selected_type_filter(self) -> set[str]:
-        if not hasattr(self, "_type_filter_actions") or not self._type_filter_actions:
+        if (
+            not hasattr(self, "_type_filter_actions")
+            or not self._type_filter_actions
+        ):
             return set(self._FILTERABLE_FILE_TYPES)
-        selected = {k for k, a in self._type_filter_actions.items() if a.isChecked()}
+        selected = {
+            k for k, a in self._type_filter_actions.items() if a.isChecked()
+        }
         return selected
 
     def _current_search_query(self) -> str:
@@ -44,12 +51,20 @@ class FileListActionsMixin:
         )
 
     def _selected_extension_filter(self) -> set[str]:
-        if not hasattr(self, "_ext_filter_actions") or not self._ext_filter_actions:
+        if (
+            not hasattr(self, "_ext_filter_actions")
+            or not self._ext_filter_actions
+        ):
             return set()
-        return {k for k, a in self._ext_filter_actions.items() if a.isChecked()}
+        return {
+            k for k, a in self._ext_filter_actions.items() if a.isChecked()
+        }
 
     def _is_extension_filter_active(self) -> bool:
-        if not hasattr(self, "_ext_filter_actions") or not self._ext_filter_actions:
+        if (
+            not hasattr(self, "_ext_filter_actions")
+            or not self._ext_filter_actions
+        ):
             return False
         all_ext = set(self._ext_filter_actions.keys())
         return self._selected_extension_filter() != all_ext
@@ -71,17 +86,25 @@ class FileListActionsMixin:
             if ftype not in type_filter:
                 continue
 
-            ext = os.path.splitext(str(getattr(file_item, "name", "")))[1].lower()
+            ext = os.path.splitext(str(getattr(file_item, "name", "")))[
+                1
+            ].lower()
             ext_key = ext
             if ftype == "folder":
                 ext_key = "__folder__"
             elif not ext or ext not in KNOWN_FILE_EXTENSIONS:
                 ext_key = "__otherext__"
 
-            if self._is_extension_filter_active() and ext_key not in ext_filter:
+            if (
+                self._is_extension_filter_active()
+                and ext_key not in ext_filter
+            ):
                 continue
 
-            if query and query not in str(getattr(file_item, "name", "")).casefold():
+            if (
+                query
+                and query not in str(getattr(file_item, "name", "")).casefold()
+            ):
                 continue
             result.append(file_item)
         return result
@@ -127,7 +150,9 @@ class FileListActionsMixin:
                 file_paths = list(file_paths)
             else:
                 QMessageBox.warning(
-                    self, "Ошибка", f"Неправильный формат файлов: {type(file_paths)}"
+                    self,
+                    "Ошибка",
+                    f"Неправильный формат файлов: {type(file_paths)}",
                 )
                 return
 
@@ -140,7 +165,9 @@ class FileListActionsMixin:
                         folder_mode = self._ask_folder_add_mode()
                     if folder_mode == "contents":
                         for root, _, files in os.walk(path):
-                            expanded_paths.extend(os.path.join(root, name) for name in files)
+                            expanded_paths.extend(
+                                os.path.join(root, name) for name in files
+                            )
                     elif folder_mode == "folder":
                         expanded_paths.append(path)
                     elif folder_mode is None:
@@ -177,7 +204,9 @@ class FileListActionsMixin:
 
             except Exception as e:
                 QMessageBox.warning(
-                    self, "Ошибка", f"Не удалось добавить файл {os.path.basename(file_path)}: {e}"
+                    self,
+                    "Ошибка",
+                    f"Не удалось добавить файл {os.path.basename(file_path)}: {e}",
                 )
 
         if new_items:
@@ -185,7 +214,9 @@ class FileListActionsMixin:
             if column is not None:
                 self.sort_files_by_column(
                     column,
-                    getattr(self, "_column_sort_order", Qt.SortOrder.AscendingOrder),
+                    getattr(
+                        self, "_column_sort_order", Qt.SortOrder.AscendingOrder
+                    ),
                 )
             else:
                 self.update_file_list()
@@ -193,15 +224,21 @@ class FileListActionsMixin:
         if added_count > 0:
             self.update_file_info()
             try:
-                if callable(getattr(self, "refresh_active_file_preview", None)):
+                if callable(
+                    getattr(self, "refresh_active_file_preview", None)
+                ):
                     self.refresh_active_file_preview()
                 elif getattr(self, "current_template", None):
                     self.refresh_rename_preview()
             except Exception as error:
                 _log_ignored_error("FileListActionsMixin.add_files", error)
             if callable(getattr(self, "log_event", None)):
-                self.log_event(f"Добавлены файлы в список: {self._ru_files_label(added_count)}")
-            self.status_bar.showMessage(f"Добавлено {self._ru_files_label(added_count)}")
+                self.log_event(
+                    f"Добавлены файлы в список: {self._ru_files_label(added_count)}"
+                )
+            self.status_bar.showMessage(
+                f"Добавлено {self._ru_files_label(added_count)}"
+            )
 
     def update_file_info(self):
         """Обновление информации о файлах"""
@@ -221,7 +258,10 @@ class FileListActionsMixin:
             "_column_sort_order",
             Qt.SortOrder.AscendingOrder,
         )
-        if current_section == section and current_order == Qt.SortOrder.DescendingOrder:
+        if (
+            current_section == section
+            and current_order == Qt.SortOrder.DescendingOrder
+        ):
             self._column_sort_section = None
             self.list_files.horizontalHeader().setSortIndicatorShown(False)
             self.list_files._resize_columns_to_contents()
@@ -236,7 +276,9 @@ class FileListActionsMixin:
         )
         self.sort_files_by_column(section, order)
 
-    def sort_files_by_column(self, section: int, order=Qt.SortOrder.AscendingOrder):
+    def sort_files_by_column(
+        self, section: int, order=Qt.SortOrder.AscendingOrder
+    ):
         if not hasattr(self, "list_files"):
             return
         model = self.list_files.model()
@@ -268,7 +310,8 @@ class FileListActionsMixin:
             def key_func(file_item):
                 return (
                     natural_sort_key(
-                        getattr(file_item, "preview_name", None) or getattr(file_item, "name", "")
+                        getattr(file_item, "preview_name", None)
+                        or getattr(file_item, "name", "")
                     ),
                     str(file_item.path).casefold(),
                 )
@@ -311,7 +354,9 @@ class FileListActionsMixin:
             visible_ids = {id(file_item) for file_item in visible_files}
             visible_iterator = iter(visible_files)
             self.files = [
-                next(visible_iterator) if id(file_item) in visible_ids else file_item
+                next(visible_iterator)
+                if id(file_item) in visible_ids
+                else file_item
                 for file_item in self.files
             ]
         else:

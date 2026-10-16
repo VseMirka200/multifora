@@ -4,7 +4,10 @@ from PyQt6.QtWidgets import QMessageBox
 
 from app.core.conversion_formats import CATEGORY_FILE_TYPES, suffix_for_format
 from app.core.rename_plan import resolve_rename_targets
-from app.core.rename_validation import analyze_rename_plan, format_rename_plan_issues
+from app.core.rename_validation import (
+    analyze_rename_plan,
+    format_rename_plan_issues,
+)
 from app.ui.ui_components import selected_file_items
 
 
@@ -50,8 +53,12 @@ class FileListPreviewMixin:
             self._set_preview_names_to_original()
             self._refresh_list_preview()
             if show_empty_warning:
-                QMessageBox.warning(self, "Ошибка", "Добавьте файлы для переименования")
-                self.log_event("Предпросмотр: нет файлов для переименования", "WARN")
+                QMessageBox.warning(
+                    self, "Ошибка", "Добавьте файлы для переименования"
+                )
+                self.log_event(
+                    "Предпросмотр: нет файлов для переименования", "WARN"
+                )
             return
 
         if not getattr(self, "current_template", None):
@@ -73,13 +80,15 @@ class FileListPreviewMixin:
             return
 
         has_changes = any(
-            hasattr(file_item, "preview_name") and file_item.name != file_item.preview_name
+            hasattr(file_item, "preview_name")
+            and file_item.name != file_item.preview_name
             for file_item in self.files
         )
         changed_pairs = [
             (file_item, file_item.preview_name)
             for file_item in self.files
-            if getattr(file_item, "preview_name", file_item.name) != file_item.name
+            if getattr(file_item, "preview_name", file_item.name)
+            != file_item.name
         ]
         self._rename_plan_issues = analyze_rename_plan(
             [item for item, _name in changed_pairs],
@@ -92,7 +101,9 @@ class FileListPreviewMixin:
                     [item for item, _name in changed_pairs],
                     [name for _item, name in changed_pairs],
                 )
-                for (item, _name), target in zip(changed_pairs, actual_paths, strict=True):
+                for (item, _name), target in zip(
+                    changed_pairs, actual_paths, strict=True
+                ):
                     item.preview_name = os.path.basename(target)
             except ValueError as error:
                 blocking = True
@@ -103,7 +114,9 @@ class FileListPreviewMixin:
             if blocking:
                 validation_label.setText(
                     self._rename_template_error
-                    or format_rename_plan_issues(self._rename_plan_issues, limit=3)
+                    or format_rename_plan_issues(
+                        self._rename_plan_issues, limit=3
+                    )
                 )
             elif self._rename_plan_issues:
                 validation_label.setText(
@@ -115,17 +128,23 @@ class FileListPreviewMixin:
         if has_changes:
             self.status_bar.showMessage("Предпросмотр обновлен автоматически.")
         else:
-            self.status_bar.showMessage("Шаблон не изменяет текущие имена файлов.")
+            self.status_bar.showMessage(
+                "Шаблон не изменяет текущие имена файлов."
+            )
 
     @staticmethod
     def _conversion_target_suffix(to_format: str) -> str:
         return suffix_for_format(to_format)
 
-    def _build_conversion_preview_name(self, file_name: str, to_format: str) -> str:
+    def _build_conversion_preview_name(
+        self, file_name: str, to_format: str
+    ) -> str:
         suffix = self._conversion_target_suffix(to_format)
         if not suffix:
             return file_name
-        base_name = file_name.rsplit(".", 1)[0] if "." in file_name else file_name
+        base_name = (
+            file_name.rsplit(".", 1)[0] if "." in file_name else file_name
+        )
         return f"{base_name}{suffix}"
 
     def refresh_conversion_preview(self, show_empty_warning=False):
@@ -134,7 +153,9 @@ class FileListPreviewMixin:
             self._set_preview_names_to_original()
             self._refresh_list_preview()
             if show_empty_warning:
-                QMessageBox.warning(self, "Ошибка", "Добавьте файлы для конвертации")
+                QMessageBox.warning(
+                    self, "Ошибка", "Добавьте файлы для конвертации"
+                )
             return
 
         from_combo = getattr(self, "from_convert_combo", None)
@@ -153,15 +174,25 @@ class FileListPreviewMixin:
                 category_label = str(type_combo.currentText() or "").strip()
             except Exception:
                 category_label = ""
-        from_idx = from_combo.currentIndex() if hasattr(from_combo, "currentIndex") else 0
-        to_idx = to_combo.currentIndex() if hasattr(to_combo, "currentIndex") else 0
+        from_idx = (
+            from_combo.currentIndex()
+            if hasattr(from_combo, "currentIndex")
+            else 0
+        )
+        to_idx = (
+            to_combo.currentIndex() if hasattr(to_combo, "currentIndex") else 0
+        )
         type_idx = (
             type_combo.currentIndex()
             if type_combo is not None and hasattr(type_combo, "currentIndex")
             else 0
         )
 
-        if from_idx <= 0 or to_idx <= 0 or (type_combo is not None and type_idx <= 0):
+        if (
+            from_idx <= 0
+            or to_idx <= 0
+            or (type_combo is not None and type_idx <= 0)
+        ):
             self._set_preview_names_to_original()
             self._refresh_list_preview()
             return
@@ -189,7 +220,9 @@ class FileListPreviewMixin:
         dot_ext = str(ext or "")
         if dot_ext and not dot_ext.startswith("."):
             dot_ext = f".{dot_ext}"
-        base_name = file_name.rsplit(".", 1)[0] if "." in file_name else file_name
+        base_name = (
+            file_name.rsplit(".", 1)[0] if "." in file_name else file_name
+        )
         return f"{base_name}_compressed{dot_ext}"
 
     def _estimate_image_reduction_percent(self, file_item) -> int:
@@ -205,7 +238,11 @@ class FileListPreviewMixin:
 
         ext = ""
         try:
-            ext = file_item.name.rsplit(".", 1)[1].lower() if "." in file_item.name else ""
+            ext = (
+                file_item.name.rsplit(".", 1)[1].lower()
+                if "." in file_item.name
+                else ""
+            )
         except Exception:
             ext = ""
 
@@ -243,7 +280,9 @@ class FileListPreviewMixin:
             self._set_preview_names_to_original()
             self._refresh_list_preview()
             if show_empty_warning:
-                QMessageBox.warning(self, "Ошибка", "Добавьте файлы для сжатия")
+                QMessageBox.warning(
+                    self, "Ошибка", "Добавьте файлы для сжатия"
+                )
             return
 
         compress_type_combo = getattr(self, "combo_compress_type", None)
@@ -254,7 +293,11 @@ class FileListPreviewMixin:
 
         compress_type = str(compress_type_combo.currentText() or "")
         replace_pdf = bool(
-            getattr(getattr(self, "checkbox_replace_pdf", None), "isChecked", lambda: False)()
+            getattr(
+                getattr(self, "checkbox_replace_pdf", None),
+                "isChecked",
+                lambda: False,
+            )()
         )
         replace_image = (
             callable(getattr(self, "_image_output_mode", None))
@@ -266,25 +309,42 @@ class FileListPreviewMixin:
             if not getattr(file_item, "is_file", False):
                 continue
 
-            if "PDF" in compress_type and str(getattr(file_item, "path", "")).lower().endswith(
-                ".pdf"
-            ):
+            if "PDF" in compress_type and str(
+                getattr(file_item, "path", "")
+            ).lower().endswith(".pdf"):
                 reduction = self._estimate_pdf_reduction_percent()
                 if not replace_pdf:
-                    new_name = self._build_compressed_name(file_item.name, ".pdf")
-                    file_item.preview_name = self._with_reduction_label(new_name, reduction)
+                    new_name = self._build_compressed_name(
+                        file_item.name, ".pdf"
+                    )
+                    file_item.preview_name = self._with_reduction_label(
+                        new_name, reduction
+                    )
                 else:
-                    file_item.preview_name = self._with_reduction_label(file_item.name, reduction)
+                    file_item.preview_name = self._with_reduction_label(
+                        file_item.name, reduction
+                    )
                 continue
 
-            if "Изображения" in compress_type and getattr(file_item, "file_type", "") == "image":
+            if (
+                "Изображения" in compress_type
+                and getattr(file_item, "file_type", "") == "image"
+            ):
                 reduction = self._estimate_image_reduction_percent(file_item)
                 if not replace_image:
-                    ext = file_item.name.rsplit(".", 1)[1] if "." in file_item.name else ""
+                    ext = (
+                        file_item.name.rsplit(".", 1)[1]
+                        if "." in file_item.name
+                        else ""
+                    )
                     new_name = self._build_compressed_name(file_item.name, ext)
-                    file_item.preview_name = self._with_reduction_label(new_name, reduction)
+                    file_item.preview_name = self._with_reduction_label(
+                        new_name, reduction
+                    )
                 else:
-                    file_item.preview_name = self._with_reduction_label(file_item.name, reduction)
+                    file_item.preview_name = self._with_reduction_label(
+                        file_item.name, reduction
+                    )
 
         self._refresh_list_preview()
 
@@ -299,13 +359,20 @@ class FileListPreviewMixin:
         new_names = []
 
         for file_item in self.files:
-            if hasattr(file_item, "preview_name") and file_item.name != file_item.preview_name:
+            if (
+                hasattr(file_item, "preview_name")
+                and file_item.name != file_item.preview_name
+            ):
                 files_to_rename.append(file_item)
                 new_names.append(file_item.preview_name)
 
         if not files_to_rename:
-            QMessageBox.information(self, "Информация", "Нет изменений для применения")
-            self.log_event("Переименование: нет изменений для применения", "INFO")
+            QMessageBox.information(
+                self, "Информация", "Нет изменений для применения"
+            )
+            self.log_event(
+                "Переименование: нет изменений для применения", "INFO"
+            )
             return
 
         issues = analyze_rename_plan(files_to_rename, new_names)
@@ -342,13 +409,16 @@ class FileListPreviewMixin:
             self._last_operation = {
                 "op": "rename",
                 "new_names_by_path": {
-                    f.path: name for f, name in zip(files_to_rename, new_names, strict=True)
+                    f.path: name
+                    for f, name in zip(files_to_rename, new_names, strict=True)
                 },
             }
             self.file_worker.start()
             self.log_event(f"Переименование: {len(files_to_rename)} файлов")
             if callable(getattr(self, "_show_progress_dialog", None)):
-                self._show_progress_dialog(f"Переименование {len(files_to_rename)} файлов...")
+                self._show_progress_dialog(
+                    f"Переименование {len(files_to_rename)} файлов..."
+                )
 
     def update_file_list(self):
         """Обновление отображения списка"""
@@ -369,7 +439,9 @@ class FileListPreviewMixin:
         ]
 
         filtered_files = (
-            self._get_filtered_files() if hasattr(self, "_get_filtered_files") else self.files
+            self._get_filtered_files()
+            if hasattr(self, "_get_filtered_files")
+            else self.files
         )
         self.list_files.set_files(filtered_files)
         self.list_files.clearSelection()

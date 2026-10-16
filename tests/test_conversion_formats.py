@@ -43,13 +43,17 @@ class ConversionFormatsTests(unittest.TestCase):
 
     def test_mixed_mode_offers_one_common_target(self):
         mixed_images = mixed_source_label_for_category(IMAGE_CATEGORY)
-        image_targets = compatible_targets_for_source(IMAGE_CATEGORY, mixed_images)
+        image_targets = compatible_targets_for_source(
+            IMAGE_CATEGORY, mixed_images
+        )
         self.assertIn("WEBP", image_targets)
         self.assertIn("PNG", image_targets)
         self.assertIn("PDF", image_targets)
 
         mixed_docs = mixed_source_label_for_category(DOCUMENT_CATEGORY)
-        doc_targets = compatible_targets_for_source(DOCUMENT_CATEGORY, mixed_docs)
+        doc_targets = compatible_targets_for_source(
+            DOCUMENT_CATEGORY, mixed_docs
+        )
         self.assertIn("PDF", doc_targets)
         self.assertIn("DOCX", doc_targets)
 
@@ -57,7 +61,9 @@ class ConversionFormatsTests(unittest.TestCase):
         self.assertIn("PSD", source_formats_for_category(IMAGE_CATEGORY))
         self.assertNotIn("PSD", target_formats_for_category(IMAGE_CATEGORY))
         self.assertIn("EPUB", source_formats_for_category(DOCUMENT_CATEGORY))
-        self.assertNotIn("EPUB", target_formats_for_category(DOCUMENT_CATEGORY))
+        self.assertNotIn(
+            "EPUB", target_formats_for_category(DOCUMENT_CATEGORY)
+        )
 
 
 if __name__ == "__main__":

@@ -33,10 +33,23 @@ _IMAGE_SAVE_FORMATS: dict[str, str] = {
 }
 
 
-_IMAGE_RGB_TARGETS = frozenset({"JPG", "JPEG", "BMP", "PCX", "PPM", "JP2", "EPS", "SGI"})
+_IMAGE_RGB_TARGETS = frozenset(
+    {"JPG", "JPEG", "BMP", "PCX", "PPM", "JP2", "EPS", "SGI"}
+)
 
 _IMAGE_ALPHA_TARGETS = frozenset(
-    {"PNG", "WEBP", "TIFF", "TGA", "AVIF", "HEIC", "HEIF", "QOI", "DDS", "ICNS"}
+    {
+        "PNG",
+        "WEBP",
+        "TIFF",
+        "TGA",
+        "AVIF",
+        "HEIC",
+        "HEIF",
+        "QOI",
+        "DDS",
+        "ICNS",
+    }
 )
 
 _ANIMATED_IMAGE_TARGETS = frozenset({"GIF", "WEBP", "TIFF"})
@@ -48,7 +61,9 @@ class ImageEncodingMixin:
     @staticmethod
     def _flatten_transparency(img):
         # Для форматов без альфа-канала возвращаем RGB-копию на белом фоне.
-        has_palette_transparency = img.mode == "P" and "transparency" in getattr(img, "info", {})
+        has_palette_transparency = (
+            img.mode == "P" and "transparency" in getattr(img, "info", {})
+        )
         if img.mode not in {"RGBA", "LA"} and not has_palette_transparency:
             return img.convert("RGB")
 
@@ -71,7 +86,9 @@ class ImageEncodingMixin:
             return img.convert("1")
         if target_format == "GIF":
             if img.mode not in ("P", "L"):
-                return img.convert("RGBA").convert("P", palette=Image.Palette.ADAPTIVE)
+                return img.convert("RGBA").convert(
+                    "P", palette=Image.Palette.ADAPTIVE
+                )
             return img
         if target_format == "ICO":
             if img.mode not in ("RGBA", "RGB"):
@@ -102,7 +119,9 @@ class ImageEncodingMixin:
                 page = document.load_page(0)
                 pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0), alpha=True)
                 mode = "RGBA" if pix.alpha else "RGB"
-                return Image.frombytes(mode, (pix.width, pix.height), pix.samples)
+                return Image.frombytes(
+                    mode, (pix.width, pix.height), pix.samples
+                )
         except Exception as error:
             raise Exception(f"Ошибка чтения SVG: {error}") from error
 
@@ -156,13 +175,19 @@ class ImageEncodingMixin:
                 try:
                     frame.close()
                 except Exception as close_error:
-                    _debug_log(f"Не удалось закрыть кадр изображения: {close_error}")
+                    _debug_log(
+                        f"Не удалось закрыть кадр изображения: {close_error}"
+                    )
 
     @staticmethod
     def _ico_sizes(frame) -> list[tuple[int, int]]:
         width, height = frame.size
         max_side = max(width, height)
-        sizes = [(size, size) for size in (16, 24, 32, 48, 64, 128, 256) if size <= max_side]
+        sizes = [
+            (size, size)
+            for size in (16, 24, 32, 48, 64, 128, 256)
+            if size <= max_side
+        ]
         return sizes or [(width, height)]
 
     def _save_pillow_image(
@@ -179,7 +204,9 @@ class ImageEncodingMixin:
             return
         save_format = self._image_save_format(normalized_target)
         if not save_format:
-            raise Exception(f"Неизвестный формат изображения: {normalized_target}")
+            raise Exception(
+                f"Неизвестный формат изображения: {normalized_target}"
+            )
         if normalized_target in {"HEIC", "HEIF"} and not HAS_HEIF:
             raise Exception("Для HEIC/HEIF установите pillow-heif")
 
@@ -189,7 +216,9 @@ class ImageEncodingMixin:
             ImageSequence = None
 
         frame_count = int(getattr(source_image, "n_frames", 1) or 1)
-        preserve_animation = frame_count > 1 and normalized_target in _ANIMATED_IMAGE_TARGETS
+        preserve_animation = (
+            frame_count > 1 and normalized_target in _ANIMATED_IMAGE_TARGETS
+        )
         save_options = self._image_save_options(normalized_target)
 
         if preserve_animation and ImageSequence is not None:
@@ -212,7 +241,9 @@ class ImageEncodingMixin:
             try:
                 frame.close()
             except Exception as close_error:
-                _debug_log(f"Не удалось закрыть подготовленное изображение: {close_error}")
+                _debug_log(
+                    f"Не удалось закрыть подготовленное изображение: {close_error}"
+                )
 
     def _save_embedded_svg(self, source_image, output_path: str) -> None:
         """Встраивает статичный PNG в автономный SVG, сохраняя прозрачность."""

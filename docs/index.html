@@ -80,6 +80,10 @@
           <a href="ru/reference/settings.html">Настройки</a>
           <a href="ru/reference/troubleshooting.html">Проблемы и решения</a>
           <a href="https://github.com/VseMirka200/multifora/issues/new/choose">Сообщить об ошибке</a>
+          <p class="nav-label">Проект</p>
+          <a href="https://github.com/VseMirka200/multifora/blob/main/docs/project/CONTRIBUTING.md">Участие в разработке</a>
+          <a href="https://github.com/VseMirka200/multifora/blob/main/docs/project/SECURITY.md">Безопасность</a>
+          <a href="https://github.com/VseMirka200/multifora/blob/main/docs/project/SUPPORT.md">Поддержка</a>
         </nav>
       </aside>
       <main id="top">
@@ -102,13 +106,14 @@
         </div>
         <section id="start"><h2>Быстрый старт</h2><p>Безопасный путь от установки до первого результата.</p><div class="steps"><div class="step"><b>01 — Установите</b>Скачайте установщик из официального выпуска и завершите установку.</div><div class="step"><b>02 — Добавьте файлы</b>Перетащите их в окно или используйте пункт Мультифоры в Проводнике.</div><div class="step"><b>03 — Проверьте результат</b>Сначала обработайте несколько копий, затем переходите к большому набору.</div></div></section>
         <section id="help"><h2>Нужна помощь?</h2><p>Проверьте настройки и советы по решению проблем. При ошибке приложите обезличенный журнал из пункта «Справка → Скачать логи».</p><div class="actions"><a class="button" href="ru/reference/troubleshooting.html">Проблемы и решения</a><a class="button" href="https://github.com/VseMirka200/multifora/issues/new/choose">Сообщить об ошибке</a></div></section>
+        <section id="project"><h2>Проект и участие</h2><p>Здесь собраны правила для пользователей, авторов изменений и тех, кто помогает развивать Мультифору.</p><div class="actions"><a class="button" href="https://github.com/VseMirka200/multifora/blob/main/docs/project/CONTRIBUTING.md">Участие в разработке</a><a class="button" href="https://github.com/VseMirka200/multifora/blob/main/docs/project/CODE_OF_CONDUCT.md">Кодекс поведения</a><a class="button" href="https://github.com/VseMirka200/multifora/blob/main/docs/project/SECURITY.md">Безопасность</a><a class="button" href="https://github.com/VseMirka200/multifora/blob/main/docs/project/SUPPORT.md">Поддержка</a><a class="button" href="https://github.com/VseMirka200/multifora/blob/main/docs/project/RELEASING.md">Выпуск версии</a><a class="button" href="https://github.com/VseMirka200/multifora/blob/main/docs/project/CHANGELOG.md">Журнал изменений</a></div></section>
         <section id="support" class="support"><div><h2>Поддержать проект</h2><p>Звезда, отзыв и сообщение об ошибке помогают развивать Мультифору.</p></div><a class="button primary" href="https://pay.cloudtips.ru/p/1fa22ea5" target="_blank" rel="noreferrer">Поддержать проект</a></section>
 
       </main>
     </div>
     <dialog id="search-dialog"><div class="dialog-head"><strong>Поиск по разделам</strong><button class="close" type="button" aria-label="Закрыть" data-close-search>×</button></div><input id="search-input" type="search" placeholder="Например: PDF, переименование, ошибки" autofocus><div id="results"></div></dialog>
     <script>
-      const pages=[['Быстрый старт','ru/guide/quick-start.html'],['Установка и обновление','ru/guide/install.html'],['Переименование','ru/guide/rename.html'],['Конвертация','ru/guide/conversion.html'],['Объединение и сжатие','ru/guide/optimize.html'],['Настройки','ru/reference/settings.html'],['Проблемы и решения','ru/reference/troubleshooting.html']];
+      const pages=[['Быстрый старт','ru/guide/quick-start.html'],['Установка и обновление','ru/guide/install.html'],['Переименование','ru/guide/rename.html'],['Конвертация','ru/guide/conversion.html'],['Объединение и сжатие','ru/guide/optimize.html'],['Настройки','ru/reference/settings.html'],['Проблемы и решения','ru/reference/troubleshooting.html'],['Участие в разработке','https://github.com/VseMirka200/multifora/blob/main/docs/project/CONTRIBUTING.md'],['Безопасность','https://github.com/VseMirka200/multifora/blob/main/docs/project/SECURITY.md'],['Поддержка','https://github.com/VseMirka200/multifora/blob/main/docs/project/SUPPORT.md'],['Выпуск версии','https://github.com/VseMirka200/multifora/blob/main/docs/project/RELEASING.md'],['Журнал изменений','https://github.com/VseMirka200/multifora/blob/main/docs/project/CHANGELOG.md']];
       const dialog=document.querySelector('#search-dialog'), input=document.querySelector('#search-input'), results=document.querySelector('#results');
       function render(query=''){ const items=pages.filter(([name])=>name.toLowerCase().includes(query.toLowerCase())); results.innerHTML=items.map(([name,url])=>`<a href="${url}">${name}</a>`).join('')||'<span>Ничего не найдено.</span>'; }
       function openSearch(){ render(); dialog.showModal(); input.focus(); }

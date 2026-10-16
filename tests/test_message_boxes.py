@@ -34,7 +34,9 @@ class MessageBoxTests(unittest.TestCase):
     def setUp(self):
         self.parent = QWidget()
         self.parent._effective_theme_mode = "dark"
-        self.parent.setStyleSheet('QPushButton[buttonVariant="secondary"] { background: #333333; }')
+        self.parent.setStyleSheet(
+            'QPushButton[buttonVariant="secondary"] { background: #333333; }'
+        )
 
     def tearDown(self):
         self.parent.deleteLater()
@@ -71,16 +73,24 @@ class MessageBoxTests(unittest.TestCase):
                 QSizePolicy.Policy.Expanding,
             )
         self.assertEqual(
-            dialog.findChild(QPushButton, "appMessageButton_first").property("buttonVariant"),
+            dialog.findChild(QPushButton, "appMessageButton_first").property(
+                "buttonVariant"
+            ),
             "secondary",
         )
         self.assertEqual(
-            dialog.findChild(QPushButton, "appMessageButton_second").property("buttonVariant"),
+            dialog.findChild(QPushButton, "appMessageButton_second").property(
+                "buttonVariant"
+            ),
             "danger",
         )
         self.assertEqual(
-            dialog.findChild(QPushButton, "appMessageButton_first").styleSheet(),
-            dialog.findChild(QPushButton, "appMessageButton_second").styleSheet(),
+            dialog.findChild(
+                QPushButton, "appMessageButton_first"
+            ).styleSheet(),
+            dialog.findChild(
+                QPushButton, "appMessageButton_second"
+            ).styleSheet(),
         )
 
     def test_confirmation_treats_window_close_as_no(self):
@@ -112,10 +122,18 @@ class MessageBoxTests(unittest.TestCase):
             return exec_dialog
 
         with patch.object(QDialog, "exec", new=press_key(Qt.Key.Key_Return)):
-            self.assertTrue(show_app_confirmation(self.parent, "Подтверждение", "Продолжить?"))
+            self.assertTrue(
+                show_app_confirmation(
+                    self.parent, "Подтверждение", "Продолжить?"
+                )
+            )
 
         with patch.object(QDialog, "exec", new=press_key(Qt.Key.Key_Delete)):
-            self.assertFalse(show_app_confirmation(self.parent, "Подтверждение", "Продолжить?"))
+            self.assertFalse(
+                show_app_confirmation(
+                    self.parent, "Подтверждение", "Продолжить?"
+                )
+            )
 
     def test_choice_buttons_fit_long_labels(self):
         captured = {}
@@ -140,11 +158,15 @@ class MessageBoxTests(unittest.TestCase):
         dialog = captured["dialog"]
         buttons = dialog.findChildren(QPushButton)
         for button in buttons:
-            text_width = QFontMetrics(button.font()).horizontalAdvance(button.text())
+            text_width = QFontMetrics(button.font()).horizontalAdvance(
+                button.text()
+            )
             self.assertGreaterEqual(button.minimumWidth(), text_width + 20)
 
         required_width = (
-            sum(button.minimumWidth() for button in buttons) + 8 * (len(buttons) - 1) + 24
+            sum(button.minimumWidth() for button in buttons)
+            + 8 * (len(buttons) - 1)
+            + 24
         )
         self.assertGreaterEqual(dialog.minimumWidth(), required_width)
 
@@ -174,8 +196,12 @@ class MessageBoxTests(unittest.TestCase):
             icon.sizePolicy().verticalPolicy(),
             QSizePolicy.Policy.Expanding,
         )
-        extra_row = captured["dialog"].findChild(QHBoxLayout, "appMessageExtraRow")
-        self.assertEqual(extra_row.itemAt(0).spacerItem().sizeHint().width(), 38)
+        extra_row = captured["dialog"].findChild(
+            QHBoxLayout, "appMessageExtraRow"
+        )
+        self.assertEqual(
+            extra_row.itemAt(0).spacerItem().sizeHint().width(), 38
+        )
 
 
 if __name__ == "__main__":

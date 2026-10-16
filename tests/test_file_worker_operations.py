@@ -28,7 +28,9 @@ class FileWorkerOperationTests(unittest.TestCase):
 
     @patch("core.workers.file_worker.os.rename")
     @patch("core.workers.file_worker.os.path.exists", return_value=False)
-    def test_rename_operation_moves_file_and_emits_result(self, _exists, rename):
+    def test_rename_operation_moves_file_and_emits_result(
+        self, _exists, rename
+    ):
         source = SimpleNamespace(
             path="C:/files/source.txt",
             folder="C:/files",

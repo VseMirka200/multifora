@@ -61,10 +61,14 @@ def resolve_rename_targets(
                 break
             number += 1
             if number > 10000:
-                raise ValueError(f"Не удалось найти свободное имя для {target}")
+                raise ValueError(
+                    f"Не удалось найти свободное имя для {target}"
+                )
             candidate = f"{stem}_{number}{extension}"
             if _windows_name_error(os.path.basename(candidate)):
-                raise ValueError(f"Невозможно подобрать свободное имя для {target}")
+                raise ValueError(
+                    f"Невозможно подобрать свободное имя для {target}"
+                )
         result.append(candidate)
         reserved.add(path_key(candidate))
     return result

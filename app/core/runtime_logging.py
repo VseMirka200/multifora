@@ -11,8 +11,12 @@ from app.core.app_utils import _debug_log
 _runtime_logging_installed = False
 
 
-def log_unhandled_exception(exc_type, exc_value, exc_traceback, source: str) -> None:
-    details = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback)).strip()
+def log_unhandled_exception(
+    exc_type, exc_value, exc_traceback, source: str
+) -> None:
+    details = "".join(
+        traceback.format_exception(exc_type, exc_value, exc_traceback)
+    ).strip()
     _debug_log(f"Необработанная ошибка ({source}):\n{details}", "ERROR")
 
 
@@ -41,7 +45,9 @@ def install_runtime_logging() -> None:
     previous_excepthook = sys.excepthook
 
     def excepthook(exc_type, exc_value, exc_traceback):
-        log_unhandled_exception(exc_type, exc_value, exc_traceback, "главный поток")
+        log_unhandled_exception(
+            exc_type, exc_value, exc_traceback, "главный поток"
+        )
         previous_excepthook(exc_type, exc_value, exc_traceback)
 
     sys.excepthook = excepthook

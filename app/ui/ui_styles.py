@@ -2,14 +2,16 @@ from app.ui.ui_spacing import FIELD_HEIGHT
 
 STANDARD_RADIUS = 4
 
-STANDARD_FORM_LABEL_STYLE = "font-size: 13px; font-weight: 400; margin: 0px; padding: 0px;"
+STANDARD_FORM_LABEL_STYLE = (
+    "font-size: 13px; font-weight: 400; margin: 0px; padding: 0px;"
+)
 FILE_INFO_LABEL_STYLE = "font-size: 13px; font-weight: 600; padding: 0px 2px;"
 COMPACT_CHECKBOX_STYLE = "QCheckBox { margin-top: 1px; }"
 TRANSPARENT_CONTAINER_STYLE = "background-color: transparent;"
-SPLITTER_GRIP_LABEL_STYLE = "background-color: transparent; border: none; padding: 0px;"
-FILE_LIST_HEADER_STYLE = (
-    "QHeaderView::section { background: transparent; border: none; padding: 4px 6px; }"
+SPLITTER_GRIP_LABEL_STYLE = (
+    "background-color: transparent; border: none; padding: 0px;"
 )
+FILE_LIST_HEADER_STYLE = "QHeaderView::section { background: transparent; border: none; padding: 4px 6px; }"
 FILE_LIST_DRAG_ACTIVE_STYLE = "QTableView { border: 2px dashed #3d74b3; }"
 
 
@@ -64,7 +66,9 @@ def build_operations_settings_button_style(theme: str) -> str:
 
 def build_file_info_separator_style(theme: str) -> str:
     color = (
-        "rgba(31, 35, 40, 0.24)" if str(theme).lower() == "light" else "rgba(255, 255, 255, 0.18)"
+        "rgba(31, 35, 40, 0.24)"
+        if str(theme).lower() == "light"
+        else "rgba(255, 255, 255, 0.18)"
     )
     return f"background-color: {color}; border: none;"
 
@@ -81,7 +85,9 @@ def build_drop_zone_surface_style(theme: str) -> str:
 
 
 def drop_zone_muted_color(theme: str) -> str:
-    return "#5b6470" if str(theme).lower() == "light" else "rgba(220,220,220,180)"
+    return (
+        "#5b6470" if str(theme).lower() == "light" else "rgba(220,220,220,180)"
+    )
 
 
 def build_drop_zone_overlay_style(theme: str) -> str:
@@ -106,7 +112,9 @@ def build_drop_action_tile_style(theme: str) -> str:
     light = str(theme).lower() == "light"
     border = "rgba(90, 100, 110, 170)" if light else "rgba(255,255,255,120)"
     hover_border = "rgba(61,116,179,220)" if light else "rgba(255,255,255,210)"
-    hover_background = "rgba(61,116,179,18)" if light else "rgba(255,255,255,24)"
+    hover_background = (
+        "rgba(61,116,179,18)" if light else "rgba(255,255,255,24)"
+    )
     return f"""
         QFrame#drop_action_tile {{
             background-color: transparent;
@@ -150,8 +158,19 @@ _BUTTON_PALETTES = {
 
 
 def build_standard_button_style(theme: str, role: str) -> str:
-    palette = _BUTTON_PALETTES["light" if str(theme).lower() == "light" else "dark"]
-    bg, hover, pressed, border, fg, disabled_bg, disabled_border, disabled_fg = palette
+    palette = _BUTTON_PALETTES[
+        "light" if str(theme).lower() == "light" else "dark"
+    ]
+    (
+        bg,
+        hover,
+        pressed,
+        border,
+        fg,
+        disabled_bg,
+        disabled_border,
+        disabled_fg,
+    ) = palette
     return f"""
         QPushButton {{
             background-color: {bg}; color: {fg}; border: 1px solid {border};
@@ -173,7 +192,9 @@ def build_template_table_style(theme: str) -> str:
     background = palette["bg"]
     border = palette["border"]
     alternate = "#eef1f5" if light else "#454545"
-    hover = "rgba(61, 116, 179, 0.10)" if light else "rgba(255, 255, 255, 0.07)"
+    hover = (
+        "rgba(61, 116, 179, 0.10)" if light else "rgba(255, 255, 255, 0.07)"
+    )
     selected = "rgba(61, 116, 179, 0.22)" if light else "#5c5c5c"
     header = alternate if light else "#2b2b2b"
     return f"""
@@ -428,7 +449,9 @@ def build_standard_field_style(theme: str, kind: str) -> str:
             }}
         """
     if kind == "surface":
-        alternate_bg = "#f8fafc" if str(theme).lower() == "light" else "#3d3d3d"
+        alternate_bg = (
+            "#f8fafc" if str(theme).lower() == "light" else "#3d3d3d"
+        )
         hover_bg = (
             "rgba(61, 116, 179, 0.10)"
             if str(theme).lower() == "light"

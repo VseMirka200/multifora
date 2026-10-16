@@ -3,23 +3,37 @@
 import unittest
 from pathlib import Path
 
-from app.core.github_links import DOCUMENTATION_URL, GITHUB_NEW_ISSUE_URL, PROJECT_SUPPORT_URL
+from app.core.github_links import (
+    DOCUMENTATION_URL,
+    GITHUB_NEW_ISSUE_URL,
+    PROJECT_SUPPORT_URL,
+)
 from app.core.update_checker import REPO_PAGE
 
 
 class GitHubLinksTests(unittest.TestCase):
     def test_support_points_to_cloudtips(self):
-        self.assertEqual(PROJECT_SUPPORT_URL, "https://pay.cloudtips.ru/p/1fa22ea5")
-        self.assertTrue(PROJECT_SUPPORT_URL.startswith("https://pay.cloudtips.ru/"))
+        self.assertEqual(
+            PROJECT_SUPPORT_URL, "https://pay.cloudtips.ru/p/1fa22ea5"
+        )
+        self.assertTrue(
+            PROJECT_SUPPORT_URL.startswith("https://pay.cloudtips.ru/")
+        )
 
     def test_reporting_opens_template_chooser(self):
-        self.assertEqual(GITHUB_NEW_ISSUE_URL, REPO_PAGE + "/issues/new/choose")
+        self.assertEqual(
+            GITHUB_NEW_ISSUE_URL, REPO_PAGE + "/issues/new/choose"
+        )
 
     def test_documentation_uses_the_project_site(self):
-        self.assertEqual(DOCUMENTATION_URL, "https://vsemirka200.github.io/multifora/")
+        self.assertEqual(
+            DOCUMENTATION_URL, "https://vsemirka200.github.io/multifora/"
+        )
 
     def test_five_russian_issue_templates_exist(self):
-        directory = Path(__file__).resolve().parent.parent / ".github/ISSUE_TEMPLATE"
+        directory = (
+            Path(__file__).resolve().parent.parent / ".github/ISSUE_TEMPLATE"
+        )
         names = ("bug.md", "file.md", "feature.md", "ui.md", "question.md")
         self.assertEqual({p.name for p in directory.glob("*.md")}, set(names))
         for name in names:
@@ -32,21 +46,29 @@ class GitHubLinksTests(unittest.TestCase):
 
     def test_no_legacy_platform_mentions(self):
         root = Path(__file__).resolve().parent.parent
-        paths = (root / "app", root / "core", root / "tests", root / "docs", root / ".github")
+        paths = (
+            root / "app",
+            root / "core",
+            root / "tests",
+            root / "docs",
+            root / ".github",
+        )
         candidates = [root / "README.md"]
         for folder in paths:
             if folder.exists():
                 candidates.extend(
                     p
                     for p in folder.rglob("*")
-                    if p.is_file() and p.suffix in (".py", ".md", ".yml", ".yaml", ".txt")
+                    if p.is_file()
+                    and p.suffix in (".py", ".md", ".yml", ".yaml", ".txt")
                 )
         # Собираем строку, чтобы сама проверка не содержала искомое имя.
         legacy_name = "Git" + "Flic"
         for file in candidates:
             with self.subTest(file=str(file.relative_to(root))):
                 self.assertNotIn(
-                    legacy_name.casefold(), file.read_text(encoding="utf-8").casefold()
+                    legacy_name.casefold(),
+                    file.read_text(encoding="utf-8").casefold(),
                 )
 
 

@@ -16,30 +16,46 @@ class TemplateParamsBaseMixin:
 
             elif template_type == "Удалить символы с начала":
                 if hasattr(self, "template_remove_start"):
-                    self.template_remove_start.setValue(data.get("remove_start", 1))
+                    self.template_remove_start.setValue(
+                        data.get("remove_start", 1)
+                    )
 
             elif template_type == "Удалить символы с конца":
                 if hasattr(self, "template_remove_end"):
-                    self.template_remove_end.setValue(data.get("remove_end", 1))
+                    self.template_remove_end.setValue(
+                        data.get("remove_end", 1)
+                    )
 
             elif template_type == "Удалить определенный текст":
                 if hasattr(self, "template_remove_text"):
-                    self.template_remove_text.setText(data.get("remove_text", ""))
+                    self.template_remove_text.setText(
+                        data.get("remove_text", "")
+                    )
 
             elif template_type == "Заменить текст другим":
-                if hasattr(self, "template_find") and hasattr(self, "template_replace"):
+                if hasattr(self, "template_find") and hasattr(
+                    self, "template_replace"
+                ):
                     self.template_find.setText(data.get("find", ""))
                     self.template_replace.setText(data.get("replace", ""))
 
             elif template_type == "Регулярное выражение":
                 if hasattr(self, "template_regex_pattern"):
-                    self.template_regex_pattern.setText(str(data.get("pattern", "")))
-                    self.template_regex_replace.setText(str(data.get("replacement", "")))
-                    self.template_regex_ignore_case.setChecked(bool(data.get("ignore_case", False)))
+                    self.template_regex_pattern.setText(
+                        str(data.get("pattern", ""))
+                    )
+                    self.template_regex_replace.setText(
+                        str(data.get("replacement", ""))
+                    )
+                    self.template_regex_ignore_case.setChecked(
+                        bool(data.get("ignore_case", False))
+                    )
 
             elif template_type == "Изменить регистр":
                 if hasattr(self, "template_case_mode"):
-                    index = self.template_case_mode.findData(data.get("case_mode", "lower"))
+                    index = self.template_case_mode.findData(
+                        data.get("case_mode", "lower")
+                    )
                     self.template_case_mode.setCurrentIndex(max(0, index))
 
             elif template_type in (
@@ -56,20 +72,32 @@ class TemplateParamsBaseMixin:
                     if hasattr(self, "template_num_start"):
                         self.template_num_start.setValue(data.get("start", 1))
                         self.template_num_step.setValue(data.get("step", 1))
-                        self.template_num_digits.setValue(data.get("digits", 3))
-                        self.template_num_sep.setText(data.get("separator", "_"))
+                        self.template_num_digits.setValue(
+                            data.get("digits", 3)
+                        )
+                        self.template_num_sep.setText(
+                            data.get("separator", "_")
+                        )
 
                 elif numbering_mode == "Нумерация с префиксом":
                     if hasattr(self, "template_prefix_text"):
-                        self.template_prefix_text.setText(data.get("prefix", "фото_"))
-                        self.template_prefix_start.setValue(data.get("start", 1))
+                        self.template_prefix_text.setText(
+                            data.get("prefix", "фото_")
+                        )
+                        self.template_prefix_start.setValue(
+                            data.get("start", 1)
+                        )
                         self.template_prefix_step.setValue(data.get("step", 1))
-                        self.template_prefix_digits.setValue(data.get("digits", 3))
+                        self.template_prefix_digits.setValue(
+                            data.get("digits", 3)
+                        )
 
                 elif numbering_mode == "Нумерация с датой" and hasattr(
                     self, "template_date_format"
                 ):
-                    self.template_date_format.setCurrentIndex(data.get("date_format", 0))
+                    self.template_date_format.setCurrentIndex(
+                        data.get("date_format", 0)
+                    )
                     self.template_date_start.setValue(data.get("start", 1))
                     self.template_date_step.setValue(data.get("step", 1))
                     self.template_date_digits.setValue(data.get("digits", 3))
@@ -77,9 +105,13 @@ class TemplateParamsBaseMixin:
             elif template_type == "Дата в начале названия" and hasattr(
                 self, "template_original_date_format"
             ):
-                self.template_original_date_format.setCurrentIndex(data.get("date_format", 0))
+                self.template_original_date_format.setCurrentIndex(
+                    data.get("date_format", 0)
+                )
 
-            elif template_type == "Пользовательский шаблон" and hasattr(self, "template_custom"):
+            elif template_type == "Пользовательский шаблон" and hasattr(
+                self, "template_custom"
+            ):
                 template_text = str(data.get("template", ""))
                 if (
                     template_text
@@ -94,7 +126,9 @@ class TemplateParamsBaseMixin:
                 self.template_custom.setText(template_text)
 
         except Exception as e:
-            QMessageBox.warning(self, "Ошибка", f"Не удалось применить данные шаблона: {e!s}")
+            QMessageBox.warning(
+                self, "Ошибка", f"Не удалось применить данные шаблона: {e!s}"
+            )
 
     def clear_template_params_container(self):
         """Очищает контейнер с параметрами шаблона"""

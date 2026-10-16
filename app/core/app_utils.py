@@ -5,7 +5,9 @@ from datetime import datetime
 def _debug_log(message: str, level: str = "DEBUG"):
     """Пишет диагностику в единый журнал, доступный через «Скачать логи»."""
     try:
-        base_dir = os.path.join(os.path.expanduser("~"), "AppData", "Roaming", "Multifora")
+        base_dir = os.path.join(
+            os.path.expanduser("~"), "AppData", "Roaming", "Multifora"
+        )
         logs_dir = os.path.join(base_dir, "logs")
         os.makedirs(logs_dir, exist_ok=True)
         log_path = os.path.join(logs_dir, "multifora_logs.txt")
@@ -22,7 +24,9 @@ def _log_ignored_error(context: str, error: Exception) -> None:
 
 def _get_app_data_dir():
     """Базовый каталог данных приложения в AppData."""
-    base_dir = os.path.join(os.path.expanduser("~"), "AppData", "Roaming", "Multifora")
+    base_dir = os.path.join(
+        os.path.expanduser("~"), "AppData", "Roaming", "Multifora"
+    )
     try:
         os.makedirs(base_dir, exist_ok=True)
     except Exception as error:

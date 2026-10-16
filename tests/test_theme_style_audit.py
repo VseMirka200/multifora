@@ -56,8 +56,12 @@ class ThemeStyleAuditTests(unittest.TestCase):
     def test_standard_field_text_contrast(self):
         for theme in ("light", "dark"):
             palette = standard_palette(theme)
-            self.assertGreaterEqual(_contrast(palette["fg"], palette["bg"]), 4.5)
-            self.assertGreaterEqual(_contrast(palette["disabled_fg"], palette["disabled_bg"]), 4.0)
+            self.assertGreaterEqual(
+                _contrast(palette["fg"], palette["bg"]), 4.5
+            )
+            self.assertGreaterEqual(
+                _contrast(palette["disabled_fg"], palette["disabled_bg"]), 4.0
+            )
 
     def test_menu_disabled_items_have_theme_specific_color(self):
         self.assertIn("QMenu::item:disabled", LIGHT_APPLICATION_STYLE)
@@ -78,9 +82,9 @@ class ThemeStyleAuditTests(unittest.TestCase):
             self.assertIn(f"background-color: {background}", menu_items)
             self.assertIn("margin: 0px", menu_items)
             self.assertNotIn("background-color: transparent", menu_items)
-            menu_hover = style.split("QMenu QListWidget#scrollable_filter_list::item:hover {", 1)[
-                1
-            ].split("}", 1)[0]
+            menu_hover = style.split(
+                "QMenu QListWidget#scrollable_filter_list::item:hover {", 1
+            )[1].split("}", 1)[0]
             self.assertIn(f"background-color: {hover}", menu_hover)
 
     def test_header_dropdown_commands_use_compact_horizontal_padding(self):
@@ -157,27 +161,33 @@ class ThemeStyleAuditTests(unittest.TestCase):
             self.assertIn("height: 14px", scoped_lines)
             self.assertNotIn("height: 0px", scoped_lines)
 
-    def test_operations_tabs_keep_selected_underline_without_hover_override(self):
+    def test_operations_tabs_keep_selected_underline_without_hover_override(
+        self,
+    ):
         light = build_operations_tab_bar_style("light")
         dark = build_operations_tab_bar_style("dark")
         for style in (light, dark):
             self.assertIn("border-bottom: 1px solid #3d74b3", style)
-            tab = style.split("QTabBar#operations_tab_bar::tab {", 1)[1].split("}", 1)[0]
+            tab = style.split("QTabBar#operations_tab_bar::tab {", 1)[1].split(
+                "}", 1
+            )[0]
             self.assertIn("padding: 0px", tab)
             self.assertIn("font-size: 13px", tab)
             self.assertIn("font-weight: 700", tab)
             self.assertIn("min-height: 22px", style)
             self.assertIn("max-height: 22px", style)
-            selected = style.split("QTabBar#operations_tab_bar::tab:selected {", 1)[1].split(
-                "}", 1
-            )[0]
+            selected = style.split(
+                "QTabBar#operations_tab_bar::tab:selected {", 1
+            )[1].split("}", 1)[0]
             self.assertIn("color: #3d74b3", selected)
             self.assertNotIn("QTabBar#operations_tab_bar::tab:hover", style)
 
     def test_settings_navigation_uses_vertical_tab_selection_style(self):
         for theme, foreground in (("light", "#202833"), ("dark", "#e3e6ea")):
             style = build_settings_navigation_style(theme)
-            button = style.split("QPushButton#settings_nav_item {", 1)[1].split("}", 1)[0]
+            button = style.split("QPushButton#settings_nav_item {", 1)[
+                1
+            ].split("}", 1)[0]
             selected_button = style.split(
                 "QPushButton#settings_nav_item:checked {", 1
             )[1].split("}", 1)[0]
@@ -217,13 +227,19 @@ class ThemeStyleAuditTests(unittest.TestCase):
         self.assertIn("background-color: #ffffff", LIGHT_APPLICATION_STYLE)
 
     def test_dropdown_styles_are_global_instead_of_assigned_to_each_menu(self):
-        components = Path("app/ui/ui_components.py").read_text(encoding="utf-8")
-        theme_source = Path("app/ui/theme_styles.py").read_text(encoding="utf-8")
+        components = Path("app/ui/ui_components.py").read_text(
+            encoding="utf-8"
+        )
+        theme_source = Path("app/ui/theme_styles.py").read_text(
+            encoding="utf-8"
+        )
         self.assertIn("QMenu {", DARK_APPLICATION_STYLE)
         self.assertIn("QComboBox QAbstractItemView", DARK_APPLICATION_STYLE)
         self.assertEqual(theme_source.count("QMenu {{"), 1)
         self.assertEqual(theme_source.count("QComboBox QAbstractItemView,"), 1)
-        self.assertEqual(theme_source.count("QComboBox QAbstractItemView::item {{"), 1)
+        self.assertEqual(
+            theme_source.count("QComboBox QAbstractItemView::item {{"), 1
+        )
         self.assertNotIn("MENU_STYLE_DARK", components)
         self.assertNotIn("MENU_STYLE_LIGHT", components)
         self.assertNotIn("menu.setStyleSheet(", components)
@@ -231,7 +247,9 @@ class ThemeStyleAuditTests(unittest.TestCase):
 
     def test_dropdown_popup_has_rounded_bottom_without_extra_padding(self):
         for style in (LIGHT_APPLICATION_STYLE, DARK_APPLICATION_STYLE):
-            popup = style.split("QMenu#menu_like_combo_popup,", 1)[1].split("}", 1)[0]
+            popup = style.split("QMenu#menu_like_combo_popup,", 1)[1].split(
+                "}", 1
+            )[0]
             self.assertIn("QMenu#header_dropdown_popup", popup)
             self.assertIn("border-bottom-left-radius: 4px", popup)
             self.assertIn("border-bottom-right-radius: 4px", popup)
@@ -239,8 +257,12 @@ class ThemeStyleAuditTests(unittest.TestCase):
 
     def test_light_file_panel_and_list_surface_stay_white(self):
         ui_main = Path("app/ui/ui_main.py").read_text(encoding="utf-8")
-        self.assertIn("background-color: #ffffff", build_drop_zone_surface_style("light"))
-        self.assertNotIn("background-color: #f3f3f3", build_drop_zone_surface_style("light"))
+        self.assertIn(
+            "background-color: #ffffff", build_drop_zone_surface_style("light")
+        )
+        self.assertNotIn(
+            "background-color: #f3f3f3", build_drop_zone_surface_style("light")
+        )
         self.assertNotIn("right_layout.addSpacing(SPACE_SM)", ui_main)
 
 

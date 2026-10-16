@@ -70,13 +70,18 @@ class AppIpcTests(unittest.TestCase):
         self.assertEqual(result, [str(source)])
 
     def test_drain_queue_deduplicates_paths_and_removes_queue_files(self):
-        with tempfile.TemporaryDirectory() as tmp_dir, tempfile.TemporaryDirectory() as files_dir:
+        with (
+            tempfile.TemporaryDirectory() as tmp_dir,
+            tempfile.TemporaryDirectory() as files_dir,
+        ):
             source = Path(files_dir, "source.pdf")
             source.write_bytes(b"pdf")
             first_queue = Path(tmp_dir, "queue_1.txt")
             second_queue = Path(tmp_dir, "queue_2.txt")
             first_queue.write_text(f"{source}\n{source}\n", encoding="utf-8")
-            second_queue.write_text(f"missing.pdf\n{source}\n", encoding="utf-8")
+            second_queue.write_text(
+                f"missing.pdf\n{source}\n", encoding="utf-8"
+            )
 
             with patch.object(app_ipc, "_get_queue_dir", return_value=tmp_dir):
                 result = app_ipc._drain_queued_files()
@@ -92,9 +97,15 @@ class AppIpcTests(unittest.TestCase):
         with (
             patch.object(app_ipc, "QLocalSocket", _SocketStub),
             patch.object(app_ipc, "_load_ipc_token", return_value="secret"),
-            patch.object(app_ipc, "_get_ipc_server_name", return_value="Multifora_IPC_test"),
+            patch.object(
+                app_ipc,
+                "_get_ipc_server_name",
+                return_value="Multifora_IPC_test",
+            ),
         ):
-            sent = app_ipc.send_files_to_running_instance(files, retries=1, delay=0)
+            sent = app_ipc.send_files_to_running_instance(
+                files, retries=1, delay=0
+            )
 
         self.assertTrue(sent)
         self.assertEqual(len(_SocketStub.instances), 1)
@@ -107,7 +118,9 @@ class AppIpcTests(unittest.TestCase):
         self.assertTrue(socket.disconnected)
 
     def test_ipc_server_name_is_bound_to_the_secret_token(self):
-        with patch.object(app_ipc.os.path, "expanduser", return_value=r"C:\\Users\\test"):
+        with patch.object(
+            app_ipc.os.path, "expanduser", return_value=r"C:\\Users\\test"
+        ):
             first = app_ipc._get_ipc_server_name("a" * 32)
             second = app_ipc._get_ipc_server_name("b" * 32)
 
@@ -118,7 +131,9 @@ class AppIpcTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             token_path = Path(tmp_dir, "ipc_token.txt")
             token_path.write_text("not-a-token", encoding="utf-8")
-            with patch.object(app_ipc, "_get_ipc_token_path", return_value=str(token_path)):
+            with patch.object(
+                app_ipc, "_get_ipc_token_path", return_value=str(token_path)
+            ):
                 self.assertIsNone(app_ipc._load_ipc_token())
 
 

@@ -53,7 +53,9 @@ class WindowsIntegrationMixin:
             icon_path = _get_shortcut_icon_path()
             if not icon_path:
                 icon_path = (
-                    _gui_python_executable() if exe_path.lower().endswith(".py") else exe_path
+                    _gui_python_executable()
+                    if exe_path.lower().endswith(".py")
+                    else exe_path
                 )
             if icon_path:
                 if icon_path.lower().endswith((".exe", ".dll")):
@@ -67,7 +69,13 @@ class WindowsIntegrationMixin:
             self.log_event("Регистрирую контекстное меню...")
             for root in self._CONTEXT_MENU_ROOTS:
                 with winreg.CreateKey(winreg.HKEY_CURRENT_USER, root) as key:
-                    winreg.SetValueEx(key, "MUIVerb", 0, winreg.REG_SZ, "Добавить в Мультифору")
+                    winreg.SetValueEx(
+                        key,
+                        "MUIVerb",
+                        0,
+                        winreg.REG_SZ,
+                        "Добавить в Мультифору",
+                    )
                     # Player поддерживает массовое выделение для legacy-команды.
                     winreg.SetValueEx(
                         key,
@@ -77,16 +85,24 @@ class WindowsIntegrationMixin:
                         self._CONTEXT_MENU_MULTISELECT_MODEL,
                     )
                     if icon_value:
-                        winreg.SetValueEx(key, "Icon", 0, winreg.REG_SZ, icon_value)
+                        winreg.SetValueEx(
+                            key, "Icon", 0, winreg.REG_SZ, icon_value
+                        )
                 cmd_key = root + r"\command"
-                with winreg.CreateKey(winreg.HKEY_CURRENT_USER, cmd_key) as key:
-                    winreg.SetValueEx(key, "", 0, winreg.REG_SZ, context_menu_command)
+                with winreg.CreateKey(
+                    winreg.HKEY_CURRENT_USER, cmd_key
+                ) as key:
+                    winreg.SetValueEx(
+                        key, "", 0, winreg.REG_SZ, context_menu_command
+                    )
 
             self.log_event("✓ Контекстное меню успешно добавлено!")
             self.log_event(f"Команда: {context_menu_command}", "INFO")
             return True
         except Exception as exc:
-            self.log_event(f"Ошибка регистрации контекстного меню: {exc}", "ERROR")
+            self.log_event(
+                f"Ошибка регистрации контекстного меню: {exc}", "ERROR"
+            )
             try:
                 QMessageBox.critical(
                     self,
@@ -94,12 +110,16 @@ class WindowsIntegrationMixin:
                     f"Не удалось добавить контекстное меню.\n\n{exc}",
                 )
             except Exception as error:
-                _log_ignored_error("WindowsIntegrationMixin.register_context_menu", error)
+                _log_ignored_error(
+                    "WindowsIntegrationMixin.register_context_menu", error
+                )
             return False
 
     def ensure_context_menu_registration(self):
         """Обновляет старую регистрацию контекстного меню, если настройка включена."""
-        if os.name != "nt" or not getattr(self, "windows_context_menu_enabled", False):
+        if os.name != "nt" or not getattr(
+            self, "windows_context_menu_enabled", False
+        ):
             return False
         if winreg is None:
             return False
@@ -109,9 +129,16 @@ class WindowsIntegrationMixin:
             expected_command = _context_menu_command()
             for root in self._CONTEXT_MENU_ROOTS:
                 try:
-                    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, root, 0, winreg.KEY_READ) as key:
-                        value, _value_type = winreg.QueryValueEx(key, "MultiSelectModel")
-                    if str(value).strip().lower() != self._CONTEXT_MENU_MULTISELECT_MODEL.lower():
+                    with winreg.OpenKey(
+                        winreg.HKEY_CURRENT_USER, root, 0, winreg.KEY_READ
+                    ) as key:
+                        value, _value_type = winreg.QueryValueEx(
+                            key, "MultiSelectModel"
+                        )
+                    if (
+                        str(value).strip().lower()
+                        != self._CONTEXT_MENU_MULTISELECT_MODEL.lower()
+                    ):
                         needs_refresh = True
                         break
                     with winreg.OpenKey(
@@ -140,13 +167,17 @@ class WindowsIntegrationMixin:
                 self.refresh_shell_context_menu()
             return success
         except Exception as error:
-            _debug_log(f"Ошибка обновления регистрации контекстного меню: {error}")
+            _debug_log(
+                f"Ошибка обновления регистрации контекстного меню: {error}"
+            )
             return False
 
     def unregister_context_menu_silent(self):
         def _del_tree(root_key, subkey):
             try:
-                with winreg.OpenKey(root_key, subkey, 0, winreg.KEY_READ | winreg.KEY_WRITE) as key:
+                with winreg.OpenKey(
+                    root_key, subkey, 0, winreg.KEY_READ | winreg.KEY_WRITE
+                ) as key:
                     i = 0
                     while True:
                         try:
@@ -176,7 +207,9 @@ class WindowsIntegrationMixin:
             ]:
                 _del_tree(winreg.HKEY_CURRENT_USER, sub)
         except Exception as error:
-            _log_ignored_error("WindowsIntegrationMixin.unregister_context_menu_silent", error)
+            _log_ignored_error(
+                "WindowsIntegrationMixin.unregister_context_menu_silent", error
+            )
 
     def unregister_context_menu(self):
         """Удаляет контекстное меню (HKCU, без админ-прав)."""
@@ -184,13 +217,19 @@ class WindowsIntegrationMixin:
             self.unregister_context_menu_silent()
             return True
         except Exception as exc:
-            self.log_event(f"Ошибка удаления контекстного меню: {exc}", "ERROR")
+            self.log_event(
+                f"Ошибка удаления контекстного меню: {exc}", "ERROR"
+            )
             try:
                 QMessageBox.critical(
-                    self, "Ошибка", f"Не удалось удалить контекстное меню.\n\n{exc}"
+                    self,
+                    "Ошибка",
+                    f"Не удалось удалить контекстное меню.\n\n{exc}",
                 )
             except Exception as error:
-                _log_ignored_error("WindowsIntegrationMixin.unregister_context_menu", error)
+                _log_ignored_error(
+                    "WindowsIntegrationMixin.unregister_context_menu", error
+                )
             return False
 
     def toggle_context_menu(self, state):
@@ -254,9 +293,13 @@ class WindowsIntegrationMixin:
         try:
             SHCNE_ASSOCCHANGED = 0x08000000
             SHCNF_IDLIST = 0x0000
-            ctypes.windll.shell32.SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, None, None)
+            ctypes.windll.shell32.SHChangeNotify(
+                SHCNE_ASSOCCHANGED, SHCNF_IDLIST, None, None
+            )
         except Exception as error:
-            _log_ignored_error("WindowsIntegrationMixin.refresh_shell_context_menu", error)
+            _log_ignored_error(
+                "WindowsIntegrationMixin.refresh_shell_context_menu", error
+            )
 
     def get_desktop_shortcut_path(self):
         """Возвращает путь ярлыка на рабочем столе."""
@@ -301,13 +344,17 @@ class WindowsIntegrationMixin:
     def _escape_ps(self, value: str) -> str:
         return value.replace("'", "''")
 
-    def create_windows_shortcut(self, shortcut_path: str, silent: bool = False) -> bool:
+    def create_windows_shortcut(
+        self, shortcut_path: str, silent: bool = False
+    ) -> bool:
         """Создает ярлык Windows (.lnk)."""
         try:
             try:
                 os.makedirs(os.path.dirname(shortcut_path), exist_ok=True)
             except Exception as error:
-                _log_ignored_error("WindowsIntegrationMixin.create_windows_shortcut", error)
+                _log_ignored_error(
+                    "WindowsIntegrationMixin.create_windows_shortcut", error
+                )
             shortcut_exists = os.path.exists(shortcut_path)
             target_path = _gui_python_executable()
             args = ""
@@ -343,27 +390,44 @@ class WindowsIntegrationMixin:
             )
 
             result = subprocess.run(
-                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_script],
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-Command",
+                    ps_script,
+                ],
                 capture_output=True,
                 text=True,
                 timeout=15,
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+                creationflags=subprocess.CREATE_NO_WINDOW
+                if os.name == "nt"
+                else 0,
             )
             if result.returncode != 0:
                 if not silent:
                     QMessageBox.warning(
-                        self, "Ошибка", f"Не удалось создать ярлык: {result.stderr}"
+                        self,
+                        "Ошибка",
+                        f"Не удалось создать ярлык: {result.stderr}",
                     )
-                self.log_event(f"Ошибка создания ярлыка: {result.stderr}", "ERROR")
+                self.log_event(
+                    f"Ошибка создания ярлыка: {result.stderr}", "ERROR"
+                )
                 return False
             return True
         except Exception as exc:
             if not silent:
-                QMessageBox.warning(self, "Ошибка", f"Не удалось создать ярлык: {exc}")
+                QMessageBox.warning(
+                    self, "Ошибка", f"Не удалось создать ярлык: {exc}"
+                )
             self.log_event(f"Ошибка создания ярлыка: {exc}", "ERROR")
             return False
 
-    def remove_windows_shortcut(self, shortcut_path: str, silent: bool = False) -> bool:
+    def remove_windows_shortcut(
+        self, shortcut_path: str, silent: bool = False
+    ) -> bool:
         """Удаляет ярлык Windows (.lnk)."""
         try:
             if os.path.exists(shortcut_path):
@@ -371,7 +435,9 @@ class WindowsIntegrationMixin:
             return True
         except Exception as exc:
             if not silent:
-                QMessageBox.warning(self, "Ошибка", f"Не удалось удалить ярлык: {exc}")
+                QMessageBox.warning(
+                    self, "Ошибка", f"Не удалось удалить ярлык: {exc}"
+                )
             self.log_event(f"Ошибка удаления ярлыка: {exc}", "ERROR")
             return False
 
@@ -408,8 +474,12 @@ class WindowsIntegrationMixin:
         enabled = state == Qt.CheckState.Checked.value
         self.start_menu_shortcut_enabled = enabled
         if enabled:
-            ok = self.create_windows_shortcut(self.get_start_menu_shortcut_path())
+            ok = self.create_windows_shortcut(
+                self.get_start_menu_shortcut_path()
+            )
         else:
-            ok = self.remove_windows_shortcut(self.get_start_menu_shortcut_path())
+            ok = self.remove_windows_shortcut(
+                self.get_start_menu_shortcut_path()
+            )
         if ok:
             self.save_settings()

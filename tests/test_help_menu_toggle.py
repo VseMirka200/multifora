@@ -23,7 +23,9 @@ class _HelpHarness(OperationsTabLayoutMixin):
         self.help_menu = QMenu(self.btn_help)
         self.help_menu.addAction("О программе")
         self.help_menu.aboutToHide.connect(self._sync_help_button_after_menu)
-        self._click_filter = _HelpMenuClickFilter(self.btn_help, self.help_menu)
+        self._click_filter = _HelpMenuClickFilter(
+            self.btn_help, self.help_menu
+        )
         app.installEventFilter(self._click_filter)
         self.btn_help.clicked.connect(self._show_help_menu)
         self.btn_help.show()
@@ -68,7 +70,7 @@ class HelpMenuToggleTests(unittest.TestCase):
         self.app.processEvents()
         self.assertTrue(self.ui.help_menu.isVisible())
 
-        # Depending on platform Qt delivers this click to the popup or button.
+        # В зависимости от платформы Qt передаёт щелчок popup или кнопке.
         QTest.mouseClick(self.ui.btn_help, Qt.MouseButton.LeftButton)
         self.app.processEvents()
         self.assertFalse(self.ui.help_menu.isVisible())
@@ -96,7 +98,9 @@ class HelpMenuToggleTests(unittest.TestCase):
         self.ui.btn_help.click()
         self.app.processEvents()
 
-        self.assertEqual(self.ui._help_menu_position_animation.endValue(), expected_position)
+        self.assertEqual(
+            self.ui._help_menu_position_animation.endValue(), expected_position
+        )
         self.assertEqual(self.ui._help_menu_position_animation.duration(), 150)
         self.assertEqual(self.ui._help_menu_opacity_animation.endValue(), 1.0)
 

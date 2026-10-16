@@ -27,7 +27,9 @@ class FileListKeyboardTests(unittest.TestCase):
         for key, (signal, callback) in callbacks.items():
             signal.connect(callback)
             widget.keyPressEvent(
-                QKeyEvent(QEvent.Type.KeyPress, key, Qt.KeyboardModifier.NoModifier)
+                QKeyEvent(
+                    QEvent.Type.KeyPress, key, Qt.KeyboardModifier.NoModifier
+                )
             )
             callback.assert_called_once_with()
 

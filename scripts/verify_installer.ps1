@@ -1,5 +1,5 @@
-# Install the generated EXE silently into a temporary per-user directory,
-# run the frozen smoke test, then uninstall it.
+# Тихо устанавливает созданный EXE во временный каталог пользователя,
+# запускает smoke-тест frozen-приложения, затем удаляет установку.
 [CmdletBinding()]
 param()
 $ErrorActionPreference = 'Stop'

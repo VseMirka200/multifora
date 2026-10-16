@@ -74,7 +74,9 @@ class LoggingMixin:
                 log_export.write(logs + "\n")
             self.status_bar.showMessage(f"Логи сохранены: {file_path}")
         except OSError as error:
-            QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить логи: {error}")
+            QMessageBox.critical(
+                self, "Ошибка", f"Не удалось сохранить логи: {error}"
+            )
 
     def log_event(self, message: str, level: str = "INFO"):
         if not message:
@@ -86,9 +88,9 @@ class LoggingMixin:
             self._log_lines = self._log_lines[-self.max_log_lines :]
         try:
             log_path = self._log_file_path or self.get_log_file_path()
-            # This file is also used by the process-wide exception and Qt
-            # handlers.  The in-memory action-log limit must not truncate
-            # diagnostics written by those handlers.
+            # Этот файл также используют общие обработчики исключений и Qt.
+            # Лимит журнала действий в памяти не должен обрезать диагностику,
+            # записанную этими обработчиками.
             with open(log_path, "a", encoding="utf-8") as f:
                 f.write(line + "\n")
         except Exception as error:
@@ -119,7 +121,9 @@ class LoggingMixin:
         try:
             if isinstance(widget, QCheckBox):
                 widget.toggled.connect(
-                    lambda checked, w=widget: self._log_checkbox_action(w, checked)
+                    lambda checked, w=widget: self._log_checkbox_action(
+                        w, checked
+                    )
                 )
                 return
             if isinstance(widget, QComboBox):
@@ -130,11 +134,15 @@ class LoggingMixin:
                 return
             if isinstance(widget, QLineEdit):
                 widget.setProperty("_last_logged_value", widget.text())
-                widget.editingFinished.connect(lambda w=widget: self._log_line_edit_action(w))
+                widget.editingFinished.connect(
+                    lambda w=widget: self._log_line_edit_action(w)
+                )
                 return
             if isinstance(widget, QSpinBox):
                 widget.setProperty("_last_logged_value", widget.value())
-                widget.valueChanged.connect(lambda value, w=widget: self._log_spin_action(w, value))
+                widget.valueChanged.connect(
+                    lambda value, w=widget: self._log_spin_action(w, value)
+                )
                 return
             if isinstance(widget, QTabBar):
                 widget.currentChanged.connect(
@@ -142,7 +150,9 @@ class LoggingMixin:
                 )
                 return
             if isinstance(widget, QAbstractButton):
-                widget.clicked.connect(lambda _checked=False, w=widget: self._log_button_action(w))
+                widget.clicked.connect(
+                    lambda _checked=False, w=widget: self._log_button_action(w)
+                )
                 return
         except Exception as error:
             _log_ignored_error("LoggingMixin._attach_widget_logger", error)
@@ -159,9 +169,9 @@ class LoggingMixin:
         return False
 
     def _is_action_logging_ready(self) -> bool:
-        return bool(getattr(self, "initial_load_complete", False)) and not bool(
-            getattr(self, "_suspend_action_logging", False)
-        )
+        return bool(
+            getattr(self, "initial_load_complete", False)
+        ) and not bool(getattr(self, "_suspend_action_logging", False))
 
     def _normalize_log_value(self, value) -> str:
         text = str(value or "").replace("\n", " ").replace("\r", " ").strip()
@@ -201,7 +211,11 @@ class LoggingMixin:
     def _find_caption_in_parent_layout(self, widget: QWidget) -> str:
         current = widget
         for _ in range(3):
-            parent = current.parentWidget() if hasattr(current, "parentWidget") else None
+            parent = (
+                current.parentWidget()
+                if hasattr(current, "parentWidget")
+                else None
+            )
             if parent is None:
                 break
             layout = parent.layout() if hasattr(parent, "layout") else None
@@ -252,7 +266,9 @@ class LoggingMixin:
                     if value:
                         return value.rstrip(":")
                 except Exception as error:
-                    _log_ignored_error("LoggingMixin._extract_widget_text", error)
+                    _log_ignored_error(
+                        "LoggingMixin._extract_widget_text", error
+                    )
         return ""
 
     def _log_button_action(self, widget: QAbstractButton):
@@ -275,7 +291,9 @@ class LoggingMixin:
         value = self._normalize_log_value(text)
         if not value:
             return
-        last_value = self._normalize_log_value(widget.property("_last_logged_value"))
+        last_value = self._normalize_log_value(
+            widget.property("_last_logged_value")
+        )
         if value == last_value:
             return
         widget.setProperty("_last_logged_value", text)
@@ -286,7 +304,9 @@ class LoggingMixin:
         if not self._is_action_logging_ready():
             return
         value = self._normalize_log_value(widget.text())
-        last_value = self._normalize_log_value(widget.property("_last_logged_value"))
+        last_value = self._normalize_log_value(
+            widget.property("_last_logged_value")
+        )
         if value == last_value:
             return
         widget.setProperty("_last_logged_value", widget.text())

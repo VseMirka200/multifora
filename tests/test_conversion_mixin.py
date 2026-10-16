@@ -41,7 +41,11 @@ class _DummyConversionWorker(ConversionMixin):
         self.errors.append({"file": file_item, "message": message})
 
     def _emit_finished(self, new_files=None, updated_files=None):
-        self.finished.emit(OperationResult(new_files or [], updated_files or [], list(self.errors)))
+        self.finished.emit(
+            OperationResult(
+                new_files or [], updated_files or [], list(self.errors)
+            )
+        )
 
     def _get_unique_path(self, path):
         return path
@@ -62,7 +66,9 @@ class ConversionMixinTests(unittest.TestCase):
                 return_value=guard,
             ) as guard_factory,
         ):
-            result_application, result_guard = conv_module._start_hidden_word_application(win32)
+            result_application, result_guard = (
+                conv_module._start_hidden_word_application(win32)
+            )
 
         win32.DispatchEx.assert_called_once_with("Word.Application")
         self.assertIs(result_application, word_application)
@@ -87,7 +93,9 @@ class ConversionMixinTests(unittest.TestCase):
                 "_restore_foreground_window",
             ) as restore_mock,
         ):
-            guard = conv_module._HiddenWordWindowGuard(Mock(), foreground_handle=123)
+            guard = conv_module._HiddenWordWindowGuard(
+                Mock(), foreground_handle=123
+            )
             guard.keep_hidden()
 
         hide_mock.assert_called_once_with(456)
@@ -106,9 +114,14 @@ class ConversionMixinTests(unittest.TestCase):
 
         with (
             patch.object(
-                worker, "_convert_pdf_to_image", return_value=r"C:\temp\output.jpg"
+                worker,
+                "_convert_pdf_to_image",
+                return_value=r"C:\temp\output.jpg",
             ) as convert_mock,
-            patch("core.workers.conversion.conversion_mixin.os.path.exists", return_value=True),
+            patch(
+                "core.workers.conversion.conversion_mixin.os.path.exists",
+                return_value=True,
+            ),
         ):
             worker._convert_files()
 
@@ -135,7 +148,9 @@ class ConversionMixinTests(unittest.TestCase):
         self.assertEqual(len(worker.finished.emitted), 1)
         self.assertEqual(worker.finished.emitted[0].get("new_files"), [])
 
-    def test_word_to_pdf_uses_internal_fallback_when_hidden_com_is_unavailable(self):
+    def test_word_to_pdf_uses_internal_fallback_when_hidden_com_is_unavailable(
+        self,
+    ):
         worker = _DummyConversionWorker()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -146,22 +161,32 @@ class ConversionMixinTests(unittest.TestCase):
             source_item = FileItem(source_docx)
 
             with patch.object(worker, "_warmup_word", return_value=None):
-                with patch.object(worker, "_convert_word_to_pdf_hidden_com", return_value=False):
+                with patch.object(
+                    worker,
+                    "_convert_word_to_pdf_hidden_com",
+                    return_value=False,
+                ):
                     with patch.object(
                         worker,
                         "_convert_docx_to_pdf_internal",
                         return_value=os.path.join(tmpdir, "source.pdf"),
                     ) as fallback_mock:
-                        with patch.object(conv_module, "HAS_WORD_TO_PDF", True):
+                        with patch.object(
+                            conv_module, "HAS_WORD_TO_PDF", True
+                        ):
                             result = worker._convert_word_to_pdf(source_item)
 
             self.assertEqual(result, os.path.join(tmpdir, "source.pdf"))
-            fallback_mock.assert_called_once_with(source_item, output_reference=None)
+            fallback_mock.assert_called_once_with(
+                source_item, output_reference=None
+            )
             # COM недоступен за пределами Windows: внутренний экспорт
             # выбирается сразу, без попытки пометить Word неисправным.
             self.assertEqual(worker._word_pdf_unavailable, os.name == "nt")
 
-    def test_word_to_pdf_uses_internal_fallback_when_word_dependency_is_missing(self):
+    def test_word_to_pdf_uses_internal_fallback_when_word_dependency_is_missing(
+        self,
+    ):
         worker = _DummyConversionWorker()
         with tempfile.TemporaryDirectory() as tmpdir:
             source_path = os.path.join(tmpdir, "source.docx")
@@ -180,7 +205,9 @@ class ConversionMixinTests(unittest.TestCase):
                 result = worker._convert_word_to_pdf(source_item)
 
             self.assertEqual(result, os.path.join(tmpdir, "source.pdf"))
-            fallback_mock.assert_called_once_with(source_item, output_reference=None)
+            fallback_mock.assert_called_once_with(
+                source_item, output_reference=None
+            )
 
     def test_internal_fallback_explains_that_legacy_doc_needs_word(self):
         worker = _DummyConversionWorker()
@@ -189,7 +216,9 @@ class ConversionMixinTests(unittest.TestCase):
             with open(source_path, "wb") as stream:
                 stream.write(b"x")
 
-            with self.assertRaisesRegex(Exception, "Внутренний конвертер поддерживает DOCX"):
+            with self.assertRaisesRegex(
+                Exception, "Внутренний конвертер поддерживает DOCX"
+            ):
                 worker._convert_docx_to_pdf_internal(FileItem(source_path))
 
     def test_internal_fallback_extracts_docx_text_and_writes_pdf(self):
@@ -197,7 +226,9 @@ class ConversionMixinTests(unittest.TestCase):
         source_item = FileItem(r"C:\temp\source.docx")
         reference_item = FileItem(r"C:\temp\original.odt")
 
-        with patch.object(worker, "_extract_document_text", return_value="Текст") as extract_mock:
+        with patch.object(
+            worker, "_extract_document_text", return_value="Текст"
+        ) as extract_mock:
             with patch.object(
                 worker, "_write_text_pdf", return_value=r"C:\temp\source.pdf"
             ) as write_mock:
@@ -228,7 +259,9 @@ class ConversionMixinTests(unittest.TestCase):
                 output_path,
                 os.path.join(tmpdir, "Конвертированные", "clip.webp"),
             )
-            self.assertTrue(os.path.isdir(os.path.join(tmpdir, "Конвертированные")))
+            self.assertTrue(
+                os.path.isdir(os.path.join(tmpdir, "Конвертированные"))
+            )
 
     def test_custom_conversion_output_uses_selected_folder(self):
         worker = _DummyConversionWorker()
@@ -245,7 +278,9 @@ class ConversionMixinTests(unittest.TestCase):
 
             output_path = worker._conversion_output_path(source_item, ".jpg")
 
-            self.assertEqual(output_path, os.path.join(output_dir, "photo.jpg"))
+            self.assertEqual(
+                output_path, os.path.join(output_dir, "photo.jpg")
+            )
 
     def test_alongside_conversion_output_uses_source_folder(self):
         worker = _DummyConversionWorker()
@@ -255,10 +290,16 @@ class ConversionMixinTests(unittest.TestCase):
             with open(source_path, "wb") as stream:
                 stream.write(b"x")
 
-            output_path = worker._conversion_output_path(FileItem(source_path), ".jpg")
+            output_path = worker._conversion_output_path(
+                FileItem(source_path), ".jpg"
+            )
 
-            self.assertEqual(output_path, os.path.join(source_dir, "photo.jpg"))
-            self.assertFalse(os.path.isdir(os.path.join(source_dir, "Конвертированные")))
+            self.assertEqual(
+                output_path, os.path.join(source_dir, "photo.jpg")
+            )
+            self.assertFalse(
+                os.path.isdir(os.path.join(source_dir, "Конвертированные"))
+            )
 
     def test_conversion_output_reserves_unique_names_before_files_exist(self):
         worker = _DummyConversionWorker()
@@ -276,13 +317,19 @@ class ConversionMixinTests(unittest.TestCase):
                 with open(source_path, "wb") as stream:
                     stream.write(b"x")
 
-            first = worker._conversion_output_path(FileItem(first_source), ".webp")
-            second = worker._conversion_output_path(FileItem(second_source), ".webp")
+            first = worker._conversion_output_path(
+                FileItem(first_source), ".webp"
+            )
+            second = worker._conversion_output_path(
+                FileItem(second_source), ".webp"
+            )
 
             self.assertEqual(first, os.path.join(output_dir, "same.webp"))
             self.assertEqual(second, os.path.join(output_dir, "same_1.webp"))
 
-    def test_reference_file_keeps_chained_conversion_in_original_output_folder(self):
+    def test_reference_file_keeps_chained_conversion_in_original_output_folder(
+        self,
+    ):
         worker = _DummyConversionWorker()
         with tempfile.TemporaryDirectory() as tmpdir:
             source_path = os.path.join(tmpdir, "source.odt")
@@ -301,7 +348,9 @@ class ConversionMixinTests(unittest.TestCase):
                 reference_file=source_item,
             )
 
-            self.assertEqual(output_path, os.path.join(intermediate_dir, "source.pdf"))
+            self.assertEqual(
+                output_path, os.path.join(intermediate_dir, "source.pdf")
+            )
             self.assertNotIn(
                 os.path.join("Конвертированные", "Конвертированные"),
                 output_path,
@@ -349,18 +398,23 @@ class ConversionMixinTests(unittest.TestCase):
                     source_path = os.path.join(directory, "photo." + extension)
                     with Image.new(mode, (13, 7), color) as source:
                         source.save(source_path)
-                    output = worker._convert_image_auto(FileItem(source_path), "SVG")
+                    output = worker._convert_image_auto(
+                        FileItem(source_path), "SVG"
+                    )
                     self.assertTrue(output.endswith(".svg"))
                     root = ElementTree.parse(output).getroot()
                     self.assertEqual(root.attrib["viewBox"], "0 0 13 7")
                     embedded = root.find("{http://www.w3.org/2000/svg}image")
                     uri = embedded.attrib["{http://www.w3.org/1999/xlink}href"]
                     self.assertTrue(uri.startswith("data:image/png;base64,"))
-                    with Image.open(BytesIO(base64.b64decode(uri.split(",", 1)[1]))) as result:
+                    with Image.open(
+                        BytesIO(base64.b64decode(uri.split(",", 1)[1]))
+                    ) as result:
                         with Image.open(source_path) as original:
                             self.assertEqual(result.size, original.size)
                             self.assertEqual(
-                                result.convert("RGBA").tobytes(), original.convert("RGBA").tobytes()
+                                result.convert("RGBA").tobytes(),
+                                original.convert("RGBA").tobytes(),
                             )
 
     @unittest.skipUnless(conv_module.HAS_PIL, "Pillow is required")
@@ -371,14 +425,17 @@ class ConversionMixinTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as output_dir:
             with Image.new("RGBA", (16, 16), (255, 0, 0, 0)) as source:
                 for target in ("PNG", "JPG"):
-                    output_path = os.path.join(output_dir, f"image.{target.lower()}")
+                    output_path = os.path.join(
+                        output_dir, f"image.{target.lower()}"
+                    )
                     worker._save_pillow_image(source, output_path, target)
                     with Image.open(output_path) as result:
                         if target == "PNG":
                             self.assertEqual(result.getpixel((0, 0))[3], 0)
                         else:
                             self.assertEqual(
-                                result.convert("RGB").getpixel((0, 0)), (255, 255, 255)
+                                result.convert("RGB").getpixel((0, 0)),
+                                (255, 255, 255),
                             )
                 self.assertEqual(source.mode, "RGBA")
 
@@ -394,7 +451,13 @@ class ConversionMixinTests(unittest.TestCase):
                 Image.new("RGB", (16, 16), "red") as first,
                 Image.new("RGB", (16, 16), "blue") as second,
             ):
-                first.save(source_path, save_all=True, append_images=[second], duration=120, loop=2)
+                first.save(
+                    source_path,
+                    save_all=True,
+                    append_images=[second],
+                    duration=120,
+                    loop=2,
+                )
             with Image.open(source_path) as source:
                 worker._save_pillow_image(source, output_path, "GIF")
             with Image.open(output_path) as result:
@@ -403,7 +466,9 @@ class ConversionMixinTests(unittest.TestCase):
                 for index, color in enumerate(((255, 0, 0), (0, 0, 255))):
                     result.seek(index)
                     self.assertEqual(result.info["duration"], 120)
-                    self.assertEqual(result.convert("RGB").getpixel((0, 0)), color)
+                    self.assertEqual(
+                        result.convert("RGB").getpixel((0, 0)), color
+                    )
 
     def test_auto_document_converts_txt_to_docx(self):
         worker = _DummyConversionWorker()
@@ -417,7 +482,9 @@ class ConversionMixinTests(unittest.TestCase):
             with open(source_path, "w", encoding="utf-8") as stream:
                 stream.write("Пример документа\nВторая строка")
 
-            output_path = worker._convert_document_auto(FileItem(source_path), "DOCX")
+            output_path = worker._convert_document_auto(
+                FileItem(source_path), "DOCX"
+            )
 
             self.assertTrue(output_path.endswith(".docx"))
             self.assertTrue(os.path.exists(output_path))
@@ -428,7 +495,9 @@ class ConversionMixinTests(unittest.TestCase):
             source_path = os.path.join(source_dir, "already.txt")
             with open(source_path, "w", encoding="utf-8") as stream:
                 stream.write("ok")
-            self.assertIsNone(worker._convert_document_auto(FileItem(source_path), "TXT"))
+            self.assertIsNone(
+                worker._convert_document_auto(FileItem(source_path), "TXT")
+            )
 
     @unittest.skipUnless(conv_module.HAS_PYMUPDF, "PyMuPDF is required")
     def test_text_to_pdf_reserves_output_name_only_once(self):

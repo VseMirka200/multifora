@@ -4,7 +4,15 @@ import sys
 
 from app.core.app_utils import _debug_log, _get_app_data_dir
 
-_ICON_SIZES = ((16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256))
+_ICON_SIZES = (
+    (16, 16),
+    (24, 24),
+    (32, 32),
+    (48, 48),
+    (64, 64),
+    (128, 128),
+    (256, 256),
+)
 
 
 def _application_base_dir():
@@ -19,7 +27,9 @@ def _find_bundled_icon(filename: str):
     base_dirs = [
         getattr(sys, "_MEIPASS", None),
         _application_base_dir(),
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ),
     ]
     for directory in ("assets", "icons"):
         for base_dir in base_dirs:
@@ -42,7 +52,11 @@ def _get_app_icon_ico_path():
 
 def _get_app_icon_qt_path():
     """Возвращает SVG для интерфейса, с резервными ICO и PNG."""
-    return _find_bundled_icon("icon.svg") or _get_app_icon_ico_path() or _get_app_icon_path()
+    return (
+        _find_bundled_icon("icon.svg")
+        or _get_app_icon_ico_path()
+        or _get_app_icon_path()
+    )
 
 
 def _set_app_user_model_id():
@@ -50,7 +64,9 @@ def _set_app_user_model_id():
     if os.name != "nt":
         return
     try:
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Multifora.App")
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            "Multifora.App"
+        )
     except Exception as error:
         _debug_log(f"Ошибка установки AppUserModelID: {error}")
 

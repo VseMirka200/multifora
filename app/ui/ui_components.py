@@ -103,7 +103,10 @@ def apply_standard_field_style(widget):
             return widget
         widget.setStyleSheet(build_standard_field_style(theme, "line"))
         return widget
-    if isinstance(widget, QToolButton) and name in {"header_cell_tl", "header_cell_tr"}:
+    if isinstance(widget, QToolButton) and name in {
+        "header_cell_tl",
+        "header_cell_tr",
+    }:
         widget.setStyleSheet(build_standard_field_style(theme, "header"))
         return widget
     if isinstance(widget, QAbstractItemView) and name == "files_list":
@@ -125,7 +128,11 @@ def refresh_standard_field_styles(root: QWidget):
         for widget in root.findChildren(QComboBox):
             apply_standard_field_style(widget)
         for widget in root.findChildren(QToolButton):
-            if widget.objectName() in {"header_cell_tl", "header_cell_tr", "menu_like_combo"}:
+            if widget.objectName() in {
+                "header_cell_tl",
+                "header_cell_tr",
+                "menu_like_combo",
+            }:
                 apply_standard_field_style(widget)
         for widget in root.findChildren(QAbstractItemView):
             if widget.objectName() == "files_list":
@@ -144,7 +151,9 @@ def refresh_standard_button_styles(root: QWidget):
             if not role:
                 continue
             widget.setStyleSheet(
-                build_standard_button_style(_resolve_widget_theme_mode(widget), str(role))
+                build_standard_button_style(
+                    _resolve_widget_theme_mode(widget), str(role)
+                )
             )
             _refresh_widget_style(widget)
     except Exception as error:
@@ -202,9 +211,13 @@ class AutoHeightTextEdit(QTextEdit):
         self.setAcceptRichText(False)
         self.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
         self.setWordWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
         self.textChanged.connect(self._update_auto_height)
         QTimer.singleShot(0, self._update_auto_height)
 
@@ -222,7 +235,9 @@ class AutoHeightTextEdit(QTextEdit):
     def _update_auto_height(self):
         try:
             self.document().setTextWidth(max(0, self.viewport().width()))
-            doc_height = self.document().documentLayout().documentSize().height()
+            doc_height = (
+                self.document().documentLayout().documentSize().height()
+            )
             frame = self.frameWidth() * 2
             height = int(doc_height + frame + 6)
             min_height = getattr(self, "_auto_min_height", FIELD_HEIGHT)
@@ -254,10 +269,14 @@ def setup_standard_dropdown(widget, *, fixed_width: int | None = None):
     widget.setMinimumWidth(0)
     if fixed_width is not None:
         widget.setFixedWidth(fixed_width)
-        widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        widget.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
+        )
     else:
         widget.setMaximumWidth(16777215)
-        widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        widget.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
 
     if isinstance(widget, MenuLikeComboBox):
         apply_standard_field_style(widget)
@@ -296,10 +315,14 @@ def setup_standard_line_input(widget, *, fixed_width: int | None = None):
     widget.setMinimumWidth(0)
     if fixed_width is not None:
         widget.setFixedWidth(fixed_width)
-        widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        widget.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
+        )
     else:
         widget.setMaximumWidth(16777215)
-        widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        widget.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
     apply_standard_field_style(widget)
     return widget
 
@@ -315,10 +338,14 @@ def setup_standard_spin_input(widget, *, fixed_width: int | None = None):
         _log_ignored_error("setup_standard_spin_input", error)
     if fixed_width is not None:
         widget.setFixedWidth(fixed_width)
-        widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        widget.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
+        )
     else:
         widget.setMaximumWidth(16777215)
-        widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        widget.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
     apply_standard_field_style(widget)
     return widget
 
@@ -329,7 +356,9 @@ def setup_standard_header_dropdown(widget):
     widget.setFixedHeight(HEADER_FIELD_HEIGHT)
     widget.setMinimumWidth(0)
     widget.setMaximumWidth(16777215)
-    widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+    widget.setSizePolicy(
+        QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+    )
     apply_standard_field_style(widget)
     return widget
 
@@ -355,7 +384,9 @@ def setup_standard_action_button(
     elif variant == "danger" and not widget.objectName():
         widget.setObjectName("cancel_operation_btn")
     widget.setFlat(False)
-    widget.setStyleSheet(build_standard_button_style(_resolve_widget_theme_mode(widget), role))
+    widget.setStyleSheet(
+        build_standard_button_style(_resolve_widget_theme_mode(widget), role)
+    )
     _refresh_widget_style(widget)
     return widget
 
@@ -392,7 +423,9 @@ def setup_standard_secondary_button(
     return setup_standard_action_button(widget, expand=expand)
 
 
-def setup_standard_form_label(widget, *, align: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignLeft):
+def setup_standard_form_label(
+    widget, *, align: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignLeft
+):
     widget.setAlignment(align | Qt.AlignmentFlag.AlignVCenter)
     widget.setWordWrap(True)
     widget.setFixedHeight(18)
@@ -405,15 +438,22 @@ def setup_compact_checkbox(widget):
     return widget
 
 
-def setup_clickable_checkbox_label(label: QLabel, checkbox, *, tooltip: str = "") -> QLabel:
+def setup_clickable_checkbox_label(
+    label: QLabel, checkbox, *, tooltip: str = ""
+) -> QLabel:
     """Связывает подпись с чекбоксом без дублирования обработчиков мыши."""
-    label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+    label.setAlignment(
+        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+    )
     label.setCursor(Qt.CursorShape.PointingHandCursor)
     if tooltip:
         label.setToolTip(tooltip)
 
     def toggle_checkbox(event):
-        if event.button() == Qt.MouseButton.LeftButton and checkbox.isEnabled():
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and checkbox.isEnabled()
+        ):
             checkbox.toggle()
             event.accept()
 
@@ -455,10 +495,14 @@ def setup_standard_dialog(
     return dialog
 
 
-def get_russian_text_input(parent, *, title: str, label: str, text: str = "") -> tuple[str, bool]:
+def get_russian_text_input(
+    parent, *, title: str, label: str, text: str = ""
+) -> tuple[str, bool]:
     dialog = QDialog(parent)
     try:
-        dialog._effective_theme_mode = getattr(parent, "_effective_theme_mode", "dark")
+        dialog._effective_theme_mode = getattr(
+            parent, "_effective_theme_mode", "dark"
+        )
     except Exception as error:
         _log_ignored_error("get_russian_text_input", error)
     setup_standard_dialog(dialog, title=title, min_width=380)
@@ -482,7 +526,9 @@ def get_russian_text_input(parent, *, title: str, label: str, text: str = "") ->
     layout.addWidget(line_edit)
 
     buttons_row = QWidget()
-    buttons_row.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+    buttons_row.setSizePolicy(
+        QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+    )
     buttons_layout = QHBoxLayout(buttons_row)
     buttons_layout.setContentsMargins(*MARGINS_NONE)
     buttons_layout.setSpacing(SPACE_SM)
@@ -540,7 +586,9 @@ class SmoothScrollListWidget(QListWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._scroll_animation = QPropertyAnimation(self.verticalScrollBar(), b"value", self)
+        self._scroll_animation = QPropertyAnimation(
+            self.verticalScrollBar(), b"value", self
+        )
         self._scroll_animation.setDuration(180)
         self._scroll_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
 
@@ -552,7 +600,9 @@ class SmoothScrollListWidget(QListWidget):
         else:
             base_value = current_value
         target_value = round(base_value - steps * FIELD_HEIGHT)
-        target_value = max(scroll_bar.minimum(), min(scroll_bar.maximum(), target_value))
+        target_value = max(
+            scroll_bar.minimum(), min(scroll_bar.maximum(), target_value)
+        )
         self._scroll_animation.stop()
         self._scroll_animation.setStartValue(current_value)
         self._scroll_animation.setEndValue(target_value)
@@ -588,14 +638,24 @@ class ScrollableFilterMenu(QMenu):
 
         filter_list = SmoothScrollListWidget(self)
         filter_list.setObjectName("scrollable_filter_list")
-        filter_list.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
-        filter_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        filter_list.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        filter_list.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        filter_list.setSelectionMode(
+            QAbstractItemView.SelectionMode.NoSelection
+        )
+        filter_list.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        filter_list.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
+        filter_list.setVerticalScrollMode(
+            QAbstractItemView.ScrollMode.ScrollPerPixel
+        )
         filter_list.setToolTip("Прокручивайте список колесом мыши")
         filter_list.setSpacing(0)
         filter_list.setMinimumWidth(0)
-        filter_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        filter_list.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
         filter_list.itemClicked.connect(self._toggle_filter_item)
 
         widget_action = QWidgetAction(self)
@@ -617,8 +677,14 @@ class ScrollableFilterMenu(QMenu):
         filter_list.addItem(item)
         self._filter_actions.append(action)
         self._filter_items[action] = item
-        action.toggled.connect(lambda _checked=False, target=action: self._sync_filter_item(target))
-        action.changed.connect(lambda target=action: self._sync_filter_item(target))
+        action.toggled.connect(
+            lambda _checked=False, target=action: self._sync_filter_item(
+                target
+            )
+        )
+        action.changed.connect(
+            lambda target=action: self._sync_filter_item(target)
+        )
         self._sync_filter_item(action)
         self._update_filter_list_height()
         return action
@@ -648,7 +714,9 @@ class ScrollableFilterMenu(QMenu):
             if action.isEnabled():
                 action.trigger()
 
-    def _visible_row_count(self, available_popup_height: int | None = None) -> int:
+    def _visible_row_count(
+        self, available_popup_height: int | None = None
+    ) -> int:
         action_count = len(self._filter_actions)
         if action_count <= 0:
             return 1
@@ -658,11 +726,16 @@ class ScrollableFilterMenu(QMenu):
             command_count = sum(
                 1
                 for action in self.actions()
-                if not isinstance(action, QWidgetAction) and not action.isSeparator()
+                if not isinstance(action, QWidgetAction)
+                and not action.isSeparator()
             )
             reserved_height = FIELD_HEIGHT * command_count + 16
-            usable_height = max(FIELD_HEIGHT * 2, available_popup_height - reserved_height)
-            visible_limit = min(visible_limit, max(2, usable_height // FIELD_HEIGHT))
+            usable_height = max(
+                FIELD_HEIGHT * 2, available_popup_height - reserved_height
+            )
+            visible_limit = min(
+                visible_limit, max(2, usable_height // FIELD_HEIGHT)
+            )
         return max(1, min(action_count, visible_limit))
 
     def adjust_to_available_screen(self, anchor_widget: QWidget) -> None:
@@ -673,19 +746,29 @@ class ScrollableFilterMenu(QMenu):
             if screen is None:
                 return
             available = screen.availableGeometry()
-            top_left = anchor_widget.mapToGlobal(anchor_widget.rect().topLeft())
-            bottom_right = anchor_widget.mapToGlobal(anchor_widget.rect().bottomRight())
+            top_left = anchor_widget.mapToGlobal(
+                anchor_widget.rect().topLeft()
+            )
+            bottom_right = anchor_widget.mapToGlobal(
+                anchor_widget.rect().bottomRight()
+            )
             space_above = max(0, top_left.y() - available.top())
             space_below = max(0, available.bottom() - bottom_right.y())
             self._update_filter_list_height(max(space_above, space_below))
         except Exception as error:
-            _log_ignored_error("ScrollableFilterMenu.adjust_to_available_screen", error)
+            _log_ignored_error(
+                "ScrollableFilterMenu.adjust_to_available_screen", error
+            )
 
-    def _update_filter_list_height(self, available_popup_height: int | None = None) -> None:
+    def _update_filter_list_height(
+        self, available_popup_height: int | None = None
+    ) -> None:
         if self._filter_list is None:
             return
         visible_items = self._visible_row_count(available_popup_height)
-        self._filter_list.setFixedHeight(max(1, visible_items) * FIELD_HEIGHT + 2)
+        self._filter_list.setFixedHeight(
+            max(1, visible_items) * FIELD_HEIGHT + 2
+        )
         can_scroll = len(self._filter_actions) > visible_items
         self._filter_list.setVerticalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOn
@@ -709,7 +792,9 @@ class MenuLikeComboBox(QToolButton):
         # Выпадающие поля панели операций должны сжиматься вместе с разделителем,
         # а не сохранять ширину по самому длинному пункту. Текст сокращается при
         # отрисовке, поэтому политика Ignored оставляет поле адаптивным.
-        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        self.setSizePolicy(
+            QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed
+        )
         self._items = []
         self._current_index = -1
         self._menu = QMenu(self)
@@ -742,7 +827,9 @@ class MenuLikeComboBox(QToolButton):
         hint = super().sizeHint()
         # Начальная ширина должна быть удобной, но не должна заставлять узкую
         # боковую панель выходить за доступные границы.
-        return QSize(min(max(120, hint.width()), 180), max(FIELD_HEIGHT, hint.height()))
+        return QSize(
+            min(max(120, hint.width()), 180), max(FIELD_HEIGHT, hint.height())
+        )
 
     def paintEvent(self, event):
         option = QStyleOptionToolButton()
@@ -781,7 +868,9 @@ class MenuLikeComboBox(QToolButton):
         idx = len(self._items)
         self._items.append((text, user_data))
         action = QAction(text, self._menu)
-        action.triggered.connect(lambda _checked=False, i=idx: self.setCurrentIndex(i))
+        action.triggered.connect(
+            lambda _checked=False, i=idx: self.setCurrentIndex(i)
+        )
         self._menu.addAction(action)
         if self._current_index < 0:
             self.setCurrentIndex(0)
@@ -910,7 +999,9 @@ class FileListModel(QAbstractTableModel):
     def columnCount(self, parent=QModelIndex()):
         return 0 if parent.isValid() else len(self.HEADERS)
 
-    def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
+    def headerData(
+        self, section, orientation, role=Qt.ItemDataRole.DisplayRole
+    ):
         if (
             orientation == Qt.Orientation.Horizontal
             and role == Qt.ItemDataRole.DisplayRole
@@ -936,9 +1027,9 @@ class FileListModel(QAbstractTableModel):
             if index.column() == self.COLUMN_OLD_NAME:
                 return self._original_display_name(file_item)
             if index.column() == self.COLUMN_NEW_NAME:
-                return getattr(file_item, "preview_name", None) or self._original_display_name(
-                    file_item
-                )
+                return getattr(
+                    file_item, "preview_name", None
+                ) or self._original_display_name(file_item)
             if index.column() == self.COLUMN_TYPE:
                 return file_item_type_label(file_item)
             if index.column() == self.COLUMN_PATH:
@@ -947,9 +1038,9 @@ class FileListModel(QAbstractTableModel):
             if index.column() == self.COLUMN_OLD_NAME:
                 return self._original_display_name(file_item)
             if index.column() == self.COLUMN_NEW_NAME:
-                return getattr(file_item, "preview_name", None) or self._original_display_name(
-                    file_item
-                )
+                return getattr(
+                    file_item, "preview_name", None
+                ) or self._original_display_name(file_item)
             if index.column() == self.COLUMN_PATH:
                 return str(getattr(file_item, "path", ""))
         if role == Qt.ItemDataRole.SizeHintRole:
@@ -988,18 +1079,32 @@ class FileListModel(QAbstractTableModel):
     def files(self):
         return list(self._files)
 
-    def moveRows(self, sourceParent, sourceRow, count, destinationParent, destinationChild):
+    def moveRows(
+        self,
+        sourceParent,
+        sourceRow,
+        count,
+        destinationParent,
+        destinationChild,
+    ):
         if count <= 0:
             return False
         if sourceRow < 0 or (sourceRow + count) > len(self._files):
             return False
         if destinationChild < 0 or destinationChild > len(self._files):
             return False
-        if destinationChild >= sourceRow and destinationChild <= sourceRow + count:
+        if (
+            destinationChild >= sourceRow
+            and destinationChild <= sourceRow + count
+        ):
             return False
 
         self.beginMoveRows(
-            sourceParent, sourceRow, sourceRow + count - 1, destinationParent, destinationChild
+            sourceParent,
+            sourceRow,
+            sourceRow + count - 1,
+            destinationParent,
+            destinationChild,
         )
         rows = self._files[sourceRow : sourceRow + count]
         del self._files[sourceRow : sourceRow + count]
@@ -1033,13 +1138,17 @@ class FileListItemDelegate(QStyledItemDelegate):
 
     def sizeHint(self, option, index):
         hint = super().sizeHint(option, index)
-        hint.setHeight(max(hint.height(), QFontMetrics(option.font).height() + 8))
+        hint.setHeight(
+            max(hint.height(), QFontMetrics(option.font).height() + 8)
+        )
         return hint
 
     def paint(self, painter, option, index):
         view_option = QStyleOptionViewItem(option)
         self.initStyleOption(view_option, index)
-        available_width = max(0, view_option.rect.width() - 2 * self._horizontal_padding)
+        available_width = max(
+            0, view_option.rect.width() - 2 * self._horizontal_padding
+        )
         view_option.text = view_option.fontMetrics.elidedText(
             view_option.text,
             Qt.TextElideMode.ElideRight,
@@ -1065,8 +1174,12 @@ class FileListWidget(QTableView):
 
         self.setModel(FileListModel(self))
         self.setItemDelegate(FileListItemDelegate(self))
-        self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.setSelectionMode(
+            QAbstractItemView.SelectionMode.ExtendedSelection
+        )
+        self.setSelectionBehavior(
+            QAbstractItemView.SelectionBehavior.SelectRows
+        )
         self.setAlternatingRowColors(True)
         self.setWordWrap(False)
         self.setTextElideMode(Qt.TextElideMode.ElideRight)
@@ -1075,16 +1188,18 @@ class FileListWidget(QTableView):
         header = self.horizontalHeader()
         header.setStyleSheet(FILE_LIST_HEADER_STYLE)
         header.setStretchLastSection(True)
-        # Measuring every cell makes model resets noticeably expensive for large
-        # batches.  A representative sample keeps automatic widths useful while
-        # bounding the work done when filters replace the visible model.
+        # Измерение каждой ячейки заметно замедляет сброс модели для больших
+        # пакетов. Репрезентативная выборка сохраняет полезную автоширину и
+        # ограничивает работу при замене видимой модели фильтром.
         header.setResizeContentsPrecision(self._COLUMN_RESIZE_PRECISION)
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.setMouseTracking(True)
         self.viewport().setMouseTracking(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
-        self.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self.setHorizontalScrollMode(
+            QAbstractItemView.ScrollMode.ScrollPerPixel
+        )
         self.setAcceptDrops(True)
         self.viewport().setAcceptDrops(True)
         self.setDragEnabled(False)
@@ -1093,7 +1208,9 @@ class FileListWidget(QTableView):
         self.setDragDropMode(QAbstractItemView.DragDropMode.DropOnly)
 
         self.doubleClicked.connect(self._on_double_clicked)
-        self.selectionModel().selectionChanged.connect(self._on_selection_changed)
+        self.selectionModel().selectionChanged.connect(
+            self._on_selection_changed
+        )
 
     def _on_double_clicked(self, index: QModelIndex):
         if not index.isValid():
@@ -1109,7 +1226,9 @@ class FileListWidget(QTableView):
     def selectedItems(self):
         return [
             FileListItemAdapter(self, index)
-            for index in self.selectionModel().selectedRows(self.model().COLUMN_NAME)
+            for index in self.selectionModel().selectedRows(
+                self.model().COLUMN_NAME
+            )
         ]
 
     def selected_file_items(self, *, files_only: bool = False) -> list:
@@ -1237,12 +1356,16 @@ class DropActionTile(QFrame):
             icon_label = QLabel()
             icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             icon_label.setPixmap(icon.pixmap(QSize(48, 48)))
-            icon_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+            icon_label.setAttribute(
+                Qt.WidgetAttribute.WA_TransparentForMouseEvents, True
+            )
             layout.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignHCenter)
 
         self.text_label = QLabel(text)
         self.text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.text_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        self.text_label.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents, True
+        )
         layout.addWidget(self.text_label, 0, Qt.AlignmentFlag.AlignHCenter)
         self._apply_theme_style()
 
@@ -1260,7 +1383,9 @@ class DropActionTile(QFrame):
     def _apply_theme_style(self):
         self.setStyleSheet(build_drop_action_tile_style(self._theme))
         if hasattr(self, "text_label"):
-            self.text_label.setStyleSheet(build_drop_action_tile_text_style(self._theme))
+            self.text_label.setStyleSheet(
+                build_drop_action_tile_text_style(self._theme)
+            )
 
 
 class LoggingStatusBar(QStatusBar):

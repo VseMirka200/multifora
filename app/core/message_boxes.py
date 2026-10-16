@@ -36,7 +36,9 @@ def _setup_message_box_button(
     button.setFixedHeight(ACTION_BUTTON_HEIGHT)
     button.setCursor(Qt.CursorShape.PointingHandCursor)
     button.setProperty("buttonVariant", variant)
-    button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+    button.setSizePolicy(
+        QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+    )
     theme = getattr(button.parent(), "_effective_theme_mode", "dark")
     button.setStyleSheet(build_standard_button_style(theme, variant))
     try:
@@ -93,7 +95,9 @@ def show_app_choice(
     dialog.setModal(True)
     dialog.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
     try:
-        dialog._effective_theme_mode = getattr(parent, "_effective_theme_mode", "dark")
+        dialog._effective_theme_mode = getattr(
+            parent, "_effective_theme_mode", "dark"
+        )
         dialog.setStyleSheet(parent.styleSheet())
     except Exception as error:
         _log_ignored_error("show_app_choice", error)
@@ -109,10 +113,14 @@ def show_app_choice(
 
     icon_label = QLabel()
     icon_label.setObjectName("appMessageIcon")
-    icon_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+    icon_label.setAlignment(
+        Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
+    )
     icon_label.setFixedWidth(_ICON_SIZE)
     icon_label.setMinimumHeight(_ICON_SIZE)
-    icon_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+    icon_label.setSizePolicy(
+        QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
+    )
     resolved_icon = _resolve_message_box_icon(dialog, icon)
     if resolved_icon is not None:
         icon_label.setPixmap(resolved_icon.pixmap(_ICON_SIZE, _ICON_SIZE))
@@ -121,7 +129,9 @@ def show_app_choice(
     text_label = QLabel(str(text))
     text_label.setObjectName("appMessageText")
     text_label.setWordWrap(True)
-    text_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+    text_label.setAlignment(
+        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+    )
     text_label.setMinimumHeight(36)
     content_row.addWidget(text_label, 1, Qt.AlignmentFlag.AlignVCenter)
     layout.addLayout(content_row)
@@ -148,9 +158,15 @@ def show_app_choice(
     for key, label, variant in choices:
         button = QPushButton(label, dialog)
         button.setObjectName(f"appMessageButton_{key}")
-        effective_variant = "danger" if key == cancel_key or key in {"cancel", "no"} else variant
+        effective_variant = (
+            "danger"
+            if key == cancel_key or key in {"cancel", "no"}
+            else variant
+        )
         button = _setup_message_box_button(button, variant=effective_variant)
-        button.clicked.connect(lambda _checked=False, choice_key=key: select(choice_key))
+        button.clicked.connect(
+            lambda _checked=False, choice_key=key: select(choice_key)
+        )
         if key == default_key:
             button.setDefault(True)
             button.setFocus()
@@ -167,19 +183,26 @@ def show_app_choice(
         ):
             shortcut = QShortcut(QKeySequence(key), dialog)
             shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-            shortcut.activated.connect(lambda choice_key=selected_key: select(choice_key))
+            shortcut.activated.connect(
+                lambda choice_key=selected_key: select(choice_key)
+            )
             dialog._confirmation_shortcuts.append(shortcut)
 
     layout.addLayout(button_row)
 
     metrics = QFontMetrics(text_label.font())
     longest_line = max(
-        (metrics.horizontalAdvance(line) for line in str(text).splitlines()), default=0
+        (metrics.horizontalAdvance(line) for line in str(text).splitlines()),
+        default=0,
     )
-    content_width = max(_DIALOG_MIN_WIDTH, min(_DIALOG_MAX_WIDTH, longest_line + 90))
+    content_width = max(
+        _DIALOG_MIN_WIDTH, min(_DIALOG_MAX_WIDTH, longest_line + 90)
+    )
     text_label.setMaximumWidth(max(240, content_width - 76))
     buttons_width = (
-        sum(button.minimumWidth() for button in buttons) + max(0, len(buttons) - 1) * 8 + 24
+        sum(button.minimumWidth() for button in buttons)
+        + max(0, len(buttons) - 1) * 8
+        + 24
     )
     dialog_width = max(content_width, buttons_width)
     dialog.setMinimumWidth(dialog_width)
@@ -234,7 +257,9 @@ def show_app_confirmation_with_checkbox(
     checkbox.setObjectName("appMessageCheckbox")
     checkbox.setChecked(bool(checkbox_checked))
     checked_state = {"value": checkbox.isChecked()}
-    checkbox.toggled.connect(lambda checked: checked_state.update(value=bool(checked)))
+    checkbox.toggled.connect(
+        lambda checked: checked_state.update(value=bool(checked))
+    )
     result = show_app_choice(
         parent,
         title,
@@ -285,9 +310,13 @@ def install_warning_suppression_hook():
 
     def _warning(parent, title, text, *args, **kwargs):
         owner = _warning_owner(parent)
-        if owner is not None and bool(getattr(owner, "disable_warning_dialogs", False)):
+        if owner is not None and bool(
+            getattr(owner, "disable_warning_dialogs", False)
+        ):
             status_bar = getattr(owner, "status_bar", None)
-            if status_bar is not None and callable(getattr(status_bar, "showMessage", None)):
+            if status_bar is not None and callable(
+                getattr(status_bar, "showMessage", None)
+            ):
                 try:
                     status_bar.showMessage(str(text))
                 except Exception as error:
@@ -298,16 +327,24 @@ def install_warning_suppression_hook():
                 except Exception as error:
                     _log_ignored_error("_warning", error)
             return QMessageBox.StandardButton.Ok
-        return _show_localized_message_box(parent, title, text, QMessageBox.Icon.Warning)
+        return _show_localized_message_box(
+            parent, title, text, QMessageBox.Icon.Warning
+        )
 
     def _information(parent, title, text, *args, **kwargs):
-        return _show_localized_message_box(parent, title, text, QMessageBox.Icon.Information)
+        return _show_localized_message_box(
+            parent, title, text, QMessageBox.Icon.Information
+        )
 
     def _critical(parent, title, text, *args, **kwargs):
-        return _show_localized_message_box(parent, title, text, QMessageBox.Icon.Critical)
+        return _show_localized_message_box(
+            parent, title, text, QMessageBox.Icon.Critical
+        )
 
     def _question(parent, title, text, *args, **kwargs):
-        default_button = kwargs.get("defaultButton", QMessageBox.StandardButton.No)
+        default_button = kwargs.get(
+            "defaultButton", QMessageBox.StandardButton.No
+        )
         if len(args) >= 2:
             default_button = args[1]
         accepted = show_app_confirmation(
@@ -316,7 +353,11 @@ def install_warning_suppression_hook():
             str(text),
             default_no=default_button != QMessageBox.StandardButton.Yes,
         )
-        return QMessageBox.StandardButton.Yes if accepted else QMessageBox.StandardButton.No
+        return (
+            QMessageBox.StandardButton.Yes
+            if accepted
+            else QMessageBox.StandardButton.No
+        )
 
     QMessageBox.warning = staticmethod(_warning)
     QMessageBox.information = staticmethod(_information)

@@ -24,18 +24,39 @@ def main() -> None:
     try:
         temporary = temporary_dir.name
         with (
-            patch("app.core.settings.get_settings_file_path", return_value=f"{temporary}/settings.json"),
-            patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
-            patch.object(MultiforaMainWindow, "ensure_context_menu_registration", return_value=None),
-            patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
-            patch.object(MultiforaMainWindow, "create_file_worker", return_value=True),
-            patch.object(MultiforaMainWindow, "check_updates_on_startup", return_value=None),
+            patch(
+                "app.core.settings.get_settings_file_path",
+                return_value=f"{temporary}/settings.json",
+            ),
+            patch.object(
+                MultiforaMainWindow,
+                "apply_shortcut_settings",
+                return_value=None,
+            ),
+            patch.object(
+                MultiforaMainWindow,
+                "ensure_context_menu_registration",
+                return_value=None,
+            ),
+            patch.object(
+                MultiforaMainWindow, "create_ipc_server", return_value=None
+            ),
+            patch.object(
+                MultiforaMainWindow, "create_file_worker", return_value=True
+            ),
+            patch.object(
+                MultiforaMainWindow,
+                "check_updates_on_startup",
+                return_value=None,
+            ),
         ):
             window = MultiforaMainWindow()
         window.resize(1280, 780)
         window.show()
         app.processEvents()
-        for index, name in enumerate(("rename", "conversion", "compression", "merge")):
+        for index, name in enumerate(
+            ("rename", "conversion", "compression", "merge")
+        ):
             window.operations_tab_bar.setCurrentIndex(index)
             app.processEvents()
             window.grab().save(str(output / f"{name}.png"), "PNG")
@@ -44,7 +65,8 @@ def main() -> None:
         try:
             temporary_dir.cleanup()
         except PermissionError:
-            # Some Windows shells keep a transient Qt file handle open briefly.
+            # Некоторые оболочки Windows кратковременно удерживают дескриптор
+            # Qt.
             pass
 
 

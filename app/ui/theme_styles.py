@@ -1,4 +1,9 @@
-"""Базовые QSS-темы. Общее оформление полей и кнопок дополняется в ui_styles."""
+"""Базовые QSS-темы с дополнительным оформлением из ``ui_styles``."""
+
+_TEMPLATE_MENU_FIELD_SELECTOR = (
+    "QWidget#template_params_widget "
+    'QToolButton#menu_like_combo[renameTemplateField="true"]'
+)
 
 DARK_APPLICATION_STYLE = """
 QMainWindow {
@@ -83,9 +88,9 @@ QWidget#template_params_widget QTextEdit[renameTemplateField="true"]:focus,
 QWidget#template_params_widget QSpinBox[renameTemplateField="true"],
 QWidget#template_params_widget QSpinBox[renameTemplateField="true"]:hover,
 QWidget#template_params_widget QSpinBox[renameTemplateField="true"]:focus,
-QWidget#template_params_widget QToolButton#menu_like_combo[renameTemplateField="true"],
-QWidget#template_params_widget QToolButton#menu_like_combo[renameTemplateField="true"]:hover,
-QWidget#template_params_widget QToolButton#menu_like_combo[renameTemplateField="true"]:focus {
+__TEMPLATE_MENU_FIELD_SELECTOR__,
+__TEMPLATE_MENU_FIELD_SELECTOR__:hover,
+__TEMPLATE_MENU_FIELD_SELECTOR__:focus {
     border: 1px solid #4f4f4f;
     border-radius: 4px;
 }
@@ -461,7 +466,7 @@ QHeaderView::section {
     padding: 4px;
     border: 1px solid #4f4f4f;
 }
-"""
+""".replace("__TEMPLATE_MENU_FIELD_SELECTOR__", _TEMPLATE_MENU_FIELD_SELECTOR)
 
 LIGHT_APPLICATION_STYLE = """
 QMainWindow, QWidget {
@@ -471,7 +476,15 @@ QMainWindow, QWidget {
     font-size: 14px;
     font-weight: 600;
 }
-QLabel, QPushButton, QToolButton, QLineEdit, QPlainTextEdit, QComboBox, QMenu, QListWidget, QCheckBox {
+QLabel,
+QPushButton,
+QToolButton,
+QLineEdit,
+QPlainTextEdit,
+QComboBox,
+QMenu,
+QListWidget,
+QCheckBox {
     font-family: "Segoe UI";
     font-size: 14px;
 }
@@ -528,9 +541,9 @@ QWidget#template_params_widget QTextEdit[renameTemplateField="true"]:focus,
 QWidget#template_params_widget QSpinBox[renameTemplateField="true"],
 QWidget#template_params_widget QSpinBox[renameTemplateField="true"]:hover,
 QWidget#template_params_widget QSpinBox[renameTemplateField="true"]:focus,
-QWidget#template_params_widget QToolButton#menu_like_combo[renameTemplateField="true"],
-QWidget#template_params_widget QToolButton#menu_like_combo[renameTemplateField="true"]:hover,
-QWidget#template_params_widget QToolButton#menu_like_combo[renameTemplateField="true"]:focus {
+__TEMPLATE_MENU_FIELD_SELECTOR__,
+__TEMPLATE_MENU_FIELD_SELECTOR__:hover,
+__TEMPLATE_MENU_FIELD_SELECTOR__:focus {
     border: 1px solid #c7cfda;
     border-radius: 4px;
 }
@@ -801,7 +814,7 @@ QPushButton:disabled,
 QFrame#card QPushButton:disabled {
     background-color: transparent;
 }
-"""
+""".replace("__TEMPLATE_MENU_FIELD_SELECTOR__", _TEMPLATE_MENU_FIELD_SELECTOR)
 
 
 def _build_global_dropdown_style(

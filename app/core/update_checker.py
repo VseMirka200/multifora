@@ -78,7 +78,9 @@ def fetch_github_latest(timeout: int = 6) -> str:
     raise RuntimeError("Не удалось получить release/tag из GitHub.")
 
 
-def check_for_updates(current_version: str | None = None, timeout: int = 6) -> dict:
+def check_for_updates(
+    current_version: str | None = None, timeout: int = 6
+) -> dict:
     current = (current_version or "").strip() or get_local_version()
     latest_version = fetch_github_latest(timeout=timeout)
     cmp = compare_versions(current, latest_version)

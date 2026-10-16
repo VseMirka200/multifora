@@ -65,7 +65,9 @@ class RepositoryHygieneTests(unittest.TestCase):
         for path in paths:
             source = path.read_text(encoding="utf-8")
             root = symtable.symtable(source, str(path), "exec")
-            module_symbols = {symbol.get_name(): symbol for symbol in root.get_symbols()}
+            module_symbols = {
+                symbol.get_name(): symbol for symbol in root.get_symbols()
+            }
 
             def visit(table, module_symbols, path):
                 for symbol in table.get_symbols():
@@ -97,7 +99,9 @@ class RepositoryHygieneTests(unittest.TestCase):
         if shutil.which("git") is None:
             self.skipTest("Git не установлен или не доступен в PATH")
         if not Path(".git").exists():
-            self.skipTest("Проверка git ls-files требует исходного Git-репозитория")
+            self.skipTest(
+                "Проверка git ls-files требует исходного Git-репозитория"
+            )
         tracked_files = subprocess.check_output(
             ["git", "ls-files"], text=True, encoding="utf-8"
         ).splitlines()
@@ -122,7 +126,9 @@ class RepositoryHygieneTests(unittest.TestCase):
             path = Path(file_name)
             if not path.exists():
                 continue
-            if path.suffix.lower() in binary_suffixes or path.name.endswith(".tar.gz"):
+            if path.suffix.lower() in binary_suffixes or path.name.endswith(
+                ".tar.gz"
+            ):
                 continue
 
             data = path.read_bytes()

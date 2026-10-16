@@ -39,7 +39,10 @@ class SettingsResilienceTests(unittest.TestCase):
                 f.write("{not-json")
 
             window = _DummyWindow()
-            with patch("app.core.settings.get_settings_file_path", return_value=settings_path):
+            with patch(
+                "app.core.settings.get_settings_file_path",
+                return_value=settings_path,
+            ):
                 settings.load_settings(window)
 
         self.assertEqual(window.theme_mode, "system")
@@ -55,14 +58,19 @@ class SettingsResilienceTests(unittest.TestCase):
                     {
                         "rename_history": {
                             "history": [{"pairs": [["new.txt", "old.txt"]]}],
-                            "redo_history": [{"pairs": [["old.txt", "new.txt"]]}],
+                            "redo_history": [
+                                {"pairs": [["old.txt", "new.txt"]]}
+                            ],
                         }
                     },
                     f,
                 )
 
             window = _DummyWindow()
-            with patch("app.core.settings.get_settings_file_path", return_value=settings_path):
+            with patch(
+                "app.core.settings.get_settings_file_path",
+                return_value=settings_path,
+            ):
                 settings.load_settings(window)
 
         self.assertEqual(window._rename_history, [])
@@ -215,7 +223,9 @@ class SettingsResilienceTests(unittest.TestCase):
             },
         )
         self.assertEqual(window._column_sort_section, 3)
-        self.assertEqual(window._column_sort_order, Qt.SortOrder.DescendingOrder)
+        self.assertEqual(
+            window._column_sort_order, Qt.SortOrder.DescendingOrder
+        )
 
         window.custom_templates = {}
         window.ghostscript_path_override = None

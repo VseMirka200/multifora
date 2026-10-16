@@ -14,7 +14,9 @@ class LifecycleMixin:
         self.log_event(message, "STATUS")
 
     def on_worker_status(self, message: str):
-        update_progress_status = getattr(self, "_set_progress_status_text", None)
+        update_progress_status = getattr(
+            self, "_set_progress_status_text", None
+        )
         if callable(update_progress_status):
             update_progress_status(message)
         self.status_bar.showMessage(message)
@@ -45,10 +47,18 @@ class LifecycleMixin:
         if file_path:
             try:
                 with open(file_path, "w", encoding="utf-8") as f:
-                    json.dump(self.custom_templates, f, ensure_ascii=False, indent=2)
-                QMessageBox.information(self, "Успех", f"Шаблоны экспортированы в {file_path}")
+                    json.dump(
+                        self.custom_templates, f, ensure_ascii=False, indent=2
+                    )
+                QMessageBox.information(
+                    self, "Успех", f"Шаблоны экспортированы в {file_path}"
+                )
             except Exception as exc:
-                QMessageBox.critical(self, "Ошибка", f"Не удалось экспортировать шаблоны: {exc!s}")
+                QMessageBox.critical(
+                    self,
+                    "Ошибка",
+                    f"Не удалось экспортировать шаблоны: {exc!s}",
+                )
 
     def import_templates(self, parent_window):
         """Импорт шаблонов из файла."""
@@ -107,12 +117,17 @@ class LifecycleMixin:
             )
             if selected == "wait":
                 self._pending_close = True
-                self.status_bar.showMessage("Закрытие запланировано после завершения операции.")
+                self.status_bar.showMessage(
+                    "Закрытие запланировано после завершения операции."
+                )
             event.ignore()
             return
 
         _delete_ipc_token()
-        if hasattr(self, "_settings_save_timer") and self._settings_save_timer is not None:
+        if (
+            hasattr(self, "_settings_save_timer")
+            and self._settings_save_timer is not None
+        ):
             try:
                 self._settings_save_timer.stop()
             except Exception as error:

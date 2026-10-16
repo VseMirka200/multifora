@@ -23,12 +23,18 @@ class AppearanceMixin:
     # Управляет темой главного окна, отдельных диалогов и системным переключением.
     def _checkbox_checkmark_url(self):
         """Возвращает путь локальной иконки галочки для QSS."""
-        icon_path = Path(__file__).resolve().parents[1] / "checkbox_checked.svg"
+        icon_path = (
+            Path(__file__).resolve().parents[1] / "checkbox_checked.svg"
+        )
         return icon_path.resolve().as_posix()
 
     def _theme_asset_url(self, filename: str) -> str:
         """Возвращает QSS-совместимый путь к ресурсу общей темы."""
-        return (Path(__file__).resolve().parents[1] / filename).resolve().as_posix()
+        return (
+            (Path(__file__).resolve().parents[1] / filename)
+            .resolve()
+            .as_posix()
+        )
 
     def _apply_detached_theme_style(self, style: str):
         """Применяет тему к отдельным окнам, не входящим в иерархию главного окна."""
@@ -40,7 +46,9 @@ class AppearanceMixin:
             refresh_standard_button_styles(dialog)
             refresh_standard_field_styles(dialog)
         except Exception as error:
-            _log_ignored_error("AppearanceMixin._apply_detached_theme_style", error)
+            _log_ignored_error(
+                "AppearanceMixin._apply_detached_theme_style", error
+            )
 
     def apply_dark_style(self):
         """Применяет тёмную тему к главному окну и диалогам."""
@@ -53,10 +61,18 @@ class AppearanceMixin:
     def _apply_application_style(self, theme: str) -> None:
         # Собираем QSS по имени темы и подставляем путь к галочке во время запуска.
         # Общий порядок обновления сохраняет оформление отдельных окон и списков.
-        style = APPLICATION_STYLES[theme] + build_tab_content_style_block(theme)
-        style = style.replace("__CHECKMARK_URL__", self._checkbox_checkmark_url())
-        style = style.replace("__SCROLL_UP_URL__", self._theme_asset_url("scroll_up.svg"))
-        style = style.replace("__SCROLL_DOWN_URL__", self._theme_asset_url("scroll_down.svg"))
+        style = APPLICATION_STYLES[theme] + build_tab_content_style_block(
+            theme
+        )
+        style = style.replace(
+            "__CHECKMARK_URL__", self._checkbox_checkmark_url()
+        )
+        style = style.replace(
+            "__SCROLL_UP_URL__", self._theme_asset_url("scroll_up.svg")
+        )
+        style = style.replace(
+            "__SCROLL_DOWN_URL__", self._theme_asset_url("scroll_down.svg")
+        )
         app = QApplication.instance()
         if app is not None:
             app.setStyleSheet(style)
@@ -78,7 +94,9 @@ class AppearanceMixin:
             try:
                 setup_standard_dropdown(combo)
             except Exception as error:
-                _log_ignored_error("AppearanceMixin._refresh_combo_popup_styles", error)
+                _log_ignored_error(
+                    "AppearanceMixin._refresh_combo_popup_styles", error
+                )
                 continue
 
     def _get_system_theme_mode(self):
@@ -96,12 +114,18 @@ class AppearanceMixin:
                 return "dark"
 
     def apply_theme_mode(self, mode=None):
-        normalized = str(mode or getattr(self, "theme_mode", "system")).strip().lower()
+        normalized = (
+            str(mode or getattr(self, "theme_mode", "system")).strip().lower()
+        )
         if normalized not in ("system", "dark", "light"):
             normalized = "system"
         self.theme_mode = normalized
 
-        effective_mode = self._get_system_theme_mode() if normalized == "system" else normalized
+        effective_mode = (
+            self._get_system_theme_mode()
+            if normalized == "system"
+            else normalized
+        )
         self._effective_theme_mode = effective_mode
         if effective_mode == "light":
             self.apply_light_style()
@@ -114,7 +138,10 @@ class AppearanceMixin:
         except Exception as error:
             _log_ignored_error("AppearanceMixin.apply_theme_mode", error)
 
-        if hasattr(self, "theme_mode_combo") and self.theme_mode_combo is not None:
+        if (
+            hasattr(self, "theme_mode_combo")
+            and self.theme_mode_combo is not None
+        ):
             try:
                 idx = self.theme_mode_combo.findData(self.theme_mode)
                 if idx >= 0 and self.theme_mode_combo.currentIndex() != idx:
@@ -133,7 +160,9 @@ class AppearanceMixin:
                 hints.colorSchemeChanged.connect(self._on_system_theme_changed)
                 self._system_theme_tracking_connected = True
         except Exception as error:
-            _log_ignored_error("AppearanceMixin.setup_system_theme_tracking", error)
+            _log_ignored_error(
+                "AppearanceMixin.setup_system_theme_tracking", error
+            )
 
     def _on_system_theme_changed(self, _scheme):
         if getattr(self, "theme_mode", "system") == "system":

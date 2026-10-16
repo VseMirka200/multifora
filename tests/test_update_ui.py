@@ -36,7 +36,9 @@ class UpdateUiTests(unittest.TestCase):
         )
         self.host._update_future = check_future
 
-        with patch("app.ui.mixins.settings_panel_mixin.QMessageBox.information") as information:
+        with patch(
+            "app.ui.mixins.settings_panel_mixin.QMessageBox.information"
+        ) as information:
             SettingsPanelMixin._poll_update_future(self.host)
 
         information.assert_called_once_with(
@@ -58,7 +60,9 @@ class UpdateUiTests(unittest.TestCase):
         )
         self.host._update_future = check_future
 
-        with patch("app.ui.mixins.settings_panel_mixin.QMessageBox.information") as information:
+        with patch(
+            "app.ui.mixins.settings_panel_mixin.QMessageBox.information"
+        ) as information:
             SettingsPanelMixin._poll_update_future(self.host)
 
         information.assert_called_once_with(
@@ -79,7 +83,9 @@ class UpdateUiTests(unittest.TestCase):
         self.host.check_updates_action.deleteLater()
         del self.host.check_updates_action
         self.host._update_executor = Mock()
-        self.host._update_executor.submit.return_value = concurrent.futures.Future()
+        self.host._update_executor.submit.return_value = (
+            concurrent.futures.Future()
+        )
 
         SettingsPanelMixin._start_update_check(self.host, silent=True)
 

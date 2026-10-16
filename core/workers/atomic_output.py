@@ -17,14 +17,18 @@ def atomic_output_path(destination: str) -> Iterator[str]:
     """
     folder = os.path.dirname(os.path.abspath(destination))
     suffix = os.path.splitext(destination)[1]
-    handle, temporary = tempfile.mkstemp(prefix=".__multifora_", suffix=suffix, dir=folder)
+    handle, temporary = tempfile.mkstemp(
+        prefix=".__multifora_", suffix=suffix, dir=folder
+    )
     os.close(handle)
     try:
         yield temporary
         if not os.path.isfile(temporary) or os.path.getsize(temporary) == 0:
             raise OSError("Операция не создала корректный выходной файл")
         if os.path.exists(destination):
-            raise FileExistsError(f"Выходной файл уже существует: {destination}")
+            raise FileExistsError(
+                f"Выходной файл уже существует: {destination}"
+            )
         os.replace(temporary, destination)
     finally:
         if os.path.exists(temporary):

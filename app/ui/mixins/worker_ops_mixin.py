@@ -14,7 +14,11 @@ class WorkerOpsMixin:
         files = selected_file_items(self.list_files, files_only=True)
         if files:
             return files
-        return [file_item for file_item in self.files if getattr(file_item, "is_file", False)]
+        return [
+            file_item
+            for file_item in self.files
+            if getattr(file_item, "is_file", False)
+        ]
 
     def _should_auto_clear_after_operation(self) -> bool:
         enabled_checkbox = getattr(self, "auto_clear_enabled_checkbox", None)
@@ -32,7 +36,10 @@ class WorkerOpsMixin:
 
     @staticmethod
     def _detect_merge_output_format(files: list[FileItem]) -> str | None:
-        extensions = {os.path.splitext(str(getattr(file, "path", "")))[1].lower() for file in files}
+        extensions = {
+            os.path.splitext(str(getattr(file, "path", "")))[1].lower()
+            for file in files
+        }
         if extensions == {".pdf"}:
             return "pdf"
         if extensions == {".docx"}:
@@ -43,12 +50,21 @@ class WorkerOpsMixin:
         self, output_format: str, files: list[FileItem]
     ) -> str:
         extension = "docx" if output_format == "docx" else "pdf"
-        filter_text = "Word Document (*.docx)" if extension == "docx" else "PDF Document (*.pdf)"
+        filter_text = (
+            "Word Document (*.docx)"
+            if extension == "docx"
+            else "PDF Document (*.pdf)"
+        )
         start_folder = os.path.dirname(files[0].path) if files else ""
-        default_path = os.path.join(start_folder, f"Объединенный_документ.{extension}")
+        default_path = os.path.join(
+            start_folder, f"Объединенный_документ.{extension}"
+        )
 
         current_path = ""
-        if hasattr(self, "input_merge_output_path") and self.input_merge_output_path is not None:
+        if (
+            hasattr(self, "input_merge_output_path")
+            and self.input_merge_output_path is not None
+        ):
             current_path = self.input_merge_output_path.text().strip()
         if current_path:
             default_path = current_path
@@ -64,13 +80,21 @@ class WorkerOpsMixin:
 
         base, ext = os.path.splitext(file_path)
         if ext.lower() != f".{extension}":
-            file_path = f"{base}.{extension}" if base else f"{file_path}.{extension}"
-        if hasattr(self, "input_merge_output_path") and self.input_merge_output_path is not None:
+            file_path = (
+                f"{base}.{extension}" if base else f"{file_path}.{extension}"
+            )
+        if (
+            hasattr(self, "input_merge_output_path")
+            and self.input_merge_output_path is not None
+        ):
             self.input_merge_output_path.setText(file_path)
             try:
                 self.input_merge_output_path.setCursorPosition(0)
             except Exception as error:
-                _log_ignored_error("WorkerOpsMixin._select_merge_output_path_for_format", error)
+                _log_ignored_error(
+                    "WorkerOpsMixin._select_merge_output_path_for_format",
+                    error,
+                )
         return file_path
 
     def select_merge_output_path(self):
@@ -90,13 +114,21 @@ class WorkerOpsMixin:
         if button is None:
             return
 
-        files = self._get_selected_or_all_file_items() if hasattr(self, "list_files") else []
+        files = (
+            self._get_selected_or_all_file_items()
+            if hasattr(self, "list_files")
+            else []
+        )
         output_format = self._detect_merge_output_format(files)
         expected_extension = f".{output_format}" if output_format else ""
         valid_files = len(files) >= 2 and output_format is not None
         output_field = getattr(self, "input_merge_output_path", None)
-        output_path = output_field.text().strip() if output_field is not None else ""
-        valid_output = bool(expected_extension) and output_path.lower().endswith(expected_extension)
+        output_path = (
+            output_field.text().strip() if output_field is not None else ""
+        )
+        valid_output = bool(
+            expected_extension
+        ) and output_path.lower().endswith(expected_extension)
         button.setEnabled(valid_files and valid_output)
 
     def compress_files(self):
@@ -110,17 +142,27 @@ class WorkerOpsMixin:
 
         compress_type = self.combo_compress_type.currentText()
         if compress_type == "Изображения":
-            files = [file_item for file_item in selected_files if file_item.file_type == "image"]
+            files = [
+                file_item
+                for file_item in selected_files
+                if file_item.file_type == "image"
+            ]
         else:
             files = [
-                file_item for file_item in selected_files if file_item.path.lower().endswith(".pdf")
+                file_item
+                for file_item in selected_files
+                if file_item.path.lower().endswith(".pdf")
             ]
 
         if not files:
             file_type = (
-                "изображения (JPG/PNG)" if compress_type == "Изображения" else "PDF документы"
+                "изображения (JPG/PNG)"
+                if compress_type == "Изображения"
+                else "PDF документы"
             )
-            QMessageBox.warning(self, "Ошибка", f"В списке нет подходящих файлов: {file_type}.")
+            QMessageBox.warning(
+                self, "Ошибка", f"В списке нет подходящих файлов: {file_type}."
+            )
             return
 
         pdf_method = "auto"
@@ -146,19 +188,31 @@ class WorkerOpsMixin:
             if image_output_mode == "custom":
                 image_output_dir = self._image_output_path()
                 if not image_output_dir:
-                    QMessageBox.warning(self, "Ошибка", "Выберите папку для сжатых изображений.")
+                    QMessageBox.warning(
+                        self,
+                        "Ошибка",
+                        "Выберите папку для сжатых изображений.",
+                    )
                     return
 
         compression_level = 85
-        if compress_type == "Изображения" and hasattr(self, "combo_compression_level"):
+        if compress_type == "Изображения" and hasattr(
+            self, "combo_compression_level"
+        ):
             try:
                 selected_level = self.combo_compression_level.currentData()
                 if isinstance(selected_level, int):
                     compression_level = selected_level
             except Exception:
                 compression_level = 85
-        file_type = "изображения" if compress_type == "Изображения" else "PDF документы"
-        method_info = f" ({method_text})" if compress_type == "PDF документы" else ""
+        file_type = (
+            "изображения"
+            if compress_type == "Изображения"
+            else "PDF документы"
+        )
+        method_info = (
+            f" ({method_text})" if compress_type == "PDF документы" else ""
+        )
 
         if compress_type == "PDF документы":
             details = method_info
@@ -203,7 +257,9 @@ class WorkerOpsMixin:
         }
         self.file_worker.start()
         if compress_type == "PDF документы":
-            self.log_event(f"Сжатие: {len(files)} файлов ({file_type}{method_info})")
+            self.log_event(
+                f"Сжатие: {len(files)} файлов ({file_type}{method_info})"
+            )
         else:
             self.log_event(f"Сжатие: {len(files)} файлов{details}")
         if callable(getattr(self, "_show_progress_dialog", None)):
@@ -219,7 +275,9 @@ class WorkerOpsMixin:
         files = self._get_selected_or_all_file_items()
         if len(files) < 2:
             QMessageBox.warning(
-                self, "Ошибка", "Добавьте или выберите минимум два документа для объединения!"
+                self,
+                "Ошибка",
+                "Добавьте или выберите минимум два документа для объединения!",
             )
             return
 
@@ -235,21 +293,32 @@ class WorkerOpsMixin:
         if output_format == "docx":
             if not all(file.path.lower().endswith(".docx") for file in files):
                 QMessageBox.warning(
-                    self, "Ошибка", "Для результата DOCX выберите только файлы DOCX."
+                    self,
+                    "Ошибка",
+                    "Для результата DOCX выберите только файлы DOCX.",
                 )
                 return
             format_label = "DOCX"
         else:
             if not all(file.path.lower().endswith(".pdf") for file in files):
-                QMessageBox.warning(self, "Ошибка", "Для результа PDF выберите только файлы PDF.")
+                QMessageBox.warning(
+                    self,
+                    "Ошибка",
+                    "Для результа PDF выберите только файлы PDF.",
+                )
                 return
             format_label = "PDF"
 
         output_path = ""
-        if hasattr(self, "input_merge_output_path") and self.input_merge_output_path is not None:
+        if (
+            hasattr(self, "input_merge_output_path")
+            and self.input_merge_output_path is not None
+        ):
             output_path = self.input_merge_output_path.text().strip()
         if not output_path:
-            output_path = self._select_merge_output_path_for_format(output_format, files)
+            output_path = self._select_merge_output_path_for_format(
+                output_format, files
+            )
             if not output_path:
                 return
 
@@ -273,9 +342,13 @@ class WorkerOpsMixin:
             "file_paths": [f.path for f in files],
         }
         self.file_worker.start()
-        self.log_event(f"Объединение: {len(files)} документов в {format_label}")
+        self.log_event(
+            f"Объединение: {len(files)} документов в {format_label}"
+        )
         if callable(getattr(self, "_show_progress_dialog", None)):
-            self._show_progress_dialog(f"Объединение {len(files)} документов...")
+            self._show_progress_dialog(
+                f"Объединение {len(files)} документов..."
+            )
         self.status_bar.showMessage(f"Объединение {len(files)} документов...")
 
     def on_operation_finished(self, result):
@@ -335,14 +408,20 @@ class WorkerOpsMixin:
         if callable(getattr(self, "_update_compress_button", None)):
             self._update_compress_button()
 
-        if not errors and not warnings and self._should_auto_clear_after_operation():
+        if (
+            not errors
+            and not warnings
+            and self._should_auto_clear_after_operation()
+        ):
             self.files.clear()
             self.list_files.clear()
             self.update_file_info()
             self.status_bar.showMessage(
                 "Операция завершена. Список очищен, файлы на диске сохранены."
             )
-            if self._pending_close and not (self.file_worker and self.file_worker.isRunning()):
+            if self._pending_close and not (
+                self.file_worker and self.file_worker.isRunning()
+            ):
                 self._pending_close = False
                 QTimer.singleShot(0, self.close)
             return
@@ -387,16 +466,22 @@ class WorkerOpsMixin:
 
         if warnings:
             lines = [f"• {entry.get('message', '')}" for entry in warnings[:8]]
-            extra = f"\n…и ещё {len(warnings) - 8}" if len(warnings) > 8 else ""
+            extra = (
+                f"\n…и ещё {len(warnings) - 8}" if len(warnings) > 8 else ""
+            )
             QMessageBox.warning(
                 self,
                 "Предупреждения о результате",
-                "Некоторые документы преобразованы только как текст.\n" + "\n".join(lines) + extra,
+                "Некоторые документы преобразованы только как текст.\n"
+                + "\n".join(lines)
+                + extra,
             )
         if errors:
             self._offer_retry_for_errors(errors)
 
-        if self._pending_close and not (self.file_worker and self.file_worker.isRunning()):
+        if self._pending_close and not (
+            self.file_worker and self.file_worker.isRunning()
+        ):
             self._pending_close = False
             QTimer.singleShot(0, self.close)
 
@@ -416,7 +501,8 @@ class WorkerOpsMixin:
         more = f"\n…и ещё {len(errors) - 8}" if len(errors) > 8 else ""
         can_retry = bool(
             self._last_operation
-            and self._last_operation.get("op") in {"rename", "convert", "compress"}
+            and self._last_operation.get("op")
+            in {"rename", "convert", "compress"}
             and any(e.get("path") for e in errors)
         )
         message = "Ошибки при обработке файлов:\n" + "\n".join(lines) + more

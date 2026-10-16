@@ -36,10 +36,18 @@ class WindowsShortcutIconPreservationTests(unittest.TestCase):
             shortcut_path.write_text("existing shortcut", encoding="utf-8")
 
             with (
-                patch.object(windows_integration, "_get_shortcut_icon_path", return_value=None),
-                patch.object(windows_integration.subprocess, "run") as run_mock,
+                patch.object(
+                    windows_integration,
+                    "_get_shortcut_icon_path",
+                    return_value=None,
+                ),
+                patch.object(
+                    windows_integration.subprocess, "run"
+                ) as run_mock,
             ):
-                result = dummy.create_windows_shortcut(str(shortcut_path), silent=True)
+                result = dummy.create_windows_shortcut(
+                    str(shortcut_path), silent=True
+                )
 
         self.assertTrue(result)
         run_mock.assert_not_called()

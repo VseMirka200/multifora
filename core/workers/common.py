@@ -25,7 +25,9 @@ class WorkerLike(Protocol):
         updated_files: Iterable[object] | None = None,
     ) -> None: ...
 
-    def _record_error(self, file_item: object | None, message: str) -> None: ...
+    def _record_error(
+        self, file_item: object | None, message: str
+    ) -> None: ...
 
 
 def get_unique_path(path: str) -> str:

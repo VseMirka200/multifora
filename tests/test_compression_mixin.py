@@ -35,8 +35,12 @@ class CompressionMixinTests(unittest.TestCase):
             file_item = FileItem(str(source))
 
             worker.image_output_mode = "alongside"
-            alongside = worker._image_compression_target_path(file_item, ".jpg")
-            self.assertEqual(alongside, str(source_dir / "photo_compressed.jpg"))
+            alongside = worker._image_compression_target_path(
+                file_item, ".jpg"
+            )
+            self.assertEqual(
+                alongside, str(source_dir / "photo_compressed.jpg")
+            )
 
             worker.image_output_mode = "custom"
             worker.image_output_dir = str(output_dir)
@@ -51,9 +55,16 @@ class CompressionMixinTests(unittest.TestCase):
             "optimize": ("/printer", 300, 90, "Только оптимизация"),
         }
 
-        for method, (pdf_settings, resolution, quality, name) in expected.items():
+        for method, (
+            pdf_settings,
+            resolution,
+            quality,
+            name,
+        ) in expected.items():
             with self.subTest(method=method):
-                settings = _DummyCompressionWorker(method)._get_ghostscript_settings()
+                settings = _DummyCompressionWorker(
+                    method
+                )._get_ghostscript_settings()
                 self.assertEqual(settings["pdf_settings"], pdf_settings)
                 self.assertEqual(settings["color_resolution"], resolution)
                 self.assertEqual(settings["jpeg_quality"], quality)
