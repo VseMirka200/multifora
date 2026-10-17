@@ -1,24 +1,76 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#111214"><title>Установка и обновление — Мультифора</title><link rel="icon" href="../../assets/icon.ico" sizes="any"><link rel="stylesheet" href="../../assets/site.css"><link rel="stylesheet" href="../../assets/message-fixes.css"></head><body><div class="layout"><aside><a class="brand" href="../../index.html"><img class="mark" src="../../assets/icon.ico" alt="">Мультифора</a><a class="search" href="../../index.html">Поиск по руководству <kbd>Ctrl K</kbd></a><nav><a href="../../index.html">Начало</a><a href="https://github.com/VseMirka200/multifora/releases/latest">Скачать</a><div class="nav-label">Начало работы</div><a href="../../ru/guide/quick-start.html">Полное руководство</a><a href="../../ru/guide/install.html">Установка</a><div class="nav-label">Возможности</div><a href="../../ru/guide/rename.html">Переименование</a><a href="../../ru/guide/conversion.html">Конвертация</a><a href="../../ru/guide/optimize.html">Объединение и сжатие</a><div class="nav-label">Помощь</div><a href="../../ru/reference/settings.html">Настройки</a><a href="../../ru/reference/troubleshooting.html">Неполадки</a><a href="https://github.com/VseMirka200/multifora/issues/new/choose">Сообщить об ошибке</a></nav></aside><main><header class="top"><a href="../../index.html">← На главную</a><a class="download" href="https://github.com/VseMirka200/multifora/releases">Скачать Мультифору</a></header><div class="crumbs">Документация / Установка и обновление</div><article><h1 id="установка-и-обновление">Установка и обновление</h1>
-<h2 id="установка-готовой-версии">Установка готовой версии</h2>
-<ol>
-<li>Откройте <a href="https://github.com/VseMirka200/multifora/releases/latest" target="_blank" rel="noreferrer">последний выпуск на GitHub</a>.</li>
-<li>Скачайте <code>Multifora-Setup-&lt;версия&gt;.exe</code>.</li>
-<li>Запустите установщик и следуйте его шагам.</li>
-<li>После установки откройте Мультифору через меню «Пуск».</li>
-</ol>
-<p>Для переносной версии скачайте ZIP-архив, распакуйте <strong>весь</strong> архив в постоянную папку и запускайте <code>Multifora.exe</code> из неё. Не запускайте программу прямо из архива.</p>
-<h2 id="проверка-скачанного-файла">Проверка скачанного файла</h2>
-<p>У каждого релиза есть файл контрольной суммы <code>.sha256</code>. В PowerShell выполните:</p>
-<p>```powershell</p>
-<p>Get-FileHash .\Multifora-Setup-&lt;версия&gt;.exe -Algorithm SHA256</p>
-<p>```</p>
-<p>Сравните получившийся хеш со значением в файле <code>.sha256</code> из того же релиза. Скачивайте установщик и контрольную сумму только со страницы релизов проекта.</p>
-<h2 id="обновление">Обновление</h2>
-<ul>
-<li>Перед обновлением дождитесь завершения обработки файлов.</li>
-<li>Установите новую версию поверх существующей либо распакуйте новую переносную версию в отдельную папку.</li>
-<li>После запуска откройте <strong>Справка → Проверить обновления</strong>, если хотите проверить версию вручную.</li>
-</ul>
-<h2 id="запуск-из-исходного-кода">Запуск из исходного кода</h2>
-<p>Для запуска из репозитория нужен Python 3.11 или новее. В корне проекта установите зависимости из <code>requirements.txt</code>, затем запустите <code>multifora_start.py</code>.</p>
-<p>Далее: <a href="index.html">обзор руководства</a> или <a href="quick-start.html">полное руководство пользователя</a>.</p></article></main></div></body></html>
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="theme-color" content="#111214">
+    <title>Установка и обновление — Мультифора</title>
+    <link rel="icon" href="../../assets/icon.ico" sizes="any">
+    <link rel="stylesheet" href="../../assets/site.css">
+    <link rel="stylesheet" href="../../assets/message-fixes.css">
+  </head>
+  <body>
+    <div class="layout">
+      <aside>
+        <a class="brand" href="../../index.html"><img class="mark" src="../../assets/icon.ico" alt="">Мультифора</a>
+        <a class="search" href="../../index.html">Поиск по руководству <kbd>Ctrl K</kbd></a>
+        <nav>
+          <a href="../../index.html">Начало</a>
+          <a href="https://github.com/VseMirka200/multifora/releases/latest">Скачать</a>
+          <div class="nav-label">
+            Начало работы
+          </div>
+          <a href="../../ru/guide/quick-start.html">Полное руководство</a>
+          <a href="../../ru/guide/install.html">Установка</a>
+          <div class="nav-label">
+            Возможности
+          </div>
+          <a href="../../ru/guide/rename.html">Переименование</a>
+          <a href="../../ru/guide/conversion.html">Конвертация</a>
+          <a href="../../ru/guide/optimize.html">Объединение и сжатие</a>
+          <div class="nav-label">
+            Помощь
+          </div>
+          <a href="../../ru/reference/settings.html">Настройки</a>
+          <a href="../../ru/reference/troubleshooting.html">Неполадки</a>
+          <a href="https://github.com/VseMirka200/multifora/issues/new/choose">Сообщить об ошибке</a>
+        </nav>
+      </aside>
+      <main>
+        <header class="top">
+          <a href="../../index.html">← На главную</a>
+          <a class="download" href="https://github.com/VseMirka200/multifora/releases">Скачать Мультифору</a>
+        </header>
+        <div class="crumbs">
+          Документация / Установка и обновление
+        </div>
+        <article>
+          <h1 id="установка-и-обновление">Установка и обновление</h1>
+          <h2 id="установка-готовой-версии">Установка готовой версии</h2>
+          <ol>
+            <li>Откройте <a href="https://github.com/VseMirka200/multifora/releases/latest" target="_blank" rel="noreferrer">последний выпуск на GitHub</a>.</li>
+            <li>Скачайте <code>Multifora-Setup-&lt;версия&gt;.exe</code>.</li>
+            <li>Запустите установщик и следуйте его шагам.</li>
+            <li>После установки откройте Мультифору через меню «Пуск».</li>
+          </ol>
+          <p>Для переносной версии скачайте ZIP-архив, распакуйте <strong>весь</strong> архив в постоянную папку и запускайте <code>Multifora.exe</code> из неё. Не запускайте программу прямо из архива.</p>
+          <h2 id="проверка-скачанного-файла">Проверка скачанного файла</h2>
+          <p>У каждого релиза есть файл контрольной суммы <code>.sha256</code>. В PowerShell выполните:</p>
+          <p>```powershell</p>
+          <p>Get-FileHash .\Multifora-Setup-&lt;версия&gt;.exe -Algorithm SHA256</p>
+          <p>```</p>
+          <p>Сравните получившийся хеш со значением в файле <code>.sha256</code> из того же релиза. Скачивайте установщик и контрольную сумму только со страницы релизов проекта.</p>
+          <h2 id="обновление">Обновление</h2>
+          <ul>
+            <li>Перед обновлением дождитесь завершения обработки файлов.</li>
+            <li>Установите новую версию поверх существующей либо распакуйте новую переносную версию в отдельную папку.</li>
+            <li>После запуска откройте <strong>Справка → Проверить обновления</strong>, если хотите проверить версию вручную.</li>
+          </ul>
+          <h2 id="запуск-из-исходного-кода">Запуск из исходного кода</h2>
+          <p>Для запуска из репозитория нужен Python 3.11 или новее. В корне проекта установите зависимости из <code>requirements.txt</code>, затем запустите <code>multifora_start.py</code>.</p>
+          <p>Далее: <a href="index.html">обзор руководства</a> или <a href="quick-start.html">полное руководство пользователя</a>.</p>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

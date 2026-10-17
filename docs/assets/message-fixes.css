@@ -7,4 +7,5 @@
 .support h2{margin:0 0 8px!important;padding:0!important;border:0!important;color:#fff;font-size:26px!important;font-weight:700!important;line-height:1.2!important;letter-spacing:-.02em!important;text-shadow:none!important;filter:none!important;-webkit-font-smoothing:antialiased}
 .support p{margin:0!important;line-height:1.55!important}
 .support .button{flex:none}
-.card .icon-img{display:block;width:26px;height:26px;margin-bottom:10px}
+.card .emoji-icon{display:block;height:26px;margin-bottom:10px;font-size:25px;line-height:26px}
+.top{align-items:center}
