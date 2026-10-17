@@ -158,15 +158,12 @@ class LoggingMixin:
             _log_ignored_error("LoggingMixin._attach_widget_logger", error)
 
     def _should_skip_action_logging(self, widget: QWidget) -> bool:
-        if widget is None:
-            return True
-        if isinstance(widget, QDialog):
-            return True
-        if getattr(widget, "objectName", lambda: "")() in {
-            "qt_spinbox_lineedit",
-        }:
-            return True
-        return False
+        return (
+            widget is None
+            or isinstance(widget, QDialog)
+            or getattr(widget, "objectName", lambda: "")()
+            in {"qt_spinbox_lineedit"}
+        )
 
     def _is_action_logging_ready(self) -> bool:
         return bool(

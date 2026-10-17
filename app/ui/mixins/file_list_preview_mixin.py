@@ -247,10 +247,11 @@ class FileListPreviewMixin:
             ext = ""
 
         # Грубая оценка: JPEG/WebP обычно сжимаются сильнее PNG.
-        if ext in ("jpg", "jpeg", "webp"):
-            mapping = {40: 55, 65: 35, 85: 18, 95: 8}
-        else:
-            mapping = {40: 35, 65: 22, 85: 12, 95: 5}
+        mapping = (
+            {40: 55, 65: 35, 85: 18, 95: 8}
+            if ext in ("jpg", "jpeg", "webp")
+            else {40: 35, 65: 22, 85: 12, 95: 5}
+        )
         return int(mapping.get(level, 18))
 
     def _estimate_pdf_reduction_percent(self) -> int:

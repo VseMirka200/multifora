@@ -15,8 +15,8 @@ from app.core.app_ipc import (
 )
 from app.core.app_utils import _debug_log
 from app.core.runtime_logging import install_runtime_logging
-from app.ui.ui_main import MultiforaMainWindow
 from app.ui.startup_splash import StartupSplash
+from app.ui.ui_main import MultiforaMainWindow
 
 
 def _run_build_smoke_test() -> int:

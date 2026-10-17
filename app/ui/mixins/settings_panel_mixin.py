@@ -531,10 +531,14 @@ class SettingsPanelMixin:
         appearance_layout.addWidget(theme_row)
         appearance_layout.addStretch()
 
+        warning_description = (
+            "Предупреждения больше не будут открываться отдельными окнами и будут "
+            "показаны только в строке состояния."
+        )
         disable_warning_row, self.disable_warning_dialogs_checkbox = (
             self._create_settings_checkbox_row(
                 "Отключить предупреждающие окна",
-                "Предупреждения больше не будут открываться отдельными окнами и будут показаны только в строке состояния.",
+                warning_description,
             )
         )
         self.disable_warning_dialogs_checkbox.stateChanged.connect(

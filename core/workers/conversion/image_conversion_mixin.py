@@ -43,10 +43,11 @@ class ImageConversionMixin:
         output_path = self._conversion_output_path(file, target_ext)
         image = None
         try:
-            if source_format == "SVG":
-                image = self._load_svg_as_pillow_image(file.path)
-            else:
-                image = Image.open(file.path)
+            image = (
+                self._load_svg_as_pillow_image(file.path)
+                if source_format == "SVG"
+                else Image.open(file.path)
+            )
             with atomic_output_path(output_path) as temporary:
                 self._save_pillow_image(image, temporary, target_format)
             return output_path
@@ -113,10 +114,11 @@ class ImageConversionMixin:
         pdf_path = self._conversion_output_path(file, ".pdf")
         image = None
         try:
-            if source_format == "SVG":
-                image = self._load_svg_as_pillow_image(file.path)
-            else:
-                image = Image.open(file.path)
+            image = (
+                self._load_svg_as_pillow_image(file.path)
+                if source_format == "SVG"
+                else Image.open(file.path)
+            )
             frame_count = int(getattr(image, "n_frames", 1) or 1)
             if frame_count > 1:
                 from PIL import ImageSequence

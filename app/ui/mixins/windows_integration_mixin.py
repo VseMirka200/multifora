@@ -27,10 +27,11 @@ def _gui_python_executable() -> str:
 
 def _context_menu_command() -> str:
     exe_path = os.path.abspath(sys.argv[0])
-    if exe_path.lower().endswith(".py"):
-        base_cmd = f'"{_gui_python_executable()}" "{exe_path}"'
-    else:
-        base_cmd = f'"{exe_path}"'
+    base_cmd = (
+        f'"{_gui_python_executable()}" "{exe_path}"'
+        if exe_path.lower().endswith(".py")
+        else f'"{exe_path}"'
+    )
     return f'{base_cmd} "%1"'
 
 
@@ -57,13 +58,15 @@ class WindowsIntegrationMixin:
                     if exe_path.lower().endswith(".py")
                     else exe_path
                 )
-            if icon_path:
-                if icon_path.lower().endswith((".exe", ".dll")):
-                    icon_value = f'"{icon_path}",0'
-                else:
-                    icon_value = f'"{icon_path}"'
-            else:
-                icon_value = None
+            icon_value = (
+                (
+                    f'"{icon_path}",0'
+                    if icon_path.lower().endswith((".exe", ".dll"))
+                    else f'"{icon_path}"'
+                )
+                if icon_path
+                else None
+            )
 
             self.unregister_context_menu_silent()
             self.log_event("Регистрирую контекстное меню...")
