@@ -1,6 +1,6 @@
 # Поддержка
 
-Для вопросов по работе приложения сначала используйте [руководство](https://vsemirka200.github.io/multifora/) и [раздел устранения неполадок](https://vsemirka200.github.io/multifora/ru/reference/troubleshooting.html).
+Для вопросов по работе приложения сначала используйте [руководство](https://vsemirka200.github.io/multifora/) и [раздел устранения неполадок](https://vsemirka200.github.io/multifora/reference/troubleshooting.html).
 
 - О сбое или неверном результате сообщайте через [шаблоны GitHub Issues](https://github.com/VseMirka200/multifora/issues/new/choose).
 - Для предложения новой функции создайте issue с описанием задачи и примером желаемого результата.

@@ -41,7 +41,7 @@
 
 Также доступна переносная ZIP-версия. Распакуйте архив целиком в постоянную папку и запускайте `Multifora.exe` — не запускайте приложение прямо из архива.
 
-Подробности, включая проверку контрольной суммы и обновление, есть в [руководстве по установке](https://vsemirka200.github.io/multifora/ru/guide/install.html).
+Подробности, включая проверку контрольной суммы и обновление, есть в [руководстве по установке](https://vsemirka200.github.io/multifora/guide/install.html).
 
 ## Быстрый старт
 
@@ -50,16 +50,16 @@
 3. Настройте параметры и проверьте предварительный результат, если он доступен.
 4. Укажите папку вывода и запустите обработку.
 
-Для важных данных сначала обработайте копии нескольких файлов. Полное пошаговое описание доступно в [быстром старте](https://vsemirka200.github.io/multifora/ru/guide/quick-start.html).
+Для важных данных сначала обработайте копии нескольких файлов. Полное пошаговое описание доступно в [быстром старте](https://vsemirka200.github.io/multifora/guide/quick-start.html).
 
 ## Поддерживаемые задачи
 
 | Задача | Где узнать больше |
 | --- | --- |
-| Переименовать множество файлов по правилу | [Переименование](https://vsemirka200.github.io/multifora/ru/guide/rename.html) |
-| Изменить формат документа или изображения | [Конвертация](https://vsemirka200.github.io/multifora/ru/guide/conversion.html) |
-| Собрать несколько PDF или DOCX | [Объединение](https://vsemirka200.github.io/multifora/ru/guide/optimize.html#объединение-документов) |
-| Уменьшить размер PDF или изображения | [Сжатие](https://vsemirka200.github.io/multifora/ru/guide/optimize.html#сжатие-файлов) |
+| Переименовать множество файлов по правилу | [Переименование](https://vsemirka200.github.io/multifora/guide/rename.html) |
+| Изменить формат документа или изображения | [Конвертация](https://vsemirka200.github.io/multifora/guide/conversion.html) |
+| Собрать несколько PDF или DOCX | [Объединение](https://vsemirka200.github.io/multifora/guide/optimize.html#объединение-документов) |
+| Уменьшить размер PDF или изображения | [Сжатие](https://vsemirka200.github.io/multifora/guide/optimize.html#сжатие-файлов) |
 
 ## Разработка
 
@@ -97,9 +97,9 @@ py -3.11 -m venv .venv
 
 ## Помощь и обратная связь
 
-- Ответы на распространённые вопросы: [устранение неполадок](https://vsemirka200.github.io/multifora/ru/reference/troubleshooting.html).
+- Ответы на распространённые вопросы: [устранение неполадок](https://vsemirka200.github.io/multifora/reference/troubleshooting.html).
 - Ошибка или предложение: [создать issue](https://github.com/VseMirka200/multifora/issues/new/choose).
-- Вопросы о параметрах программы: [настройки](https://vsemirka200.github.io/multifora/ru/reference/settings.html).
+- Вопросы о параметрах программы: [настройки](https://vsemirka200.github.io/multifora/reference/settings.html).
 
 ## Лицензия
 

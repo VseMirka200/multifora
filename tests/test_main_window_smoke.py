@@ -405,7 +405,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 open_url.assert_called_once()
                 self.assertEqual(
                     open_url.call_args.args[0].toString(),
-                    "https://vsemirka200.github.io/multifora/ru/guide/index.html",
+                    "https://vsemirka200.github.io/multifora/guide/index.html",
                 )
                 self.assertFalse(hasattr(window, "_support_help_row"))
                 with patch(
@@ -426,7 +426,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 open_url.assert_called_once()
                 self.assertEqual(
                     open_url.call_args.args[0].toString(),
-                    "https://vsemirka200.github.io/multifora/ru/reference/troubleshooting.html",
+                    "https://vsemirka200.github.io/multifora/reference/troubleshooting.html",
                 )
                 behavior_page = window.settings_stack.widget(1)
                 behavior_labels = [

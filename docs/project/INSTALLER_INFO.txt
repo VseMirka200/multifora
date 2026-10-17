@@ -31,7 +31,7 @@
 Последние версии: https://github.com/VseMirka200/multifora/releases/latest
 Сообщить об ошибке: https://github.com/VseMirka200/multifora/issues/new/choose
 Устранение неполадок:
-https://vsemirka200.github.io/multifora/ru/reference/troubleshooting.html
+https://vsemirka200.github.io/multifora/reference/troubleshooting.html
 
 При обращении в поддержку укажите версию Мультифоры и Windows, выполненные
 действия и текст ошибки. Не прикладывайте конфиденциальные документы, пароли,
