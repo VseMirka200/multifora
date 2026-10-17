@@ -138,9 +138,17 @@ jobs:
           if ($LASTEXITCODE -ne 0) { $previousTag = $null }
           $range = if ($previousTag) { "$previousTag..HEAD" } else { "HEAD" }
           $changes = @(git log $range --pretty=format:"- %s (%h)" --no-merges)
+          $releaseAssets = @(
+            "## Файлы для Windows"
+            ""
+            "- **Установщик** `Multifora-Setup-$($version.TrimStart('v')).exe` — устанавливает приложение в Windows."
+            "- **Портативная версия** `Multifora-$version-windows-x64.zip` — запускается из распакованной папки без установки."
+          )
           if (-not $changes) { $changes = @("- Технический релиз") }
           @(
             "# Изменения $version"
+            ""
+            $releaseAssets
             ""
             "Изменения после $($previousTag ?? 'начала истории'):"
             ""
