@@ -4,22 +4,60 @@ on:
   push:
     tags:
       - "v*"
+  pull_request:
+    branches: [main]
+    types: [closed]
 
 permissions:
   contents: read
 
 jobs:
+  prepare-release:
+    # A pull request is safe to release only after it has been merged into main.
+    if: github.event_name == 'push' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      commit: ${{ steps.release.outputs.commit }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version and release commit
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            tag="${GITHUB_REF_NAME}"
+          else
+            version="$(sed -nE 's/^APP_VERSION = "([^"]+)"$/\1/p' app/core/app_identity.py)"
+            test -n "$version"
+            tag="v$version"
+            if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+              echo "Tag $tag already exists. Increase APP_VERSION before merging a release PR." >&2
+              exit 1
+            fi
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
   build-windows:
+    needs: prepare-release
     runs-on: windows-latest
     timeout-minutes: 30
     env:
       QT_QPA_PLATFORM: offscreen
+      RELEASE_TAG: ${{ needs.prepare-release.outputs.tag }}
 
     steps:
       - name: Checkout full history
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ needs.prepare-release.outputs.commit }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -27,13 +65,16 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Install dependencies
+      - name: Install development and build dependencies
         run: |
-          python -m pip install --disable-pip-version-check -r requirements.txt
+          python -m pip install --disable-pip-version-check -r requirements-dev.txt
           python -m pip install "PyInstaller>=6.0.0,<7"
 
+      - name: Lint
+        run: python -m ruff check .
+
       - name: Run tests
-        run: python -m unittest discover -s tests
+        run: python -m pytest -q
 
       - name: Build application
         shell: pwsh
@@ -63,11 +104,11 @@ jobs:
       - name: Build Windows installer
         shell: pwsh
         run: |
-          $tagVersion = $env:GITHUB_REF_NAME.TrimStart('v')
+          $tagVersion = $env:RELEASE_TAG.TrimStart('v')
           $versionLine = Select-String -Path app/core/app_identity.py -Pattern '^APP_VERSION = "([^"]+)"$'
           $appVersion = $versionLine.Matches[0].Groups[1].Value
           if ($tagVersion -ne $appVersion) {
-            throw "Версия приложения $appVersion не совпадает с тегом $env:GITHUB_REF_NAME."
+            throw "Application version $appVersion does not match release tag $env:RELEASE_TAG."
           }
           cmd /c scripts\build_installer.bat --skip-app-build
           if ($LASTEXITCODE -ne 0) {
@@ -77,7 +118,7 @@ jobs:
       - name: Package and generate release metadata
         shell: pwsh
         run: |
-          $version = $env:GITHUB_REF_NAME
+          $version = $env:RELEASE_TAG
           $archive = "dist/Multifora-$version-windows-x64.zip"
           Compress-Archive -Path dist/Multifora/* -DestinationPath $archive -Force
 
@@ -93,7 +134,7 @@ jobs:
           $installerHash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
           "$installerHash  $($installer.Name)" | Set-Content -Encoding ascii $installerChecksum
 
-          $previousTag = (& git describe --tags --abbrev=0 "$version^" 2>$null)
+          $previousTag = (& git describe --tags --abbrev=0 HEAD^ 2>$null)
           if ($LASTEXITCODE -ne 0) { $previousTag = $null }
           $range = if ($previousTag) { "$previousTag..HEAD" } else { "HEAD" }
           $changes = @(git log $range --pretty=format:"- %s (%h)" --no-merges)
@@ -109,17 +150,17 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v7
         with:
-          name: Multifora-${{ github.ref_name }}-windows-x64
+          name: Multifora-${{ needs.prepare-release.outputs.tag }}-windows-x64
           path: |
-            dist/Multifora-${{ github.ref_name }}-windows-x64.zip
-            dist/Multifora-${{ github.ref_name }}-windows-x64.sha256
+            dist/Multifora-${{ needs.prepare-release.outputs.tag }}-windows-x64.zip
+            dist/Multifora-${{ needs.prepare-release.outputs.tag }}-windows-x64.sha256
             dist/installer/Multifora-Setup-*.exe
             dist/installer/Multifora-Setup-*.sha256
             dist/CHANGELOG.md
   
   # Публикация изолирована от установки зависимостей, тестов и Windows-сборки.
   publish-release:
-    needs: build-windows
+    needs: [prepare-release, build-windows]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -128,7 +169,7 @@ jobs:
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: Multifora-${{ github.ref_name }}-windows-x64
+          name: Multifora-${{ needs.prepare-release.outputs.tag }}-windows-x64
           path: release-assets
 
       - name: Verify checksums and publish
@@ -136,7 +177,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ needs.prepare-release.outputs.tag }}
+          TARGET: ${{ needs.prepare-release.outputs.commit }}
         run: |
           set -euo pipefail
           root="release-assets"
@@ -154,4 +196,4 @@ jobs:
           (cd "$root" && sha256sum -c "$(basename "$archive_sum")")
           (cd "$root/installer" && sha256sum -c "$(basename "$installer_sum")")
           gh release create "$TAG" "$archive" "$archive_sum" "$installer" "$installer_sum" \
-            --title "Мультифора $TAG" --notes-file "$notes"
+            --target "$TARGET" --title "Мультифора $TAG" --notes-file "$notes"

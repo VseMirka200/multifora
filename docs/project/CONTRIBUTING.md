@@ -17,7 +17,7 @@ git clone https://github.com/VseMirka200/multifora.git
 cd multifora
 py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 .\.venv\Scripts\python.exe multifora_start.py
 ```
 
@@ -32,7 +32,7 @@ Microsoft Word требуется только для части операци�
 
    ```powershell
    $env:QT_QPA_PLATFORM = "offscreen"
-   .\.venv\Scripts\python.exe -m unittest discover -s tests
+   .\.venv\Scripts\python.exe -m pytest -q
    .\.venv\Scripts\python.exe -m ruff check .
    ```
 

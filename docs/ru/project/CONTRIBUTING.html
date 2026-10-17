@@ -11,7 +11,7 @@
 <p>git clone https://github.com/VseMirka200/multifora.git</p>
 <p>cd multifora</p>
 <p>py -3 -m venv .venv</p>
-<p>.\.venv\Scripts\python.exe -m pip install -r requirements.txt</p>
+<p>.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt</p>
 <p>.\.venv\Scripts\python.exe multifora_start.py</p>
 <p>```</p>
 <p>Microsoft Word требуется только для части операций с документами, Ghostscript — для сжатия PDF.</p>
@@ -26,7 +26,7 @@
 <h2 id="проверки">Проверки</h2>
 <p>```powershell</p>
 <p>$env:QT_QPA_PLATFORM = &quot;offscreen&quot;</p>
-<p>.\.venv\Scripts\python.exe -m unittest discover -s tests</p>
+<p>.\.venv\Scripts\python.exe -m pytest -q</p>
 <p>.\.venv\Scripts\python.exe -m ruff check .</p>
 <p>```</p>
 <p>Если Ruff не установлен:</p>

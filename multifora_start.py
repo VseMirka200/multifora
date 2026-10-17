@@ -16,6 +16,7 @@ from app.core.app_ipc import (
 from app.core.app_utils import _debug_log
 from app.core.runtime_logging import install_runtime_logging
 from app.ui.ui_main import MultiforaMainWindow
+from app.ui.startup_splash import StartupSplash
 
 
 def _run_build_smoke_test() -> int:
@@ -151,11 +152,20 @@ def main():
         sys.exit(0)
 
     _ensure_ipc_token()
+    splash = StartupSplash(_get_app_icon_qt_path())
+    splash.show_animated()
+    # Let Windows paint the splash before synchronous main-window setup begins.
+    app.processEvents()
     window = MultiforaMainWindow()
-    window.show()
 
-    if startup_files:
-        QTimer.singleShot(0, lambda: window.add_files(startup_files))
+    def show_main_window():
+        window.show()
+        splash.finish()
+        if startup_files:
+            QTimer.singleShot(0, lambda: window.add_files(startup_files))
+
+    # A short pause keeps the transition perceptible on fast machines.
+    QTimer.singleShot(120, show_main_window)
 
     sys.exit(app.exec())
 
