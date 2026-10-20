@@ -29,7 +29,6 @@ from PyQt6.QtWidgets import (
 from app.core.conversion_formats import CONVERSION_CATEGORIES
 from app.core.github_links import (
     GUIDE_URL,
-    SUPPORT_PAGE_URL,
     TROUBLESHOOTING_URL,
 )
 from app.ui.ui_components import (
@@ -392,13 +391,6 @@ class OperationsTabLayoutMixin:
             lambda: QDesktopServices.openUrl(QUrl(GUIDE_URL))
         )
         self.help_menu_actions.append(guide_action)
-
-        # Поддержка — обычная ссылка, без пустого диалогового окна.
-        support_action = self.help_menu.addAction("Поддержать проект")
-        support_action.triggered.connect(
-            lambda: QDesktopServices.openUrl(QUrl(SUPPORT_PAGE_URL))
-        )
-        self.help_menu_actions.append(support_action)
 
         report_bug_action = self.help_menu.addAction("Сообщить об ошибке")
         report_bug_action.triggered.connect(

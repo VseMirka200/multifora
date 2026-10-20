@@ -393,7 +393,6 @@ class MainWindowSmokeTests(unittest.TestCase):
                         "Проверить обновления",
                         "Скачать логи",
                         "Открыть руководство",
-                        "Поддержать проект",
                         "Сообщить об ошибке",
                     ],
                 )
@@ -413,16 +412,6 @@ class MainWindowSmokeTests(unittest.TestCase):
                     return_value=True,
                 ) as open_url:
                     window.help_menu_actions[4].trigger()
-                open_url.assert_called_once()
-                self.assertEqual(
-                    open_url.call_args.args[0].toString(),
-                    "https://vsemirka200.github.io/multifora/#support",
-                )
-                with patch(
-                    "app.ui.mixins.operations_tab_layout_mixin.QDesktopServices.openUrl",
-                    return_value=True,
-                ) as open_url:
-                    window.help_menu_actions[5].trigger()
                 open_url.assert_called_once()
                 self.assertEqual(
                     open_url.call_args.args[0].toString(),

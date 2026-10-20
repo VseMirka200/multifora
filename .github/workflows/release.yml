@@ -1,4 +1,4 @@
-name: Release
+name: Выпуск версии
 
 on:
   push:
@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   prepare-release:
+    name: Подготовить выпуск
     # A pull request is safe to release only after it has been merged into main.
     if: github.event_name == 'push' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
@@ -20,12 +21,12 @@ jobs:
       tag: ${{ steps.release.outputs.tag }}
       commit: ${{ steps.release.outputs.commit }}
     steps:
-      - name: Checkout release source
+      - name: Получить исходный код выпуска
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Resolve version and release commit
+      - name: Определить версию и коммит выпуска
         id: release
         shell: bash
         run: |
@@ -45,6 +46,7 @@ jobs:
           echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   build-windows:
+    name: Собрать версию для Windows
     needs: prepare-release
     runs-on: windows-latest
     timeout-minutes: 30
@@ -53,30 +55,30 @@ jobs:
       RELEASE_TAG: ${{ needs.prepare-release.outputs.tag }}
 
     steps:
-      - name: Checkout full history
+      - name: Получить полную историю изменений
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ needs.prepare-release.outputs.commit }}
 
-      - name: Set up Python
+      - name: Настроить Python
         uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
 
-      - name: Install development and build dependencies
+      - name: Установить зависимости для разработки и сборки
         run: |
           python -m pip install --disable-pip-version-check -r requirements-dev.txt
           python -m pip install "PyInstaller>=6.0.0,<7"
 
-      - name: Lint
+      - name: Проверить стиль кода
         run: python -m ruff check .
 
-      - name: Run tests
+      - name: Запустить тесты
         run: python -m pytest -q
 
-      - name: Build application
+      - name: Собрать приложение
         shell: pwsh
         run: |
           python -m PyInstaller --noconfirm --clean --windowed `
@@ -89,7 +91,7 @@ jobs:
             Copy-Item -Path bin -Destination dist/Multifora/bin -Recurse -Force
           }
 
-      - name: Install Inno Setup
+      - name: Установить Inno Setup
         shell: pwsh
         run: |
           $knownPaths = @(
@@ -101,7 +103,7 @@ jobs:
             choco install innosetup --no-progress -y
           }
 
-      - name: Build Windows installer
+      - name: Собрать установщик Windows
         shell: pwsh
         run: |
           $tagVersion = $env:RELEASE_TAG.TrimStart('v')
@@ -115,7 +117,7 @@ jobs:
             throw "Не удалось собрать установщик."
           }
 
-      - name: Package and generate release metadata
+      - name: Упаковать файлы и подготовить данные выпуска
         shell: pwsh
         run: |
           $version = $env:RELEASE_TAG
@@ -155,7 +157,7 @@ jobs:
             $changes
           ) | Set-Content -Encoding utf8 dist/CHANGELOG.md
 
-      - name: Upload build artifact
+      - name: Загрузить артефакты сборки
         uses: actions/upload-artifact@v7
         with:
           name: Multifora-${{ needs.prepare-release.outputs.tag }}-windows-x64
@@ -168,19 +170,20 @@ jobs:
   
   # Публикация изолирована от установки зависимостей, тестов и Windows-сборки.
   publish-release:
+    name: Опубликовать выпуск
     needs: [prepare-release, build-windows]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
     steps:
-      - name: Download build artifacts
+      - name: Скачать артефакты сборки
         uses: actions/download-artifact@v4
         with:
           name: Multifora-${{ needs.prepare-release.outputs.tag }}-windows-x64
           path: release-assets
 
-      - name: Verify checksums and publish
+      - name: Проверить контрольные суммы и опубликовать выпуск
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}

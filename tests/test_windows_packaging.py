@@ -17,6 +17,7 @@ def test_bundle_validator_accepts_complete_layout(tmp_path: Path):
         "bin/gswin64/gsdll64.dll",
         "_internal/assets/icon.ico",
         "_internal/app/ui/checkbox_checked.svg",
+        "_internal/pymupdf/layout/resources/onnx/layout_rf2.4.1+imf1.yaml",
         "_internal/PyQt6/Qt6/plugins/platforms/qwindows.dll",
         "_internal/PyQt6/Qt6/plugins/platforms/qoffscreen.dll",
     )

@@ -1,4 +1,4 @@
-name: Dependency Review
+name: Проверка зависимостей
 
 on:
   pull_request:
@@ -9,12 +9,13 @@ permissions:
 
 jobs:
   dependency-review:
+    name: Проверка добавленных и обновлённых зависимостей
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout
+      - name: Получить исходный код
         uses: actions/checkout@v6
-      - name: Check added and updated dependencies
+      - name: Проверить добавленные и обновлённые зависимости
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high

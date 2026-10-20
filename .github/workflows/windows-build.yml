@@ -1,4 +1,4 @@
-name: Windows EXE and installer
+name: Сборка EXE и установщика для Windows
 
 on:
   workflow_dispatch:
@@ -10,29 +10,32 @@ permissions:
 
 jobs:
   windows-build:
+    name: Собрать приложение для Windows
     runs-on: windows-2022
     timeout-minutes: 60
     env:
       QT_QPA_PLATFORM: offscreen
       PYTHONUTF8: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Получить исходный код
+        uses: actions/checkout@v4
+      - name: Настроить Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           architecture: x64
-      - name: Install development and build dependencies
+      - name: Установить зависимости для разработки и сборки
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt "PyInstaller>=6,<7"
-      - name: Lint
+      - name: Проверить стиль кода
         run: python -m ruff check .
-      - name: Run Windows tests
+      - name: Запустить тесты в Windows
         run: python -m pytest -q
-      - name: Build portable application
+      - name: Собрать портативную версию приложения
         shell: cmd
         run: scripts\build_app.bat --no-pause
-      - name: Smoke test frozen EXE and Ghostscript
+      - name: Проверить собранный EXE и Ghostscript
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -45,19 +48,19 @@ jobs:
           if ($result.status -ne 'ok' -or -not $result.window_visible) { throw 'Main window did not initialize' }
           & '.\dist\Multifora\bin\gswin64\gswin64c.exe' --version
           if ($LASTEXITCODE -ne 0) { throw 'Bundled Ghostscript did not start' }
-      - name: Install Inno Setup
+      - name: Установить Inno Setup
         shell: pwsh
         run: choco install innosetup --yes --no-progress
-      - name: Build installer
+      - name: Собрать установщик
         shell: cmd
         run: scripts\build_installer.bat --skip-app-build
-      - name: Smoke test installed application
+      - name: Проверить установленное приложение
         shell: pwsh
         run: .\scripts\verify_installer.ps1
-      - name: Create portable ZIP and checksums
+      - name: Создать ZIP-архив и контрольные суммы
         shell: pwsh
         run: .\scripts\package_release.ps1
-      - name: Publish build artifacts
+      - name: Опубликовать артефакты сборки
         if: success()
         uses: actions/upload-artifact@v4
         with:
