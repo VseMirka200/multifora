@@ -16,6 +16,7 @@ def check_bundle(bundle: Path) -> list[str]:
         "Multifora.exe",
         "bin/gswin64/gswin64c.exe",
         "bin/gswin64/gsdll64.dll",
+        "_internal/pymupdf/layout/resources/onnx/layout_rf2.4.1+imf1.yaml",
     ):
         path = bundle / relative
         if not path.is_file() or path.stat().st_size == 0:
