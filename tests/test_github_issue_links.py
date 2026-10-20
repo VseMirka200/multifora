@@ -6,18 +6,15 @@ from pathlib import Path
 from app.core.github_links import (
     DOCUMENTATION_URL,
     GITHUB_NEW_ISSUE_URL,
-    PROJECT_SUPPORT_URL,
+    PROJECT_CONTRIBUTING_URL,
 )
 from app.core.update_checker import REPO_PAGE
 
 
 class GitHubLinksTests(unittest.TestCase):
-    def test_support_points_to_cloudtips(self):
-        self.assertEqual(
-            PROJECT_SUPPORT_URL, "https://pay.cloudtips.ru/p/1fa22ea5"
-        )
+    def test_project_contribution_link_points_to_github(self):
         self.assertTrue(
-            PROJECT_SUPPORT_URL.startswith("https://pay.cloudtips.ru/")
+            PROJECT_CONTRIBUTING_URL.startswith(REPO_PAGE + "/blob/")
         )
 
     def test_reporting_opens_template_chooser(self):

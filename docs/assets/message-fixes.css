@@ -7,5 +7,9 @@
 .support h2{margin:0 0 8px!important;padding:0!important;border:0!important;color:#fff;font-size:26px!important;font-weight:700!important;line-height:1.2!important;letter-spacing:-.02em!important;text-shadow:none!important;filter:none!important;-webkit-font-smoothing:antialiased}
 .support p{margin:0!important;line-height:1.55!important}
 .support .button{flex:none}
+.support .actions{display:grid;grid-template-columns:minmax(0,296px);width:296px;margin-top:0}
+.support .actions .button{width:100%}
+@media(max-width:520px){.support .actions{grid-template-columns:1fr;width:100%}}
 .card .emoji-icon{display:block;height:26px;margin-bottom:10px;font-size:25px;line-height:26px}
 .top{align-items:center}
+.nav-group{margin-top:16px}.nav-group summary{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;cursor:pointer;list-style:none;color:var(--faint);font-size:10px;font-weight:750;letter-spacing:.1em;text-transform:uppercase}.nav-group summary::-webkit-details-marker{display:none}.nav-group summary::after{content:"›";font-size:16px;line-height:1;transition:transform .15s}.nav-group[open] summary::after{transform:rotate(90deg)}.nav-group summary:hover{color:var(--text)}.nav-group-links{margin:3px 0 0 10px;padding-left:8px;border-left:1px solid var(--line)}.nav-group-links a{padding-left:11px}
