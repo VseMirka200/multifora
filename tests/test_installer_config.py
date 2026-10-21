@@ -23,6 +23,13 @@ class InstallerConfigTests(unittest.TestCase):
         )
         self.assertIn('Source: "..\\LICENSE"; DestDir: "{app}"', installer)
 
+    def test_release_notes_describe_silent_installation(self):
+        workflow = (
+            Path(__file__).parents[1] / ".github" / "workflows" / "release.yml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("/VERYSILENT /SUPPRESSMSGBOXES /NORESTART", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()

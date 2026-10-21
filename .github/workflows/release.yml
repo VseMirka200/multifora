@@ -144,6 +144,7 @@ jobs:
             "## Файлы для Windows"
             ""
             "- **Установщик** `Multifora-Setup-$($version.TrimStart('v')).exe` — устанавливает приложение в Windows."
+            "- **Тихая установка**: `Multifora-Setup-$($version.TrimStart('v')).exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART`. Может потребоваться подтверждение UAC."
             "- **Портативная версия** `Multifora-$version-windows-x64.zip` — запускается из распакованной папки без установки."
           )
           if (-not $changes) { $changes = @("- Технический релиз") }

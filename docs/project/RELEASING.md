@@ -7,4 +7,4 @@
 
 Если тег этой версии уже существует, публикация остановится: перед следующим релизом увеличьте `APP_VERSION` в PR.
 
-В релиз входят `Multifora-Setup-<версия>.exe` и его `.sha256`, portable ZIP и его `.sha256`, а также `CHANGELOG.md`. Не изменяйте артефакты после проверки.
+В релиз входят `Multifora-Setup-<версия>.exe` и его `.sha256`, portable ZIP и его `.sha256`, а также `CHANGELOG.md`. Для тихой установки используйте `Multifora-Setup-<версия>.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART`; Windows может запросить подтверждение UAC. Не изменяйте артефакты после проверки.
