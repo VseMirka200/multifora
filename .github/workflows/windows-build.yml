@@ -31,7 +31,7 @@ jobs:
       - name: Проверить стиль кода
         run: python -m ruff check .
       - name: Запустить тесты в Windows
-        run: python -m pytest -q
+        run: python -X faulthandler -m pytest -q
       - name: Собрать портативную версию приложения
         shell: cmd
         run: scripts\build_app.bat --no-pause
