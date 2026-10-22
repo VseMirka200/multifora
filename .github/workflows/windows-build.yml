@@ -67,6 +67,7 @@ jobs:
           name: Multifora-Windows-build
           path: |
             dist/installer/Multifora-Setup-*.exe
+            dist/installer/Multifora-Silent-Install-*.bat
             dist/Multifora-Portable-*.zip
             dist/SHA256SUMS.txt
           if-no-files-found: error

@@ -4,6 +4,7 @@ from app.core.conversion_formats import (
     CONVERSION_CATEGORIES,
     DOCUMENT_CATEGORY,
     IMAGE_CATEGORY,
+    build_file_dialog_filter,
     category_for_file_type,
     compatible_targets_for_source,
     format_for_path,
@@ -64,6 +65,13 @@ class ConversionFormatsTests(unittest.TestCase):
         self.assertNotIn(
             "EPUB", target_formats_for_category(DOCUMENT_CATEGORY)
         )
+
+    def test_file_dialog_lists_only_supported_extensions(self):
+        dialog_filter = build_file_dialog_filter()
+        self.assertIn("Поддерживаемые файлы", dialog_filter)
+        self.assertIn("*.docx", dialog_filter)
+        self.assertIn("*.png", dialog_filter)
+        self.assertNotIn("*.*", dialog_filter)
 
 
 if __name__ == "__main__":

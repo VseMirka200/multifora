@@ -898,6 +898,17 @@ class OperationsTabLayoutMixin:
         self._on_operations_tab_changed(index)
 
     def _on_operations_tab_changed(self, index: int) -> None:
+        # Adding the first tab can emit ``currentChanged`` while the main
+        # window is still being built. The file list is created afterwards,
+        # so updating its preview at this point would raise from a Qt slot and
+        # terminate the process.
+        if not hasattr(self, "list_files"):
+            if 0 <= index < self.operations_stack.count():
+                self.operations_stack.setCurrentIndex(index)
+            return
+
+        if callable(getattr(self, "sync_file_preview_columns", None)):
+            self.sync_file_preview_columns()
         if index == getattr(self, "_settings_tab_index", -1):
             if callable(getattr(self, "show_settings_modal", None)):
                 self.show_settings_modal()
@@ -911,6 +922,10 @@ class OperationsTabLayoutMixin:
         stack_index = index
         if 0 <= stack_index < self.operations_stack.count():
             self.operations_stack.setCurrentIndex(stack_index)
+            # Для объединения очередь показывает только PDF и DOCX; при
+            # возврате на другую вкладку скрытые строки снова становятся видны.
+            if callable(getattr(self, "update_file_list", None)):
+                self.update_file_list()
             if callable(getattr(self, "refresh_active_file_preview", None)):
                 self.refresh_active_file_preview()
             if callable(getattr(self, "_schedule_settings_save", None)):

@@ -233,7 +233,13 @@ class WorkerOpsMixin:
             return
 
         compression_type = "image" if compress_type == "Изображения" else "pdf"
+        show_starting = getattr(self, "_show_operation_starting", None)
+        if callable(show_starting):
+            show_starting(f"Подготовка сжатия {len(files)} файлов...")
         if not self.create_file_worker():
+            hide_progress = getattr(self, "_hide_progress_dialog", None)
+            if callable(hide_progress):
+                hide_progress()
             return
 
         self.file_worker.set_compression(
@@ -331,7 +337,13 @@ class WorkerOpsMixin:
         if not reply:
             return
 
+        show_starting = getattr(self, "_show_operation_starting", None)
+        if callable(show_starting):
+            show_starting(f"Подготовка объединения {len(files)} документов...")
         if not self.create_file_worker():
+            hide_progress = getattr(self, "_hide_progress_dialog", None)
+            if callable(hide_progress):
+                hide_progress()
             return
 
         self.file_worker.set_merge(files, output_format, output_path)

@@ -110,6 +110,33 @@ class FileTableTests(unittest.TestCase):
         self.assertEqual(model.index(0, model.COLUMN_PATH).data(), r"C:\One")
         self.assertEqual(model.index(1, model.COLUMN_PATH).data(), r"D:\Two")
 
+    def test_model_can_show_result_folder_in_preview(self):
+        item = SimpleNamespace(
+            path=r"C:\One\report.docx",
+            folder=r"C:\One",
+            preview_folder=r"C:\One\Конвертированные",
+            name="report.docx",
+            preview_name="report.pdf",
+            is_file=True,
+        )
+        model = FileListModel()
+        model.set_files([item])
+        model.set_folder_header("Папка результата")
+
+        path_index = model.index(0, model.COLUMN_PATH)
+        self.assertEqual(
+            model.headerData(model.COLUMN_PATH, Qt.Orientation.Horizontal),
+            "Папка результата",
+        )
+        self.assertEqual(
+            path_index.data(Qt.ItemDataRole.DisplayRole),
+            r"C:\One\Конвертированные",
+        )
+        self.assertEqual(
+            path_index.data(Qt.ItemDataRole.ToolTipRole),
+            r"C:\One\Конвертированные",
+        )
+
     def test_widget_uses_row_selection_and_elides_long_text_on_the_right(self):
         widget = FileListWidget()
         self.assertEqual(
@@ -218,6 +245,35 @@ class FileTableTests(unittest.TestCase):
         self.assertEqual(
             [index.row() for index in widget.selectionModel().selectedRows()],
             [1, 2],
+        )
+        widget.close()
+
+    def test_mouse_clicks_add_multiple_rows_without_keyboard(self):
+        widget = FileListWidget()
+        widget.resize(640, 240)
+        widget.set_files(
+            [
+                SimpleNamespace(path="one.pdf", name="one.pdf", is_file=True),
+                SimpleNamespace(path="two.pdf", name="two.pdf", is_file=True),
+                SimpleNamespace(
+                    path="three.pdf", name="three.pdf", is_file=True
+                ),
+            ]
+        )
+        widget.show()
+        self.app.processEvents()
+
+        for row in (0, 2):
+            cell = widget.model().index(row, widget.model().COLUMN_OLD_NAME)
+            QTest.mouseClick(
+                widget.viewport(),
+                Qt.MouseButton.LeftButton,
+                pos=widget.visualRect(cell).center(),
+            )
+
+        self.assertEqual(
+            [index.row() for index in widget.selectionModel().selectedRows()],
+            [0, 2],
         )
         widget.close()
 

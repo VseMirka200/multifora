@@ -149,7 +149,13 @@ class RenameHistoryMixin:
     def _start_rename_from_pairs(self, pairs):
         if not pairs:
             return False
+        show_starting = getattr(self, "_show_operation_starting", None)
+        if callable(show_starting):
+            show_starting(f"Подготовка переименования {len(pairs)} файлов...")
         if not self.create_file_worker():
+            hide_progress = getattr(self, "_hide_progress_dialog", None)
+            if callable(hide_progress):
+                hide_progress()
             return False
         paths = [new_path for new_path, _ in pairs]
         new_names = [os.path.basename(old_path) for _, old_path in pairs]

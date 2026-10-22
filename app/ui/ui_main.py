@@ -2,11 +2,12 @@ import hmac
 import json
 import os
 
-from PyQt6.QtCore import QEvent, Qt, QTimer
+from PyQt6.QtCore import QEvent, QEventLoop, Qt, QTimer
 from PyQt6.QtGui import QAction, QColor, QIcon, QPalette
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QDialog,
     QFileDialog,
     QFrame,
@@ -491,11 +492,18 @@ class MultiforaMainWindow(
         self.progress_dialog = dialog
 
     def _show_progress_dialog(
-        self, status_text: str = "Выполняется операция..."
+        self,
+        status_text: str = "Выполняется операция...",
+        *,
+        indeterminate: bool = False,
     ):
         self._set_progress_status_text(status_text)
         if hasattr(self, "progress_bar") and self.progress_bar is not None:
             self.progress_bar.setVisible(True)
+            if indeterminate:
+                self.progress_bar.setRange(0, 0)
+            else:
+                self.progress_bar.setRange(0, 100)
         if (
             hasattr(self, "btn_cancel_operation")
             and self.btn_cancel_operation is not None
@@ -509,6 +517,19 @@ class MultiforaMainWindow(
             self.progress_dialog.show()
             self.progress_dialog.raise_()
             self.progress_dialog.activateWindow()
+
+    def _show_operation_starting(self, status_text: str) -> None:
+        """Immediately acknowledge a confirmed operation before setup begins.
+
+        Importing the worker's optional conversion libraries can take a moment.
+        Rendering this indeterminate state first prevents the action button from
+        appearing unresponsive during that preparation.
+        """
+        self._show_progress_dialog(status_text, indeterminate=True)
+        self.status_bar.showMessage(status_text)
+        QApplication.processEvents(
+            QEventLoop.ProcessEventsFlag.ExcludeUserInputEvents
+        )
 
     def _hide_progress_dialog(self):
         if (
@@ -537,7 +558,11 @@ class MultiforaMainWindow(
         if not failed_paths:
             return
         op = self._last_operation.get("op")
+        if op not in {"rename", "convert", "compress"}:
+            return
+        self._show_operation_starting("Подготовка повторного выполнения операции...")
         if not self.create_file_worker():
+            self._hide_progress_dialog()
             return
         files = self._collect_file_items_by_paths(failed_paths)
         if op == "rename":

@@ -19,6 +19,28 @@ class FileListActionsMixin:
     _FILTERABLE_FILE_TYPES = frozenset(
         ("document", "image", "archive", "folder", "other")
     )
+    _MERGE_EXTENSIONS = frozenset((".pdf", ".docx"))
+
+    @staticmethod
+    def _is_supported_queue_path(path: str) -> bool:
+        """Проверяет, может ли приложение работать с добавляемым объектом."""
+        if os.path.isdir(path):
+            return True
+        extension = os.path.splitext(str(path or ""))[1].lower()
+        return extension in KNOWN_FILE_EXTENSIONS
+
+    def _files_visible_for_active_operation(self, files: list) -> list:
+        """Оставляет в списке только форматы текущей специализированной операции."""
+        active_operation = getattr(self, "_active_operation_id", lambda: "")()
+        if active_operation != "merge":
+            return list(files)
+        return [
+            file_item
+            for file_item in files
+            if getattr(file_item, "is_file", False)
+            and os.path.splitext(str(getattr(file_item, "path", "")))[1].lower()
+            in self._MERGE_EXTENSIONS
+        ]
 
     def _selected_type_filter(self) -> set[str]:
         if (
@@ -73,15 +95,16 @@ class FileListActionsMixin:
         type_filter = self._selected_type_filter()
         ext_filter = self._selected_extension_filter()
         query = self._current_search_query()
+        operation_files = self._files_visible_for_active_operation(self.files)
         if (
             not query
             and not self._is_type_filter_active()
             and not self._is_extension_filter_active()
         ):
-            return list(self.files)
+            return operation_files
 
         result = []
-        for file_item in self.files:
+        for file_item in operation_files:
             ftype = str(getattr(file_item, "file_type", "other")).lower()
             if ftype not in type_filter:
                 continue
@@ -187,12 +210,17 @@ class FileListActionsMixin:
                 existing_paths.add(os.path.normcase(f.path))
 
         new_items = []
+        unsupported_paths = []
         for file_path in file_paths:
             try:
                 abs_path = os.path.normcase(os.path.abspath(file_path))
             except Exception:
                 abs_path = os.path.normcase(file_path)
             if abs_path in existing_paths:
+                continue
+
+            if not self._is_supported_queue_path(file_path):
+                unsupported_paths.append(str(file_path))
                 continue
 
             try:
@@ -207,6 +235,25 @@ class FileListActionsMixin:
                     self,
                     "Ошибка",
                     f"Не удалось добавить файл {os.path.basename(file_path)}: {e}",
+                )
+
+        if unsupported_paths:
+            examples = ", ".join(
+                os.path.basename(path) for path in unsupported_paths[:3]
+            )
+            suffix = "" if len(unsupported_paths) <= 3 else ", …"
+            QMessageBox.warning(
+                self,
+                "Неподдерживаемые файлы",
+                "Эти файлы не добавлены: программа работает только с "
+                "поддерживаемыми документами, изображениями и архивами.\n\n"
+                f"Пропущено: {len(unsupported_paths)} ({examples}{suffix})",
+            )
+            if callable(getattr(self, "log_event", None)):
+                self.log_event(
+                    "Не добавлены неподдерживаемые файлы: "
+                    f"{len(unsupported_paths)}",
+                    "WARN",
                 )
 
         if new_items:
@@ -328,7 +375,10 @@ class FileListActionsMixin:
 
             def key_func(file_item):
                 return (
-                    natural_sort_key(file_item_source_folder(file_item)),
+                    natural_sort_key(
+                        getattr(file_item, "preview_folder", "")
+                        or file_item_source_folder(file_item)
+                    ),
                     natural_sort_key(getattr(file_item, "name", "")),
                 )
 
