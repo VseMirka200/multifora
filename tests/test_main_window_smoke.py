@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
 )
 
+from app.core.app_identity import APP_VERSION
 from app.core.models import FileItem
 from app.ui.ui_components import ScrollableFilterMenu
 from app.ui.ui_main import MultiforaMainWindow
@@ -316,7 +317,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 about_texts = [
                     label.text() for label in about_page.findChildren(QLabel)
                 ]
-                self.assertIn("Версия: 1.0.0", about_texts)
+                self.assertIn(f"Версия: {APP_VERSION}", about_texts)
                 self.assertEqual(
                     window.about_icon_label.alignment(),
                     Qt.AlignmentFlag.AlignCenter,
