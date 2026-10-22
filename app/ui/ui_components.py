@@ -1255,6 +1255,16 @@ class FileListWidget(QTableView):
     def clearSelection(self):
         self.selectionModel().clearSelection()
 
+    def mousePressEvent(self, event):
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and not self.indexAt(event.position().toPoint()).isValid()
+        ):
+            self.clearSelection()
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
     def set_files(self, files: list):
         self.model().set_files(files)
         self._resize_columns_to_contents()
