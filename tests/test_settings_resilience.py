@@ -32,6 +32,20 @@ class _DummyCheckbox:
 
 
 class SettingsResilienceTests(unittest.TestCase):
+    def test_settings_are_stored_in_the_current_user_profile(self):
+        profile_dir = r"C:\\Users\\Test\\AppData\\Roaming\\Multifora"
+        with (
+            patch("app.core.settings._get_app_data_dir", return_value=profile_dir),
+            patch("app.core.settings._migrate_legacy_settings") as migrate,
+        ):
+            settings_path = settings.get_settings_file_path()
+
+        self.assertEqual(
+            settings_path,
+            os.path.join(profile_dir, "multifora_settings.json"),
+        )
+        migrate.assert_called_once_with(settings_path)
+
     def test_load_settings_handles_corrupted_json(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             settings_path = os.path.join(tmpdir, "settings.json")
@@ -107,8 +121,13 @@ class SettingsResilienceTests(unittest.TestCase):
 
     def test_auto_clear_has_master_switch_and_operation_choices(self):
         window = _DummyWindow()
-        window.auto_clear_enabled_checkbox = _DummyCheckbox()
         for attribute_name in (
+            "context_menu_checkbox",
+            "desktop_shortcut_checkbox",
+            "start_menu_shortcut_checkbox",
+            "disable_warning_dialogs_checkbox",
+            "auto_update_check_checkbox",
+            "auto_clear_enabled_checkbox",
             "auto_clear_rename_checkbox",
             "auto_clear_convert_checkbox",
             "auto_clear_merge_checkbox",
@@ -118,7 +137,24 @@ class SettingsResilienceTests(unittest.TestCase):
         settings._initialize_settings_defaults(window)
 
         self.assertFalse(window.auto_clear_enabled_checkbox.isChecked())
-        self.assertTrue(window.auto_clear_convert_checkbox.isChecked())
+        self.assertFalse(window.auto_clear_convert_checkbox.isChecked())
+        self.assertTrue(
+            all(
+                not getattr(window, attribute_name).isChecked()
+                for attribute_name in (
+                    "context_menu_checkbox",
+                    "desktop_shortcut_checkbox",
+                    "start_menu_shortcut_checkbox",
+                    "disable_warning_dialogs_checkbox",
+                    "auto_update_check_checkbox",
+                    "auto_clear_enabled_checkbox",
+                    "auto_clear_rename_checkbox",
+                    "auto_clear_convert_checkbox",
+                    "auto_clear_merge_checkbox",
+                    "auto_clear_compress_checkbox",
+                )
+            )
+        )
 
         settings._apply_settings_data(
             window,

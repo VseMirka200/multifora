@@ -4,10 +4,16 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from core.workers.file_worker import FileWorker
+from core.workers.file_worker import FileWorker, _format_rename_error
 
 
 class FileWorkerOperationTests(unittest.TestCase):
+    def test_invalid_rename_path_has_a_clear_error_message(self):
+        message = _format_rename_error(OSError(87, "Invalid parameter"))
+
+        self.assertIn("недопустимый символ", message)
+        self.assertNotIn("WinError", message)
+
     def test_cancel_immediately_calls_active_operation_stop(self):
         worker = FileWorker()
         stop = Mock()

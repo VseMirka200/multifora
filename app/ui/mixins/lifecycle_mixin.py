@@ -144,6 +144,9 @@ class LifecycleMixin:
         update_timer = getattr(self, "_update_poll_timer", None)
         if update_timer is not None:
             update_timer.stop()
+        queue_paths_refresh_timer = getattr(self, "_queue_paths_refresh_timer", None)
+        if queue_paths_refresh_timer is not None:
+            queue_paths_refresh_timer.stop()
         update_executor = getattr(self, "_update_executor", None)
         if update_executor is not None:
             update_executor.shutdown(wait=False, cancel_futures=True)

@@ -1,38 +1,39 @@
 from __future__ import annotations
 
 import os
-import threading
-from collections.abc import Callable, Iterable
-
-from PyQt6.QtCore import QThread, pyqtSignal
+from collections.abc import Callable
 
 from app.core.models import FileItem
 from app.core.rename_plan import resolve_rename_targets
 
-from .common import emit_progress, get_unique_path, record_file_error
+from .common import emit_progress, record_file_error
 from .compression import CompressionMixin
 from .conversion import ConversionMixin
-from .merge import MergeMixin
+from .merge.merge_mixin import MergeMixin
+from .operation_worker import OperationWorker
 from .rename_transaction import rename_batch
-from .result import OperationResult
+
+
+def _format_rename_error(error: Exception) -> str:
+    """Возвращает понятное пользователю описание ошибки переименования."""
+    if isinstance(error, OSError) and (
+        getattr(error, "winerror", None) == 87 or error.errno in {22, 87}
+    ):
+        return (
+            "Не удалось создать новое имя: путь или имя содержит "
+            "недопустимый символ. Проверьте шаблон: в имени нельзя "
+            "использовать \\ / : * ? \" < > |."
+        )
+    return f"Ошибка переименования: {error}"
 
 
 class FileWorker(
     ConversionMixin,
     CompressionMixin,
     MergeMixin,
-    QThread,
+    OperationWorker,
 ):
     """Выполняет файловые операции в отдельном потоке Qt."""
-
-    progress = pyqtSignal(int)
-    status = pyqtSignal(str)
-    finished = pyqtSignal(object)
-    error = pyqtSignal(str)  # Только критическая ошибка всей операции
-    file_error = pyqtSignal(
-        str
-    )  # Ошибка отдельного файла, обработка продолжается
-    _get_unique_path = staticmethod(get_unique_path)
 
     def __init__(self) -> None:
         super().__init__()
@@ -53,70 +54,9 @@ class FileWorker(
         self.merge_output_format = "pdf"
         self.merge_output_path = ""
         self._last_pdf_error = ""
-        self._cancel_requested = False
-        self._cancel_lock = threading.Lock()
-        self._active_cancel_action: Callable[[], None] | None = None
-        self.errors: list[dict[str, object]] = []
-        self.warnings: list[dict[str, object]] = []
         self._word_warmup_done = False
         self._word_pdf_unavailable = False
         self._conversion_reserved_paths: set[str] = set()
-
-    def request_cancel(self) -> None:
-        with self._cancel_lock:
-            self._cancel_requested = True
-            cancel_action = self._active_cancel_action
-        if cancel_action is not None:
-            try:
-                cancel_action()
-            except Exception:
-                pass
-
-    def _should_cancel(self) -> bool:
-        return self._cancel_requested
-
-    def _set_active_cancel_action(self, action: Callable[[], None]) -> None:
-        with self._cancel_lock:
-            self._active_cancel_action = action
-            cancel_requested = self._cancel_requested
-        if cancel_requested:
-            try:
-                action()
-            except Exception:
-                pass
-
-    def _clear_active_cancel_action(self, action: Callable[[], None]) -> None:
-        with self._cancel_lock:
-            if self._active_cancel_action is action:
-                self._active_cancel_action = None
-
-    def _record_error(self, file_item: FileItem | None, message: str) -> None:
-        entry: dict[str, object] = {"message": message}
-        if file_item is not None:
-            entry["path"] = getattr(file_item, "path", None)
-            entry["name"] = getattr(file_item, "name", None)
-        self.errors.append(entry)
-
-    def _record_warning(
-        self, file_item: FileItem | None, message: str
-    ) -> None:
-        self.warnings.append(
-            {"path": getattr(file_item, "path", None), "message": message}
-        )
-
-    def _emit_finished(
-        self,
-        new_files: Iterable[object] | None = None,
-        updated_files: Iterable[object] | None = None,
-    ) -> None:
-        self.finished.emit(
-            OperationResult(
-                new_files=list(new_files or []),
-                updated_files=list(updated_files or []),
-                errors=list(self.errors),
-                warnings=list(self.warnings),
-            )
-        )
 
     def _prepare_operation(
         self, operation: str, files: list[FileItem]
@@ -242,7 +182,7 @@ class FileWorker(
             record_file_error(
                 self,
                 self.files[index] if 0 <= index < total else None,
-                f"Ошибка переименования: {error}",
+                _format_rename_error(error),
             )
         if self._should_cancel():
             self.status.emit("Операция отменена пользователем")

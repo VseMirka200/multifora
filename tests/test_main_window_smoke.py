@@ -467,7 +467,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window.auto_clear_enabled_checkbox.isChecked()
                 )
                 self.assertFalse(window.auto_clear_rename_checkbox.isEnabled())
-                self.assertTrue(window.auto_clear_convert_checkbox.isChecked())
+                self.assertFalse(window.auto_clear_convert_checkbox.isChecked())
                 self.assertFalse(
                     window.auto_clear_convert_checkbox.isEnabled()
                 )
@@ -981,7 +981,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window._settings_save_timer.stop()
                 window.deleteLater()
 
-    def test_merge_button_follows_detected_format_and_output_selection(self):
+    def test_merge_button_follows_detected_format(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             pdf_paths = [
                 os.path.join(tmp_dir, name)
@@ -1021,11 +1021,6 @@ class MainWindowSmokeTests(unittest.TestCase):
 
                 window.files = [FileItem(path) for path in pdf_paths]
                 window.update_file_list()
-                self.assertFalse(window.btn_merge.isEnabled())
-
-                window.input_merge_output_path.setText(
-                    os.path.join(tmp_dir, "merged.pdf")
-                )
                 self.assertTrue(window.btn_merge.isEnabled())
 
                 docx_paths = [
@@ -1037,11 +1032,6 @@ class MainWindowSmokeTests(unittest.TestCase):
                         stream.write(b"docx")
                 window.files = [FileItem(path) for path in docx_paths]
                 window.update_file_list()
-                self.assertFalse(window.btn_merge.isEnabled())
-
-                window.input_merge_output_path.setText(
-                    os.path.join(tmp_dir, "merged.docx")
-                )
                 self.assertTrue(window.btn_merge.isEnabled())
             finally:
                 if hasattr(window, "queue_timer"):

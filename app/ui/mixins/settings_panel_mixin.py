@@ -555,7 +555,7 @@ class SettingsPanelMixin:
                 "Проверка обновлений выполняется через GitHub-репозиторий проекта.",
             )
         )
-        self.auto_update_check_checkbox.setChecked(True)
+        self.auto_update_check_checkbox.setChecked(False)
         self.auto_update_check_checkbox.stateChanged.connect(
             lambda _state: self._schedule_settings_save()
         )
@@ -619,7 +619,7 @@ class SettingsPanelMixin:
             self.auto_clear_operation_checkboxes.append(checkbox)
             self.auto_clear_operation_rows.append(row)
             auto_clear_layout.addWidget(row)
-        self.auto_clear_convert_checkbox.setChecked(True)
+        self.auto_clear_convert_checkbox.setChecked(False)
         self._sync_auto_clear_controls()
         auto_clear_layout.addStretch()
 

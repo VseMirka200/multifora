@@ -204,6 +204,11 @@ class MultiforaMainWindow(
         self.queue_timer.timeout.connect(self.process_startup_queue)
         self.queue_timer.start()
 
+        self._queue_paths_refresh_timer = QTimer(self)
+        self._queue_paths_refresh_timer.setInterval(5000)
+        self._queue_paths_refresh_timer.timeout.connect(self.refresh_queue_paths)
+        self._queue_paths_refresh_timer.start()
+
         QTimer.singleShot(1500, self.check_updates_on_startup)
         QTimer.singleShot(0, self._preload_file_worker_async)
 
@@ -1545,16 +1550,6 @@ class MultiforaMainWindow(
             elif event.type() == QEvent.Type.DragLeave:
                 event.accept()
                 return True
-        if (
-            hasattr(self, "input_merge_output_path")
-            and obj is self.input_merge_output_path
-            and event.type() == QEvent.Type.MouseButtonPress
-        ):
-            try:
-                self.select_merge_output_path()
-            except Exception as error:
-                _log_ignored_error("MultiforaMainWindow.eventFilter", error)
-            return True
         return super().eventFilter(obj, event)
 
     def keyPressEvent(self, event):

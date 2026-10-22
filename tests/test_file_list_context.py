@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from app.ui.mixins.file_list_context_mixin import FileListContextMixin
+from app.ui.mixins.file_list_preview_mixin import FileListPreviewMixin
 from app.ui.mixins.worker_ops_mixin import WorkerOpsMixin
 
 
@@ -20,7 +21,33 @@ class _Host(FileListContextMixin):
         return list(self._selected)
 
 
+class _QueueRefreshHost(FileListPreviewMixin):
+    def __init__(self, files):
+        self.files = files
+        self.update_file_list = Mock()
+        self.update_file_info = Mock()
+
+    def _operation_is_running(self):
+        return False
+
+
 class FileListContextTests(unittest.TestCase):
+    def test_refresh_queue_removes_only_missing_files(self):
+        existing = SimpleNamespace(path=r"C:\\available.docx", is_file=True)
+        missing = SimpleNamespace(path=r"C:\\missing.docx", is_file=True)
+        folder = SimpleNamespace(path=r"C:\\folder", is_file=False)
+        host = _QueueRefreshHost([existing, missing, folder])
+
+        with patch(
+            "app.ui.mixins.file_list_preview_mixin.os.path.isfile",
+            side_effect=lambda path: path == existing.path,
+        ):
+            host.refresh_queue_paths()
+
+        self.assertEqual(host.files, [existing, folder])
+        host.update_file_list.assert_called_once_with()
+        host.update_file_info.assert_called_once_with()
+
     def test_remove_from_list_keeps_file_on_disk_by_default(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "document.txt")

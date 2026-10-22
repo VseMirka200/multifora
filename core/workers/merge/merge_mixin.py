@@ -1,7 +1,6 @@
 import os
 from copy import deepcopy
 
-from app.core.deps import HAS_PYMUPDF
 from app.core.models import FileItem
 from core.workers.atomic_output import atomic_output_path
 
@@ -11,6 +10,10 @@ class MergeMixin:
     def _merge_files(self):
         try:
             result = self._merge_files_to_target()
+        except InterruptedError:
+            self.status.emit("Операция отменена пользователем")
+            self._emit_finished([], [])
+            return
         except Exception as e:
             self._record_error(None, str(e))
             self.error.emit(
@@ -34,14 +37,33 @@ class MergeMixin:
         output_format = str(
             getattr(self, "merge_output_format", "pdf") or "pdf"
         ).lower()
+        if output_format == "docx" and not all(
+            file.path.lower().endswith(".docx") for file in files
+        ):
+            raise Exception("Объединение в DOCX поддерживает только файлы DOCX.")
+        if output_format == "pdf" and not all(
+            file.path.lower().endswith(".pdf") for file in files
+        ):
+            raise Exception("Объединение в PDF поддерживает только файлы PDF.")
+        if output_format not in {"docx", "pdf"}:
+            raise Exception(f"Неподдерживаемый формат объединения: {output_format}")
+
+        # FileItem хранит состояние на момент добавления в очередь. Повторно
+        # проверяем файловую систему перед открытием: файл мог быть перемещён,
+        # удалён или стать недоступным.
+        missing_paths = [file.path for file in files if not os.path.isfile(file.path)]
+        if missing_paths:
+            listed_paths = "\n".join(f"• {path}" for path in missing_paths)
+            raise FileNotFoundError(
+                "Не найдены или недоступны исходные документы:\n"
+                f"{listed_paths}\n\n"
+                "Удалите их из списка или добавьте снова."
+            )
         if output_format == "docx":
             return self._merge_word_files_to_docx(files)
         if output_format == "pdf":
             return self._merge_files_to_pdf(files)
-
-        raise Exception(
-            f"Неподдерживаемый формат объединения: {output_format}"
-        )
+        raise AssertionError("Validated merge format must have a handler")
 
     def _get_merge_output_path(self, files: list, extension: str) -> str:
         requested_path = str(
@@ -120,14 +142,14 @@ class MergeMixin:
         if not all(file.path.lower().endswith(".pdf") for file in files):
             raise Exception("Объединение в PDF поддерживает только файлы PDF.")
 
-        if not HAS_PYMUPDF:
-            raise Exception("Установите PyMuPDF для объединения PDF-файлов.")
-
         try:
+            # Импортируем только в рабочем потоке. Раньше полный реестр
+            # необязательных зависимостей задерживал простое объединение PDF
+            # загрузкой конвертеров и проверкой интеграции с Word.
             import pymupdf as fitz
         except ImportError as error:
             raise Exception(
-                "PyMuPDF недоступен для объединения PDF-файлов."
+                "Установите PyMuPDF для объединения PDF-файлов."
             ) from error
 
         output_path = self._get_merge_output_path(files, "pdf")
@@ -135,7 +157,7 @@ class MergeMixin:
         try:
             for index, file in enumerate(files):
                 if self._should_cancel():
-                    raise Exception("Операция отменена пользователем")
+                    raise InterruptedError("Операция отменена пользователем")
                 self.status.emit(f"Объединение PDF: {file.name}")
                 with fitz.open(file.path) as source_pdf:
                     merged_pdf.insert_pdf(source_pdf)
