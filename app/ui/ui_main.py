@@ -1,6 +1,7 @@
 import hmac
 import json
 import os
+import threading
 
 from PyQt6.QtCore import QEvent, QEventLoop, Qt, QTimer
 from PyQt6.QtGui import QAction, QColor, QIcon, QPalette
@@ -204,6 +205,28 @@ class MultiforaMainWindow(
         self.queue_timer.start()
 
         QTimer.singleShot(1500, self.check_updates_on_startup)
+        QTimer.singleShot(0, self._preload_file_worker_async)
+
+    def _preload_file_worker_async(self) -> None:
+        """Load optional processing libraries without blocking an action click."""
+        if getattr(self, "_file_worker_preload_thread", None) is not None:
+            return
+
+        def preload() -> None:
+            try:
+                # FileWorker imports optional document and image libraries.
+                # Loading them here prevents the first operation from looking
+                # frozen while that import completes on the UI thread.
+                from core.workers.file_worker import FileWorker  # noqa: F401
+            except Exception as error:
+                _debug_log(f"Не удалось предварительно загрузить обработчик: {error}")
+
+        self._file_worker_preload_thread = threading.Thread(
+            target=preload,
+            name="multifora-worker-preload",
+            daemon=True,
+        )
+        self._file_worker_preload_thread.start()
 
     def create_ipc_server(self):
         """Создает IPC-сервер для приема файлов от других экземпляров."""
@@ -398,8 +421,8 @@ class MultiforaMainWindow(
             except Exception as e:
                 _debug_log(f"Ошибка отключения старых сигналов: {e}")
 
-        # Импорт worker-а намеренно отложен до первой реальной операции:
-        # он подтягивает PyMuPDF, Pillow, pdf2docx, python-docx и odfpy.
+        # Импорт остаётся здесь как резервный путь: обычно он уже выполнен
+        # фоновым прогревом после показа главного окна.
         from core.workers.file_worker import FileWorker
 
         self.file_worker = FileWorker()
