@@ -13,9 +13,24 @@ from app.ui.ui_components import selected_file_items
 
 class FileListPreviewMixin:
     # Показывает будущие имена файлов без изменения исходных файлов на диске.
+    _SOURCE_FOLDER_HEADER = "Исходная папка"
+    _RESULT_FOLDER_HEADER = "Папка результата"
+
+    def _set_preview_folder_header(self, text: str) -> None:
+        file_list = getattr(self, "list_files", None)
+        model = file_list.model() if file_list is not None else None
+        setter = getattr(model, "set_folder_header", None)
+        if callable(setter):
+            setter(text)
+
     def _set_preview_names_to_original(self):
         for file_item in getattr(self, "files", []) or []:
             file_item.preview_name = file_item.name
+            file_item.preview_folder = str(
+                getattr(file_item, "folder", "")
+                or os.path.dirname(str(getattr(file_item, "path", "")))
+            )
+        self._set_preview_folder_header(self._SOURCE_FOLDER_HEADER)
 
     def _refresh_list_preview(self):
         if hasattr(self, "list_files") and self.list_files is not None:
@@ -32,9 +47,23 @@ class FileListPreviewMixin:
             return ""
         return str(tab_bar.tabData(index) or "")
 
+    def sync_file_preview_columns(self) -> None:
+        """Показывает столбец нового имени только для переименования."""
+        file_list = getattr(self, "list_files", None)
+        if file_list is None:
+            return
+        model = file_list.model()
+        new_name_column = getattr(model, "COLUMN_NEW_NAME", None)
+        if new_name_column is None:
+            return
+        should_hide = self._active_operation_id() != "rename"
+        if file_list.isColumnHidden(new_name_column) != should_hide:
+            file_list.setColumnHidden(new_name_column, should_hide)
+
     def refresh_active_file_preview(self):
         """Обновляет предпросмотр независимо от пользовательского языка интерфейса."""
         operation = self._active_operation_id()
+        self.sync_file_preview_columns()
         if operation == "rename":
             self.refresh_rename_preview(show_empty_warning=False)
         elif operation == "convert":
@@ -147,6 +176,30 @@ class FileListPreviewMixin:
         )
         return f"{base_name}{suffix}"
 
+    def _conversion_preview_folder(self, file_item) -> str:
+        """Возвращает папку, в которой появится результат конвертации."""
+        source_folder = str(
+            getattr(file_item, "folder", "")
+            or os.path.dirname(str(getattr(file_item, "path", "")))
+        )
+        mode_combo = getattr(self, "combo_conversion_output_mode", None)
+        mode = str(
+            mode_combo.currentData()
+            if mode_combo is not None
+            else getattr(self, "conversion_output_mode", "ask")
+        )
+        if mode == "alongside":
+            return source_folder
+        if mode == "source_subfolder":
+            return os.path.join(source_folder, "Конвертированные")
+        if mode == "custom":
+            custom_path = ""
+            resolver = getattr(self, "_conversion_custom_output_path", None)
+            if callable(resolver):
+                custom_path = str(resolver() or "").strip()
+            return custom_path or "Выберите папку сохранения"
+        return "Будет выбрана при запуске"
+
     def refresh_conversion_preview(self, show_empty_warning=False):
         """Обновляет предпросмотр целевого имени/формата для конвертации."""
         if not getattr(self, "files", None):
@@ -197,8 +250,23 @@ class FileListPreviewMixin:
             self._refresh_list_preview()
             return
 
+        mode_combo = getattr(self, "combo_conversion_output_mode", None)
+        output_mode = str(
+            mode_combo.currentData()
+            if mode_combo is not None
+            else getattr(self, "conversion_output_mode", "ask")
+        )
+        header = self._RESULT_FOLDER_HEADER
+        if output_mode == "ask":
+            header = "Папка результата (выбор при запуске)"
+        self._set_preview_folder_header(header)
+
         for file_item in self.files:
             file_item.preview_name = file_item.name
+            file_item.preview_folder = str(
+                getattr(file_item, "folder", "")
+                or os.path.dirname(str(getattr(file_item, "path", "")))
+            )
             if not getattr(file_item, "is_file", False):
                 continue
             if category_label:
@@ -211,6 +279,9 @@ class FileListPreviewMixin:
             ) and self._check_file_compatibility_dual(file_item, from_format):
                 file_item.preview_name = self._build_conversion_preview_name(
                     file_item.name, to_format
+                )
+                file_item.preview_folder = self._conversion_preview_folder(
+                    file_item
                 )
 
         self._refresh_list_preview()
@@ -304,9 +375,22 @@ class FileListPreviewMixin:
             callable(getattr(self, "_image_output_mode", None))
             and self._image_output_mode() == "replace"
         )
+        image_output_folder = ""
+        if not replace_image and callable(
+            getattr(self, "_image_output_mode", None)
+        ) and self._image_output_mode() == "custom":
+            image_output_folder = str(
+                getattr(self, "_image_output_path", lambda: "")() or ""
+            ).strip() or "Выберите папку сохранения"
+
+        self._set_preview_folder_header(self._RESULT_FOLDER_HEADER)
 
         for file_item in self.files:
             file_item.preview_name = file_item.name
+            file_item.preview_folder = str(
+                getattr(file_item, "folder", "")
+                or os.path.dirname(str(getattr(file_item, "path", "")))
+            )
             if not getattr(file_item, "is_file", False):
                 continue
 
@@ -342,6 +426,8 @@ class FileListPreviewMixin:
                     file_item.preview_name = self._with_reduction_label(
                         new_name, reduction
                     )
+                    if image_output_folder:
+                        file_item.preview_folder = image_output_folder
                 else:
                     file_item.preview_name = self._with_reduction_label(
                         file_item.name, reduction

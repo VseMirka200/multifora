@@ -266,7 +266,10 @@ def extensions_for_category(category: str) -> tuple[str, ...]:
 
 def build_file_dialog_filter() -> str:
     """Формирует фильтр выбора файлов из общего реестра конвертации."""
-    groups = ["Все файлы (*.*)"]
+    supported_masks = " ".join(
+        f"*{extension}" for extension in sorted(KNOWN_FILE_EXTENSIONS)
+    )
+    groups = [f"Поддерживаемые файлы ({supported_masks})"]
     for category in CONVERSION_CATEGORIES:
         masks = " ".join(
             f"*{extension}" for extension in extensions_for_category(category)

@@ -986,6 +986,17 @@ class FileListModel(QAbstractTableModel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._files = []
+        self._folder_header = self.HEADERS[self.COLUMN_PATH]
+
+    def set_folder_header(self, text: str) -> None:
+        """Меняет заголовок папки в соответствии с предпросмотром операции."""
+        header = str(text or self.HEADERS[self.COLUMN_PATH])
+        if header == self._folder_header:
+            return
+        self._folder_header = header
+        self.headerDataChanged.emit(
+            Qt.Orientation.Horizontal, self.COLUMN_PATH, self.COLUMN_PATH
+        )
 
     @staticmethod
     def _original_display_name(file_item) -> str:
@@ -1007,6 +1018,8 @@ class FileListModel(QAbstractTableModel):
             and role == Qt.ItemDataRole.DisplayRole
             and 0 <= section < len(self.HEADERS)
         ):
+            if section == self.COLUMN_PATH:
+                return self._folder_header
             return self.HEADERS[section]
         return super().headerData(section, orientation, role)
 
@@ -1033,7 +1046,8 @@ class FileListModel(QAbstractTableModel):
             if index.column() == self.COLUMN_TYPE:
                 return file_item_type_label(file_item)
             if index.column() == self.COLUMN_PATH:
-                return file_item_source_folder(file_item)
+                preview_folder = getattr(file_item, "preview_folder", "")
+                return str(preview_folder or file_item_source_folder(file_item))
         if role == Qt.ItemDataRole.ToolTipRole:
             if index.column() == self.COLUMN_OLD_NAME:
                 return self._original_display_name(file_item)
@@ -1042,7 +1056,8 @@ class FileListModel(QAbstractTableModel):
                     file_item, "preview_name", None
                 ) or self._original_display_name(file_item)
             if index.column() == self.COLUMN_PATH:
-                return str(getattr(file_item, "path", ""))
+                preview_folder = getattr(file_item, "preview_folder", "")
+                return str(preview_folder or getattr(file_item, "path", ""))
         if role == Qt.ItemDataRole.SizeHintRole:
             metrics = QFontMetrics(QApplication.font())
             text = self.data(index, Qt.ItemDataRole.DisplayRole) or ""
@@ -1175,7 +1190,9 @@ class FileListWidget(QTableView):
         self.setModel(FileListModel(self))
         self.setItemDelegate(FileListItemDelegate(self))
         self.setSelectionMode(
-            QAbstractItemView.SelectionMode.ExtendedSelection
+            # Несколько файлов можно отмечать обычными кликами мыши, без
+            # обязательного удержания Ctrl.
+            QAbstractItemView.SelectionMode.MultiSelection
         )
         self.setSelectionBehavior(
             QAbstractItemView.SelectionBehavior.SelectRows

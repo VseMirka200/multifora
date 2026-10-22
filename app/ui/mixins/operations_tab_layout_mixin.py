@@ -898,6 +898,8 @@ class OperationsTabLayoutMixin:
         self._on_operations_tab_changed(index)
 
     def _on_operations_tab_changed(self, index: int) -> None:
+        if callable(getattr(self, "sync_file_preview_columns", None)):
+            self.sync_file_preview_columns()
         if index == getattr(self, "_settings_tab_index", -1):
             if callable(getattr(self, "show_settings_modal", None)):
                 self.show_settings_modal()
@@ -911,6 +913,10 @@ class OperationsTabLayoutMixin:
         stack_index = index
         if 0 <= stack_index < self.operations_stack.count():
             self.operations_stack.setCurrentIndex(stack_index)
+            # Для объединения очередь показывает только PDF и DOCX; при
+            # возврате на другую вкладку скрытые строки снова становятся видны.
+            if callable(getattr(self, "update_file_list", None)):
+                self.update_file_list()
             if callable(getattr(self, "refresh_active_file_preview", None)):
                 self.refresh_active_file_preview()
             if callable(getattr(self, "_schedule_settings_save", None)):

@@ -36,6 +36,9 @@ class FileItem:
     def __init__(self, path: str):
         self.path = path
         self.preview_name = os.path.basename(path)
+        # Заполняется экраном предпросмотра для операций, создающих копию
+        # файла в другой папке. По умолчанию это исходная папка.
+        self.preview_folder = ""
 
         self.is_file = False
         self.name = ""
@@ -48,6 +51,7 @@ class FileItem:
         self.is_file = os.path.isfile(self.path)
         self.name = os.path.basename(self.path)
         self.folder = os.path.dirname(self.path)
+        self.preview_folder = self.folder
         self.size = os.path.getsize(self.path) if self.is_file else 0
         self.file_type = self._detect_file_type()
 
