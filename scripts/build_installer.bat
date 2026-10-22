@@ -40,7 +40,11 @@ echo Building installer for Multifora %APP_VERSION%...
 "%ISCC_EXE%" /Qp "/DMyAppVersion=%APP_VERSION%" "scripts\installer.iss"
 if errorlevel 1 goto error
 
+copy /y "scripts\install_silently.bat" "dist\installer\Multifora-Silent-Install-%APP_VERSION%.bat" >nul
+if errorlevel 1 goto error
+
 echo Installer created: dist\installer\Multifora-Setup-%APP_VERSION%.exe
+echo Silent installer script created: dist\installer\Multifora-Silent-Install-%APP_VERSION%.bat
 exit /b 0
 
 :usage

@@ -21,6 +21,8 @@ Compress-Archive -Path (Join-Path $bundle '*') -DestinationPath $portable -Compr
 $installer = Join-Path $project "dist/installer/Multifora-Setup-$version.exe"
 $artifacts = @($portable)
 if (Test-Path $installer -PathType Leaf) { $artifacts += $installer }
+$silentInstaller = Join-Path $project "dist/installer/Multifora-Silent-Install-$version.bat"
+if (Test-Path $silentInstaller -PathType Leaf) { $artifacts += $silentInstaller }
 $lines = foreach ($artifact in $artifacts) {
     $sha = (Get-FileHash -Path $artifact -Algorithm SHA256).Hash.ToLowerInvariant()
     "$sha  $(Split-Path -Leaf $artifact)"
@@ -29,4 +31,5 @@ $checksums = Join-Path $project 'dist/SHA256SUMS.txt'
 [System.IO.File]::WriteAllLines($checksums, [string[]]$lines, [System.Text.Encoding]::ASCII)
 Write-Host "Portable archive: $portable"
 if (Test-Path $installer) { Write-Host "Installer: $installer" }
+if (Test-Path $silentInstaller) { Write-Host "Silent installer script: $silentInstaller" }
 Write-Host "Hashes: $checksums"

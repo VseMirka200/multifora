@@ -23,6 +23,17 @@ class InstallerConfigTests(unittest.TestCase):
         )
         self.assertIn('Source: "..\\LICENSE"; DestDir: "{app}"', installer)
 
+    def test_silent_install_script_uses_inno_setup_silent_flags(self):
+        script = (
+            Path(__file__).parents[1] / "scripts" / "install_silently.bat"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("Multifora-Setup-*.exe", script)
+        self.assertIn("/VERYSILENT", script)
+        self.assertIn("/SUPPRESSMSGBOXES", script)
+        self.assertIn("/NORESTART", script)
+        self.assertIn("/SP-", script)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -136,6 +136,15 @@ jobs:
           $installerHash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
           "$installerHash  $($installer.Name)" | Set-Content -Encoding ascii $installerChecksum
 
+          $silentInstallers = @(Get-ChildItem -Path dist/installer -Filter "Multifora-Silent-Install-*.bat")
+          if ($silentInstallers.Count -ne 1) {
+            throw "Expected one silent-install script, found: $($silentInstallers.Count)."
+          }
+          $silentInstaller = $silentInstallers[0]
+          $silentInstallerChecksum = [System.IO.Path]::ChangeExtension($silentInstaller.FullName, ".sha256")
+          $silentInstallerHash = (Get-FileHash -Algorithm SHA256 $silentInstaller.FullName).Hash.ToLowerInvariant()
+          "$silentInstallerHash  $($silentInstaller.Name)" | Set-Content -Encoding ascii $silentInstallerChecksum
+
           $previousTag = (& git describe --tags --abbrev=0 HEAD^ 2>$null)
           if ($LASTEXITCODE -ne 0) { $previousTag = $null }
           $range = if ($previousTag) { "$previousTag..HEAD" } else { "HEAD" }
@@ -144,6 +153,7 @@ jobs:
             "## Файлы для Windows"
             ""
             "- **Установщик** `Multifora-Setup-$($version.TrimStart('v')).exe` — устанавливает приложение в Windows."
+            "- **Тихая установка** `Multifora-Silent-Install-$($version.TrimStart('v')).bat` — положите рядом с установщиком и запустите; появится только системный запрос прав администратора."
             "- **Портативная версия** `Multifora-$version-windows-x64.zip` — запускается из распакованной папки без установки."
           )
           if (-not $changes) { $changes = @("- Технический релиз") }
@@ -166,6 +176,8 @@ jobs:
             dist/Multifora-${{ needs.prepare-release.outputs.tag }}-windows-x64.sha256
             dist/installer/Multifora-Setup-*.exe
             dist/installer/Multifora-Setup-*.sha256
+            dist/installer/Multifora-Silent-Install-*.bat
+            dist/installer/Multifora-Silent-Install-*.sha256
             dist/CHANGELOG.md
   
   # Публикация изолирована от установки зависимостей, тестов и Windows-сборки.
@@ -203,8 +215,16 @@ jobs:
           fi
           installer="${installers[0]}"
           installer_sum="${installer%.exe}.sha256"
-          test -f "$archive" && test -f "$archive_sum" && test -f "$notes" && test -f "$installer_sum"
+          mapfile -t silent_installers < <(find "$root/installer" -maxdepth 1 -type f -name 'Multifora-Silent-Install-*.bat')
+          if [ "${#silent_installers[@]}" -ne 1 ]; then
+            echo "Expected exactly one silent-install script" >&2
+            exit 1
+          fi
+          silent_installer="${silent_installers[0]}"
+          silent_installer_sum="${silent_installer%.bat}.sha256"
+          test -f "$archive" && test -f "$archive_sum" && test -f "$notes" && test -f "$installer_sum" && test -f "$silent_installer_sum"
           (cd "$root" && sha256sum -c "$(basename "$archive_sum")")
           (cd "$root/installer" && sha256sum -c "$(basename "$installer_sum")")
-          gh release create "$TAG" "$archive" "$archive_sum" "$installer" "$installer_sum" \
+          (cd "$root/installer" && sha256sum -c "$(basename "$silent_installer_sum")")
+          gh release create "$TAG" "$archive" "$archive_sum" "$installer" "$installer_sum" "$silent_installer" "$silent_installer_sum" \
             --target "$TARGET" --title "Мультифора $TAG" --notes-file "$notes"
