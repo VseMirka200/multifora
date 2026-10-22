@@ -4,7 +4,7 @@ import tempfile
 
 from PyQt6.QtCore import Qt
 
-from app.core.app_utils import _debug_log
+from app.core.app_utils import _debug_log, _get_app_data_dir
 
 _DEFAULT_THEME_MODE = "system"
 _VALID_THEME_MODES = {_DEFAULT_THEME_MODE, "dark", "light"}
@@ -18,7 +18,7 @@ _AUTO_CLEAR_CHECKBOXES = {
 }
 _AUTO_CLEAR_DEFAULTS = {
     "rename": False,
-    "convert": True,
+    "convert": False,
     "merge": False,
     "compress": False,
 }
@@ -119,11 +119,13 @@ def _restore_file_list_view_state(window, state: dict) -> None:
 
 
 def _legacy_settings_candidates() -> tuple[str, ...]:
-    roaming_dir = os.path.join(os.path.expanduser("~"), "AppData", "Roaming")
+    user_dir = os.path.expanduser("~")
+    roaming_dir = os.path.join(user_dir, "AppData", "Roaming")
     return (
         os.path.join(roaming_dir, "Multifora", _SETTINGS_FILENAME),
         os.path.join(roaming_dir, "python", "Multifora", _SETTINGS_FILENAME),
         os.path.join(roaming_dir, _SETTINGS_FILENAME),
+        os.path.join(user_dir, "Documents", "Multifora", _SETTINGS_FILENAME),
     )
 
 
@@ -162,11 +164,8 @@ def _migrate_legacy_settings(target_file: str) -> None:
 
 
 def get_settings_file_path() -> str:
-    """Возвращает полный путь к файлу настроек (в Documents пользователя)."""
-    target_dir = os.path.join(
-        os.path.expanduser("~"), "Documents", "Multifora"
-    )
-    os.makedirs(target_dir, exist_ok=True)
+    """Возвращает путь к настройкам в профиле текущего пользователя."""
+    target_dir = _get_app_data_dir()
     target_file = os.path.join(target_dir, _SETTINGS_FILENAME)
     _migrate_legacy_settings(target_file)
     return target_file
@@ -190,7 +189,7 @@ def _initialize_settings_defaults(window) -> None:
         "desktop_shortcut_checkbox": False,
         "start_menu_shortcut_checkbox": False,
         "disable_warning_dialogs_checkbox": False,
-        "auto_update_check_checkbox": True,
+        "auto_update_check_checkbox": False,
         "auto_clear_enabled_checkbox": False,
     }
     for attribute_name, checked in checkbox_defaults.items():
@@ -605,7 +604,7 @@ def _collect_settings_data(window) -> dict:
         "auto_check_updates": (
             auto_update_checkbox.isChecked()
             if auto_update_checkbox is not None
-            else True
+            else False
         ),
         "theme_mode": getattr(window, "theme_mode", _DEFAULT_THEME_MODE),
         "conversion_output_mode": getattr(

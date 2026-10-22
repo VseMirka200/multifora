@@ -650,30 +650,6 @@ class OperationsTabLayoutMixin:
         merge_layout.addWidget(self.merge_format_hint_label)
         merge_layout.addSpacing(SPACE_SM)
 
-        merge_layout.addWidget(self._create_operation_label("Сохранить как:"))
-        merge_layout.addSpacing(SPACE_SM)
-
-        merge_output_row = QWidget()
-        merge_output_row_layout = QHBoxLayout(merge_output_row)
-        merge_output_row_layout.setContentsMargins(*MARGINS_NONE)
-        merge_output_row_layout.setSpacing(SPACE_NONE)
-
-        self.input_merge_output_path = QLineEdit()
-        self.input_merge_output_path.setReadOnly(True)
-        self.input_merge_output_path.setPlaceholderText(
-            "Выберите файл сохранения"
-        )
-        self.input_merge_output_path.setCursor(
-            Qt.CursorShape.PointingHandCursor
-        )
-        self.input_merge_output_path.installEventFilter(self)
-        self.input_merge_output_path.textChanged.connect(
-            self._update_merge_button_state
-        )
-        merge_output_row_layout.addWidget(self.input_merge_output_path, 1)
-        merge_layout.addWidget(merge_output_row)
-        merge_layout.addSpacing(SPACE_SM)
-
         self.btn_merge = QPushButton("Объединить")
         setup_standard_primary_button(self.btn_merge)
         self._make_action_button_fill_width(self.btn_merge)

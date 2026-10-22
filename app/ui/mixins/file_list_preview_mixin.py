@@ -515,8 +515,33 @@ class FileListPreviewMixin:
                     f"Переименование {len(files_to_rename)} файлов..."
                 )
 
+    def _remove_missing_files_from_queue(self) -> bool:
+        """Удаляет из очереди файлы, которых больше нет на диске."""
+        is_running = getattr(self, "_operation_is_running", None)
+        if callable(is_running) and is_running():
+            return False
+
+        remaining_files = [
+            file_item
+            for file_item in self.files
+            if not getattr(file_item, "is_file", False)
+            or os.path.isfile(getattr(file_item, "path", ""))
+        ]
+        if len(remaining_files) == len(self.files):
+            return False
+
+        self.files = remaining_files
+        return True
+
+    def refresh_queue_paths(self) -> None:
+        """Синхронизирует очередь с текущим состоянием файловой системы."""
+        if self._remove_missing_files_from_queue():
+            self.update_file_list()
+            self.update_file_info()
+
     def update_file_list(self):
         """Обновление отображения списка"""
+        self._remove_missing_files_from_queue()
         if not self.files:
             self.list_files.clear()
             if callable(getattr(self, "update_convert_button_state", None)):

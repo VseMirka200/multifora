@@ -1238,7 +1238,7 @@ class FileListWidget(QTableView):
         self.itemSelectionChanged.emit()
 
     def clear(self):
-        self.model().clear()
+        self.set_files([])
 
     def selectedItems(self):
         return [
@@ -1267,7 +1267,20 @@ class FileListWidget(QTableView):
 
     def set_files(self, files: list):
         self.model().set_files(files)
-        self._resize_columns_to_contents()
+        if files:
+            self._resize_columns_to_contents()
+            return
+
+        self._reset_empty_table_layout()
+
+    def _reset_empty_table_layout(self):
+        """Возвращает компактную ширину колонок после очистки таблицы."""
+        header = self.horizontalHeader()
+        for column in range(self.model().columnCount()):
+            header.resizeSection(column, header.sectionSizeHint(column))
+        self.horizontalScrollBar().setValue(
+            self.horizontalScrollBar().minimum()
+        )
 
     def refresh(self):
         self.model().refresh()

@@ -1,10 +1,11 @@
 import os
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from app.core.models import FileItem
 from core.workers.merge.merge_mixin import MergeMixin
+from core.workers.merge.merge_worker import MergeWorker
 from core.workers.result import OperationResult
 
 
@@ -49,6 +50,13 @@ class _DummyMergeWorker(MergeMixin):
 
 
 class MergeMixinTests(unittest.TestCase):
+    def test_dedicated_merge_worker_keeps_its_own_operation_state(self):
+        worker = MergeWorker([], "pdf", "output.pdf")
+        self.assertEqual(worker.merge_output_format, "pdf")
+        self.assertFalse(worker._should_cancel())
+        worker.request_cancel()
+        self.assertTrue(worker._should_cancel())
+
     def test_pdf_output_rejects_word_and_mixed_inputs(self):
         worker = _DummyMergeWorker()
         worker.merge_output_format = "pdf"
@@ -60,6 +68,20 @@ class MergeMixinTests(unittest.TestCase):
             worker.files = [Mock(path=path, is_file=True) for path in paths]
             with self.assertRaisesRegex(Exception, "только файлы PDF"):
                 worker._merge_files_to_target()
+
+    def test_merge_rejects_source_removed_after_it_was_queued(self):
+        worker = _DummyMergeWorker()
+        worker.merge_output_format = "pdf"
+        worker.files = [
+            Mock(path="first.pdf", is_file=True),
+            Mock(path="second.pdf", is_file=True),
+        ]
+
+        with (
+            patch("core.workers.merge.merge_mixin.os.path.isfile", return_value=False),
+            self.assertRaisesRegex(FileNotFoundError, "Не найдены или недоступны"),
+        ):
+            worker._merge_files_to_target()
 
     def test_merge_docx_files(self):
         from docx import Document

@@ -3,7 +3,7 @@ import os
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QFileDialog, QMessageBox
 
-from app.core.app_utils import _debug_log, _log_ignored_error
+from app.core.app_utils import _debug_log
 from app.core.models import FileItem
 from app.ui.ui_components import selected_file_items
 
@@ -60,15 +60,6 @@ class WorkerOpsMixin:
             start_folder, f"Объединенный_документ.{extension}"
         )
 
-        current_path = ""
-        if (
-            hasattr(self, "input_merge_output_path")
-            and self.input_merge_output_path is not None
-        ):
-            current_path = self.input_merge_output_path.text().strip()
-        if current_path:
-            default_path = current_path
-
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "Куда сохранить объединенный документ",
@@ -83,31 +74,7 @@ class WorkerOpsMixin:
             file_path = (
                 f"{base}.{extension}" if base else f"{file_path}.{extension}"
             )
-        if (
-            hasattr(self, "input_merge_output_path")
-            and self.input_merge_output_path is not None
-        ):
-            self.input_merge_output_path.setText(file_path)
-            try:
-                self.input_merge_output_path.setCursorPosition(0)
-            except Exception as error:
-                _log_ignored_error(
-                    "WorkerOpsMixin._select_merge_output_path_for_format",
-                    error,
-                )
         return file_path
-
-    def select_merge_output_path(self):
-        files = self._get_selected_or_all_file_items()
-        output_format = self._detect_merge_output_format(files)
-        if len(files) < 2 or output_format is None:
-            QMessageBox.warning(
-                self,
-                "Ошибка",
-                "Выберите минимум два файла одного формата: PDF или DOCX.",
-            )
-            return
-        self._select_merge_output_path_for_format(output_format, files)
 
     def _update_merge_button_state(self, *_args):
         button = getattr(self, "btn_merge", None)
@@ -120,16 +87,8 @@ class WorkerOpsMixin:
             else []
         )
         output_format = self._detect_merge_output_format(files)
-        expected_extension = f".{output_format}" if output_format else ""
         valid_files = len(files) >= 2 and output_format is not None
-        output_field = getattr(self, "input_merge_output_path", None)
-        output_path = (
-            output_field.text().strip() if output_field is not None else ""
-        )
-        valid_output = bool(
-            expected_extension
-        ) and output_path.lower().endswith(expected_extension)
-        button.setEnabled(valid_files and valid_output)
+        button.setEnabled(valid_files)
 
     def compress_files(self):
         """Сжатие файлов."""
@@ -287,6 +246,24 @@ class WorkerOpsMixin:
             )
             return
 
+        missing_paths = [
+            file.path for file in files if not os.path.isfile(file.path)
+        ]
+        if missing_paths:
+            for file in files:
+                if file.path in missing_paths:
+                    file.update_info()
+            self.update_file_list()
+            QMessageBox.warning(
+                self,
+                "Исходный файл недоступен",
+                "Эти документы больше не существуют по указанному пути "
+                "или недоступны:\n\n"
+                + "\n".join(f"• {path}" for path in missing_paths)
+                + "\n\nУдалите их из списка или добавьте снова.",
+            )
+            return
+
         output_format = self._detect_merge_output_format(files)
         if output_format is None:
             QMessageBox.warning(
@@ -315,18 +292,11 @@ class WorkerOpsMixin:
                 return
             format_label = "PDF"
 
-        output_path = ""
-        if (
-            hasattr(self, "input_merge_output_path")
-            and self.input_merge_output_path is not None
-        ):
-            output_path = self.input_merge_output_path.text().strip()
+        output_path = self._select_merge_output_path_for_format(
+            output_format, files
+        )
         if not output_path:
-            output_path = self._select_merge_output_path_for_format(
-                output_format, files
-            )
-            if not output_path:
-                return
+            return
 
         reply = self.show_russian_message_box(
             "Подтверждение",
@@ -340,13 +310,16 @@ class WorkerOpsMixin:
         show_starting = getattr(self, "_show_operation_starting", None)
         if callable(show_starting):
             show_starting(f"Подготовка объединения {len(files)} документов...")
-        if not self.create_file_worker():
-            hide_progress = getattr(self, "_hide_progress_dialog", None)
-            if callable(hide_progress):
-                hide_progress()
-            return
+        # У объединения свой лёгкий воркер. Не создаём здесь FileWorker:
+        # его стек конвертации и сжатия импортирует необязательные backend'ы,
+        # из-за чего окно подготовки может выглядеть зависшим до старта потока.
+        from core.workers.merge.merge_worker import MergeWorker
 
-        self.file_worker.set_merge(files, output_format, output_path)
+        self.file_worker = MergeWorker(files, output_format, output_path)
+        self.file_worker.progress.connect(self.progress_bar.setValue)
+        self.file_worker.status.connect(self.on_worker_status)
+        self.file_worker.finished.connect(self.on_operation_finished)
+        self.file_worker.error.connect(self.on_operation_error)
         self._last_operation = {
             "op": "merge",
             "output_format": output_format,
@@ -503,28 +476,47 @@ class WorkerOpsMixin:
         self.log_event(f"Критическая ошибка операции: {error_msg}", "ERROR")
 
     def _offer_retry_for_errors(self, errors: list[dict]) -> None:
+        grouped_errors: dict[str, list[dict]] = {}
+        for entry in errors:
+            error_message = str(entry.get("message", ""))
+            grouped_errors.setdefault(error_message, []).append(entry)
+
         lines = []
-        for entry in errors[:8]:
-            msg = str(entry.get("message", ""))
-            name = entry.get("name")
-            if name and name not in msg:
-                msg = f"{name}: {msg}"
-            lines.append(f"• {msg}")
-        more = f"\n…и ещё {len(errors) - 8}" if len(errors) > 8 else ""
+        for error_message, entries in list(grouped_errors.items())[:8]:
+            count = len(entries)
+            suffix = f"\n  Затронуто файлов: {count}." if count > 1 else ""
+            lines.append(f"• {error_message}{suffix}")
+        remaining = len(grouped_errors) - 8
+        more = f"\n• …и ещё {remaining} причин" if remaining > 0 else ""
+        non_retryable_markers = ("недопустимый символ", "ошибка плана")
+        retryable_errors = [
+            entry
+            for entry in errors
+            if entry.get("path")
+            and not any(
+                marker in str(entry.get("message", "")).casefold()
+                for marker in non_retryable_markers
+            )
+        ]
         can_retry = bool(
             self._last_operation
             and self._last_operation.get("op")
             in {"rename", "convert", "compress"}
-            and any(e.get("path") for e in errors)
+            and retryable_errors
         )
-        message = "Ошибки при обработке файлов:\n" + "\n".join(lines) + more
+        message = (
+            f"Не удалось обработать {self._ru_files_label(len(errors))}.\n\n"
+            "Причина:\n"
+            + "\n".join(lines)
+            + more
+        )
         if can_retry:
-            message += "\n\nПовторить только ошибочные файлы?"
+            message += "\n\nПовторить только файлы с временными ошибками?"
         reply = self.show_russian_message_box(
-            "Ошибки операции",
+            "Не удалось завершить операцию",
             message,
             QMessageBox.Icon.Warning,
             can_retry,
         )
         if can_retry and reply:
-            self._retry_failed_operation(errors)
+            self._retry_failed_operation(retryable_errors)
