@@ -38,8 +38,7 @@ jobs:
             test -n "$version"
             tag="v$version"
             if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
-              echo "Tag $tag already exists. Increase APP_VERSION before merging a release PR." >&2
-              exit 1
+              echo "Tag $tag already exists. The workflow will update its release assets."
             fi
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
@@ -226,5 +225,10 @@ jobs:
           (cd "$root" && sha256sum -c "$(basename "$archive_sum")")
           (cd "$root/installer" && sha256sum -c "$(basename "$installer_sum")")
           (cd "$root/installer" && sha256sum -c "$(basename "$silent_installer_sum")")
-          gh release create "$TAG" "$archive" "$archive_sum" "$installer" "$installer_sum" "$silent_installer" "$silent_installer_sum" \
-            --target "$TARGET" --title "Мультифора $TAG" --notes-file "$notes"
+          assets=("$archive" "$archive_sum" "$installer" "$installer_sum" "$silent_installer" "$silent_installer_sum")
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+          else
+            gh release create "$TAG" "${assets[@]}" \
+              --target "$TARGET" --title "Мультифора $TAG" --notes-file "$notes"
+          fi
