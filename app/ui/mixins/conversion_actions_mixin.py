@@ -15,7 +15,7 @@ from app.core.conversion_formats import (
 )
 from app.core.message_boxes import show_app_choice
 from app.core.models import FileItem
-from app.ui.ui_components import selected_file_items
+from app.ui.ui_components import operation_file_items
 
 _CATEGORY_PLACEHOLDER = "Выберите тип файла:"
 _TARGET_PLACEHOLDER = "Выберите целевой формат:"
@@ -79,22 +79,13 @@ class ConversionActionsMixin:
     def _selected_file_items(self) -> list[FileItem]:
         """Возвращает область текущей операции.
 
-        Выделение имеет приоритет; если его нет, операция
+        Отметки имеют приоритет; если их нет, операция
         применяется ко всем файлам списка.
         """
         resolver = getattr(self, "_get_selected_or_all_file_items", None)
         if callable(resolver):
             return list(resolver())
-        selected = selected_file_items(
-            getattr(self, "list_files", None), files_only=True
-        )
-        if selected:
-            return selected
-        return [
-            file_item
-            for file_item in (getattr(self, "files", []) or [])
-            if getattr(file_item, "is_file", False)
-        ]
+        return operation_file_items(getattr(self, "files", []) or [], files_only=True)
 
     def _initial_conversion_folder(self) -> str:
         current_path = self._conversion_custom_output_path()

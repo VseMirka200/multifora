@@ -2,7 +2,7 @@
 
 from app.core.update_checker import REPO_PAGE
 
-PROJECT_CONTRIBUTING_URL = f"{REPO_PAGE}/blob/main/docs/project/CONTRIBUTING.md"
+PROJECT_CONTRIBUTING_URL = f"{REPO_PAGE}/blob/main/CONTRIBUTING.md"
 DOCUMENTATION_URL = "https://vsemirka200.github.io/multifora/"
 GUIDE_URL = f"{DOCUMENTATION_URL}guide/index.html"
 TROUBLESHOOTING_URL = f"{DOCUMENTATION_URL}reference/troubleshooting.html"

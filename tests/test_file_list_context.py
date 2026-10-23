@@ -16,6 +16,7 @@ class _Host(FileListContextMixin):
         self.list_files = Mock()
         self.status_bar = Mock()
         self.update_file_info = Mock()
+        self.update_file_list = Mock()
 
     def _get_selected_file_items(self):
         return list(self._selected)
@@ -64,7 +65,7 @@ class FileListContextTests(unittest.TestCase):
 
             self.assertTrue(os.path.exists(path))
             self.assertEqual(host.files, [])
-            host.list_files.set_files.assert_called_once_with([])
+            host.update_file_list.assert_called_once_with()
 
     def test_checked_option_moves_file_to_trash(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -151,7 +152,7 @@ class FileListContextTests(unittest.TestCase):
             host.remove_selected_files_from_list()
 
         self.assertEqual(host.files, [item])
-        host.list_files.set_files.assert_not_called()
+        host.update_file_list.assert_not_called()
 
 
 class AutoClearBehaviorTests(unittest.TestCase):

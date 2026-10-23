@@ -6,12 +6,16 @@ STANDARD_FORM_LABEL_STYLE = (
     "font-size: 13px; font-weight: 400; margin: 0px; padding: 0px;"
 )
 FILE_INFO_LABEL_STYLE = "font-size: 13px; font-weight: 600; padding: 0px 2px;"
-COMPACT_CHECKBOX_STYLE = "QCheckBox { margin-top: 1px; }"
 TRANSPARENT_CONTAINER_STYLE = "background-color: transparent;"
 SPLITTER_GRIP_LABEL_STYLE = (
     "background-color: transparent; border: none; padding: 0px;"
 )
-FILE_LIST_HEADER_STYLE = "QHeaderView::section { background: transparent; border: none; padding: 4px 6px; }"
+FILE_LIST_HEADER_STYLE = (
+    "QHeaderView::section { background: transparent; border: none; "
+    "padding: 4px 6px; font-weight: 600; }"
+    "QHeaderView::up-arrow, QHeaderView::down-arrow { "
+    "image: none; width: 0px; height: 0px; }"
+)
 FILE_LIST_DRAG_ACTIVE_STYLE = "QTableView { border: 2px dashed #3d74b3; }"
 
 
@@ -145,14 +149,14 @@ _BUTTON_PALETTES = {
         "#787878",
     ),
     "light": (
-        "#f6f8fb",
+        "#ffffff",
         "#edf2f7",
         "#e2eaf3",
         "#d6dee8",
         "#243244",
         "#f8fafc",
         "#e4eaf2",
-        "#9aa4b2",
+        "#6f7785",
     ),
 }
 
@@ -227,6 +231,8 @@ def build_template_table_style(theme: str) -> str:
 def standard_palette(theme: str) -> dict[str, str]:
     if str(theme).lower() == "light":
         return {
+            "window_bg": "#f4f6f8",
+            "separator": "#dce2e9",
             "bg": "#ffffff",
             "fg": "#1f2328",
             "border": "#c7cfda",
@@ -238,6 +244,8 @@ def standard_palette(theme: str) -> dict[str, str]:
             "placeholder": "#6f7785",
         }
     return {
+        "window_bg": "#2c2c2c",
+        "separator": "rgba(255, 255, 255, 0.38)",
         "bg": "#383838",
         "fg": "#f0f0f0",
         "border": "#4f4f4f",
@@ -538,7 +546,7 @@ def build_operations_tab_bar_style(theme: str) -> str:
             min-height: 22px;
             max-height: 22px;
             font-size: 13px;
-            font-weight: 700;
+            font-weight: {600 if is_light else 700};
             color: {foreground};
             background-color: {base_bg};
             border: none;
@@ -569,7 +577,7 @@ def build_settings_navigation_style(theme: str) -> str:
             margin: 0px;
             padding: 0px;
             font-size: 13px;
-            font-weight: 700;
+            font-weight: {600 if str(theme).lower() == "light" else 700};
             color: {foreground};
             background-color: transparent;
             border: none;
@@ -628,12 +636,12 @@ def build_tab_content_style_block(theme: str) -> str:
                 color: {base_text};
             }}
             QFrame#settings_section_separator {{
-                background-color: {"rgba(0, 0, 0, 0.36)" if is_light else "rgba(255, 255, 255, 0.38)"};
+                background-color: {standard_palette(theme)["separator"]};
                 border: none;
                 margin: 0px;
                 padding: 0px;
-                min-height: 3px;
-                max-height: 3px;
+                min-height: {1 if is_light else 3}px;
+                max-height: {1 if is_light else 3}px;
             }}
             QLabel#tab_hint_label {{
                 font-size: 13px;

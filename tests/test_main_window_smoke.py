@@ -165,9 +165,8 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(window.btn_type_filter.text(), "Выбрано: 0")
                 self.assertTrue(
                     all(
-                        not window._type_filter_menu.filter_list.item(index)
-                        .text()
-                        .startswith("✓")
+                        window._type_filter_menu.filter_list.item(index).checkState()
+                        == Qt.CheckState.Unchecked
                         for index in range(
                             window._type_filter_menu.filter_list.count()
                         )
@@ -182,9 +181,8 @@ class MainWindowSmokeTests(unittest.TestCase):
                 )
                 self.assertTrue(
                     all(
-                        window._type_filter_menu.filter_list.item(index)
-                        .text()
-                        .startswith("✓")
+                        window._type_filter_menu.filter_list.item(index).checkState()
+                        == Qt.CheckState.Checked
                         for index in range(
                             window._type_filter_menu.filter_list.count()
                         )
@@ -204,9 +202,8 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(window.btn_ext_filter.text(), "Выбрано: 0")
                 self.assertTrue(
                     all(
-                        not window._ext_filter_menu.filter_list.item(index)
-                        .text()
-                        .startswith("✓")
+                        window._ext_filter_menu.filter_list.item(index).checkState()
+                        == Qt.CheckState.Unchecked
                         for index in range(
                             window._ext_filter_menu.filter_list.count()
                         )

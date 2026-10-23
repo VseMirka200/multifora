@@ -34,7 +34,6 @@ from app.core.github_links import (
 from app.ui.ui_components import (
     MenuLikeComboBox,
     setup_clickable_checkbox_label,
-    setup_compact_checkbox,
     setup_standard_action_button,
     setup_standard_dropdown,
     setup_standard_form_label,
@@ -227,11 +226,10 @@ class OperationsTabLayoutMixin:
         layout.setSpacing(SPACE_NONE)
         layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        checkbox.setFixedSize(CHECKBOX_SIZE, CHECKBOX_SIZE)
+        checkbox.setFixedSize(CHECKBOX_SIZE + 2, CHECKBOX_SIZE + 2)
         checkbox.setSizePolicy(
             QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
         )
-        setup_compact_checkbox(checkbox)
         checkbox.setToolTip(tooltip)
         checkbox.stateChanged.connect(callback)
         checkbox.setChecked(False)

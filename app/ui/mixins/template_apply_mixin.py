@@ -142,6 +142,10 @@ class TemplateApplyMixin:
             num_digits = int(custom_settings.get("digits", 3))
 
         for file_item in self.files:
+            file_item.preview_name = file_item.name
+        resolver = getattr(self, "_preview_operation_items", None)
+        files = resolver() if callable(resolver) else self.files
+        for file_item in files:
             old_name = file_item.name
             name_without_ext, ext = os.path.splitext(old_name)
             new_name = old_name

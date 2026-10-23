@@ -1,5 +1,7 @@
 """Базовые QSS-темы с дополнительным оформлением из ``ui_styles``."""
 
+from app.ui.ui_styles import standard_palette
+
 _TEMPLATE_MENU_FIELD_SELECTOR = (
     "QWidget#template_params_widget "
     'QToolButton#menu_like_combo[renameTemplateField="true"]'
@@ -195,19 +197,6 @@ QCheckBox {
     min-height: 24px;
     max-height: 24px;
     qproperty-layoutDirection: LeftToRight;
-}
-QCheckBox::indicator {
-    width: 14px;
-    height: 14px;
-    margin-right: 6px;
-    border: 1px solid #4a4a4a;
-    border-radius: 2px;
-    background-color: #f2f4f7;
-}
-QCheckBox::indicator:checked {
-    border: 1px solid #3d74b3;
-    background-color: #3d74b3;
-    image: url("__CHECKMARK_URL__");
 }
 QLabel:disabled,
 QCheckBox:disabled {
@@ -470,11 +459,11 @@ QHeaderView::section {
 
 LIGHT_APPLICATION_STYLE = """
 QMainWindow, QWidget {
-    background-color: #f3f3f3;
+    background-color: __LIGHT_WINDOW_BG__;
     color: #1f2328;
     font-family: "Segoe UI";
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 400;
 }
 QLabel,
 QPushButton,
@@ -522,12 +511,12 @@ QFrame#settings_card QLabel[aboutVersionBadge="true"] {
     font-weight: 600;
 }
 QFrame#settings_section_separator {
-    background-color: rgba(0, 0, 0, 0.36);
+    background-color: __LIGHT_SEPARATOR__;
     border: none;
     margin: 0px;
     padding: 0px;
-    min-height: 3px;
-    max-height: 3px;
+    min-height: 1px;
+    max-height: 1px;
 }
 QWidget#template_params_widget {
     background-color: transparent;
@@ -701,22 +690,10 @@ QListWidget::item:selected {
 QCheckBox {
     font-size: 14px;
     color: #1f2328;
+    background-color: transparent;
     spacing: 8px;
     min-height: 24px;
     max-height: 24px;
-}
-QCheckBox::indicator {
-    width: 14px;
-    height: 14px;
-    margin-right: 6px;
-    border: 1px solid #9aa6b5;
-    border-radius: 2px;
-    background-color: #ffffff;
-}
-QCheckBox::indicator:checked {
-    border: 1px solid #3d74b3;
-    background-color: #3d74b3;
-    image: url("__CHECKMARK_URL__");
 }
 QLabel:disabled,
 QCheckBox:disabled {
@@ -724,10 +701,10 @@ QCheckBox:disabled {
 }
 QScrollArea {
     border: none;
-    background-color: #f2f4f7;
+    background-color: __LIGHT_WINDOW_BG__;
 }
 QScrollArea QWidget#qt_scrollarea_viewport {
-    background-color: #f2f4f7;
+    background-color: __LIGHT_WINDOW_BG__;
     border: none;
 }
 QScrollBar:vertical {
@@ -738,7 +715,7 @@ QScrollBar:vertical {
 }
 QScrollBar::handle:vertical {
     background: #b8c0cc;
-    border-radius: 0px;
+    border-radius: 4px;
     min-height: 20px;
 }
 QScrollBar::add-line:vertical,
@@ -759,7 +736,7 @@ QScrollBar:horizontal {
 }
 QScrollBar::handle:horizontal {
     background: #b8c0cc;
-    border-radius: 0px;
+    border-radius: 4px;
     min-width: 20px;
 }
 QScrollBar::add-line:horizontal,
@@ -791,7 +768,7 @@ QStatusBar {
     color: #1f2328;
 }
 QMessageBox {
-    background-color: #f3f3f3;
+    background-color: __LIGHT_WINDOW_BG__;
 }
 QMessageBox QLabel {
     color: #1f2328;
@@ -814,7 +791,16 @@ QPushButton:disabled,
 QFrame#card QPushButton:disabled {
     background-color: transparent;
 }
+QLabel {
+    background-color: transparent;
+}
 """.replace("__TEMPLATE_MENU_FIELD_SELECTOR__", _TEMPLATE_MENU_FIELD_SELECTOR)
+
+for _token, _key in (
+    ("__LIGHT_WINDOW_BG__", "window_bg"),
+    ("__LIGHT_SEPARATOR__", "separator"),
+):
+    LIGHT_APPLICATION_STYLE = LIGHT_APPLICATION_STYLE.replace(_token, standard_palette("light")[_key])
 
 
 def _build_global_dropdown_style(

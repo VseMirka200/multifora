@@ -35,7 +35,10 @@ class FileItem:
 
     def __init__(self, path: str):
         self.path = path
+        self.checked = False
         self.preview_name = os.path.basename(path)
+        self.estimated_compressed_size = None
+        self.conversion_target_format = ""
         # Заполняется экраном предпросмотра для операций, создающих копию
         # файла в другой папке. По умолчанию это исходная папка.
         self.preview_folder = ""

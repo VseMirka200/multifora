@@ -8,7 +8,7 @@
   const groups = [
     ["Руководство", [["Быстрый старт", "guide/quick-start.html"], ["Установка и обновление", "guide/install.html"], ["Переименование", "guide/rename.html"], ["Конвертация", "guide/conversion.html"], ["Объединение и сжатие", "guide/optimize.html"]]],
     ["Помощь", [["Настройки", "reference/settings.html"], ["Проблемы и решения", "reference/troubleshooting.html"], ["Сообщить об ошибке", "https://github.com/VseMirka200/multifora/issues/new/choose"]]],
-    ["Проект", [["Участие в разработке", "https://github.com/VseMirka200/multifora/blob/main/docs/project/CONTRIBUTING.md"], ["Кодекс поведения", "https://github.com/VseMirka200/multifora/blob/main/docs/project/CODE_OF_CONDUCT.md"], ["Безопасность", "https://github.com/VseMirka200/multifora/blob/main/docs/project/SECURITY.md"], ["Поддержка", "https://github.com/VseMirka200/multifora/blob/main/docs/project/SUPPORT.md"]]],
+    ["Проект", [["Участие в разработке", "https://github.com/VseMirka200/multifora/blob/main/CONTRIBUTING.md"], ["Кодекс поведения", "https://github.com/VseMirka200/multifora/blob/main/CODE_OF_CONDUCT.md"], ["Безопасность", "https://github.com/VseMirka200/multifora/blob/main/SECURITY.md"], ["Поддержка", "https://github.com/VseMirka200/multifora/blob/main/SUPPORT.md"]]],
   ];
   const link = ([label, path]) => {
     const href = path.startsWith("http") ? path : local(path);

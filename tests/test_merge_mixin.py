@@ -107,6 +107,27 @@ class MergeMixinTests(unittest.TestCase):
             text = "\n".join(paragraph.text for paragraph in merged.paragraphs)
             self.assertIn("First", text)
             self.assertIn("Second", text)
+            self.assertLess(text.index("First"), text.index("Second"))
+
+    def test_merge_pdf_preserves_queue_order(self):
+        import pymupdf
+
+        worker = _DummyMergeWorker()
+        worker.merge_output_format = "pdf"
+        with tempfile.TemporaryDirectory() as tmpdir:
+            files = []
+            for index in (2, 1):
+                path = os.path.join(tmpdir, f"{index}.pdf")
+                with pymupdf.open() as document:
+                    document.new_page().insert_text((72, 72), f"Document {index}")
+                    document.save(path)
+                files.append(FileItem(path))
+            worker.files = files
+            output = worker._merge_files_to_target()
+            with pymupdf.open(output) as document:
+                self.assertEqual(len(document), 2)
+                self.assertIn("Document 2", document[0].get_text())
+                self.assertIn("Document 1", document[1].get_text())
 
     def test_merge_uses_requested_output_path(self):
         from docx import Document

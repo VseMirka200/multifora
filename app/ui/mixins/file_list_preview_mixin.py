@@ -8,7 +8,7 @@ from app.core.rename_validation import (
     analyze_rename_plan,
     format_rename_plan_issues,
 )
-from app.ui.ui_components import selected_file_items
+from app.ui.ui_components import operation_file_items
 
 
 class FileListPreviewMixin:
@@ -23,9 +23,15 @@ class FileListPreviewMixin:
         if callable(setter):
             setter(text)
 
+    def _preview_operation_items(self):
+        resolver = getattr(self, "_get_operation_file_items", None)
+        return resolver() if callable(resolver) else operation_file_items(self.files)
+
     def _set_preview_names_to_original(self):
         for file_item in getattr(self, "files", []) or []:
             file_item.preview_name = file_item.name
+            file_item.estimated_compressed_size = None
+            file_item.conversion_target_format = ""
             file_item.preview_folder = str(
                 getattr(file_item, "folder", "")
                 or os.path.dirname(str(getattr(file_item, "path", "")))
@@ -48,11 +54,17 @@ class FileListPreviewMixin:
         return str(tab_bar.tabData(index) or "")
 
     def sync_file_preview_columns(self) -> None:
-        """Показывает столбец нового имени только для переименования."""
+        """Показывает нужные для текущей операции имена и размеры."""
         file_list = getattr(self, "list_files", None)
         if file_list is None:
             return
         model = file_list.model()
+        size_setter = getattr(model, "set_compression_sizes_visible", None)
+        if callable(size_setter):
+            size_setter(self._active_operation_id() == "compress")
+        format_setter = getattr(model, "set_conversion_formats_visible", None)
+        if callable(format_setter):
+            format_setter(self._active_operation_id() == "convert")
         new_name_column = getattr(model, "COLUMN_NEW_NAME", None)
         if new_name_column is None:
             return
@@ -261,13 +273,16 @@ class FileListPreviewMixin:
             header = "Папка результата (выбор при запуске)"
         self._set_preview_folder_header(header)
 
+        active_ids = {id(item) for item in self._preview_operation_items()}
         for file_item in self.files:
             file_item.preview_name = file_item.name
+            file_item.estimated_compressed_size = None
+            file_item.conversion_target_format = ""
             file_item.preview_folder = str(
                 getattr(file_item, "folder", "")
                 or os.path.dirname(str(getattr(file_item, "path", "")))
             )
-            if not getattr(file_item, "is_file", False):
+            if id(file_item) not in active_ids or not getattr(file_item, "is_file", False):
                 continue
             if category_label:
                 file_type = str(getattr(file_item, "file_type", "")).lower()
@@ -277,6 +292,7 @@ class FileListPreviewMixin:
             if callable(
                 getattr(self, "_check_file_compatibility_dual", None)
             ) and self._check_file_compatibility_dual(file_item, from_format):
+                file_item.conversion_target_format = str(to_format).strip().upper()
                 file_item.preview_name = self._build_conversion_preview_name(
                     file_item.name, to_format
                 )
@@ -385,19 +401,24 @@ class FileListPreviewMixin:
 
         self._set_preview_folder_header(self._RESULT_FOLDER_HEADER)
 
+        active_ids = {id(item) for item in self._preview_operation_items()}
         for file_item in self.files:
             file_item.preview_name = file_item.name
             file_item.preview_folder = str(
                 getattr(file_item, "folder", "")
                 or os.path.dirname(str(getattr(file_item, "path", "")))
             )
-            if not getattr(file_item, "is_file", False):
+            file_item.estimated_compressed_size = None
+            if id(file_item) not in active_ids or not getattr(file_item, "is_file", False):
                 continue
 
             if "PDF" in compress_type and str(
                 getattr(file_item, "path", "")
             ).lower().endswith(".pdf"):
                 reduction = self._estimate_pdf_reduction_percent()
+                file_item.estimated_compressed_size = round(
+                    max(0, getattr(file_item, "size", 0)) * (100 - reduction) / 100
+                )
                 if not replace_pdf:
                     new_name = self._build_compressed_name(
                         file_item.name, ".pdf"
@@ -416,6 +437,9 @@ class FileListPreviewMixin:
                 and getattr(file_item, "file_type", "") == "image"
             ):
                 reduction = self._estimate_image_reduction_percent(file_item)
+                file_item.estimated_compressed_size = round(
+                    max(0, getattr(file_item, "size", 0)) * (100 - reduction) / 100
+                )
                 if not replace_image:
                     ext = (
                         file_item.name.rsplit(".", 1)[1]
@@ -445,7 +469,7 @@ class FileListPreviewMixin:
         files_to_rename = []
         new_names = []
 
-        for file_item in self.files:
+        for file_item in self._preview_operation_items():
             if (
                 hasattr(file_item, "preview_name")
                 and file_item.name != file_item.preview_name
@@ -492,7 +516,7 @@ class FileListPreviewMixin:
                 show_starting(
                     f"Подготовка переименования {len(files_to_rename)} файлов..."
                 )
-            if not self.create_file_worker():
+            if not self.create_file_worker(operation="rename"):
                 hide_progress = getattr(self, "_hide_progress_dialog", None)
                 if callable(hide_progress):
                     hide_progress()
@@ -544,6 +568,9 @@ class FileListPreviewMixin:
         self._remove_missing_files_from_queue()
         if not self.files:
             self.list_files.clear()
+            if callable(getattr(self, "on_file_selection_changed", None)):
+                self.on_file_selection_changed()
+                return
             if callable(getattr(self, "update_convert_button_state", None)):
                 self.update_convert_button_state()
             if callable(getattr(self, "_update_compress_button", None)):
@@ -552,20 +579,15 @@ class FileListPreviewMixin:
                 self._update_merge_button_state()
             return
 
-        selected_paths = [
-            file_item.path
-            for file_item in selected_file_items(self.list_files)
-            if getattr(file_item, "path", None)
-        ]
-
         filtered_files = (
             self._get_filtered_files()
             if hasattr(self, "_get_filtered_files")
             else self.files
         )
         self.list_files.set_files(filtered_files)
-        self.list_files.clearSelection()
-        self.list_files.select_paths(selected_paths)
+        if callable(getattr(self, "on_file_selection_changed", None)):
+            self.on_file_selection_changed()
+            return
         if callable(getattr(self, "_auto_select_compress_type", None)):
             self._auto_select_compress_type()
         if callable(getattr(self, "_update_merge_button_state", None)):

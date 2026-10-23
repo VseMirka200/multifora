@@ -413,8 +413,8 @@ class MultiforaMainWindow(
             word = "файлов"
         return f"{count} {word}"
 
-    def create_file_worker(self):
-        """Создает новый экземпляр FileWorker и подключает сигналы."""
+    def create_file_worker(self, operation=None):
+        """Создаёт обработчик операции и подключает сигналы."""
         if not self._ensure_operation_can_start():
             return False
         if self.file_worker:
@@ -426,11 +426,14 @@ class MultiforaMainWindow(
             except Exception as e:
                 _debug_log(f"Ошибка отключения старых сигналов: {e}")
 
-        # Импорт остаётся здесь как резервный путь: обычно он уже выполнен
-        # фоновым прогревом после показа главного окна.
-        from core.workers.file_worker import FileWorker
+        if operation == "rename":
+            from core.workers.rename_worker import RenameWorker
 
-        self.file_worker = FileWorker()
+            self.file_worker = RenameWorker()
+        else:
+            from core.workers.file_worker import FileWorker
+
+            self.file_worker = FileWorker()
 
         self.file_worker.progress.connect(self.progress_bar.setValue)
         self.file_worker.status.connect(self.on_worker_status)
@@ -589,7 +592,7 @@ class MultiforaMainWindow(
         if op not in {"rename", "convert", "compress"}:
             return
         self._show_operation_starting("Подготовка повторного выполнения операции...")
-        if not self.create_file_worker():
+        if not self.create_file_worker(operation=op):
             self._hide_progress_dialog()
             return
         files = self._collect_file_items_by_paths(failed_paths)
@@ -1673,18 +1676,24 @@ class MultiforaMainWindow(
         """Обработчик изменения выбора файлов"""
         self._update_merge_button_state()
         self.update_converter_from_format()
-        if callable(getattr(self, "refresh_active_file_preview", None)):
-            self.refresh_active_file_preview()
-        elif callable(getattr(self, "refresh_preview_panel", None)):
-            self.refresh_preview_panel()
         if callable(getattr(self, "_auto_select_compress_type", None)):
             self._auto_select_compress_type()
         if callable(getattr(self, "_update_compress_button", None)):
             self._update_compress_button()
+        if callable(getattr(self, "refresh_active_file_preview", None)):
+            self.refresh_active_file_preview()
+        elif callable(getattr(self, "refresh_preview_panel", None)):
+            self.refresh_preview_panel()
 
     def select_files(self):
         """Выбор файлов для обработки"""
-        options = QFileDialog.Option.ReadOnly
+        # Qt-диалог не загружает системные обработчики предпросмотра документов,
+        # которые могут удерживать выбранные файлы после закрытия окна выбора.
+        options = (
+            QFileDialog.Option.ReadOnly
+            | QFileDialog.Option.DontUseNativeDialog
+            | QFileDialog.Option.DontUseCustomDirectoryIcons
+        )
         files, _ = QFileDialog.getOpenFileNames(
             self,
             "Выберите файлы",
@@ -1698,7 +1707,11 @@ class MultiforaMainWindow(
 
     def select_folder(self):
         """Выбор папки для добавления в список"""
-        options = QFileDialog.Option.ShowDirsOnly
+        options = (
+            QFileDialog.Option.ShowDirsOnly
+            | QFileDialog.Option.DontUseNativeDialog
+            | QFileDialog.Option.DontUseCustomDirectoryIcons
+        )
         folder = QFileDialog.getExistingDirectory(
             self, "Выберите папку", "", options=options
         )

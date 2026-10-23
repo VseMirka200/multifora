@@ -28,7 +28,10 @@ jobs:
           cache: pip
 
       - name: Установить зависимости для разработки
-        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements-build.txt
+          python -m pip check
+          python scripts/verify_build_environment.py
 
       - name: Проверить стиль кода
         run: python -m ruff check .
