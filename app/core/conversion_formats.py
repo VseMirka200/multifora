@@ -152,6 +152,10 @@ FORMAT_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "PSD": (".psd",),
 }
 
+PDF_IMAGE_TARGETS = ("JPG", "JPEG", "PNG", "WEBP", "TIFF", "BMP")
+CATEGORY_TARGET_FORMATS[DOCUMENT_CATEGORY] += PDF_IMAGE_TARGETS
+
+
 _CANONICAL_SUFFIXES: dict[str, str] = {
     "JPG": ".jpg",
     "JPEG": ".jpeg",
@@ -225,6 +229,8 @@ def compatible_targets_for_source(
     normalized_category = _normalize_label(category)
     normalized_source = _normalize_label(source_label)
     targets = target_formats_for_category(normalized_category)
+    if normalized_category == DOCUMENT_CATEGORY and normalized_source != "PDF":
+        targets = [target for target in targets if target not in PDF_IMAGE_TARGETS]
     if is_mixed_source_label(normalized_category, normalized_source):
         return targets
     return [target for target in targets if target != normalized_source]

@@ -61,18 +61,22 @@ class ImageEncodingMixin:
     @staticmethod
     def _flatten_transparency(img):
         # Для форматов без альфа-канала возвращаем RGB-копию на белом фоне.
-        has_palette_transparency = (
-            img.mode == "P" and "transparency" in getattr(img, "info", {})
-        )
-        if img.mode not in {"RGBA", "LA"} and not has_palette_transparency:
+        has_transparency = "transparency" in getattr(img, "info", {})
+        if img.mode not in {"RGBA", "LA"} and not has_transparency:
             return img.convert("RGB")
 
-        rgba = img.convert("RGBA")
-        background = Image.new("RGB", rgba.size, (255, 255, 255))
-        background.paste(rgba, mask=rgba.getchannel("A"))
+        background = Image.new("RGB", img.size, (255, 255, 255))
+        with img.convert("RGBA") as rgba, rgba.getchannel("A") as mask:
+            background.paste(rgba, mask=mask)
         return background
 
     def _prepare_image_frame(self, frame, target_format: str):
+        from PIL import ImageOps
+
+        with ImageOps.exif_transpose(frame) as oriented:
+            return self._prepare_oriented_image_frame(oriented, target_format)
+
+    def _prepare_oriented_image_frame(self, frame, target_format: str):
         # Принимает кадр Pillow и формат, возвращает отдельный кадр для сохранения.
         # Исходное изображение остаётся доступным для обработки следующих кадров.
         target_format = str(target_format or "").upper()
@@ -97,8 +101,10 @@ class ImageEncodingMixin:
             if max_side > 256:
                 img.thumbnail((256, 256), Image.Resampling.LANCZOS)
             return img
+        if target_format == "QOI" and img.mode in {"L", "LA"}:
+            return img.convert("RGBA" if img.mode == "LA" else "RGB")
         if target_format in _IMAGE_ALPHA_TARGETS:
-            if img.mode not in ("RGB", "RGBA", "L", "LA"):
+            if img.mode not in ("RGB", "RGBA", "L", "LA") or "transparency" in img.info:
                 img = img.convert("RGBA")
             return img
         return img
@@ -152,10 +158,11 @@ class ImageEncodingMixin:
         save_options: dict[str, object],
         image_sequence,
     ) -> None:
-        frames = [
-            self._prepare_image_frame(frame, target_format)
-            for frame in image_sequence.Iterator(source_image)
-        ]
+        frames = []
+        durations = []
+        for frame in image_sequence.Iterator(source_image):
+            durations.append(frame.info.get("duration", 100))
+            frames.append(self._prepare_image_frame(frame, target_format))
         if not frames:
             raise Exception("Изображение не содержит кадров")
 
@@ -166,7 +173,7 @@ class ImageEncodingMixin:
                 save_format,
                 save_all=True,
                 append_images=rest,
-                duration=source_image.info.get("duration", 100),
+                duration=durations,
                 loop=source_image.info.get("loop", 0),
                 **save_options,
             )

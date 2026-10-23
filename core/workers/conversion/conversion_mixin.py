@@ -13,6 +13,7 @@ from functools import partial
 from app.core.app_utils import _debug_log
 from app.core.conversion_formats import (
     DOCUMENT_CATEGORY,
+    PDF_IMAGE_TARGETS,
     format_for_path,
     source_formats_for_category,
     suffix_for_format,
@@ -360,8 +361,8 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
 
     def _get_conversion_handler(
         self,
-    ) -> Callable[[FileItem], str | None] | None:
-        handlers: dict[str, Callable[[FileItem], str | None]] = {
+    ) -> Callable[[FileItem], str | list[str] | None] | None:
+        handlers: dict[str, Callable[[FileItem], str | list[str] | None]] = {
             "word_to_odt": self._convert_word_to_odt,
             "odt_to_word": self._convert_odt_to_word,
             "odt_to_pdf": self._convert_odt_to_pdf,
@@ -917,7 +918,7 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         self,
         file: FileItem,
         target_format: str,
-    ) -> str | None:
+    ) -> str | list[str] | None:
         source_format = format_for_path(file.path)
         normalized_target = str(target_format or "").upper()
         if source_format not in source_formats_for_category(DOCUMENT_CATEGORY):
@@ -925,6 +926,9 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         if source_format == normalized_target:
             self.status.emit(f"Пропущен {file.name}: уже {normalized_target}")
             return None
+
+        if source_format == "PDF" and normalized_target in PDF_IMAGE_TARGETS:
+            return self._convert_pdf_to_image(file, normalized_target)
 
         # Для PDF сохраняем специализированные конвертеры, потому что они лучше
         # восстанавливают структуру документа, чем текстовый резервный маршрут.
@@ -978,9 +982,11 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
                     raise Exception(
                         f"Неизвестная операция конвертации: {self.conversion_type}"
                     )
-                converted_item = self._converted_file_item(handler(file))
-                if converted_item is not None:
-                    results.append(converted_item)
+                output = handler(file)
+                for path in output if isinstance(output, list) else [output]:
+                    converted_item = self._converted_file_item(path)
+                    if converted_item is not None:
+                        results.append(converted_item)
             except Exception as error:
                 self._report_file_conversion_error(file, error)
 

@@ -7,6 +7,7 @@ import os
 from app.core.app_utils import _debug_log
 from app.core.conversion_formats import (
     IMAGE_CATEGORY,
+    PDF_IMAGE_TARGETS,
     format_for_path,
     source_formats_for_category,
     suffix_for_format,
@@ -52,7 +53,7 @@ class ImageConversionMixin:
                 self._save_pillow_image(image, temporary, target_format)
             return output_path
         except Exception as error:
-            self._discard_conversion_output(output_path)
+            self._release_conversion_output_path(output_path)
             raise Exception(
                 f"Ошибка конвертации изображения {source_format} → {target_format}: {error}"
             ) from error
@@ -74,33 +75,53 @@ class ImageConversionMixin:
             return None
         return self._convert_image_to_image(file, target_format)
 
-    def _convert_pdf_to_image(self, file: FileItem) -> str:
+    def _convert_pdf_to_image(
+        self, file: FileItem, target_format: str = "JPG"
+    ) -> str | list[str] | None:
         if not file.path.lower().endswith(".pdf"):
             return None
-        if not HAS_PYMUPDF:
-            raise Exception(
-                "Установите PyMuPDF для конвертации PDF в изображение"
-            )
+        if not HAS_PYMUPDF or not HAS_PIL:
+            raise Exception("Для конвертации PDF в изображения нужны PyMuPDF и Pillow")
+        target_format = str(target_format or "JPG").strip().upper()
+        if target_format not in PDF_IMAGE_TARGETS:
+            raise ValueError(f"Неподдерживаемый формат экспорта PDF: {target_format}")
 
-        image_path = self._conversion_output_path(file, ".jpg")
+        import pymupdf as fitz
+
+        paths = []
         try:
-            import pymupdf as fitz
-
-            with fitz.open(file.path) as pdf_document:
-                if pdf_document.page_count < 1:
-                    raise Exception("PDF не содержит страниц")
-                page = pdf_document.load_page(0)
-                # ~200 DPI при стандартных 72 DPI PDF.
-                pix = page.get_pixmap(
-                    matrix=fitz.Matrix(200 / 72, 200 / 72), alpha=False
-                )
-                with atomic_output_path(image_path) as temporary:
-                    pix.save(temporary)
-            return image_path
+            with fitz.open(file.path) as document:
+                if document.needs_pass:
+                    raise ValueError("PDF защищён паролем")
+                if document.page_count < 1:
+                    raise ValueError("PDF не содержит страниц")
+                for index in range(document.page_count):
+                    if self._should_cancel():
+                        break
+                    reference = file
+                    if document.page_count > 1:
+                        stem = os.path.splitext(file.path)[0]
+                        reference = FileItem(f"{stem}_page_{index + 1}.pdf")
+                    output_path = self._conversion_output_path(
+                        file, suffix_for_format(target_format), reference_file=reference
+                    )
+                    try:
+                        pix = document.load_page(index).get_pixmap(
+                            matrix=fitz.Matrix(200 / 72, 200 / 72),
+                            colorspace=fitz.csRGB, alpha=False,
+                        )
+                        with Image.frombytes("RGB", (pix.width, pix.height), pix.samples) as image:
+                            with atomic_output_path(output_path) as temporary:
+                                self._save_pillow_image(image, temporary, target_format)
+                    except Exception:
+                        self._release_conversion_output_path(output_path)
+                        raise
+                    paths.append(output_path)
+            return paths[0] if len(paths) == 1 else paths
         except Exception as error:
-            raise Exception(
-                f"Ошибка конвертации PDF в изображение: {error}"
-            ) from error
+            for path in paths:
+                self._discard_conversion_output(path)
+            raise Exception(f"Ошибка конвертации PDF в изображения: {error}") from error
 
     def _convert_image_to_pdf(self, file: FileItem) -> str:
         source_format = format_for_path(file.path)
@@ -113,6 +134,7 @@ class ImageConversionMixin:
 
         pdf_path = self._conversion_output_path(file, ".pdf")
         image = None
+        frames = []
         try:
             image = (
                 self._load_svg_as_pillow_image(file.path)
@@ -123,10 +145,8 @@ class ImageConversionMixin:
             if frame_count > 1:
                 from PIL import ImageSequence
 
-                frames = [
-                    self._flatten_transparency(frame.copy())
-                    for frame in ImageSequence.Iterator(image)
-                ]
+                for frame in ImageSequence.Iterator(image):
+                    frames.append(self._prepare_image_frame(frame, "JPG"))
                 first, rest = frames[0], frames[1:]
                 with atomic_output_path(pdf_path) as temporary:
                     first.save(
@@ -137,16 +157,18 @@ class ImageConversionMixin:
                         append_images=rest,
                     )
             else:
-                frame = self._flatten_transparency(image)
-                with atomic_output_path(pdf_path) as temporary:
-                    frame.save(temporary, "PDF", resolution=100.0)
+                with self._prepare_image_frame(image, "JPG") as frame:
+                    with atomic_output_path(pdf_path) as temporary:
+                        frame.save(temporary, "PDF", resolution=100.0)
             return pdf_path
         except Exception as error:
-            self._discard_conversion_output(pdf_path)
+            self._release_conversion_output_path(pdf_path)
             raise Exception(
                 f"Ошибка конвертации изображения в PDF: {error}"
             ) from error
         finally:
+            for frame in frames:
+                frame.close()
             if image is not None:
                 try:
                     image.close()
