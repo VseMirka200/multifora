@@ -124,6 +124,70 @@ class CheckedOperationsTests(unittest.TestCase):
         window.on_list_order_changed()
         self.assertEqual(window.files, [*reversed(self.items[:4]), self.items[4]])
 
+    def test_compression_column_shows_sizes_and_updates_with_options_and_marks(self):
+        from PyQt6.QtCore import Qt
+
+        window = self.window
+        self.items[0].size = 10 * 1024 * 1024
+        self.items[1].size = 2 * 1024 * 1024
+        self.tab("compress")
+        window.combo_compress_type.setCurrentText("PDF документы")
+        window.combo_pdf_method.setCurrentText("Авто")
+        window.refresh_compression_preview()
+        model = window.list_files.model()
+        column = model.COLUMN_TYPE
+        self.assertEqual(model.headerData(column, Qt.Orientation.Horizontal), "Размер: сейчас → после")
+        self.assertEqual(model.index(0, column).data(), "10,0 МБ → ≈7,0 МБ")
+        window.combo_pdf_method.setCurrentText("Максимальное сжатие")
+        self.assertEqual(model.index(0, column).data(), "10,0 МБ → ≈4,5 МБ")
+        window.list_files.select_paths([self.items[1].path])
+        self.assertEqual(model.index(0, column).data(), "10,0 МБ → —")
+        self.assertEqual(model.index(1, column).data(), "2,0 МБ → ≈921,6 КБ")
+        window.sort_files_by_column(column)
+        self.assertLessEqual(window.files[0].size, window.files[-1].size)
+        self.tab("rename")
+        self.assertEqual(model.headerData(column, Qt.Orientation.Horizontal), "Тип файла")
+        self.assertTrue(all(item.estimated_compressed_size is None for item in self.items))
+
+    def test_image_size_estimate_changes_with_quality_and_clears_pdf_estimates(self):
+        window = self.window
+        self.items[4].size = 8 * 1024 * 1024
+        self.tab("compress")
+        window.combo_compress_type.setCurrentText("PDF документы")
+        window.refresh_compression_preview()
+        self.assertIsNotNone(self.items[0].estimated_compressed_size)
+        window.list_files.select_paths([self.items[4].path])
+        window.combo_compress_type.setCurrentText("Изображения")
+        window.combo_compression_level.setCurrentIndex(window.combo_compression_level.findData(40))
+        model = window.list_files.model()
+        self.assertEqual(model.index(4, model.COLUMN_TYPE).data(), "8,0 МБ → ≈5,2 МБ")
+        self.assertIsNone(self.items[0].estimated_compressed_size)
+        window.combo_compression_level.setCurrentIndex(window.combo_compression_level.findData(85))
+        self.assertEqual(model.index(4, model.COLUMN_TYPE).data(), "8,0 МБ → ≈7,0 МБ")
+
+    def test_conversion_column_shows_current_and_target_formats(self):
+        from PyQt6.QtCore import Qt
+
+        window = self.window
+        self.tab("convert")
+        window.convert_file_type_combo.setCurrentText("Документы")
+        window.from_convert_combo.setCurrentText("DOCX")
+        window.to_convert_combo.setCurrentText("PDF")
+        model = window.list_files.model()
+        column = model.COLUMN_TYPE
+        self.assertEqual(model.headerData(column, Qt.Orientation.Horizontal), "Тип: сейчас → после")
+        self.assertEqual(model.index(2, column).data(), "DOCX → PDF")
+        self.assertEqual(model.index(0, column).data(), "PDF → —")
+        window.to_convert_combo.setCurrentText("TXT")
+        self.assertEqual(model.index(2, column).data(), "DOCX → TXT")
+        window.list_files.select_paths([self.items[3].path])
+        self.assertEqual(model.index(2, column).data(), "DOCX → —")
+        window.to_convert_combo.setCurrentText("TXT")
+        self.assertEqual(model.index(3, column).data(), "DOCX → TXT")
+        self.tab("rename")
+        self.assertEqual(model.headerData(column, Qt.Orientation.Horizontal), "Тип файла")
+        self.assertEqual(model.index(3, column).data(), "DOCX")
+
     def test_removed_files_can_be_changed_without_closing_window(self):
         from app.core.rename_templates import build_file_token_values
 

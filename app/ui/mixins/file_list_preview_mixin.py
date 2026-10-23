@@ -30,6 +30,8 @@ class FileListPreviewMixin:
     def _set_preview_names_to_original(self):
         for file_item in getattr(self, "files", []) or []:
             file_item.preview_name = file_item.name
+            file_item.estimated_compressed_size = None
+            file_item.conversion_target_format = ""
             file_item.preview_folder = str(
                 getattr(file_item, "folder", "")
                 or os.path.dirname(str(getattr(file_item, "path", "")))
@@ -52,11 +54,17 @@ class FileListPreviewMixin:
         return str(tab_bar.tabData(index) or "")
 
     def sync_file_preview_columns(self) -> None:
-        """Показывает столбец нового имени только для переименования."""
+        """Показывает нужные для текущей операции имена и размеры."""
         file_list = getattr(self, "list_files", None)
         if file_list is None:
             return
         model = file_list.model()
+        size_setter = getattr(model, "set_compression_sizes_visible", None)
+        if callable(size_setter):
+            size_setter(self._active_operation_id() == "compress")
+        format_setter = getattr(model, "set_conversion_formats_visible", None)
+        if callable(format_setter):
+            format_setter(self._active_operation_id() == "convert")
         new_name_column = getattr(model, "COLUMN_NEW_NAME", None)
         if new_name_column is None:
             return
@@ -268,6 +276,8 @@ class FileListPreviewMixin:
         active_ids = {id(item) for item in self._preview_operation_items()}
         for file_item in self.files:
             file_item.preview_name = file_item.name
+            file_item.estimated_compressed_size = None
+            file_item.conversion_target_format = ""
             file_item.preview_folder = str(
                 getattr(file_item, "folder", "")
                 or os.path.dirname(str(getattr(file_item, "path", "")))
@@ -282,6 +292,7 @@ class FileListPreviewMixin:
             if callable(
                 getattr(self, "_check_file_compatibility_dual", None)
             ) and self._check_file_compatibility_dual(file_item, from_format):
+                file_item.conversion_target_format = str(to_format).strip().upper()
                 file_item.preview_name = self._build_conversion_preview_name(
                     file_item.name, to_format
                 )
@@ -397,6 +408,7 @@ class FileListPreviewMixin:
                 getattr(file_item, "folder", "")
                 or os.path.dirname(str(getattr(file_item, "path", "")))
             )
+            file_item.estimated_compressed_size = None
             if id(file_item) not in active_ids or not getattr(file_item, "is_file", False):
                 continue
 
@@ -404,6 +416,9 @@ class FileListPreviewMixin:
                 getattr(file_item, "path", "")
             ).lower().endswith(".pdf"):
                 reduction = self._estimate_pdf_reduction_percent()
+                file_item.estimated_compressed_size = round(
+                    max(0, getattr(file_item, "size", 0)) * (100 - reduction) / 100
+                )
                 if not replace_pdf:
                     new_name = self._build_compressed_name(
                         file_item.name, ".pdf"
@@ -422,6 +437,9 @@ class FileListPreviewMixin:
                 and getattr(file_item, "file_type", "") == "image"
             ):
                 reduction = self._estimate_image_reduction_percent(file_item)
+                file_item.estimated_compressed_size = round(
+                    max(0, getattr(file_item, "size", 0)) * (100 - reduction) / 100
+                )
                 if not replace_image:
                     ext = (
                         file_item.name.rsplit(".", 1)[1]

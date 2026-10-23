@@ -999,6 +999,49 @@ class FileListModel(QAbstractTableModel):
         super().__init__(parent)
         self._files = []
         self._folder_header = self.HEADERS[self.COLUMN_PATH]
+        self.compression_sizes_visible = False
+        self.conversion_formats_visible = False
+
+    def set_conversion_formats_visible(self, visible: bool) -> None:
+        if self.conversion_formats_visible == visible:
+            return
+        self.conversion_formats_visible = visible
+        self.headerDataChanged.emit(Qt.Orientation.Horizontal, self.COLUMN_TYPE, self.COLUMN_TYPE)
+        self.refresh()
+
+    @staticmethod
+    def _conversion_type_label(file_item) -> str:
+        source = file_item_type_label(file_item)
+        if not getattr(file_item, "is_file", False):
+            return source
+        target = getattr(file_item, "conversion_target_format", "") or "—"
+        return f"{source} → {target}"
+
+    def set_compression_sizes_visible(self, visible: bool) -> None:
+        if self.compression_sizes_visible == visible:
+            return
+        self.compression_sizes_visible = visible
+        self.headerDataChanged.emit(Qt.Orientation.Horizontal, self.COLUMN_TYPE, self.COLUMN_TYPE)
+        self.refresh()
+
+    @staticmethod
+    def _format_file_size(size: int) -> str:
+        value = max(0, int(size))
+        if value < 1024:
+            return f"{value} Б"
+        for unit in ("КБ", "МБ", "ГБ", "ТБ"):
+            value /= 1024
+            if value < 1024 or unit == "ТБ":
+                return f"{value:.1f} {unit}".replace(".", ",")
+        return ""
+
+    def _compression_size_label(self, file_item) -> str:
+        if not getattr(file_item, "is_file", False):
+            return "—"
+        current = self._format_file_size(getattr(file_item, "size", 0))
+        estimated = getattr(file_item, "estimated_compressed_size", None)
+        after = f"≈{self._format_file_size(estimated)}" if estimated is not None else "—"
+        return f"{current} → {after}"
 
     def set_folder_header(self, text: str) -> None:
         """Меняет заголовок папки в соответствии с предпросмотром операции."""
@@ -1031,6 +1074,16 @@ class FileListModel(QAbstractTableModel):
             and role == Qt.ItemDataRole.ToolTipRole
         ):
             return "В работу: отметить все файлы текущего списка или снять отметки"
+        if orientation == Qt.Orientation.Horizontal and section == self.COLUMN_TYPE and self.compression_sizes_visible:
+            if role == Qt.ItemDataRole.DisplayRole:
+                return "Размер: сейчас → после"
+            if role == Qt.ItemDataRole.ToolTipRole:
+                return "Текущий размер и приблизительный размер после сжатия. Сортировка по текущему размеру."
+        if orientation == Qt.Orientation.Horizontal and section == self.COLUMN_TYPE and self.conversion_formats_visible:
+            if role == Qt.ItemDataRole.DisplayRole:
+                return "Тип: сейчас → после"
+            if role == Qt.ItemDataRole.ToolTipRole:
+                return "Исходный формат и формат результата. Сортировка по исходному типу файла."
         if (
             orientation == Qt.Orientation.Horizontal
             and role == Qt.ItemDataRole.DisplayRole
@@ -1070,11 +1123,27 @@ class FileListModel(QAbstractTableModel):
                     file_item, "preview_name", None
                 ) or self._original_display_name(file_item)
             if index.column() == self.COLUMN_TYPE:
+                if self.compression_sizes_visible:
+                    return self._compression_size_label(file_item)
+                if self.conversion_formats_visible:
+                    return self._conversion_type_label(file_item)
                 return file_item_type_label(file_item)
             if index.column() == self.COLUMN_PATH:
                 preview_folder = getattr(file_item, "preview_folder", "")
                 return str(preview_folder or file_item_source_folder(file_item))
         if role == Qt.ItemDataRole.ToolTipRole:
+            if index.column() == self.COLUMN_TYPE and self.conversion_formats_visible:
+                return (
+                    f"{self._conversion_type_label(file_item)}\n"
+                    "Исходный формат → формат результата. Прочерк означает, что файл не участвует в конвертации."
+                )
+            if index.column() == self.COLUMN_TYPE and self.compression_sizes_visible:
+                return (
+                    f"{self._compression_size_label(file_item)}\n"
+                    "Оценка зависит от выбранного режима и содержимого файла. "
+                    "Точный размер будет известен после сжатия.\n"
+                    "Прочерк означает, что файл не участвует в сжатии."
+                )
             if index.column() == self.COLUMN_OLD_NAME:
                 return self._original_display_name(file_item)
             if index.column() == self.COLUMN_NEW_NAME:

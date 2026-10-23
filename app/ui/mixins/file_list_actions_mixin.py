@@ -359,6 +359,8 @@ class FileListActionsMixin:
         elif section == model.COLUMN_TYPE:
 
             def key_func(file_item):
+                if model.compression_sizes_visible:
+                    return (getattr(file_item, "size", 0), natural_sort_key(getattr(file_item, "name", "")))
                 return (
                     natural_sort_key(file_item_type_label(file_item)),
                     natural_sort_key(getattr(file_item, "name", "")),
