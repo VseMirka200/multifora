@@ -9,7 +9,6 @@ from PyQt6.QtWidgets import (
 
 from app.ui.ui_components import (
     MenuLikeComboBox,
-    setup_compact_checkbox,
     setup_standard_dropdown,
     setup_standard_form_label,
     setup_standard_line_input,
@@ -137,7 +136,6 @@ class TemplateParamsTextMixin:
         )
 
         self.template_regex_ignore_case = QCheckBox("Не учитывать регистр")
-        setup_compact_checkbox(self.template_regex_ignore_case)
         layout.addWidget(self.template_regex_ignore_case)
         self.template_params_layout.addWidget(container)
 

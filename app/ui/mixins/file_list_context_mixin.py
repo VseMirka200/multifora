@@ -2,7 +2,6 @@ import os
 
 from PyQt6.QtCore import (
     QFile,
-    QItemSelectionModel,
     QMimeData,
     QPoint,
     Qt,
@@ -18,23 +17,21 @@ from app.ui.ui_components import (
 
 
 class FileListContextMixin:
-    # Действия контекстного меню работают с текущим выделением списка файлов.
+    # Контекстное меню работает с отмеченными файлами или строкой под курсором.
     def _get_selected_file_items(self):
+        context_items = getattr(self, "_context_file_items", None)
+        if context_items is not None:
+            return context_items
         return selected_file_items(self.list_files)
 
     def show_file_context_menu(self, pos: QPoint):
         if not self.files:
             return
         index = self.list_files.indexAt(pos)
-        if index.isValid() and not self.list_files.selectionModel().isSelected(
-            index
-        ):
-            self.list_files.clearSelection()
-            self.list_files.selectionModel().select(
-                index, QItemSelectionModel.SelectionFlag.Select
-            )
-
         selected_items = self._get_selected_file_items()
+        clicked_item = index.data(Qt.ItemDataRole.UserRole) if index.isValid() else None
+        if clicked_item is not None and not any(item is clicked_item for item in selected_items):
+            selected_items = [clicked_item]
         if not selected_items:
             return
 
@@ -48,15 +45,19 @@ class FileListContextMixin:
         if len(selected_items) != 1:
             action_rename.setEnabled(False)
 
-        action = menu.exec(self.list_files.viewport().mapToGlobal(pos))
-        if action == action_open:
-            self.open_selected_items()
-        elif action == action_copy:
-            self.copy_selected_files_to_clipboard()
-        elif action == action_rename:
-            self.rename_selected_item()
-        elif action == action_remove:
-            self.remove_selected_files_from_list()
+        self._context_file_items = selected_items
+        try:
+            action = menu.exec(self.list_files.viewport().mapToGlobal(pos))
+            if action == action_open:
+                self.open_selected_items()
+            elif action == action_copy:
+                self.copy_selected_files_to_clipboard()
+            elif action == action_rename:
+                self.rename_selected_item()
+            elif action == action_remove:
+                self.remove_selected_files_from_list()
+        finally:
+            self._context_file_items = None
 
     def open_file(self, item):
         """Открытие файла"""
@@ -208,7 +209,7 @@ class FileListContextMixin:
             if abs_path not in removable_paths:
                 kept_files.append(f)
         self.files = kept_files
-        self.list_files.set_files(self.files)
+        self.update_file_list()
         self.update_file_info()
         removed_count = len(selected) - len(failed_moves)
         if move_to_trash:

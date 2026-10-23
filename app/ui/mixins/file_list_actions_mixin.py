@@ -238,16 +238,14 @@ class FileListActionsMixin:
                 )
 
         if unsupported_paths:
-            examples = ", ".join(
-                os.path.basename(path) for path in unsupported_paths[:3]
+            file_names = "\n".join(
+                os.path.basename(path) for path in unsupported_paths
             )
-            suffix = "" if len(unsupported_paths) <= 3 else ", …"
             QMessageBox.warning(
                 self,
                 "Неподдерживаемые файлы",
-                "Эти файлы не добавлены: программа работает только с "
-                "поддерживаемыми документами, изображениями и архивами.\n\n"
-                f"Пропущено: {len(unsupported_paths)} ({examples}{suffix})",
+                "Эти файлы не добавлены в проект, потому что их форматы "
+                f"не поддерживаются:\n\n{file_names}",
             )
             if callable(getattr(self, "log_event", None)):
                 self.log_event(
@@ -298,7 +296,10 @@ class FileListActionsMixin:
         self.label_total_size.setText(f"Общий объем: {total_size:.2f} MB")
 
     def on_file_header_clicked(self, section: int):
-        """Сортирует общий список по выбранной колонке таблицы."""
+        """Переключает общий флажок или сортирует выбранную колонку."""
+        if section == self.list_files.model().COLUMN_CHECK:
+            self.list_files.check_all_checkbox.click()
+            return
         current_section = getattr(self, "_column_sort_section", None)
         current_order = getattr(
             self,
@@ -323,9 +324,7 @@ class FileListActionsMixin:
         )
         self.sort_files_by_column(section, order)
 
-    def sort_files_by_column(
-        self, section: int, order=Qt.SortOrder.AscendingOrder
-    ):
+    def sort_files_by_column(self, section: int, order=Qt.SortOrder.AscendingOrder):
         if not hasattr(self, "list_files"):
             return
         model = self.list_files.model()
@@ -337,12 +336,6 @@ class FileListActionsMixin:
         }
         if section not in valid_columns:
             return
-
-        selected_paths = [
-            file_item.path
-            for file_item in self.list_files.selected_file_items()
-            if getattr(file_item, "path", None)
-        ]
 
         if section == model.COLUMN_OLD_NAME:
 
@@ -393,14 +386,12 @@ class FileListActionsMixin:
         header.setSortIndicator(section, order)
         header.setSortIndicatorShown(True)
         self.update_file_list()
-        self.list_files.clearSelection()
-        self.list_files.select_paths(selected_paths)
         if callable(getattr(self, "_schedule_settings_save", None)):
             self._schedule_settings_save()
 
     def on_list_order_changed(self):
         visible_files = self.list_files.model().files()
-        if self._is_any_filter_active():
+        if self._is_any_filter_active() or len(visible_files) != len(self.files):
             visible_ids = {id(file_item) for file_item in visible_files}
             visible_iterator = iter(visible_files)
             self.files = [

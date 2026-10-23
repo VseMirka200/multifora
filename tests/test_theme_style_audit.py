@@ -166,14 +166,14 @@ class ThemeStyleAuditTests(unittest.TestCase):
     ):
         light = build_operations_tab_bar_style("light")
         dark = build_operations_tab_bar_style("dark")
-        for style in (light, dark):
+        for style, weight in ((light, 600), (dark, 700)):
             self.assertIn("border-bottom: 1px solid #3d74b3", style)
             tab = style.split("QTabBar#operations_tab_bar::tab {", 1)[1].split(
                 "}", 1
             )[0]
             self.assertIn("padding: 0px", tab)
             self.assertIn("font-size: 13px", tab)
-            self.assertIn("font-weight: 700", tab)
+            self.assertIn(f"font-weight: {weight}", tab)
             self.assertIn("min-height: 22px", style)
             self.assertIn("max-height: 22px", style)
             selected = style.split(
@@ -193,7 +193,7 @@ class ThemeStyleAuditTests(unittest.TestCase):
             )[1].split("}", 1)[0]
             self.assertIn(f"color: {foreground}", button)
             self.assertIn("font-size: 13px", button)
-            self.assertIn("font-weight: 700", button)
+            self.assertIn(f"font-weight: {600 if theme == 'light' else 700}", button)
             self.assertIn("border-bottom: 1px solid transparent", button)
             self.assertIn("border-radius: 0px", button)
             self.assertIn("color: #3d74b3", selected_button)

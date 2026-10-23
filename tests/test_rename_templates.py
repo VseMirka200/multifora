@@ -1,7 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from PIL import Image
 
@@ -9,6 +9,37 @@ import app.core.rename_templates as rt
 
 
 class RenameTemplateTests(unittest.TestCase):
+    def test_metadata_error_closes_source_even_when_image_plugin_keeps_reference(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder, "photo.png")
+            path.write_bytes(b"test")
+            retained_sources = []
+
+            def open_image(source):
+                retained_sources.append(source)
+                image = MagicMock()
+                image.__enter__.return_value = image
+                image.width, image.height = 16, 9
+                image.getexif.side_effect = ValueError("Invalid EXIF")
+                return image
+
+            with patch("PIL.Image.open", side_effect=open_image):
+                rt.build_file_token_values(str(path))
+
+            self.assertEqual(len(retained_sources), 1)
+            self.assertTrue(retained_sources[0].closed)
+            path.rename(path.with_name("renamed.png"))
+
+    def test_document_metadata_does_not_open_document_as_image(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder, "document.docx")
+            path.write_bytes(b"test")
+            with patch("PIL.Image.open") as open_image:
+                values = rt.build_file_token_values(str(path))
+            open_image.assert_not_called()
+            self.assertEqual(values["width"], "")
+            self.assertEqual(values["height"], "")
+
     def test_regex_replace_supports_groups_and_ignore_case(self):
         self.assertEqual(
             rt.regex_replace(

@@ -110,9 +110,11 @@ class ImageConversionMixin:
                             matrix=fitz.Matrix(200 / 72, 200 / 72),
                             colorspace=fitz.csRGB, alpha=False,
                         )
-                        with Image.frombytes("RGB", (pix.width, pix.height), pix.samples) as image:
-                            with atomic_output_path(output_path) as temporary:
-                                self._save_pillow_image(image, temporary, target_format)
+                        with (
+                            Image.frombytes("RGB", (pix.width, pix.height), pix.samples) as image,
+                            atomic_output_path(output_path) as temporary,
+                        ):
+                            self._save_pillow_image(image, temporary, target_format)
                     except Exception:
                         self._release_conversion_output_path(output_path)
                         raise
@@ -145,8 +147,10 @@ class ImageConversionMixin:
             if frame_count > 1:
                 from PIL import ImageSequence
 
-                for frame in ImageSequence.Iterator(image):
-                    frames.append(self._prepare_image_frame(frame, "JPG"))
+                frames.extend(
+                    self._prepare_image_frame(frame, "JPG")
+                    for frame in ImageSequence.Iterator(image)
+                )
                 first, rest = frames[0], frames[1:]
                 with atomic_output_path(pdf_path) as temporary:
                     first.save(
@@ -157,9 +161,11 @@ class ImageConversionMixin:
                         append_images=rest,
                     )
             else:
-                with self._prepare_image_frame(image, "JPG") as frame:
-                    with atomic_output_path(pdf_path) as temporary:
-                        frame.save(temporary, "PDF", resolution=100.0)
+                with (
+                    self._prepare_image_frame(image, "JPG") as frame,
+                    atomic_output_path(pdf_path) as temporary,
+                ):
+                    frame.save(temporary, "PDF", resolution=100.0)
             return pdf_path
         except Exception as error:
             self._release_conversion_output_path(pdf_path)

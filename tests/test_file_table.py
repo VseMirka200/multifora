@@ -31,7 +31,7 @@ class FileTableTests(unittest.TestCase):
         new_name_index = model.index(0, model.COLUMN_NEW_NAME)
         type_index = model.index(0, model.COLUMN_TYPE)
         path_index = model.index(0, model.COLUMN_PATH)
-        self.assertEqual(model.columnCount(), 4)
+        self.assertEqual(model.columnCount(), 5)
         self.assertEqual(
             model.headerData(model.COLUMN_OLD_NAME, Qt.Orientation.Horizontal),
             "Старое имя",
@@ -139,6 +139,7 @@ class FileTableTests(unittest.TestCase):
 
     def test_widget_uses_row_selection_and_elides_long_text_on_the_right(self):
         widget = FileListWidget()
+        widget.set_files([SimpleNamespace(path="one.pdf", name="one.pdf", is_file=True)])
         self.assertEqual(
             widget.selectionBehavior(),
             QAbstractItemView.SelectionBehavior.SelectRows,
@@ -193,147 +194,182 @@ class FileTableTests(unittest.TestCase):
 
         resize_column.assert_not_called()
 
-    def test_mouse_click_selects_complete_rows_and_ctrl_adds_rows(self):
+    def test_clearing_wide_table_removes_scrollbars_even_after_resizing_and_refilling(self):
         widget = FileListWidget()
-        widget.resize(640, 240)
+        self.addCleanup(widget.deleteLater)
+        widget.resize(800, 300)
+        widget.show()
+        files = [SimpleNamespace(
+            path=f"{index}.pdf", name="long_name_" * 40 + f"{index}.pdf",
+            preview_name="new_name_" * 40 + f"{index}.pdf", is_file=True,
+        ) for index in range(40)]
+        widget.set_files(files)
+        self.app.processEvents()
+        self.assertGreater(widget.horizontalScrollBar().maximum(), 0)
+        widget.horizontalScrollBar().setValue(100)
+        widget.verticalScrollBar().setValue(widget.verticalScrollBar().maximum())
+
+        widget.clear()
+        for width in (800, 600, 1000):
+            widget.resize(width, 300)
+            self.app.processEvents()
+            self.app.processEvents()
+            self.assertLessEqual(widget.horizontalHeader().length(), widget.viewport().width())
+            self.assertFalse(widget.horizontalScrollBar().isVisible())
+            self.assertFalse(widget.verticalScrollBar().isVisible())
+            self.assertEqual(widget.horizontalScrollBar().value(), 0)
+            self.assertEqual(widget.verticalScrollBar().value(), 0)
+
+        widget.set_files(files)
+        self.app.processEvents()
+        self.assertTrue(widget.horizontalHeader().stretchLastSection())
+        self.assertEqual(
+            widget.horizontalHeader().sectionResizeMode(widget.model().COLUMN_OLD_NAME),
+            QHeaderView.ResizeMode.Interactive,
+        )
+        widget.horizontalHeader().resizeSection(widget.model().COLUMN_OLD_NAME, widget.width() * 2)
+        self.app.processEvents()
+        self.assertGreater(widget.horizontalScrollBar().maximum(), 0)
+
+    def _file_widget(self):
+        widget = FileListWidget()
+        widget.resize(700, 240)
         widget.set_files(
-            [
-                SimpleNamespace(
-                    path="one.docx", name="one.docx", is_file=True
-                ),
-                SimpleNamespace(
-                    path="two.docx", name="two.docx", is_file=True
-                ),
-                SimpleNamespace(
-                    path="three.docx", name="three.docx", is_file=True
-                ),
-            ]
+            [SimpleNamespace(path=f"{number}.pdf", name=f"{number}.pdf", is_file=True) for number in range(3)]
         )
         widget.show()
         self.app.processEvents()
+        self.addCleanup(widget.close)
+        return widget
 
-        second_row_cell = widget.model().index(
-            1, widget.model().COLUMN_NEW_NAME
-        )
+    def _click(self, widget, row, column):
         QTest.mouseClick(
             widget.viewport(),
             Qt.MouseButton.LeftButton,
-            pos=widget.visualRect(second_row_cell).center(),
-        )
-        self.assertEqual(
-            [index.row() for index in widget.selectionModel().selectedRows()],
-            [1],
-        )
-        self.assertTrue(
-            all(
-                widget.selectionModel().isSelected(
-                    widget.model().index(1, column)
-                )
-                for column in range(widget.model().columnCount())
-            )
+            pos=widget.visualRect(widget.model().index(row, column)).center(),
         )
 
-        third_row_cell = widget.model().index(
-            2, widget.model().COLUMN_OLD_NAME
-        )
-        QTest.mouseClick(
-            widget.viewport(),
-            Qt.MouseButton.LeftButton,
-            Qt.KeyboardModifier.ControlModifier,
-            widget.visualRect(third_row_cell).center(),
-        )
-        self.assertEqual(
-            [index.row() for index in widget.selectionModel().selectedRows()],
-            [1, 2],
-        )
-        widget.close()
-
-    def test_mouse_clicks_add_multiple_rows_without_keyboard(self):
-        widget = FileListWidget()
-        widget.resize(640, 240)
-        widget.set_files(
-            [
-                SimpleNamespace(path="one.pdf", name="one.pdf", is_file=True),
-                SimpleNamespace(path="two.pdf", name="two.pdf", is_file=True),
-                SimpleNamespace(
-                    path="three.pdf", name="three.pdf", is_file=True
-                ),
-            ]
-        )
-        widget.show()
-        self.app.processEvents()
-
-        for row in (0, 2):
-            cell = widget.model().index(row, widget.model().COLUMN_OLD_NAME)
-            QTest.mouseClick(
-                widget.viewport(),
-                Qt.MouseButton.LeftButton,
-                pos=widget.visualRect(cell).center(),
-            )
-
-        self.assertEqual(
-            [index.row() for index in widget.selectionModel().selectedRows()],
-            [0, 2],
-        )
-        widget.close()
-
-    def test_empty_area_click_clears_selection(self):
-        widget = FileListWidget()
-        widget.resize(640, 240)
-        widget.set_files(
-            [SimpleNamespace(path="one.pdf", name="one.pdf", is_file=True)]
-        )
-        widget.show()
-        self.app.processEvents()
-
-        row = widget.model().index(0, 0)
-        QTest.mouseClick(
-            widget.viewport(),
-            Qt.MouseButton.LeftButton,
-            pos=widget.visualRect(row).center(),
-        )
-        self.assertTrue(widget.selectionModel().hasSelection())
-
-        empty_point = QPoint(20, widget.viewport().height() - 10)
-        self.assertFalse(widget.indexAt(empty_point).isValid())
-        QTest.mouseClick(
-            widget.viewport(), Qt.MouseButton.LeftButton, pos=empty_point
-        )
-
+    def test_name_clicks_do_not_select_or_check_files(self):
+        widget = self._file_widget()
+        self._click(widget, 1, widget.model().COLUMN_OLD_NAME)
         self.assertFalse(widget.selectionModel().hasSelection())
-        widget.close()
+        self.assertEqual(widget.selected_file_items(), [])
+        self.assertEqual(widget.selectionMode(), QAbstractItemView.SelectionMode.NoSelection)
 
-    def test_system_mouse_drag_selects_row_range(self):
-        widget = FileListWidget()
-        widget.resize(640, 240)
-        widget.set_files(
-            [
-                SimpleNamespace(path="one.pdf", name="one.pdf", is_file=True),
-                SimpleNamespace(path="two.pdf", name="two.pdf", is_file=True),
-                SimpleNamespace(
-                    path="three.pdf", name="three.pdf", is_file=True
-                ),
-            ]
-        )
-        widget.show()
+    def test_checkbox_clicks_toggle_multiple_files_without_row_selection(self):
+        widget = self._file_widget()
+        for row in (0, 2):
+            self._click(widget, row, widget.model().COLUMN_CHECK)
+        self.assertEqual([item.path for item in widget.selected_file_items()], ["0.pdf", "2.pdf"])
+        self.assertFalse(widget.selectionModel().hasSelection())
+        self._click(widget, 0, widget.model().COLUMN_CHECK)
+        self.assertEqual([item.path for item in widget.selected_file_items()], ["2.pdf"])
+
+    def test_empty_area_click_keeps_explicit_checks(self):
+        widget = self._file_widget()
+        self._click(widget, 0, widget.model().COLUMN_CHECK)
+        QTest.mouseClick(widget.viewport(), Qt.MouseButton.LeftButton, pos=QPoint(20, widget.viewport().height() - 10))
+        self.assertEqual([item.path for item in widget.selected_file_items()], ["0.pdf"])
+
+    def test_holding_mouse_checks_every_row_even_when_pointer_skips_rows(self):
+        widget = self._file_widget()
+        column = widget.model().COLUMN_CHECK
+        start = widget.visualRect(widget.model().index(0, column)).center()
+        end = widget.visualRect(widget.model().index(2, column)).center()
+        QTest.mousePress(widget.viewport(), Qt.MouseButton.LeftButton, pos=start)
+        QTest.mouseMove(widget.viewport(), end)
+        QTest.mouseMove(widget.viewport(), start)
+        QTest.mouseRelease(widget.viewport(), Qt.MouseButton.LeftButton, pos=start)
+        self.assertEqual(len(widget.selected_file_items()), 3)
+        self.assertFalse(widget.selectionModel().hasSelection())
+        self.assertFalse(widget._check_drag_timer.isActive())
+
+    def test_drag_from_checked_box_clears_rows_and_stops_after_release(self):
+        widget = self._file_widget()
+        widget.selectAll()
+        column = widget.model().COLUMN_CHECK
+        start = widget.visualRect(widget.model().index(0, column)).center()
+        end = widget.visualRect(widget.model().index(1, column)).center()
+        QTest.mousePress(widget.viewport(), Qt.MouseButton.LeftButton, pos=start)
+        QTest.mouseMove(widget.viewport(), end)
+        # Отпускание за пределами колонки тоже завершает протягивание.
+        release = widget.visualRect(widget.model().index(1, widget.model().COLUMN_OLD_NAME)).center()
+        QTest.mouseRelease(widget.viewport(), Qt.MouseButton.LeftButton, pos=release)
+        QTest.mouseMove(widget.viewport(), widget.visualRect(widget.model().index(2, column)).center())
+        self.assertEqual([item.path for item in widget.selected_file_items()], ["2.pdf"])
+        self.assertFalse(widget._check_drag_timer.isActive())
+
+    def test_check_drag_scrolls_to_continue_marking_files(self):
+        widget = self._file_widget()
+        widget.set_files([
+            SimpleNamespace(path=f"{number}.pdf", name=f"{number}.pdf", is_file=True)
+            for number in range(60)
+        ])
         self.app.processEvents()
+        start = widget.visualRect(widget.model().index(0, widget.model().COLUMN_CHECK)).center()
+        QTest.mousePress(widget.viewport(), Qt.MouseButton.LeftButton, pos=start)
+        edge = QPoint(start.x(), widget.viewport().height() - 1)
+        for _ in range(20):
+            widget._move_check_drag(edge)
+        QTest.mouseRelease(widget.viewport(), Qt.MouseButton.LeftButton, pos=edge)
+        self.assertGreater(widget.verticalScrollBar().value(), 0)
+        self.assertGreater(len(widget.selected_file_items()), 8)
 
-        start = widget.visualRect(widget.model().index(0, 0)).center()
-        end = widget.visualRect(widget.model().index(2, 0)).center()
+    def test_checks_survive_model_reset_filtering_and_reordering(self):
+        widget = self._file_widget()
+        files = widget.model().files()
+        widget.select_paths(["2.pdf"])
+        widget.set_files(files[:1])
+        widget.set_files(list(reversed(files)))
+        self.assertEqual([item.path for item in widget.selected_file_items()], ["2.pdf"])
+        index = widget.model().index(0, widget.model().COLUMN_CHECK)
+        self.assertEqual(index.data(Qt.ItemDataRole.CheckStateRole), Qt.CheckState.Checked)
 
-        QTest.mousePress(
-            widget.viewport(), Qt.MouseButton.LeftButton, pos=start
-        )
-        QTest.mouseMove(widget.viewport(), end, delay=10)
-        QTest.mouseRelease(
-            widget.viewport(), Qt.MouseButton.LeftButton, pos=end
-        )
+    def test_select_all_and_space_manage_checks(self):
+        widget = self._file_widget()
+        widget.selectAll()
+        self.assertEqual(len(widget.selected_file_items()), 3)
+        widget.setCurrentIndex(widget.model().index(1, widget.model().COLUMN_OLD_NAME))
+        QTest.keyClick(widget, Qt.Key.Key_Space)
+        self.assertEqual([item.path for item in widget.selected_file_items()], ["0.pdf", "2.pdf"])
+        widget.clearSelection()
+        self.assertEqual(widget.selected_file_items(), [])
 
-        self.assertEqual(
-            [index.row() for index in widget.selectionModel().selectedRows()],
-            [0, 1, 2],
-        )
-        widget.close()
+    def test_header_checkbox_toggles_visible_files_and_follows_individual_checks(self):
+        widget = self._file_widget()
+        files = widget.model().files()
+        checkbox = widget.check_all_checkbox
+        self.assertTrue(checkbox.isEnabled())
+        self.assertFalse(checkbox.isChecked())
+        QTest.mouseClick(checkbox, Qt.MouseButton.LeftButton)
+        self.assertTrue(all(item.checked for item in files))
+        self.assertTrue(checkbox.isChecked())
+        index = widget.model().index(0, widget.model().COLUMN_CHECK)
+        widget.model().setData(index, Qt.CheckState.Unchecked, Qt.ItemDataRole.CheckStateRole)
+        self.assertFalse(checkbox.isChecked())
+        QTest.mouseClick(checkbox, Qt.MouseButton.LeftButton)
+        self.assertTrue(all(item.checked for item in files))
+        QTest.mouseClick(checkbox, Qt.MouseButton.LeftButton)
+        self.assertFalse(any(item.checked for item in files))
+
+        widget.set_files(files[:2])
+        QTest.mouseClick(checkbox, Qt.MouseButton.LeftButton)
+        self.assertTrue(all(item.checked for item in files[:2]))
+        self.assertFalse(files[2].checked)
+        widget.set_files(files)
+        self.assertFalse(checkbox.isChecked())
+        widget.selectAll()
+        self.assertTrue(checkbox.isChecked())
+        widget.clear()
+        self.assertFalse(checkbox.isChecked())
+        self.assertFalse(checkbox.isEnabled())
+
+    def test_check_column_is_first_visually_and_empty_queue_cannot_be_checked(self):
+        widget = self._file_widget()
+        self.assertEqual(widget.horizontalHeader().visualIndex(widget.model().COLUMN_CHECK), 0)
+        widget.clear()
+        self._click(widget, 0, widget.model().COLUMN_CHECK)
+        self.assertEqual(widget.selected_file_items(), [])
 
 
 if __name__ == "__main__":

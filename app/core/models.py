@@ -35,6 +35,7 @@ class FileItem:
 
     def __init__(self, path: str):
         self.path = path
+        self.checked = False
         self.preview_name = os.path.basename(path)
         # Заполняется экраном предпросмотра для операций, создающих копию
         # файла в другой папке. По умолчанию это исходная папка.

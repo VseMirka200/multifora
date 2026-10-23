@@ -7,7 +7,7 @@ a = Analysis(
     ['multifora_start.py'],
     pathex=[],
     binaries=[],
-    datas=[('assets', 'assets'), ('app/ui/checkbox_checked.svg', 'app/ui')]
+    datas=[('assets', 'assets')]
     + collect_data_files('docxcompose')
     + collect_data_files('pymupdf'),
     hiddenimports=collect_submodules('docxcompose'),

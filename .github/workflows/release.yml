@@ -80,15 +80,11 @@ jobs:
       - name: Собрать приложение
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --clean --windowed `
-            --name Multifora `
-            --icon assets/icon.ico `
-            --add-data "assets;assets" `
-            --add-data "app/ui/checkbox_checked.svg;app/ui" `
-            multifora_start.py
+          python -m PyInstaller --noconfirm --clean Multifora.spec
           if (Test-Path bin) {
             Copy-Item -Path bin -Destination dist/Multifora/bin -Recurse -Force
           }
+          python scripts/verify_windows_bundle.py --bundle dist/Multifora
 
       - name: Установить Inno Setup
         shell: pwsh

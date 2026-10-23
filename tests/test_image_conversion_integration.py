@@ -1,10 +1,10 @@
 import tempfile
 import unittest
-from unittest.mock import patch
 from pathlib import Path
+from unittest.mock import patch
 
-from PIL import Image
 import pymupdf
+from PIL import Image
 
 from app.core.conversion_formats import (
     DOCUMENT_CATEGORY,
@@ -70,7 +70,7 @@ class ImageConversionIntegrationTests(unittest.TestCase):
                 destination.write_bytes(b"existing content")
                 worker = _DummyConversionWorker()
                 with patch.object(worker, "_conversion_output_path", return_value=str(destination)):
-                    with self.assertRaises(Exception):
+                    with self.assertRaisesRegex(Exception, "Ошибка конвертации"):
                         worker._convert_image_auto(FileItem(str(source)), target)
                 self.assertEqual(destination.read_bytes(), b"existing content")
                 self.assertEqual(list(Path(folder).glob(".__multifora_*")), [])

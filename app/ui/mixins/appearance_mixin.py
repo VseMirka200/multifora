@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
 
 from app.core.app_utils import _log_ignored_error
 from app.core.message_boxes import show_app_confirmation
+from app.ui.checkbox_style import install_checkbox_style
 from app.ui.theme_styles import APPLICATION_STYLES
 from app.ui.ui_components import (
     refresh_standard_button_styles,
@@ -21,13 +22,6 @@ from app.ui.ui_styles import build_tab_content_style_block
 
 class AppearanceMixin:
     # Управляет темой главного окна, отдельных диалогов и системным переключением.
-    def _checkbox_checkmark_url(self):
-        """Возвращает путь локальной иконки галочки для QSS."""
-        icon_path = (
-            Path(__file__).resolve().parents[1] / "checkbox_checked.svg"
-        )
-        return icon_path.resolve().as_posix()
-
     def _theme_asset_url(self, filename: str) -> str:
         """Возвращает QSS-совместимый путь к ресурсу общей темы."""
         return (
@@ -59,13 +53,9 @@ class AppearanceMixin:
         self._apply_application_style("light")
 
     def _apply_application_style(self, theme: str) -> None:
-        # Собираем QSS по имени темы и подставляем путь к галочке во время запуска.
         # Общий порядок обновления сохраняет оформление отдельных окон и списков.
         style = APPLICATION_STYLES[theme] + build_tab_content_style_block(
             theme
-        )
-        style = style.replace(
-            "__CHECKMARK_URL__", self._checkbox_checkmark_url()
         )
         style = style.replace(
             "__SCROLL_UP_URL__", self._theme_asset_url("scroll_up.svg")
@@ -75,6 +65,7 @@ class AppearanceMixin:
         )
         app = QApplication.instance()
         if app is not None:
+            install_checkbox_style(app)
             app.setStyleSheet(style)
             self.setStyleSheet("")
         else:

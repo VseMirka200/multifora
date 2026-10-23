@@ -4,7 +4,7 @@ from PyQt6.QtCore import (
     QAbstractAnimation,
     QAbstractTableModel,
     QEasingCurve,
-    QItemSelectionModel,
+    QMimeData,
     QModelIndex,
     QPropertyAnimation,
     QSize,
@@ -15,6 +15,8 @@ from PyQt6.QtCore import (
 from PyQt6.QtGui import (
     QAction,
     QColor,
+    QCursor,
+    QDrag,
     QFontMetrics,
     QIcon,
     QKeySequence,
@@ -24,6 +26,7 @@ from PyQt6.QtWidgets import (
     QAbstractItemView,
     QAbstractSpinBox,
     QApplication,
+    QCheckBox,
     QComboBox,
     QDialog,
     QFrame,
@@ -40,6 +43,7 @@ from PyQt6.QtWidgets import (
     QStatusBar,
     QStyle,
     QStyledItemDelegate,
+    QStyleOptionButton,
     QStyleOptionToolButton,
     QStyleOptionViewItem,
     QStylePainter,
@@ -53,6 +57,7 @@ from PyQt6.QtWidgets import (
 
 from app.core.app_utils import _log_ignored_error
 from app.core.models import file_item_source_folder, file_item_type_label
+from app.ui.checkbox_style import paint_checkbox
 from app.ui.ui_spacing import (
     ACTION_BUTTON_HEIGHT,
     FIELD_HEIGHT,
@@ -63,7 +68,6 @@ from app.ui.ui_spacing import (
     SPACE_XS,
 )
 from app.ui.ui_styles import (
-    COMPACT_CHECKBOX_STYLE,
     FILE_LIST_DRAG_ACTIVE_STYLE,
     FILE_LIST_HEADER_STYLE,
     STANDARD_FORM_LABEL_STYLE,
@@ -433,11 +437,6 @@ def setup_standard_form_label(
     return widget
 
 
-def setup_compact_checkbox(widget):
-    widget.setStyleSheet(COMPACT_CHECKBOX_STYLE)
-    return widget
-
-
 def setup_clickable_checkbox_label(
     label: QLabel, checkbox, *, tooltip: str = ""
 ) -> QLabel:
@@ -693,8 +692,8 @@ class ScrollableFilterMenu(QMenu):
         item = self._filter_items.get(action)
         if item is None:
             return
-        marker = "✓" if action.isChecked() else " "
-        item.setText(f"{marker}  {action.text()}")
+        item.setText(action.text())
+        item.setCheckState(Qt.CheckState.Checked if action.isChecked() else Qt.CheckState.Unchecked)
         flags = Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
         if not action.isEnabled():
             flags = Qt.ItemFlag.NoItemFlags
@@ -959,7 +958,7 @@ class FileListItemAdapter:
 
 
 def selected_file_items(list_widget, *, files_only: bool = False) -> list:
-    """Извлекает объекты файлов из выбранных строк любого совместимого списка."""
+    """Извлекает отмеченные файлы из совместимого списка."""
     if list_widget is None:
         return []
     result = []
@@ -973,14 +972,27 @@ def selected_file_items(list_widget, *, files_only: bool = False) -> list:
     return result
 
 
+def operation_file_items(files, *, files_only=False, visible_files=None):
+    """Отметки задают область операции, фильтры ограничивают видимую очередь."""
+    files = list(files)
+    marked = any(getattr(item, "checked", False) for item in files)
+    candidates = files if visible_files is None else visible_files
+    return [
+        item
+        for item in candidates
+        if (not marked or getattr(item, "checked", False)) and (not files_only or getattr(item, "is_file", False))
+    ]
+
+
 class FileListModel(QAbstractTableModel):
     COLUMN_OLD_NAME = 0
     COLUMN_NEW_NAME = 1
     COLUMN_TYPE = 2
     COLUMN_PATH = 3
+    COLUMN_CHECK = 4
     # Совместимость с кодом, которому нужна любая колонка для выбора строки.
     COLUMN_NAME = COLUMN_OLD_NAME
-    HEADERS = ("Старое имя", "Новое имя", "Тип файла", "Исходная папка")
+    HEADERS = ("Старое имя", "Новое имя", "Тип файла", "Исходная папка", "")
 
     # Хранит общий порядок файлов, чтобы выделение и перетаскивание не расходились с UI.
     def __init__(self, parent=None):
@@ -1015,6 +1027,12 @@ class FileListModel(QAbstractTableModel):
     ):
         if (
             orientation == Qt.Orientation.Horizontal
+            and section == self.COLUMN_CHECK
+            and role == Qt.ItemDataRole.ToolTipRole
+        ):
+            return "В работу: отметить все файлы текущего списка или снять отметки"
+        if (
+            orientation == Qt.Orientation.Horizontal
             and role == Qt.ItemDataRole.DisplayRole
             and 0 <= section < len(self.HEADERS)
         ):
@@ -1036,6 +1054,14 @@ class FileListModel(QAbstractTableModel):
             return None
 
         file_item = self._files[index.row()]
+        if index.column() == self.COLUMN_CHECK:
+            if role == Qt.ItemDataRole.CheckStateRole:
+                return Qt.CheckState.Checked if getattr(file_item, "checked", False) else Qt.CheckState.Unchecked
+            if role == Qt.ItemDataRole.ToolTipRole:
+                return (
+                    "Зажмите ЛКМ и проведите вверх или вниз, чтобы поставить или снять галочки.\n"
+                    "Без отметок обрабатываются все файлы текущего списка."
+                )
         if role == Qt.ItemDataRole.DisplayRole:
             if index.column() == self.COLUMN_OLD_NAME:
                 return self._original_display_name(file_item)
@@ -1067,15 +1093,29 @@ class FileListModel(QAbstractTableModel):
             return file_item
         return None
 
+    def setData(self, index, value, role=Qt.ItemDataRole.EditRole):
+        if (
+            not index.isValid()
+            or not self._files
+            or index.column() != self.COLUMN_CHECK
+            or role != Qt.ItemDataRole.CheckStateRole
+        ):
+            return False
+        checked = value in (Qt.CheckState.Checked, Qt.CheckState.Checked.value)
+        item = self._files[index.row()]
+        if getattr(item, "checked", False) == checked:
+            return False
+        item.checked = checked
+        self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
+        return True
+
     def flags(self, index):
-        if not self._files:
+        if not self._files or not index.isValid():
             return Qt.ItemFlag.ItemIsEnabled
-        return (
-            Qt.ItemFlag.ItemIsEnabled
-            | Qt.ItemFlag.ItemIsSelectable
-            | Qt.ItemFlag.ItemIsDragEnabled
-            | Qt.ItemFlag.ItemIsDropEnabled
-        )
+        flags = Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsDragEnabled | Qt.ItemFlag.ItemIsDropEnabled
+        if index.column() == self.COLUMN_CHECK:
+            flags |= Qt.ItemFlag.ItemIsUserCheckable
+        return flags
 
     def supportedDropActions(self):
         return Qt.DropAction.MoveAction
@@ -1161,6 +1201,20 @@ class FileListItemDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):
         view_option = QStyleOptionViewItem(option)
         self.initStyleOption(view_option, index)
+        view_option.state &= ~QStyle.StateFlag.State_HasFocus
+        checked = index.data(Qt.ItemDataRole.CheckStateRole)
+        if checked is not None:
+            view_option.features &= ~QStyleOptionViewItem.ViewItemFeature.HasCheckIndicator
+            widget = view_option.widget
+            style = widget.style() if widget is not None else QApplication.style()
+            style.drawControl(QStyle.ControlElement.CE_ItemViewItem, view_option, painter, widget)
+            view_option.state &= ~(QStyle.StateFlag.State_On | QStyle.StateFlag.State_Off)
+            view_option.state |= (
+                QStyle.StateFlag.State_On if checked == Qt.CheckState.Checked
+                else QStyle.StateFlag.State_Off
+            )
+            paint_checkbox(painter, view_option)
+            return
         available_width = max(
             0, view_option.rect.width() - 2 * self._horizontal_padding
         )
@@ -1174,6 +1228,8 @@ class FileListItemDelegate(QStyledItemDelegate):
 
 class FileListWidget(QTableView):
     _COLUMN_RESIZE_PRECISION = 100
+    _CHECK_COLUMN_WIDTH = 36
+    _NAME_COLUMN_MAX_WIDTH = 220
 
     filesDropped = pyqtSignal(list)
     itemDoubleClicked = pyqtSignal(object)
@@ -1189,11 +1245,7 @@ class FileListWidget(QTableView):
 
         self.setModel(FileListModel(self))
         self.setItemDelegate(FileListItemDelegate(self))
-        self.setSelectionMode(
-            # Несколько файлов можно отмечать обычными кликами мыши, без
-            # обязательного удержания Ctrl.
-            QAbstractItemView.SelectionMode.MultiSelection
-        )
+        self.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         self.setSelectionBehavior(
             QAbstractItemView.SelectionBehavior.SelectRows
         )
@@ -1204,12 +1256,32 @@ class FileListWidget(QTableView):
         self.verticalHeader().hide()
         header = self.horizontalHeader()
         header.setStyleSheet(FILE_LIST_HEADER_STYLE)
+        # Номера остальных колонок сохраняются для существующих настроек сортировки.
+        header.moveSection(self.model().COLUMN_CHECK, 0)
         header.setStretchLastSection(True)
         # Измерение каждой ячейки заметно замедляет сброс модели для больших
         # пакетов. Репрезентативная выборка сохраняет полезную автоширину и
         # ограничивает работу при замене видимой модели фильтром.
         header.setResizeContentsPrecision(self._COLUMN_RESIZE_PRECISION)
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        header.setSectionResizeMode(self.model().COLUMN_CHECK, QHeaderView.ResizeMode.Fixed)
+        header.resizeSection(self.model().COLUMN_CHECK, self._CHECK_COLUMN_WIDTH)
+        self.check_all_checkbox = QCheckBox(header.viewport())
+        self.check_all_checkbox.setObjectName("check_all_files")
+        self.check_all_checkbox.setAccessibleName("Отметить все файлы")
+        self.check_all_checkbox.setToolTip(
+            "Отметить все файлы текущего списка или снять отметки (с учётом поиска и фильтров)"
+        )
+        self.check_all_checkbox.setFixedSize(24, 24)
+        self.check_all_checkbox.clicked.connect(self._set_checks)
+        header.geometriesChanged.connect(self._position_header_checkbox)
+        header.sectionResized.connect(self._position_header_checkbox)
+        header.sectionMoved.connect(self._position_header_checkbox)
+        self.horizontalScrollBar().valueChanged.connect(self._position_header_checkbox)
+        self.itemSelectionChanged.connect(self._sync_header_checkbox)
+        self.model().modelReset.connect(self._sync_header_checkbox)
+        self._sync_header_checkbox()
+        self._position_header_checkbox()
         self.setMouseTracking(True)
         self.viewport().setMouseTracking(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
@@ -1225,71 +1297,207 @@ class FileListWidget(QTableView):
         self.setDragDropMode(QAbstractItemView.DragDropMode.DropOnly)
 
         self.doubleClicked.connect(self._on_double_clicked)
-        self.selectionModel().selectionChanged.connect(
-            self._on_selection_changed
+        self.model().dataChanged.connect(self._on_checks_changed)
+        self._check_drag_value = None
+        self._check_drag_last_row = None
+        self._check_drag_timer = QTimer(self)
+        self._check_drag_timer.setInterval(40)
+        self._check_drag_timer.timeout.connect(self._continue_check_drag)
+        self._reset_empty_table_layout()
+
+    def _position_header_checkbox(self):
+        header = self.horizontalHeader()
+        column = self.model().COLUMN_CHECK
+        option = QStyleOptionButton()
+        self.check_all_checkbox.initStyleOption(option)
+        indicator = self.check_all_checkbox.style().subElementRect(
+            QStyle.SubElement.SE_CheckBoxIndicator, option, self.check_all_checkbox
+        )
+        # QCheckBox размещает индикатор у левого края своего поля.
+        # Совмещаем с ячейками сам индикатор, а не внешние границы виджета.
+        self.check_all_checkbox.move(
+            round(header.sectionViewportPosition(column)
+                  + (header.sectionSize(column) - indicator.width()) / 2 - indicator.x()),
+            round((header.height() - indicator.height()) / 2 - indicator.y()),
         )
 
+    def _sync_header_checkbox(self):
+        files = self.model().files()
+        self.check_all_checkbox.setEnabled(bool(files))
+        self.check_all_checkbox.setChecked(bool(files) and all(getattr(item, "checked", False) for item in files))
+
     def _on_double_clicked(self, index: QModelIndex):
-        if not index.isValid():
+        if not index.isValid() or index.column() == self.model().COLUMN_CHECK:
             return
         self.itemDoubleClicked.emit(FileListItemAdapter(self, index))
 
-    def _on_selection_changed(self, _selected, _deselected):
-        self.itemSelectionChanged.emit()
+    def _on_checks_changed(self, _first, _last, roles):
+        if Qt.ItemDataRole.CheckStateRole in roles:
+            self.itemSelectionChanged.emit()
 
     def clear(self):
         self.set_files([])
 
     def selectedItems(self):
         return [
-            FileListItemAdapter(self, index)
-            for index in self.selectionModel().selectedRows(
-                self.model().COLUMN_NAME
-            )
+            FileListItemAdapter(self, self.model().index(row, self.model().COLUMN_NAME))
+            for row, item in enumerate(self.model().files())
+            if getattr(item, "checked", False)
         ]
 
     def selected_file_items(self, *, files_only: bool = False) -> list:
-        """Возвращает объекты, связанные с выбранными строками таблицы."""
         return selected_file_items(self, files_only=files_only)
 
     def clearSelection(self):
-        self.selectionModel().clearSelection()
+        self._set_checks(False)
+
+    def selectAll(self):
+        self._set_checks(True)
+
+    def _set_checks(self, checked):
+        changed = False
+        for item in self.model().files():
+            if getattr(item, "checked", False) != checked:
+                item.checked = checked
+                changed = True
+        if changed:
+            self.viewport().update()
+            self.itemSelectionChanged.emit()
 
     def mousePressEvent(self, event):
-        if (
-            event.button() == Qt.MouseButton.LeftButton
-            and not self.indexAt(event.position().toPoint()).isValid()
-        ):
-            self.clearSelection()
-            event.accept()
-            return
+        self._drag_start = event.position().toPoint()
+        index = self.indexAt(event.position().toPoint())
+        if event.button() == Qt.MouseButton.LeftButton and index.isValid():
+            self.setCurrentIndex(index)
+            if index.column() == self.model().COLUMN_CHECK and self.model().files():
+                value = index.data(Qt.ItemDataRole.CheckStateRole)
+                self._check_drag_value = value != Qt.CheckState.Checked
+                self._check_drag_last_row = index.row()
+                self._apply_check_drag(index.row())
+                self._check_drag_timer.start()
+                event.accept()
+                return
         super().mousePressEvent(event)
 
+    def mouseMoveEvent(self, event):
+        if self._check_drag_value is not None:
+            if event.buttons() & Qt.MouseButton.LeftButton:
+                self._move_check_drag(event.position().toPoint())
+                event.accept()
+                return
+            self._finish_check_drag()
+        start = getattr(self, "_drag_start", None)
+        if (
+            self.dragEnabled()
+            and start is not None
+            and event.buttons() & Qt.MouseButton.LeftButton
+            and (event.position().toPoint() - start).manhattanLength() >= QApplication.startDragDistance()
+        ):
+            index = self.indexAt(start)
+            if index.isValid() and index.column() != self.model().COLUMN_CHECK:
+                self._drag_row = index.row()
+                drag = QDrag(self)
+                mime = QMimeData()
+                mime.setData("application/x-multifora-row", b"row")
+                drag.setMimeData(mime)
+                drag.exec(Qt.DropAction.MoveAction)
+                self._drag_start = None
+                return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self._check_drag_value is not None:
+            self._finish_check_drag()
+            event.accept()
+            return
+        index = self.indexAt(event.position().toPoint())
+        if event.button() == Qt.MouseButton.LeftButton and index.column() == self.model().COLUMN_CHECK:
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def _apply_check_drag(self, row):
+        first, last = sorted((self._check_drag_last_row, row))
+        changed = False
+        files = self.model().files()
+        for item in files[first:last + 1]:
+            if getattr(item, "checked", False) != self._check_drag_value:
+                item.checked = self._check_drag_value
+                changed = True
+        self._check_drag_last_row = row
+        if changed:
+            column = self.model().COLUMN_CHECK
+            self.model().dataChanged.emit(
+                self.model().index(first, column), self.model().index(last, column),
+                [Qt.ItemDataRole.CheckStateRole],
+            )
+
+    def _move_check_drag(self, position):
+        if not self.model().files():
+            self._finish_check_drag()
+            return
+        height = self.viewport().height()
+        scrollbar = self.verticalScrollBar()
+        if position.y() < 18:
+            scrollbar.setValue(scrollbar.value() - 12)
+        elif position.y() > height - 18:
+            scrollbar.setValue(scrollbar.value() + 12)
+        row = self.rowAt(max(0, min(position.y(), height - 1)))
+        if row < 0 and position.y() >= 0:
+            row = len(self.model().files()) - 1
+        if row >= 0:
+            self._apply_check_drag(row)
+
+    def _continue_check_drag(self):
+        if not QApplication.mouseButtons() & Qt.MouseButton.LeftButton:
+            self._finish_check_drag()
+            return
+        self._move_check_drag(self.viewport().mapFromGlobal(QCursor.pos()))
+
+    def _finish_check_drag(self):
+        self._check_drag_timer.stop()
+        self._check_drag_value = None
+        self._check_drag_last_row = None
+        self._drag_start = None
+
     def set_files(self, files: list):
+        self._finish_check_drag()
         self.model().set_files(files)
         if files:
+            header = self.horizontalHeader()
+            for column in range(self.model().columnCount()):
+                if column != self.model().COLUMN_CHECK:
+                    header.setSectionResizeMode(column, QHeaderView.ResizeMode.Interactive)
+            header.setStretchLastSection(True)
             self._resize_columns_to_contents()
             return
 
         self._reset_empty_table_layout()
 
     def _reset_empty_table_layout(self):
-        """Возвращает компактную ширину колонок после очистки таблицы."""
+        """Вписывает пустую таблицу в панель независимо от прежней ширины колонок."""
         header = self.horizontalHeader()
+        header.setStretchLastSection(False)
         for column in range(self.model().columnCount()):
-            header.resizeSection(column, header.sectionSizeHint(column))
+            if column != self.model().COLUMN_CHECK:
+                header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
+        header.resizeSection(self.model().COLUMN_CHECK, self._CHECK_COLUMN_WIDTH)
         self.horizontalScrollBar().setValue(
             self.horizontalScrollBar().minimum()
         )
+        self.verticalScrollBar().setValue(self.verticalScrollBar().minimum())
 
     def refresh(self):
         self.model().refresh()
 
     def _resize_columns_to_contents(self):
-        self.resizeColumnToContents(self.model().COLUMN_OLD_NAME)
-        self.resizeColumnToContents(self.model().COLUMN_NEW_NAME)
-        self.resizeColumnToContents(self.model().COLUMN_TYPE)
         header = self.horizontalHeader()
+        for column in (self.model().COLUMN_OLD_NAME, self.model().COLUMN_NEW_NAME):
+            self.resizeColumnToContents(column)
+            # Длинные имена раскрываются ручным расширением колонки.
+            width = max(header.sectionSizeHint(column), header.sectionSize(column) // 2)
+            header.resizeSection(column, min(width, self._NAME_COLUMN_MAX_WIDTH))
+        self.resizeColumnToContents(self.model().COLUMN_TYPE)
         if header.isSortIndicatorShown():
             section = header.sortIndicatorSection()
             if 0 <= section < self.model().columnCount():
@@ -1316,6 +1524,15 @@ class FileListWidget(QTableView):
             self.renameRequested.emit()
         elif event.matches(QKeySequence.StandardKey.Copy):
             self.copyRequested.emit()
+        elif event.key() == Qt.Key.Key_Space and self.currentIndex().isValid():
+            index = self.model().index(self.currentIndex().row(), self.model().COLUMN_CHECK)
+            self.model().setData(
+                index,
+                Qt.CheckState.Unchecked
+                if getattr(index.data(Qt.ItemDataRole.UserRole), "checked", False)
+                else Qt.CheckState.Checked,
+                Qt.ItemDataRole.CheckStateRole,
+            )
         elif event.matches(QKeySequence.StandardKey.SelectAll):
             self.selectAll()
         else:
@@ -1324,18 +1541,15 @@ class FileListWidget(QTableView):
         event.accept()
 
     def select_paths(self, paths: list):
-        if not paths:
-            return
         path_set = set(paths)
-        for row in range(self.model().rowCount()):
-            index = self.model().index(row, 0)
-            file_item = self.model().data(index, Qt.ItemDataRole.UserRole)
-            if file_item and getattr(file_item, "path", None) in path_set:
-                self.selectionModel().select(
-                    index,
-                    QItemSelectionModel.SelectionFlag.Select
-                    | QItemSelectionModel.SelectionFlag.Rows,
-                )
+        changed = False
+        for item in self.model().files():
+            if item.path in path_set and not getattr(item, "checked", False):
+                item.checked = True
+                changed = True
+        if changed:
+            self.viewport().update()
+            self.itemSelectionChanged.emit()
 
     def dragEnterEvent(self, event):
         if event.source() == self and self.dragEnabled():
@@ -1361,8 +1575,12 @@ class FileListWidget(QTableView):
     def dropEvent(self, event):
         apply_standard_field_style(self)
         if event.source() == self and self.dragEnabled():
-            super().dropEvent(event)
-            self.orderChanged.emit()
+            target = self.indexAt(event.position().toPoint())
+            destination = target.row() if target.isValid() else len(self.model().files())
+            if target.isValid() and event.position().y() > self.visualRect(target).center().y():
+                destination += 1
+            if self.model().moveRows(QModelIndex(), self._drag_row, 1, QModelIndex(), destination):
+                self.orderChanged.emit()
             event.accept()
         elif event.mimeData().hasUrls():
             event.accept()

@@ -80,7 +80,8 @@ class ScrollableFilterMenuTests(unittest.TestCase):
 
         menu._toggle_filter_item(filter_list.item(0))
         self.assertFalse(actions[0].isChecked())
-        self.assertTrue(filter_list.item(0).text().startswith(" "))
+        self.assertEqual(filter_list.item(0).text(), actions[0].text())
+        self.assertEqual(filter_list.item(0).checkState(), Qt.CheckState.Unchecked)
 
         menu.deleteLater()
         self.app.setStyleSheet(previous_style)

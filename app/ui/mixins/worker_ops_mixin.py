@@ -5,20 +5,17 @@ from PyQt6.QtWidgets import QFileDialog, QMessageBox
 
 from app.core.app_utils import _debug_log
 from app.core.models import FileItem
-from app.ui.ui_components import selected_file_items
+from app.ui.ui_components import operation_file_items
 
 
 class WorkerOpsMixin:
     # Передаёт выбранные файлы рабочему потоку и обновляет UI по результатам операций.
+    def _get_operation_file_items(self, *, files_only=False) -> list[FileItem]:
+        visible = self._get_filtered_files() if hasattr(self, "_get_filtered_files") else self.files
+        return operation_file_items(self.files, files_only=files_only, visible_files=visible)
+
     def _get_selected_or_all_file_items(self) -> list[FileItem]:
-        files = selected_file_items(self.list_files, files_only=True)
-        if files:
-            return files
-        return [
-            file_item
-            for file_item in self.files
-            if getattr(file_item, "is_file", False)
-        ]
+        return self._get_operation_file_items(files_only=True)
 
     def _should_auto_clear_after_operation(self) -> bool:
         enabled_checkbox = getattr(self, "auto_clear_enabled_checkbox", None)

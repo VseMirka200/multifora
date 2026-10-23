@@ -31,7 +31,6 @@ from app.core.update_checker import (
 from app.ui.ui_components import (
     MenuLikeComboBox,
     setup_clickable_checkbox_label,
-    setup_compact_checkbox,
     setup_standard_dialog,
     setup_standard_dropdown,
 )
@@ -82,11 +81,10 @@ class SettingsPanelMixin:
         layout.setSpacing(SPACE_SM)
 
         checkbox = QCheckBox()
-        checkbox.setFixedSize(CHECKBOX_SIZE, CHECKBOX_SIZE)
+        checkbox.setFixedSize(CHECKBOX_SIZE + 2, CHECKBOX_SIZE + 2)
         checkbox.setSizePolicy(
             QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
         )
-        setup_compact_checkbox(checkbox)
         if tooltip:
             checkbox.setToolTip(tooltip)
         layout.addWidget(

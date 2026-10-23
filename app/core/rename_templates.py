@@ -2,6 +2,8 @@ import os
 import re
 from datetime import datetime
 
+from app.core.conversion_formats import FILE_TYPE_EXTENSIONS
+
 _DATE_FORMAT_PATTERNS = (
     ("2024-01-15_", "%Y-%m-%d_"),
     ("15-01-2024_", "%d-%m-%Y_"),
@@ -52,11 +54,15 @@ def _image_metadata_tokens(file_path: str) -> dict[str, str]:
     values = {"exif_date": "", "width": "", "height": ""}
     if not file_path or not os.path.isfile(file_path):
         return values
+    if os.path.splitext(file_path)[1].lower() not in FILE_TYPE_EXTENSIONS["image"]:
+        return values
 
     try:
         from PIL import Image
 
-        with Image.open(file_path) as image:
+        # Владеем исходным потоком сами: он закроется даже при ошибке
+        # плагина Pillow или чтения EXIF, независимо от времени жизни image.
+        with open(file_path, "rb") as source, Image.open(source) as image:
             values["width"] = str(image.width)
             values["height"] = str(image.height)
             exif = image.getexif()
