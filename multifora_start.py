@@ -55,6 +55,37 @@ def _run_build_smoke_test() -> int:
             importlib.import_module(module)
             report["imports"].append(module)
 
+        # Exercise native PDF code and DOCX package data, not only imports.
+        from io import BytesIO
+
+        import pymupdf
+        from docx import Document
+        from docxcompose.composer import Composer
+
+        with pymupdf.open() as document:
+            document.new_page().insert_text((72, 72), "Multifora PDF check")
+            pdf_bytes = document.tobytes()
+        with pymupdf.open(stream=pdf_bytes, filetype="pdf") as document:
+            if "Multifora PDF check" not in document[0].get_text():
+                raise RuntimeError("PDF roundtrip failed")
+            document[0].get_pixmap()
+        report["pdf_roundtrip"] = True
+
+        first = Document()
+        first.add_paragraph("First document")
+        second = Document()
+        second.add_paragraph("Second document")
+        composer = Composer(first)
+        composer.append(second)
+        merged = BytesIO()
+        composer.save(merged)
+        merged.seek(0)
+        if [p.text for p in Document(merged).paragraphs] != [
+            "First document", "Second document"
+        ]:
+            raise RuntimeError("DOCX merge failed")
+        report["docx_merge"] = True
+
         application = QApplication([sys.argv[0]])
         application.setApplicationName(APP_DISPLAY_NAME)
         application.setApplicationDisplayName(APP_DISPLAY_NAME)

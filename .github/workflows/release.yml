@@ -47,8 +47,8 @@ jobs:
   build-windows:
     name: Собрать версию для Windows
     needs: prepare-release
-    runs-on: windows-latest
-    timeout-minutes: 30
+    runs-on: windows-2022
+    timeout-minutes: 60
     env:
       QT_QPA_PLATFORM: offscreen
       RELEASE_TAG: ${{ needs.prepare-release.outputs.tag }}
@@ -64,12 +64,14 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.11"
+          architecture: x64
           cache: pip
 
       - name: Установить зависимости для разработки и сборки
         run: |
-          python -m pip install --disable-pip-version-check -r requirements-dev.txt
-          python -m pip install "PyInstaller>=6.0.0,<7"
+          python -m pip install --disable-pip-version-check -r requirements-build.txt
+          python -m pip check
+          python scripts/verify_build_environment.py
 
       - name: Проверить стиль кода
         run: python -m ruff check .
@@ -78,13 +80,12 @@ jobs:
         run: python -m pytest -q
 
       - name: Собрать приложение
+        shell: cmd
+        run: scripts\build_app.bat --no-pause
+
+      - name: Проверить собранный EXE и Ghostscript
         shell: pwsh
-        run: |
-          python -m PyInstaller --noconfirm --clean Multifora.spec
-          if (Test-Path bin) {
-            Copy-Item -Path bin -Destination dist/Multifora/bin -Recurse -Force
-          }
-          python scripts/verify_windows_bundle.py --bundle dist/Multifora
+        run: .\scripts\verify_windows_runtime.ps1
 
       - name: Установить Inno Setup
         shell: pwsh

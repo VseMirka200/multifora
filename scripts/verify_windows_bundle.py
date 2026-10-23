@@ -11,12 +11,13 @@ from pathlib import Path
 
 
 def check_bundle(bundle: Path) -> list[str]:
+    # PyMuPDF data is collected by Multifora.spec. Its optional layout resources
+    # vary across releases, so no version-specific model filename is required.
     missing = []
     for relative in (
         "Multifora.exe",
         "bin/gswin64/gswin64c.exe",
         "bin/gswin64/gsdll64.dll",
-        "_internal/pymupdf/layout/resources/onnx/layout_rf2.4.1+imf1.yaml",
         "_internal/docxcompose/templates/custom.xml",
     ):
         path = bundle / relative
