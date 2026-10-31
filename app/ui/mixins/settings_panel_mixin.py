@@ -1,8 +1,8 @@
 import concurrent.futures
 
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QFont, QFontMetrics, QIcon
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QFont, QFontMetrics, QIcon
+from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QDialog,
@@ -30,6 +30,7 @@ from app.core.update_checker import (
 )
 from app.ui.ui_components import (
     MenuLikeComboBox,
+    resolve_widget_theme_mode,
     setup_clickable_checkbox_label,
     setup_standard_dialog,
     setup_standard_dropdown,
@@ -54,13 +55,7 @@ class SettingsPanelMixin:
         navigation = getattr(self, "settings_nav", None)
         if navigation is None:
             return
-        effective = theme or getattr(self, "_effective_theme_mode", None)
-        if effective not in ("light", "dark"):
-            effective = (
-                "light"
-                if str(getattr(self, "theme_mode", "dark")).lower() == "light"
-                else "dark"
-            )
+        effective = resolve_widget_theme_mode(self, theme)
         navigation.setStyleSheet(build_settings_navigation_style(effective))
 
     # Создаёт страницы настроек по мере открытия и связывает поля с состоянием окна.
@@ -298,19 +293,10 @@ class SettingsPanelMixin:
 
         title = "О программе"
         dialog = QDialog(self)
-        dialog._effective_theme_mode = getattr(
-            self, "_effective_theme_mode", "dark"
-        )
         setup_standard_dialog(dialog, title=title)
         dialog.setWindowFlag(Qt.WindowType.MSWindowsFixedSizeDialogHint, True)
         dialog.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint, False)
         dialog.setSizeGripEnabled(False)
-        try:
-            dialog.setStyleSheet(self.styleSheet())
-        except Exception as error:
-            _log_ignored_error(
-                "SettingsPanelMixin.show_help_modal.style", error
-            )
 
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(*DIALOG_MARGINS)

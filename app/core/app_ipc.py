@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 from urllib.request import url2pathname
 
 try:
-    from PyQt6.QtNetwork import QLocalSocket
+    from PySide6.QtNetwork import QLocalSocket
 except ImportError:
     QLocalSocket = None
 
@@ -354,7 +354,7 @@ def send_files_to_running_instance(
         _debug_log("send_files_to_running_instance: нет файлов для отправки")
         return False
     if QLocalSocket is None:
-        _debug_log("send_files_to_running_instance: PyQt6 недоступен")
+        _debug_log("send_files_to_running_instance: PySide6 недоступен")
         return False
 
     token = _load_ipc_token()

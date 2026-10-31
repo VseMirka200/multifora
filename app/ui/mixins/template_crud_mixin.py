@@ -1,8 +1,8 @@
 from datetime import datetime
 
-from PyQt6.QtCore import QModelIndex, QSize, Qt, QTimer
-from PyQt6.QtGui import QKeySequence, QShortcut
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import QModelIndex, QSize, Qt, QTimer
+from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QHBoxLayout,
@@ -498,21 +498,12 @@ class TemplateCrudMixin:
     def show_template_manager(self):
         """Показывает модальное окно управления шаблонами"""
         dialog = QDialog(self)
-        dialog._effective_theme_mode = getattr(
-            self, "_effective_theme_mode", "dark"
-        )
         setup_standard_dialog(
             dialog,
             title="Управление шаблонами",
             min_width=520,
             min_height=320,
         )
-        try:
-            dialog.setStyleSheet(self.styleSheet())
-        except Exception as error:
-            _log_ignored_error(
-                "TemplateCrudMixin.show_template_manager", error
-            )
 
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(*DIALOG_MARGINS)

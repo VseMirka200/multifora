@@ -1,6 +1,6 @@
 import os
 
-from PyQt6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QMessageBox
 
 from app.core.conversion_formats import CATEGORY_FILE_TYPES, suffix_for_format
 from app.core.rename_plan import resolve_rename_targets

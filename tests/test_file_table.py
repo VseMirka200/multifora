@@ -5,9 +5,9 @@ from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtCore import QPoint, Qt
-from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QAbstractItemView, QApplication, QHeaderView
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QAbstractItemView, QApplication, QHeaderView
 
 from app.ui.ui_components import FileListModel, FileListWidget
 from app.ui.ui_styles import build_standard_field_style

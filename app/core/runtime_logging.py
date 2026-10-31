@@ -4,7 +4,7 @@ import sys
 import threading
 import traceback
 
-from PyQt6.QtCore import QtMsgType, qInstallMessageHandler
+from PySide6.QtCore import QtMsgType, qInstallMessageHandler
 
 from app.core.app_utils import _debug_log
 

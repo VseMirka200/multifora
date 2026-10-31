@@ -1,13 +1,13 @@
 import os
 
-from PyQt6.QtCore import (
+from PySide6.QtCore import (
     QFile,
     QMimeData,
     QPoint,
     Qt,
     QUrl,
 )
-from PyQt6.QtWidgets import QApplication, QMenu, QMessageBox
+from PySide6.QtWidgets import QApplication, QMenu, QMessageBox
 
 from app.core.message_boxes import show_app_confirmation_with_checkbox
 from app.ui.ui_components import (

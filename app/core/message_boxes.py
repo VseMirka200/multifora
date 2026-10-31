@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFontMetrics, QKeySequence, QShortcut
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFontMetrics, QKeySequence, QShortcut
+from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
     QHBoxLayout,
@@ -17,8 +17,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.core.app_utils import _log_ignored_error
-from app.ui.ui_spacing import ACTION_BUTTON_HEIGHT
-from app.ui.ui_styles import build_standard_button_style
+from app.ui.ui_components import setup_standard_action_button, setup_standard_dialog
 
 _MESSAGE_BOX_HOOKS_INSTALLED = False
 _DIALOG_MIN_WIDTH = 360
@@ -33,18 +32,9 @@ def _setup_message_box_button(
     *,
     variant: str = "secondary",
 ) -> QPushButton:
-    button.setFixedHeight(ACTION_BUTTON_HEIGHT)
-    button.setCursor(Qt.CursorShape.PointingHandCursor)
-    button.setProperty("buttonVariant", variant)
-    button.setSizePolicy(
-        QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-    )
-    theme = getattr(button.parent(), "_effective_theme_mode", "dark")
-    button.setStyleSheet(build_standard_button_style(theme, variant))
+    setup_standard_action_button(button, variant=variant, expand=True)
     try:
         button.ensurePolished()
-        button.style().unpolish(button)
-        button.style().polish(button)
         button.updateGeometry()
     except Exception as error:
         _log_ignored_error("_setup_message_box_button", error)
@@ -91,16 +81,7 @@ def show_app_choice(
     choices = tuple(choices)
     dialog = QDialog(parent)
     dialog.setObjectName("appMessageDialog")
-    dialog.setWindowTitle(str(title))
-    dialog.setModal(True)
-    dialog.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-    try:
-        dialog._effective_theme_mode = getattr(
-            parent, "_effective_theme_mode", "dark"
-        )
-        dialog.setStyleSheet(parent.styleSheet())
-    except Exception as error:
-        _log_ignored_error("show_app_choice", error)
+    setup_standard_dialog(dialog, title=str(title))
 
     layout = QVBoxLayout(dialog)
     layout.setContentsMargins(12, 10, 12, 10)

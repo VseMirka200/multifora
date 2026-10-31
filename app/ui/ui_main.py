@@ -3,10 +3,10 @@ import json
 import os
 import threading
 
-from PyQt6.QtCore import QEvent, QEventLoop, Qt, QTimer
-from PyQt6.QtGui import QAction, QColor, QIcon, QPalette
-from PyQt6.QtNetwork import QLocalServer, QLocalSocket
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import QEvent, QEventLoop, Qt, QTimer
+from PySide6.QtGui import QAction, QColor, QIcon, QPalette
+from PySide6.QtNetwork import QLocalServer, QLocalSocket
+from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QDialog,
@@ -45,6 +45,7 @@ from app.core.conversion_formats import (
 )
 from app.core.message_boxes import install_warning_suppression_hook
 from app.core.models import FileItem
+from app.core.qt_utils import signals_blocked
 from app.ui.mixins import (
     AppearanceMixin,
     ConversionActionsMixin,
@@ -194,7 +195,6 @@ class MultiforaMainWindow(
                 _debug_log(f"Ошибка восстановления шаблона сессии: {e}")
         # Тяжёлые backend-библиотеки загружаются только при первой операции.
         self._update_undo_button()
-        self._refresh_rename_history_view()
 
         self.create_ipc_server()
 
@@ -751,11 +751,8 @@ class MultiforaMainWindow(
         menu, actions: dict, checked: bool, changed_callback
     ) -> None:
         for action in actions.values():
-            previous_state = action.blockSignals(True)
-            try:
+            with signals_blocked(action):
                 action.setChecked(checked)
-            finally:
-                action.blockSignals(previous_state)
         if callable(getattr(menu, "sync_filter_items", None)):
             menu.sync_filter_items()
         changed_callback(False)
@@ -1608,20 +1605,17 @@ class MultiforaMainWindow(
             if category_combo is not None:
                 index = category_combo.findText(category_label)
                 if index >= 0:
-                    category_combo.blockSignals(True)
-                    category_combo.setCurrentIndex(index)
-                    category_combo.blockSignals(False)
+                    with signals_blocked(category_combo):
+                        category_combo.setCurrentIndex(index)
 
         if not category_label:
-            self.from_convert_combo.blockSignals(True)
-            self.from_convert_combo.clear()
-            self.from_convert_combo.addItem("Выберите исходный формат:")
-            self.from_convert_combo.blockSignals(False)
-            self.to_convert_combo.blockSignals(True)
-            self.to_convert_combo.clear()
-            self.to_convert_combo.addItem("Выберите целевой формат:")
-            self.to_convert_combo.setEnabled(False)
-            self.to_convert_combo.blockSignals(False)
+            with signals_blocked(self.from_convert_combo):
+                self.from_convert_combo.clear()
+                self.from_convert_combo.addItem("Выберите исходный формат:")
+            with signals_blocked(self.to_convert_combo):
+                self.to_convert_combo.clear()
+                self.to_convert_combo.addItem("Выберите целевой формат:")
+                self.to_convert_combo.setEnabled(False)
             self.btn_convert.setEnabled(False)
             return
 
@@ -1637,14 +1631,13 @@ class MultiforaMainWindow(
         previous_source = str(
             self.from_convert_combo.currentText() or ""
         ).strip()
-        self.from_convert_combo.blockSignals(True)
-        self.from_convert_combo.clear()
-        self.from_convert_combo.addItem("Выберите исходный формат:")
-        if mixed_label:
-            self.from_convert_combo.addItem(mixed_label)
-        for fmt in available_formats:
-            self.from_convert_combo.addItem(fmt)
-        self.from_convert_combo.blockSignals(False)
+        with signals_blocked(self.from_convert_combo):
+            self.from_convert_combo.clear()
+            self.from_convert_combo.addItem("Выберите исходный формат:")
+            if mixed_label:
+                self.from_convert_combo.addItem(mixed_label)
+            for fmt in available_formats:
+                self.from_convert_combo.addItem(fmt)
 
         selected_source = ""
         if len(category_source_formats) > 1:
@@ -1660,13 +1653,11 @@ class MultiforaMainWindow(
         if selected_source:
             index = self.from_convert_combo.findText(selected_source)
             if index >= 0:
-                self.from_convert_combo.blockSignals(True)
-                self.from_convert_combo.setCurrentIndex(index)
-                self.from_convert_combo.blockSignals(False)
+                with signals_blocked(self.from_convert_combo):
+                    self.from_convert_combo.setCurrentIndex(index)
         else:
-            self.from_convert_combo.blockSignals(True)
-            self.from_convert_combo.setCurrentIndex(0)
-            self.from_convert_combo.blockSignals(False)
+            with signals_blocked(self.from_convert_combo):
+                self.from_convert_combo.setCurrentIndex(0)
 
         self.update_to_combo_based_on_from()
         if callable(getattr(self, "update_convert_button_state", None)):

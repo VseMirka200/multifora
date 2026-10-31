@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication
 
 from app.core.models import FileItem
 from app.ui.ui_components import operation_file_items
@@ -125,7 +125,7 @@ class CheckedOperationsTests(unittest.TestCase):
         self.assertEqual(window.files, [*reversed(self.items[:4]), self.items[4]])
 
     def test_compression_column_shows_sizes_and_updates_with_options_and_marks(self):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         window = self.window
         self.items[0].size = 10 * 1024 * 1024
@@ -166,7 +166,7 @@ class CheckedOperationsTests(unittest.TestCase):
         self.assertEqual(model.index(4, model.COLUMN_TYPE).data(), "8,0 МБ → ≈7,0 МБ")
 
     def test_conversion_column_shows_current_and_target_formats(self):
-        from PyQt6.QtCore import Qt
+        from PySide6.QtCore import Qt
 
         window = self.window
         self.tab("convert")

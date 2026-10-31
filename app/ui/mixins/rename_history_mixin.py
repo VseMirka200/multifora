@@ -1,8 +1,7 @@
 import os
 import time
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
     QHBoxLayout,
@@ -14,8 +13,10 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
+from app.core.qt_utils import signals_blocked
 from app.ui.ui_components import (
     setup_standard_danger_button,
+    setup_standard_dialog,
     setup_standard_secondary_button,
 )
 from app.ui.ui_spacing import DIALOG_MARGINS, MARGINS_NONE, SPACE_SM
@@ -24,8 +25,6 @@ from app.ui.ui_spacing import DIALOG_MARGINS, MARGINS_NONE, SPACE_SM
 class RenameHistoryMixin:
     # Хранит пары старых и новых путей для отмены и повтора переименования.
     def on_history_row_changed(self, row: int):
-        if getattr(self, "_is_history_refresh", False):
-            return
         self._update_undo_button()
 
     def _get_selected_history_entry(self):
@@ -51,42 +50,34 @@ class RenameHistoryMixin:
         history_list = getattr(self, "rename_history_list", None)
         if history_list is None:
             return
-        self._is_history_refresh = True
         current_row = history_list.currentRow()
-        history_list.blockSignals(True)
-        history_list.clear()
-        for entry in reversed(self._rename_history):
-            ts = entry.get("timestamp")
-            count = entry.get("count", 0)
-            label = entry.get("label")
-            time_str = (
-                time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
-                if ts
-                else ""
-            )
-            if not label:
-                label = f"{count} файлов"
-            text = f"{time_str} • {label}" if time_str else label
-            history_list.addItem(text)
-        if history_list.count():
-            target_row = (
-                current_row if 0 <= current_row < history_list.count() else 0
-            )
-            history_list.setCurrentRow(target_row)
-        history_list.blockSignals(False)
-        self._is_history_refresh = False
+        with signals_blocked(history_list):
+            history_list.clear()
+            for entry in reversed(self._rename_history):
+                ts = entry.get("timestamp")
+                count = entry.get("count", 0)
+                label = entry.get("label")
+                time_str = (
+                    time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
+                    if ts
+                    else ""
+                )
+                if not label:
+                    label = f"{count} файлов"
+                text = f"{time_str} • {label}" if time_str else label
+                history_list.addItem(text)
+            if history_list.count():
+                target_row = (
+                    current_row if 0 <= current_row < history_list.count() else 0
+                )
+                history_list.setCurrentRow(target_row)
 
     def show_rename_history_dialog(self):
         dialog = QDialog(self)
         dialog.setObjectName("rename_history_dialog")
-        dialog.setWindowTitle("История переименований")
-        dialog.setModal(True)
-        dialog.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
-        dialog.setMinimumSize(520, 320)
-        dialog._effective_theme_mode = getattr(
-            self, "_effective_theme_mode", "dark"
+        setup_standard_dialog(
+            dialog, title="История переименований", min_width=520, min_height=320,
         )
-        dialog.setStyleSheet(self.styleSheet())
 
         layout = QVBoxLayout(dialog)
         layout.setContentsMargins(*DIALOG_MARGINS)
@@ -124,7 +115,6 @@ class RenameHistoryMixin:
 
         self.rename_history_list = history_list
         self.btn_history_undo = undo_button
-        self._refresh_rename_history_view()
         self._update_undo_button()
         try:
             return dialog.exec()

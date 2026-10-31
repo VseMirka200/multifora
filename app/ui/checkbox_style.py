@@ -1,8 +1,8 @@
 """Единая отрисовка галочек в полях, списках, таблицах и меню."""
 
-from PyQt6.QtCore import QRectF, Qt
-from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPalette, QPen
-from PyQt6.QtWidgets import QProxyStyle, QStyle
+from PySide6.QtCore import QRectF, Qt
+from PySide6.QtGui import QColor, QPainter, QPainterPath, QPalette, QPen
+from PySide6.QtWidgets import QProxyStyle, QStyle
 
 from app.ui.ui_spacing import CHECKBOX_SIZE
 

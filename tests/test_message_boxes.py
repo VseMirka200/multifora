@@ -4,9 +4,9 @@ from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFontMetrics, QKeySequence, QShortcut
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFontMetrics, QKeySequence, QShortcut
+from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QDialog,

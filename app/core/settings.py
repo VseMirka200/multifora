@@ -2,9 +2,10 @@ import json
 import os
 import tempfile
 
-from PyQt6.QtCore import Qt
+from PySide6.QtCore import Qt
 
 from app.core.app_utils import _debug_log, _get_app_data_dir
+from app.core.qt_utils import signals_blocked
 
 _DEFAULT_THEME_MODE = "system"
 _VALID_THEME_MODES = {_DEFAULT_THEME_MODE, "dark", "light"}
@@ -32,22 +33,16 @@ def _set_widget_value_without_signals(widget, setter, context: str) -> None:
     if widget is None:
         return
 
-    previous_state = False
-    signals_blocked = False
     try:
-        previous_state = bool(widget.blockSignals(True))
-        signals_blocked = True
-        setter()
-    except Exception as error:
-        _log_settings_error(context, error)
-    finally:
-        if signals_blocked:
+        with signals_blocked(widget):
             try:
-                widget.blockSignals(previous_state)
+                setter()
             except Exception as error:
-                _log_settings_error(
-                    f"восстановления сигналов после {context}", error
-                )
+                _log_settings_error(context, error)
+    except Exception as error:
+        _log_settings_error(
+            f"блокировки или восстановления сигналов при {context}", error
+        )
 
 
 def _set_checkbox_state(checkbox, checked: bool) -> None:
@@ -377,9 +372,8 @@ def _restore_image_compression_output_settings(window, data: dict) -> None:
     if combo is not None:
         index = combo.findData(mode)
         if index >= 0:
-            combo.blockSignals(True)
-            combo.setCurrentIndex(index)
-            combo.blockSignals(False)
+            with signals_blocked(combo):
+                combo.setCurrentIndex(index)
     path_field = getattr(window, "input_image_output_path", None)
     if path_field is not None:
         path_field.setText(path)

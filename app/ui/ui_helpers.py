@@ -1,21 +1,7 @@
-from contextlib import contextmanager
-
-from PyQt6.QtWidgets import QHBoxLayout, QLabel, QSpinBox, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QSpinBox, QVBoxLayout, QWidget
 
 from app.ui.ui_components import setup_standard_form_label
 from app.ui.ui_spacing import MARGINS_NONE, SPACE_NONE, SPACE_SM
-
-
-@contextmanager
-def signals_blocked(widget):
-    if widget is None or not hasattr(widget, "blockSignals"):
-        yield
-        return
-    previous = widget.blockSignals(True)
-    try:
-        yield
-    finally:
-        widget.blockSignals(previous)
 
 
 def configure_layout(layout, *, margins=MARGINS_NONE, spacing=SPACE_NONE):

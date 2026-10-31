@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from PyQt6.QtCore import Qt
+from PySide6.QtCore import Qt
 
 from app.core import settings
 

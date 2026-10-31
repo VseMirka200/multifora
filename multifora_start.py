@@ -1,8 +1,8 @@
 import sys
 
-from PyQt6.QtCore import QTimer
-from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtCore import QTimer
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QApplication
 
 from app.core.app_icons import _get_app_icon_qt_path, _set_app_user_model_id
 from app.core.app_identity import APP_DISPLAY_NAME
@@ -38,10 +38,10 @@ def _run_build_smoke_test() -> int:
     window = None
     try:
         for module in (
-            "PyQt6.QtCore",
-            "PyQt6.QtGui",
-            "PyQt6.QtWidgets",
-            "PyQt6.QtNetwork",
+            "PySide6.QtCore",
+            "PySide6.QtGui",
+            "PySide6.QtWidgets",
+            "PySide6.QtNetwork",
             "pymupdf",
             "pdf2docx",
             "PIL.Image",

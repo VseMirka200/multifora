@@ -3,13 +3,15 @@ import os
 import subprocess
 import sys
 
+from app.core.qt_utils import signals_blocked
+
 try:
     import winreg
 except ImportError:
     winreg = None
 
-from PyQt6.QtCore import QStandardPaths, Qt
-from PyQt6.QtWidgets import QMessageBox
+from PySide6.QtCore import QStandardPaths, Qt
+from PySide6.QtWidgets import QMessageBox
 
 from app.core.app_icons import _get_shortcut_icon_path
 from app.core.app_identity import APP_DISPLAY_NAME
@@ -262,9 +264,8 @@ class WindowsIntegrationMixin:
                         "3. Выбрать «Добавить в Мультифору».",
                     )
                 else:
-                    self.context_menu_checkbox.blockSignals(True)
-                    self.context_menu_checkbox.setChecked(False)
-                    self.context_menu_checkbox.blockSignals(False)
+                    with signals_blocked(self.context_menu_checkbox):
+                        self.context_menu_checkbox.setChecked(False)
                     QMessageBox.warning(
                         self,
                         "Ошибка",
@@ -278,9 +279,8 @@ class WindowsIntegrationMixin:
                     self.status_bar.showMessage("✓ Контекстное меню удалено")
                     self.refresh_shell_context_menu()
                 else:
-                    self.context_menu_checkbox.blockSignals(True)
-                    self.context_menu_checkbox.setChecked(True)
-                    self.context_menu_checkbox.blockSignals(False)
+                    with signals_blocked(self.context_menu_checkbox):
+                        self.context_menu_checkbox.setChecked(True)
                     QMessageBox.warning(
                         self,
                         "Ошибка",

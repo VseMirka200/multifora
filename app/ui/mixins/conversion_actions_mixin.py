@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from PyQt6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from app.core.conversion_formats import (
     CONVERSION_CATEGORIES,
@@ -15,6 +15,7 @@ from app.core.conversion_formats import (
 )
 from app.core.message_boxes import show_app_choice
 from app.core.models import FileItem
+from app.core.qt_utils import signals_blocked
 from app.ui.ui_components import operation_file_items
 
 _CATEGORY_PLACEHOLDER = "Выберите тип файла:"
@@ -231,28 +232,27 @@ class ConversionActionsMixin:
             return
 
         source_label = str(source_combo.currentText() or "").strip()
-        target_combo.blockSignals(True)
         try:
-            target_combo.clear()
-            target_combo.addItem(_TARGET_PLACEHOLDER)
+            with signals_blocked(target_combo):
+                target_combo.clear()
+                target_combo.addItem(_TARGET_PLACEHOLDER)
 
-            valid_source = (
-                category_label in CONVERSION_CATEGORIES
-                and source_combo.currentIndex() > 0
-                and bool(source_label)
-            )
-            if not valid_source:
-                target_combo.setEnabled(False)
-                return
+                valid_source = (
+                    category_label in CONVERSION_CATEGORIES
+                    and source_combo.currentIndex() > 0
+                    and bool(source_label)
+                )
+                if not valid_source:
+                    target_combo.setEnabled(False)
+                    return
 
-            targets = compatible_targets_for_source(
-                category_label, source_label
-            )
-            for target in targets:
-                target_combo.addItem(target)
-            target_combo.setEnabled(bool(targets))
+                targets = compatible_targets_for_source(
+                    category_label, source_label
+                )
+                for target in targets:
+                    target_combo.addItem(target)
+                target_combo.setEnabled(bool(targets))
         finally:
-            target_combo.blockSignals(False)
             self.update_convert_button_state()
 
     def update_convert_button_state(self) -> None:

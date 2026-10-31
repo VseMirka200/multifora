@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 from collections.abc import Callable, Iterable
 
-from PyQt6.QtCore import QThread, pyqtSignal
+from PySide6.QtCore import QThread, Signal
 
 from app.core.models import FileItem
 
@@ -16,11 +16,11 @@ from .result import OperationResult
 class OperationWorker(QThread):
     """Предоставляет отмену, сбор результата и уведомления Qt."""
 
-    progress = pyqtSignal(int)
-    status = pyqtSignal(str)
-    finished = pyqtSignal(object)
-    error = pyqtSignal(str)
-    file_error = pyqtSignal(str)
+    progress = Signal(int)
+    status = Signal(str)
+    finished = Signal(object)
+    error = Signal(str)
+    file_error = Signal(str)
     _get_unique_path = staticmethod(get_unique_path)
 
     def __init__(self) -> None:

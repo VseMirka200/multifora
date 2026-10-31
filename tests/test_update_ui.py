@@ -5,8 +5,8 @@ from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QApplication, QWidget
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QApplication, QWidget
 
 from app.ui.mixins.settings_panel_mixin import SettingsPanelMixin
 

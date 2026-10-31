@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.core.qt_utils import signals_blocked
 from app.ui.ui_components import (
     AutoHeightTextEdit,
     MenuLikeComboBox,
@@ -22,7 +23,6 @@ from app.ui.ui_components import (
 from app.ui.ui_helpers import (
     create_param_block,
     create_spin_param_block,
-    signals_blocked,
 )
 from app.ui.ui_spacing import (
     MARGINS_NONE,

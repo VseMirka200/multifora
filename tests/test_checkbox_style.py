@@ -4,9 +4,9 @@ from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QApplication, QCheckBox, QMenu, QStyle
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QApplication, QCheckBox, QMenu, QStyle
 
 from app.ui.checkbox_style import install_checkbox_style, paint_checkbox
 from app.ui.theme_styles import APPLICATION_STYLES

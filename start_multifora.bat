@@ -65,7 +65,7 @@ if errorlevel 1 goto error
 set "PYTHONNOUSERSITE=1"
 
 echo Checking required packages...
-"%VENV_PY%" -c "import PyQt6, pymupdf, PIL, docx, pdf2docx, odf, pythoncom, win32com.client" >nul 2>nul
+"%VENV_PY%" -c "import PySide6, pymupdf, PIL, docx, pdf2docx, odf, pythoncom, win32com.client" >nul 2>nul
 if errorlevel 1 goto install_packages
 
 "%VENV_PY%" -m pip check >nul 2>nul

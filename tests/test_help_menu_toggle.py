@@ -5,9 +5,9 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtCore import QPoint, Qt
-from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication, QMenu, QPushButton
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication, QMenu, QPushButton
 
 from app.ui.mixins.operations_tab_layout_mixin import (
     OperationsTabLayoutMixin,

@@ -1,8 +1,9 @@
 import os
 
-from PyQt6.QtWidgets import QFileDialog
+from PySide6.QtWidgets import QFileDialog
 
 from app.core.app_utils import _log_ignored_error
+from app.core.qt_utils import signals_blocked
 
 
 class OperationsCompressUiMixin:
@@ -39,11 +40,8 @@ class OperationsCompressUiMixin:
         if current_text == target_text:
             return
 
-        try:
-            self.combo_compress_type.blockSignals(True)
+        with signals_blocked(self.combo_compress_type):
             self.combo_compress_type.setCurrentText(target_text)
-        finally:
-            self.combo_compress_type.blockSignals(False)
         self.on_compress_type_changed(target_text)
 
     def _has_selected_files_for_current_compress_type(self) -> bool:

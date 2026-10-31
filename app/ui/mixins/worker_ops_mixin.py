@@ -1,7 +1,7 @@
 import os
 
-from PyQt6.QtCore import QTimer
-from PyQt6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from app.core.app_utils import _debug_log
 from app.core.models import FileItem

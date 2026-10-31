@@ -1,8 +1,8 @@
 """Animated splash screen displayed while the main window is prepared."""
 
-from PyQt6.QtCore import QEasingCurve, QPropertyAnimation, Qt
-from PyQt6.QtGui import QPixmap
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt
+from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import (
     QFrame,
     QGraphicsOpacityEffect,
     QHBoxLayout,
@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.core.app_identity import APP_DISPLAY_NAME
+from app.ui.ui_styles import STARTUP_SPLASH_STYLE
 
 
 class StartupSplash(QWidget):
@@ -40,26 +41,7 @@ class StartupSplash(QWidget):
     def _build_ui(self, icon_path: str | None) -> None:
         card = QFrame(self)
         card.setObjectName("startupCard")
-        card.setStyleSheet(
-            """
-            QFrame#startupCard {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #18263d, stop:0.54 #13213a, stop:1 #0d1728);
-                border: 1px solid #3d6ca7;
-                border-radius: 18px;
-            }
-            QLabel#startupTitle { color: #f6f9ff; font-size: 27px; font-weight: 700; }
-            QLabel#startupSubtitle { color: #aebfd8; font-size: 14px; }
-            QLabel#startupStatus { color: #7eabdf; font-size: 12px; }
-            QProgressBar {
-                border: 0; background: #0b1424; border-radius: 3px; min-height: 6px;
-                max-height: 6px;
-            }
-            QProgressBar::chunk {
-                background: #4f9fff; border-radius: 3px;
-            }
-            """
-        )
+        card.setStyleSheet(STARTUP_SPLASH_STYLE)
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(30, 30, 30, 26)
         card_layout.setSpacing(0)

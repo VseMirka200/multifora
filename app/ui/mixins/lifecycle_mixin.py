@@ -1,6 +1,6 @@
 import json
 
-from PyQt6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 import app.core.settings as app_settings
 from app.core.app_ipc import _delete_ipc_token

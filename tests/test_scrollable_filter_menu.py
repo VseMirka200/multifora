@@ -3,9 +3,9 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtCore import QPoint, Qt
-from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QApplication, QToolButton
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QApplication, QToolButton
 
 from app.ui.theme_styles import DARK_APPLICATION_STYLE
 from app.ui.ui_components import (

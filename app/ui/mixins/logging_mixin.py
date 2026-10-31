@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QAbstractButton,
     QCheckBox,
     QComboBox,

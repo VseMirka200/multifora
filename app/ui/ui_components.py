@@ -1,6 +1,6 @@
 import os
 
-from PyQt6.QtCore import (
+from PySide6.QtCore import (
     QAbstractAnimation,
     QAbstractTableModel,
     QEasingCurve,
@@ -10,9 +10,9 @@ from PyQt6.QtCore import (
     QSize,
     Qt,
     QTimer,
-    pyqtSignal,
+    Signal,
 )
-from PyQt6.QtGui import (
+from PySide6.QtGui import (
     QAction,
     QColor,
     QCursor,
@@ -22,7 +22,7 @@ from PyQt6.QtGui import (
     QKeySequence,
     QTextOption,
 )
-from PyQt6.QtWidgets import (
+from PySide6.QtWidgets import (
     QAbstractItemView,
     QAbstractSpinBox,
     QApplication,
@@ -79,7 +79,7 @@ from app.ui.ui_styles import (
 
 
 def apply_standard_field_style(widget):
-    theme = _resolve_widget_theme_mode(widget)
+    theme = resolve_widget_theme_mode(widget)
     name = widget.objectName() if hasattr(widget, "objectName") else ""
     if isinstance(widget, MenuLikeComboBox):
         widget.setStyleSheet(build_standard_field_style(theme, "menu"))
@@ -156,7 +156,7 @@ def refresh_standard_button_styles(root: QWidget):
                 continue
             widget.setStyleSheet(
                 build_standard_button_style(
-                    _resolve_widget_theme_mode(widget), str(role)
+                    resolve_widget_theme_mode(widget), str(role)
                 )
             )
             _refresh_widget_style(widget)
@@ -165,10 +165,18 @@ def refresh_standard_button_styles(root: QWidget):
     return root
 
 
-def _resolve_widget_theme_mode(widget) -> str:
+def resolve_widget_theme_mode(widget, preferred: str | None = None) -> str:
+    """Resolve the explicit theme or inherit it through the widget hierarchy."""
+    if preferred in ("light", "dark"):
+        return preferred
+    if widget is None:
+        return "dark"
     current = widget
     while current is not None:
         mode = getattr(current, "_effective_theme_mode", None)
+        if mode in ("light", "dark"):
+            return mode
+        mode = getattr(current, "theme_mode", None)
         if mode in ("light", "dark"):
             return mode
         next_widget = None
@@ -195,7 +203,7 @@ def _resolve_widget_theme_mode(widget) -> str:
                     return mode
                 parent = parent.parent() if hasattr(parent, "parent") else None
     except Exception as error:
-        _log_ignored_error("_resolve_widget_theme_mode", error)
+        _log_ignored_error("resolve_widget_theme_mode", error)
     return "dark"
 
 
@@ -389,7 +397,7 @@ def setup_standard_action_button(
         widget.setObjectName("cancel_operation_btn")
     widget.setFlat(False)
     widget.setStyleSheet(
-        build_standard_button_style(_resolve_widget_theme_mode(widget), role)
+        build_standard_button_style(resolve_widget_theme_mode(widget), role)
     )
     _refresh_widget_style(widget)
     return widget
@@ -472,6 +480,13 @@ def setup_standard_dialog(
     size_grip: bool = False,
     allow_minmax: bool = False,
 ):
+    dialog._effective_theme_mode = resolve_widget_theme_mode(dialog.parent())
+    parent = dialog.parent()
+    if parent is not None:
+        try:
+            dialog.setStyleSheet(parent.styleSheet())
+        except Exception as error:
+            _log_ignored_error("setup_standard_dialog", error)
     dialog.setWindowTitle(title)
     dialog.setModal(True)
     dialog.setWindowFlag(Qt.WindowType.WindowContextHelpButtonHint, False)
@@ -498,17 +513,7 @@ def get_russian_text_input(
     parent, *, title: str, label: str, text: str = ""
 ) -> tuple[str, bool]:
     dialog = QDialog(parent)
-    try:
-        dialog._effective_theme_mode = getattr(
-            parent, "_effective_theme_mode", "dark"
-        )
-    except Exception as error:
-        _log_ignored_error("get_russian_text_input", error)
     setup_standard_dialog(dialog, title=title, min_width=380)
-    try:
-        dialog.setStyleSheet(parent.styleSheet())
-    except Exception as error:
-        _log_ignored_error("get_russian_text_input", error)
 
     layout = QVBoxLayout(dialog)
     layout.setContentsMargins(10, 6, 10, 6)
@@ -779,8 +784,8 @@ class ScrollableFilterMenu(QMenu):
 class MenuLikeComboBox(QToolButton):
     """Выпадающий список на QMenu с API, похожим на QComboBox."""
 
-    currentIndexChanged = pyqtSignal(int)
-    currentTextChanged = pyqtSignal(str)
+    currentIndexChanged = Signal(int)
+    currentTextChanged = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1300,14 +1305,14 @@ class FileListWidget(QTableView):
     _CHECK_COLUMN_WIDTH = 36
     _NAME_COLUMN_MAX_WIDTH = 220
 
-    filesDropped = pyqtSignal(list)
-    itemDoubleClicked = pyqtSignal(object)
-    itemSelectionChanged = pyqtSignal()
-    orderChanged = pyqtSignal()
-    deleteRequested = pyqtSignal()
-    openRequested = pyqtSignal()
-    copyRequested = pyqtSignal()
-    renameRequested = pyqtSignal()
+    filesDropped = Signal(list)
+    itemDoubleClicked = Signal(object)
+    itemSelectionChanged = Signal()
+    orderChanged = Signal()
+    deleteRequested = Signal()
+    openRequested = Signal()
+    copyRequested = Signal()
+    renameRequested = Signal()
 
     def __init__(self):
         super().__init__()
@@ -1665,7 +1670,7 @@ class FileListWidget(QTableView):
 
 
 class DropActionTile(QFrame):
-    clicked = pyqtSignal()
+    clicked = Signal()
 
     def __init__(self, icon: QIcon, text: str, parent=None):
         super().__init__(parent)
@@ -1716,7 +1721,7 @@ class DropActionTile(QFrame):
 
 
 class LoggingStatusBar(QStatusBar):
-    messageLogged = pyqtSignal(str)
+    messageLogged = Signal(str)
 
     def showMessage(self, text: str, timeout: int = 0):
         super().showMessage(text, timeout)

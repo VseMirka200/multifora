@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QGuiApplication
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QMessageBox,
@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
 
 from app.core.app_utils import _log_ignored_error
 from app.core.message_boxes import show_app_confirmation
+from app.core.qt_utils import signals_blocked
 from app.ui.checkbox_style import install_checkbox_style
 from app.ui.theme_styles import APPLICATION_STYLES
 from app.ui.ui_components import (
@@ -136,9 +137,8 @@ class AppearanceMixin:
             try:
                 idx = self.theme_mode_combo.findData(self.theme_mode)
                 if idx >= 0 and self.theme_mode_combo.currentIndex() != idx:
-                    self.theme_mode_combo.blockSignals(True)
-                    self.theme_mode_combo.setCurrentIndex(idx)
-                    self.theme_mode_combo.blockSignals(False)
+                    with signals_blocked(self.theme_mode_combo):
+                        self.theme_mode_combo.setCurrentIndex(idx)
             except Exception as error:
                 _log_ignored_error("AppearanceMixin.apply_theme_mode", error)
 

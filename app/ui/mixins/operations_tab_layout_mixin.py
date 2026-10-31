@@ -1,4 +1,4 @@
-from PyQt6.QtCore import (
+from PySide6.QtCore import (
     QEasingCurve,
     QEvent,
     QObject,
@@ -7,8 +7,8 @@ from PyQt6.QtCore import (
     Qt,
     QUrl,
 )
-from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtWidgets import (
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
     QFrame,
@@ -33,6 +33,7 @@ from app.core.github_links import (
 )
 from app.ui.ui_components import (
     MenuLikeComboBox,
+    resolve_widget_theme_mode,
     setup_clickable_checkbox_label,
     setup_standard_action_button,
     setup_standard_dropdown,
@@ -95,13 +96,7 @@ class OperationsTabLayoutMixin:
         tab_bar = getattr(self, "operations_tab_bar", None)
         if tab_bar is None:
             return
-        effective = theme or getattr(self, "_effective_theme_mode", None)
-        if effective not in ("light", "dark"):
-            effective = (
-                "light"
-                if str(getattr(self, "theme_mode", "dark")).lower() == "light"
-                else "dark"
-            )
+        effective = resolve_widget_theme_mode(self, theme)
         tab_bar.setStyleSheet(build_operations_tab_bar_style(effective))
         for button_name in ("btn_help",):
             button = getattr(self, button_name, None)

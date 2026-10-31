@@ -1,7 +1,7 @@
 import os
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QMessageBox
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QMessageBox
 
 from app.core.app_utils import _log_ignored_error
 from app.core.conversion_formats import KNOWN_FILE_EXTENSIONS

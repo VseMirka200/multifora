@@ -20,8 +20,8 @@ def test_bundle_validator_accepts_complete_layout(tmp_path: Path):
         "bin/gswin64/gsdll64.dll",
         "_internal/assets/icon.ico",
         "_internal/docxcompose/templates/custom.xml",
-        "_internal/PyQt6/Qt6/plugins/platforms/qwindows.dll",
-        "_internal/PyQt6/Qt6/plugins/platforms/qoffscreen.dll",
+        "_internal/PySide6/plugins/platforms/qwindows.dll",
+        "_internal/PySide6/plugins/platforms/qoffscreen.dll",
     )
     for relative in contents:
         target = tmp_path / relative
