@@ -107,4 +107,3 @@ $env:QT_QPA_PLATFORM = "offscreen"
 ## Лицензия
 
 Проект распространяется по [лицензии MIT](LICENSE).
-
