@@ -61,5 +61,7 @@ jobs:
             dist/installer/Multifora-Silent-Install-*.bat
             dist/Multifora-Portable-*.zip
             dist/SHA256SUMS.txt
+            dist/bundle-metrics.json
+            dist/runtime-metrics.json
           if-no-files-found: error
           retention-days: 14

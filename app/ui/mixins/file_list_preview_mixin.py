@@ -565,7 +565,6 @@ class FileListPreviewMixin:
 
     def update_file_list(self):
         """Обновление отображения списка"""
-        self._remove_missing_files_from_queue()
         if not self.files:
             self.list_files.clear()
             if callable(getattr(self, "on_file_selection_changed", None)):

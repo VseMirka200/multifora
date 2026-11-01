@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import glob
+import importlib.util
 import os
 import shutil
 import sys
+import threading
 
 from app.core.app_utils import _debug_log
+from app.core.pdf_compat import import_pymupdf_with_legacy_alias
 
 try:
     import winreg
@@ -16,21 +19,16 @@ except ImportError:
 
 
 fitz = None
-Image = None
-ImageOps = None
-pdf2docx = None
-text = None
-teletype = None
-load = None
-OpenDocumentText = None
 
 HAS_PANDOC = False
 PANDOC_PATH = None
-HAS_PDF_TO_DOCX = False
-HAS_PYMUPDF = False
-HAS_ODF_PYTHON = False
-HAS_PIL = False
-HAS_HEIF = False
+HAS_PYMUPDF = importlib.util.find_spec("pymupdf") is not None
+HAS_PDF_TO_DOCX = (
+    HAS_PYMUPDF and importlib.util.find_spec("pdf2docx") is not None
+)
+HAS_ODF_PYTHON = importlib.util.find_spec("odf") is not None
+HAS_PIL = importlib.util.find_spec("PIL") is not None
+HAS_HEIF = HAS_PIL and importlib.util.find_spec("pillow_heif") is not None
 HAS_GHOSTSCRIPT = False
 GHOSTSCRIPT_PATH = None
 
@@ -45,34 +43,110 @@ _GHOSTSCRIPT_REGISTRY_PATHS = (
 _GHOSTSCRIPT_EXECUTABLES = ("gswin64c.exe", "gs.exe")
 
 
-try:
-    import pymupdf as fitz
+_pdf2docx_module = None
+_pdf2docx_import_lock = threading.Lock()
 
-    HAS_PYMUPDF = True
-    _debug_log("PyMuPDF найден")
-except ImportError:
-    _debug_log("PyMuPDF не найден. Установите: pip install PyMuPDF")
 
-try:
-    from PIL import Image, ImageOps
+def _load_pdf2docx():
+    """Load the heavy PDF converter only inside the conversion worker."""
+    global fitz, _pdf2docx_module
+    if _pdf2docx_module is not None:
+        return _pdf2docx_module
+    with _pdf2docx_import_lock:
+        if _pdf2docx_module is None:
+            fitz = import_pymupdf_with_legacy_alias()
+            import pdf2docx as module
 
-    HAS_PIL = True
-    _debug_log("Pillow найден")
-    try:
-        import pillow_heif
+            _pdf2docx_module = module
+    return _pdf2docx_module
 
-        pillow_heif.register_heif_opener()
-        register_avif = getattr(pillow_heif, "register_avif_opener", None)
-        if callable(register_avif):
-            register_avif()
-        HAS_HEIF = True
-        _debug_log("pillow-heif найден")
-    except ImportError:
-        _debug_log("pillow-heif не найден: HEIC/HEIF будут недоступны")
-    except Exception as error:
-        _debug_log(f"Не удалось зарегистрировать HEIC/HEIF: {error}")
-except ImportError:
-    _debug_log("Pillow не найден. Установите: pip install Pillow")
+
+class _LazyModule:
+    def __init__(self, loader):
+        self._loader = loader
+
+    def __getattr__(self, name):
+        return getattr(self._loader(), name)
+
+
+pdf2docx = _LazyModule(_load_pdf2docx)
+
+_pillow_modules = None
+_pillow_import_lock = threading.Lock()
+
+
+def _load_pillow():
+    """Load Pillow and register optional formats on the first image operation."""
+    global HAS_HEIF, HAS_PIL, _pillow_modules
+    if _pillow_modules is not None:
+        return _pillow_modules
+    with _pillow_import_lock:
+        if _pillow_modules is None:
+            try:
+                from PIL import Image as image_module
+                from PIL import ImageOps as image_ops_module
+            except ImportError:
+                HAS_PIL = False
+                raise
+
+            if HAS_HEIF:
+                try:
+                    import pillow_heif
+
+                    pillow_heif.register_heif_opener()
+                    register_avif = getattr(
+                        pillow_heif, "register_avif_opener", None
+                    )
+                    if callable(register_avif):
+                        register_avif()
+                except (ImportError, OSError) as error:
+                    HAS_HEIF = False
+                    _debug_log(f"Не удалось зарегистрировать HEIC/HEIF: {error}")
+            _pillow_modules = (image_module, image_ops_module)
+    return _pillow_modules
+
+
+Image = _LazyModule(lambda: _load_pillow()[0])
+ImageOps = _LazyModule(lambda: _load_pillow()[1])
+
+_odf_modules = None
+_odf_import_lock = threading.Lock()
+
+
+def _load_odf():
+    """Load odfpy only when an ODT conversion is requested."""
+    global HAS_ODF_PYTHON, _odf_modules
+    if _odf_modules is not None:
+        return _odf_modules
+    with _odf_import_lock:
+        if _odf_modules is None:
+            try:
+                from odf import teletype as teletype_module
+                from odf import text as text_module
+                from odf.opendocument import OpenDocumentText as document_type
+                from odf.opendocument import load as load_document
+            except ImportError:
+                HAS_ODF_PYTHON = False
+                raise
+            _odf_modules = (
+                teletype_module,
+                text_module,
+                document_type,
+                load_document,
+            )
+    return _odf_modules
+
+
+teletype = _LazyModule(lambda: _load_odf()[0])
+text = _LazyModule(lambda: _load_odf()[1])
+
+
+def OpenDocumentText(*args, **kwargs):
+    return _load_odf()[2](*args, **kwargs)
+
+
+def load(*args, **kwargs):
+    return _load_odf()[3](*args, **kwargs)
 
 
 def _registry_value(key, name: str) -> str | None:
@@ -148,10 +222,6 @@ def _ghostscript_candidates(custom_path: str | None = None) -> list[str]:
     if environment_path:
         candidates.append(environment_path)
 
-    registry_path = _find_ghostscript_in_registry()
-    if registry_path:
-        candidates.append(registry_path)
-
     executable = sys.argv[0] if sys.argv else ""
     base_dir = (
         os.path.dirname(os.path.abspath(executable)) if executable else None
@@ -161,6 +231,13 @@ def _ghostscript_candidates(custom_path: str | None = None) -> list[str]:
         candidates.append(
             os.path.join(base_dir, "bin", "gswin64", "gswin64c.exe")
         )
+
+    # The packaged copy is deterministic and must win over an unrelated
+    # machine-wide Ghostscript installation. Explicit custom/env overrides
+    # above remain available for users who intentionally select another build.
+    registry_path = _find_ghostscript_in_registry()
+    if registry_path:
+        candidates.append(registry_path)
 
     candidates.append(r"C:\\Program Files\\gs\\gs*\\bin\\gswin64c.exe")
     candidates.extend(_GHOSTSCRIPT_EXECUTABLES)
@@ -262,18 +339,3 @@ def ensure_pandoc_detected(
 
 
 _detect_pandoc()
-
-try:
-    import pdf2docx
-
-    HAS_PDF_TO_DOCX = True
-except ImportError:
-    _debug_log("pdf2docx не найден")
-
-try:
-    from odf import teletype, text
-    from odf.opendocument import OpenDocumentText, load
-
-    HAS_ODF_PYTHON = True
-except ImportError:
-    _debug_log("python-odf не найден")

@@ -19,26 +19,6 @@ FILE_LIST_HEADER_STYLE = (
 FILE_LIST_DRAG_ACTIVE_STYLE = "QTableView { border: 2px dashed #3d74b3; }"
 
 
-STARTUP_SPLASH_STYLE = """
-    QFrame#startupCard {
-        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-            stop:0 #18263d, stop:0.54 #13213a, stop:1 #0d1728);
-        border: 1px solid #3d6ca7;
-        border-radius: 18px;
-    }
-    QLabel#startupTitle { color: #f6f9ff; font-size: 27px; font-weight: 700; }
-    QLabel#startupSubtitle { color: #aebfd8; font-size: 14px; }
-    QLabel#startupStatus { color: #7eabdf; font-size: 12px; }
-    QProgressBar {
-        border: 0; background: #0b1424; border-radius: 3px; min-height: 6px;
-        max-height: 6px;
-    }
-    QProgressBar::chunk {
-        background: #4f9fff; border-radius: 3px;
-    }
-    """
-
-
 def build_splitter_style() -> str:
     return """
         QSplitter::handle:horizontal {

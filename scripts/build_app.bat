@@ -21,11 +21,11 @@ set BUILD_PYTHON="%PROJECT%\.venv-build\Scripts\python.exe"
 %BUILD_PYTHON% "scripts\verify_build_environment.py" --python-only
 if errorlevel 1 goto :error
 
-%BUILD_PYTHON% -m pip install -r "requirements.txt"
+%BUILD_PYTHON% -m pip install -r "requirements-runtime.txt" -r "requirements-build.txt"
 if errorlevel 1 goto :error
 %BUILD_PYTHON% -m pip check
 if errorlevel 1 goto :error
-%BUILD_PYTHON% "scripts\verify_build_environment.py"
+%BUILD_PYTHON% "scripts\verify_build_environment.py" --requirements "requirements-runtime.txt" --requirements "requirements-build.txt"
 if errorlevel 1 goto :error
 
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "scripts\install_pandoc.ps1"
@@ -47,6 +47,8 @@ if exist "bin" (
 )
 
 %BUILD_PYTHON% "scripts\verify_windows_bundle.py" --bundle "dist\%APP_BUILD_NAME%"
+if errorlevel 1 goto :error
+%BUILD_PYTHON% "scripts\measure_bundle.py" --bundle "dist\%APP_BUILD_NAME%" --output "dist\bundle-metrics.json" --max-mib 675 --max-files 1500
 if errorlevel 1 goto :error
 
 echo Build complete. Output: dist\%APP_BUILD_NAME%

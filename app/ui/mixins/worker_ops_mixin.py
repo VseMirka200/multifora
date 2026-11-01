@@ -192,7 +192,7 @@ class WorkerOpsMixin:
         show_starting = getattr(self, "_show_operation_starting", None)
         if callable(show_starting):
             show_starting(f"Подготовка сжатия {len(files)} файлов...")
-        if not self.create_file_worker():
+        if not self.create_file_worker(operation="compress"):
             hide_progress = getattr(self, "_hide_progress_dialog", None)
             if callable(hide_progress):
                 hide_progress()

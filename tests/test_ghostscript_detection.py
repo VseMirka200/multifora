@@ -124,6 +124,31 @@ class GhostscriptDetectionTests(unittest.TestCase):
             deps.GHOSTSCRIPT_PATH = original_path
             sys.argv[0] = original_argv0
 
+    def test_bundled_ghostscript_precedes_machine_registry_installation(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bundled = os.path.join(
+                tmpdir, "bin", "gswin64", "gswin64c.exe"
+            )
+            machine_install = os.path.join(tmpdir, "system", "gswin64c.exe")
+            os.makedirs(os.path.dirname(bundled))
+            os.makedirs(os.path.dirname(machine_install))
+            for executable in (bundled, machine_install):
+                with open(executable, "wb") as stream:
+                    stream.write(b"")
+
+            with (
+                patch.object(sys, "argv", [os.path.join(tmpdir, "Multifora.exe")]),
+                patch.dict(os.environ, {}, clear=True),
+                patch.object(
+                    deps,
+                    "_find_ghostscript_in_registry",
+                    return_value=machine_install,
+                ),
+            ):
+                candidates = deps._ghostscript_candidates()
+
+            self.assertLess(candidates.index(bundled), candidates.index(machine_install))
+
     def test_compression_emits_result_when_cancelled(self):
         worker = _DummyCompressionWorker()
         worker._cancel_requested = True

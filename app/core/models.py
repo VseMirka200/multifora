@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import stat
 
 from app.core.conversion_formats import FILE_TYPE_EXTENSIONS
 
@@ -60,11 +61,15 @@ class FileItem:
         self._refresh_path_metadata()
 
     def _refresh_path_metadata(self) -> None:
-        self.is_file = os.path.isfile(self.path)
+        try:
+            path_stat = os.stat(self.path)
+        except OSError:
+            path_stat = None
+        self.is_file = bool(path_stat and stat.S_ISREG(path_stat.st_mode))
         self.name = os.path.basename(self.path)
         self.folder = os.path.dirname(self.path)
         self.preview_folder = self.folder
-        self.size = os.path.getsize(self.path) if self.is_file else 0
+        self.size = path_stat.st_size if self.is_file else 0
         self.file_type = self._detect_file_type()
 
     def _detect_file_type(self) -> str:

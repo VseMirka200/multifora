@@ -1,9 +1,12 @@
 import os
+import stat
 import tempfile
 import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from app.core.models import FileItem
+from app.ui.mixins.file_list_actions_mixin import FileListActionsMixin
 from app.ui.mixins.file_list_context_mixin import FileListContextMixin
 from app.ui.mixins.file_list_preview_mixin import FileListPreviewMixin
 from app.ui.mixins.worker_ops_mixin import WorkerOpsMixin
@@ -32,6 +35,13 @@ class _QueueRefreshHost(FileListPreviewMixin):
         return False
 
 
+class _QueueUpdateHost(FileListPreviewMixin):
+    def __init__(self, files):
+        self.files = files
+        self.list_files = Mock()
+        self.on_file_selection_changed = Mock()
+
+
 class FileListContextTests(unittest.TestCase):
     def test_refresh_queue_removes_only_missing_files(self):
         existing = SimpleNamespace(path=r"C:\\available.docx", is_file=True)
@@ -42,12 +52,28 @@ class FileListContextTests(unittest.TestCase):
         with patch(
             "app.ui.mixins.file_list_preview_mixin.os.path.isfile",
             side_effect=lambda path: path == existing.path,
-        ):
+        ) as isfile:
             host.refresh_queue_paths()
 
         self.assertEqual(host.files, [existing, folder])
+        self.assertEqual(isfile.call_count, 2)
         host.update_file_list.assert_called_once_with()
         host.update_file_info.assert_called_once_with()
+
+    def test_visual_list_update_does_not_rescan_every_file_path(self):
+        files = [
+            SimpleNamespace(path=rf"C:\queue\{index}.pdf", is_file=True)
+            for index in range(10_000)
+        ]
+        host = _QueueUpdateHost(files)
+
+        with patch(
+            "app.ui.mixins.file_list_preview_mixin.os.path.isfile"
+        ) as isfile:
+            host.update_file_list()
+
+        isfile.assert_not_called()
+        host.list_files.set_files.assert_called_once_with(files)
 
     def test_remove_from_list_keeps_file_on_disk_by_default(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -153,6 +179,43 @@ class FileListContextTests(unittest.TestCase):
 
         self.assertEqual(host.files, [item])
         host.update_file_list.assert_not_called()
+
+
+class FileMetadataTests(unittest.TestCase):
+    def test_file_item_reads_type_and_size_with_one_stat_call(self):
+        path_stat = SimpleNamespace(st_mode=stat.S_IFREG, st_size=4096)
+        with patch("app.core.models.os.stat", return_value=path_stat) as os_stat:
+            item = FileItem(r"C:\queue\report.pdf")
+
+        os_stat.assert_called_once_with(r"C:\queue\report.pdf")
+        self.assertTrue(item.is_file)
+        self.assertEqual(item.size, 4096)
+        self.assertEqual(item.file_type, "document")
+
+    def test_known_extension_does_not_repeat_directory_stat(self):
+        with patch(
+            "app.ui.mixins.file_list_actions_mixin.os.path.isdir"
+        ) as isdir:
+            self.assertTrue(
+                FileListActionsMixin._is_supported_queue_path(
+                    r"C:\queue\report.PDF"
+                )
+            )
+
+        isdir.assert_not_called()
+
+    def test_unknown_extension_still_checks_for_directory(self):
+        with patch(
+            "app.ui.mixins.file_list_actions_mixin.os.path.isdir",
+            return_value=True,
+        ) as isdir:
+            self.assertTrue(
+                FileListActionsMixin._is_supported_queue_path(
+                    r"C:\queue\project.folder"
+                )
+            )
+
+        isdir.assert_called_once_with(r"C:\queue\project.folder")
 
 
 class AutoClearBehaviorTests(unittest.TestCase):

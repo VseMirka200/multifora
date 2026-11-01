@@ -40,6 +40,22 @@ def check_bundle(bundle: Path) -> list[str]:
             for name in ("qwindows.dll", "qoffscreen.dll")
             if not any(internal.rglob(name))
         )
+        excluded_qt_binaries = {
+            "qpdf.dll",
+            "qtvirtualkeyboardplugin.dll",
+            "qt6pdf.dll",
+            "qt6virtualkeyboard.dll",
+            "qt6quick.dll",
+            "qt6qml.dll",
+            "qt6qmlmeta.dll",
+            "qt6qmlmodels.dll",
+            "qt6qmlworkerscript.dll",
+        }
+        missing.extend(
+            f"unexpected Qt runtime binary: {path.relative_to(bundle)}"
+            for path in internal.rglob("*")
+            if path.is_file() and path.name.lower() in excluded_qt_binaries
+        )
     return missing
 
 

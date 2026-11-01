@@ -438,17 +438,22 @@ class ConversionActionsMixin:
         show_starting = getattr(self, "_show_operation_starting", None)
         if callable(show_starting):
             show_starting(f"Подготовка конвертации {len(files)} файлов...")
-        if not self.create_file_worker():
-            hide_progress = getattr(self, "_hide_progress_dialog", None)
-            if callable(hide_progress):
-                hide_progress()
-            return
-
         conversion_type = self._resolve_conversion_type(
             category_label,
             source_label,
             target_label,
         )
+        worker_operation = (
+            "convert_image"
+            if conversion_type == "auto_image"
+            else "convert_document"
+        )
+        if not self.create_file_worker(operation=worker_operation):
+            hide_progress = getattr(self, "_hide_progress_dialog", None)
+            if callable(hide_progress):
+                hide_progress()
+            return
+
         self.file_worker.set_conversion(
             files,
             conversion_type,

@@ -5,6 +5,90 @@ import unittest
 
 
 class WorkerPackageImportTests(unittest.TestCase):
+    def test_pdf2docx_uses_pymupdf_without_deprecated_fitz_shim(self):
+        script = textwrap.dedent('''
+            import sys
+
+            import app.core.deps as deps
+
+            assert deps.HAS_PDF_TO_DOCX
+            assert deps.fitz is None
+            assert "pdf2docx" not in sys.modules
+            assert "cv2" not in sys.modules
+            assert "numpy" not in sys.modules
+            assert deps.pdf2docx.Converter
+            import pymupdf
+            assert deps.fitz is pymupdf
+            assert sys.modules["fitz"] is pymupdf
+            assert "pdf2docx" in sys.modules
+            assert "cv2" in sys.modules
+            assert "numpy" in sys.modules
+            print("OK")
+        ''')
+        output = subprocess.check_output(
+            [sys.executable, "-c", script],
+            text=True,
+            encoding="utf-8",
+            timeout=30,
+        ).strip()
+        self.assertEqual(output, "OK")
+
+    def test_file_worker_defers_pdf2docx_backend(self):
+        script = textwrap.dedent('''
+            import sys
+
+            from core.workers.file_worker import FileWorker
+
+            assert FileWorker
+            assert "pdf2docx" not in sys.modules
+            assert "pymupdf" not in sys.modules
+            assert "cv2" not in sys.modules
+            assert "numpy" not in sys.modules
+            assert "PIL.Image" not in sys.modules
+            assert "pillow_heif" not in sys.modules
+            assert "odf" not in sys.modules
+            print("OK")
+        ''')
+        output = subprocess.check_output(
+            [sys.executable, "-c", script],
+            text=True,
+            encoding="utf-8",
+            timeout=30,
+        ).strip()
+        self.assertEqual(output, "OK")
+
+    def test_optional_image_and_odf_backends_load_on_first_use(self):
+        script = textwrap.dedent('''
+            import sys
+
+            import app.core.deps as deps
+
+            assert deps.HAS_PIL
+            assert deps.HAS_HEIF
+            assert deps.HAS_ODF_PYTHON
+            assert "PIL.Image" not in sys.modules
+            assert "pillow_heif" not in sys.modules
+            assert "odf" not in sys.modules
+
+            with deps.Image.new("RGB", (1, 1)) as image:
+                assert image.size == (1, 1)
+            assert "PIL.Image" in sys.modules
+            assert "pillow_heif" in sys.modules
+            assert "odf" not in sys.modules
+
+            document = deps.OpenDocumentText()
+            document.text.addElement(deps.text.P(text="lazy ODF"))
+            assert "odf" in sys.modules
+            print("OK")
+        ''')
+        output = subprocess.check_output(
+            [sys.executable, "-c", script],
+            text=True,
+            encoding="utf-8",
+            timeout=30,
+        ).strip()
+        self.assertEqual(output, "OK")
+
     def test_rename_starts_and_completes_without_conversion_dependencies(self):
         script = textwrap.dedent('''
             import sys
@@ -73,6 +157,58 @@ class WorkerPackageImportTests(unittest.TestCase):
         ).strip()
 
         self.assertEqual(output, "False")
+
+    def test_conversion_worker_does_not_import_compression_backend(self):
+        script = textwrap.dedent('''
+            import sys
+            from core.workers.factory import create_operation_worker
+            from core.workers.conversion_worker import ConversionWorker
+
+            worker = create_operation_worker("convert")
+            assert isinstance(worker, ConversionWorker)
+            assert "core.workers.compression_worker" not in sys.modules
+            assert "core.workers.compression" not in sys.modules
+            print("OK")
+        ''')
+        output = subprocess.check_output(
+            [sys.executable, "-c", script],
+            text=True,
+            encoding="utf-8",
+            timeout=30,
+        ).strip()
+        self.assertEqual(output, "OK")
+
+    def test_compression_worker_does_not_import_conversion_backend(self):
+        script = textwrap.dedent('''
+            import sys
+            from core.workers.factory import create_operation_worker
+            from core.workers.compression_worker import CompressionWorker
+
+            worker = create_operation_worker("compress")
+            assert isinstance(worker, CompressionWorker)
+            assert "core.workers.conversion_worker" not in sys.modules
+            assert "core.workers.conversion" not in sys.modules
+            print("OK")
+        ''')
+        output = subprocess.check_output(
+            [sys.executable, "-c", script],
+            text=True,
+            encoding="utf-8",
+            timeout=30,
+        ).strip()
+        self.assertEqual(output, "OK")
+
+    def test_conversion_factory_selects_image_and_document_workers(self):
+        from core.workers.document_worker import DocumentWorker
+        from core.workers.factory import create_operation_worker
+        from core.workers.image_worker import ImageWorker
+
+        self.assertIsInstance(
+            create_operation_worker("convert_image"), ImageWorker
+        )
+        self.assertIsInstance(
+            create_operation_worker("convert_document"), DocumentWorker
+        )
 
 
 if __name__ == "__main__":

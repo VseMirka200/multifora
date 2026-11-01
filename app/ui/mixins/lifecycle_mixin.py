@@ -98,6 +98,16 @@ class LifecycleMixin:
 
     def closeEvent(self, event):
         """Обработчик закрытия окна."""
+        metadata_worker = getattr(self, "_file_metadata_worker", None)
+        if metadata_worker is not None and metadata_worker.isRunning():
+            metadata_worker.requestInterruption()
+            self._pending_metadata_close = True
+            self.status_bar.showMessage(
+                "Отмена чтения метаданных перед закрытием."
+            )
+            event.ignore()
+            return
+
         if self.file_worker and self.file_worker.isRunning():
             if self._pending_close:
                 event.ignore()

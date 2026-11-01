@@ -29,7 +29,7 @@ class FileWorkerOperationTests(unittest.TestCase):
 
         self.assertEqual(
             set(worker._operation_handlers()),
-            {"convert", "rename", "compress", "merge"},
+            {"convert", "rename", "compress"},
         )
 
     @patch("core.workers.rename_worker.os.rename")

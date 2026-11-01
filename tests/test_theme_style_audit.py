@@ -1,6 +1,7 @@
 import unittest
 from pathlib import Path
 
+from app.ui.mixins.appearance_mixin import AppearanceMixin
 from app.ui.theme_styles import DARK_APPLICATION_STYLE, LIGHT_APPLICATION_STYLE
 from app.ui.ui_styles import (
     build_drop_zone_surface_style,
@@ -12,6 +13,23 @@ from app.ui.ui_styles import (
     build_template_table_style,
     standard_palette,
 )
+
+
+class _ThemeHost(AppearanceMixin):
+    def __init__(self):
+        self.theme_mode = "system"
+        self.system_theme = "light"
+        self.style_applications = []
+        self.runtime_refreshes = 0
+
+    def _get_system_theme_mode(self):
+        return self.system_theme
+
+    def _apply_application_style(self, theme: str) -> None:
+        self.style_applications.append(theme)
+
+    def _apply_theme_runtime_widgets(self):
+        self.runtime_refreshes += 1
 
 
 def _hex_luminance(value: str) -> float:
@@ -31,6 +49,30 @@ def _contrast(a: str, b: str) -> float:
 
 
 class ThemeStyleAuditTests(unittest.TestCase):
+    def test_effective_theme_is_only_applied_when_it_changes(self):
+        host = _ThemeHost()
+
+        host.apply_theme_mode("system")
+        host.apply_theme_mode("system")
+        host.apply_theme_mode("light")
+
+        self.assertEqual(host.style_applications, ["light"])
+        self.assertEqual(host.runtime_refreshes, 1)
+        self.assertEqual(host.theme_mode, "light")
+
+        host.apply_theme_mode("dark")
+        self.assertEqual(host.style_applications, ["light", "dark"])
+        self.assertEqual(host.runtime_refreshes, 2)
+
+        host.apply_theme_mode("system")
+        self.assertEqual(host.style_applications, ["light", "dark", "light"])
+        host.system_theme = "dark"
+        host._on_system_theme_changed(None)
+        self.assertEqual(
+            host.style_applications, ["light", "dark", "light", "dark"]
+        )
+        self.assertEqual(host.runtime_refreshes, 4)
+
     def test_settings_hints_are_small_and_theme_aware(self):
         selector = 'QFrame#settings_card QLabel[settingsHint="true"] {'
         for style, color in (

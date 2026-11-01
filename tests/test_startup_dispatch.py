@@ -50,6 +50,36 @@ class _DummyApp:
 
 
 class StartupDispatchTests(unittest.TestCase):
+    def test_first_instance_shows_main_window_without_splash_delay(self):
+        app = _DummyApp()
+        window = Mock()
+        startup_files = [r"C:\tmp\a.pdf"]
+        with (
+            patch("multifora_start._set_app_user_model_id"),
+            patch("multifora_start._get_app_icon_qt_path", return_value=None),
+            patch("multifora_start.QApplication", return_value=app),
+            patch(
+                "multifora_start.collect_startup_files",
+                return_value=startup_files,
+            ),
+            patch("multifora_start.is_first_instance", return_value=True),
+            patch("multifora_start._ensure_ipc_token"),
+            patch(
+                "multifora_start.MultiforaMainWindow", return_value=window
+            ),
+            patch("multifora_start.QTimer.singleShot") as single_shot,
+            patch("multifora_start.sys.exit", side_effect=SystemExit),
+        ):
+            with self.assertRaises(SystemExit):
+                startup.main()
+
+        window.show.assert_called_once_with()
+        single_shot.assert_called_once()
+        delay, callback = single_shot.call_args.args
+        self.assertEqual(delay, 0)
+        callback()
+        window.add_files.assert_called_once_with(startup_files)
+
     @patch("multifora_start._set_app_user_model_id")
     @patch("multifora_start._get_app_icon_qt_path", return_value=None)
     @patch("multifora_start.QApplication", return_value=_DummyApp())

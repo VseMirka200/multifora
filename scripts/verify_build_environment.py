@@ -20,13 +20,32 @@ def check_python() -> list[str]:
     return errors
 
 
-def check_packages(requirements: Path) -> list[str]:
-    errors = []
+def _read_requirements(
+    requirements: Path, seen: set[Path] | None = None
+) -> list[tuple[str, str]]:
+    requirements = requirements.resolve()
+    seen = set() if seen is None else seen
+    if requirements in seen:
+        return []
+    seen.add(requirements)
+
+    packages = []
     for line in requirements.read_text(encoding="utf-8").splitlines():
         line = line.strip()
-        if not line or line.startswith(("#", "-r ")):
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith(("-r ", "--requirement ")):
+            include = line.split(maxsplit=1)[1]
+            packages.extend(_read_requirements(requirements.parent / include, seen))
             continue
         name, expected = line.split("==", 1)
+        packages.append((name, expected))
+    return packages
+
+
+def check_packages(requirements: Path) -> list[str]:
+    errors = []
+    for name, expected in _read_requirements(requirements):
         try:
             actual = version(name)
         except PackageNotFoundError:
@@ -40,10 +59,15 @@ def check_packages(requirements: Path) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--python-only", action="store_true")
+    parser.add_argument("--requirements", action="append", type=Path)
     args = parser.parse_args()
     errors = check_python()
     if not args.python_only:
-        errors += check_packages(Path(__file__).resolve().parents[1] / "requirements.txt")
+        requirement_files = args.requirements or [
+            Path(__file__).resolve().parents[1] / "requirements.txt"
+        ]
+        for requirements in requirement_files:
+            errors += check_packages(requirements)
     if errors:
         print("Build environment is not supported:", file=sys.stderr)
         print("\n".join(f"  - {error}" for error in errors), file=sys.stderr)

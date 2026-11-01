@@ -219,10 +219,12 @@ class MultiforaMainWindow(
 
         def preload() -> None:
             try:
-                # FileWorker imports optional document and image libraries.
-                # Loading them here prevents the first operation from looking
-                # frozen while that import completes on the UI thread.
-                from core.workers.file_worker import FileWorker  # noqa: F401
+                from core.workers.compression_worker import (  # noqa: F401
+                    CompressionWorker,
+                )
+                from core.workers.conversion_worker import (  # noqa: F401
+                    ConversionWorker,
+                )
             except Exception as error:
                 _debug_log(f"Не удалось предварительно загрузить обработчик: {error}")
 
@@ -426,14 +428,9 @@ class MultiforaMainWindow(
             except Exception as e:
                 _debug_log(f"Ошибка отключения старых сигналов: {e}")
 
-        if operation == "rename":
-            from core.workers.rename_worker import RenameWorker
+        from core.workers.factory import create_operation_worker
 
-            self.file_worker = RenameWorker()
-        else:
-            from core.workers.file_worker import FileWorker
-
-            self.file_worker = FileWorker()
+        self.file_worker = create_operation_worker(operation)
 
         self.file_worker.progress.connect(self.progress_bar.setValue)
         self.file_worker.status.connect(self.on_worker_status)
@@ -449,6 +446,14 @@ class MultiforaMainWindow(
         )
 
     def _ensure_operation_can_start(self) -> bool:
+        metadata_worker = getattr(self, "_file_metadata_worker", None)
+        if metadata_worker is not None and metadata_worker.isRunning():
+            QMessageBox.warning(
+                self,
+                "Добавление файлов выполняется",
+                "Дождитесь завершения чтения метаданных файлов.",
+            )
+            return False
         if not self._operation_is_running():
             return True
         QMessageBox.warning(
@@ -592,7 +597,14 @@ class MultiforaMainWindow(
         if op not in {"rename", "convert", "compress"}:
             return
         self._show_operation_starting("Подготовка повторного выполнения операции...")
-        if not self.create_file_worker(operation=op):
+        worker_operation = op
+        if op == "convert":
+            worker_operation = (
+                "convert_image"
+                if self._last_operation.get("conversion_type") == "auto_image"
+                else "convert_document"
+            )
+        if not self.create_file_worker(operation=worker_operation):
             self._hide_progress_dialog()
             return
         files = self._collect_file_items_by_paths(failed_paths)

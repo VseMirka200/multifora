@@ -17,6 +17,7 @@ from app.core.models import (
 
 class FileListActionsMixin:
     # Добавляет и удаляет файлы, сохраняя согласованность списка и предпросмотра.
+    _ASYNC_METADATA_THRESHOLD = 500
     _FILTERABLE_FILE_TYPES = frozenset(
         ("document", "image", "archive", "folder", "other")
     )
@@ -25,10 +26,8 @@ class FileListActionsMixin:
     @staticmethod
     def _is_supported_queue_path(path: str) -> bool:
         """Проверяет, может ли приложение работать с добавляемым объектом."""
-        if os.path.isdir(path):
-            return True
         extension = os.path.splitext(str(path or ""))[1].lower()
-        return extension in KNOWN_FILE_EXTENSIONS
+        return extension in KNOWN_FILE_EXTENSIONS or os.path.isdir(path)
 
     def _files_visible_for_active_operation(self, files: list) -> list:
         """Оставляет в списке только форматы текущей специализированной операции."""
@@ -180,18 +179,30 @@ class FileListActionsMixin:
                 )
                 return
 
+        metadata_worker = getattr(self, "_file_metadata_worker", None)
+        if metadata_worker is not None and metadata_worker.isRunning():
+            pending = getattr(self, "_pending_file_add_requests", None)
+            if pending is None:
+                pending = []
+                self._pending_file_add_requests = pending
+            pending.append(list(file_paths))
+            self.status_bar.showMessage(
+                "Новый набор файлов поставлен в очередь добавления."
+            )
+            return
+
         folder_mode = None
         expanded_paths = []
+        classified_paths = []
         for path in list(file_paths):
             try:
-                if os.path.isdir(path):
+                is_directory = os.path.isdir(path)
+                classified_paths.append((path, is_directory))
+                if is_directory:
                     if folder_mode is None:
                         folder_mode = self._ask_folder_add_mode()
                     if folder_mode == "contents":
-                        for root, _, files in os.walk(path):
-                            expanded_paths.extend(
-                                os.path.join(root, name) for name in files
-                            )
+                        continue
                     elif folder_mode == "folder":
                         expanded_paths.append(path)
                     elif folder_mode is None:
@@ -199,15 +210,23 @@ class FileListActionsMixin:
                 else:
                     expanded_paths.append(path)
             except Exception:
+                classified_paths.append((path, False))
                 expanded_paths.append(path)
+        if folder_mode == "contents":
+            existing_paths = {
+                normalized_path_key(file_item.path) for file_item in self.files
+            }
+            self._start_folder_metadata_worker(
+                classified_paths, existing_paths
+            )
+            return
         file_paths = expanded_paths
 
-        added_count = 0
         existing_paths = {
             normalized_path_key(file_item.path) for file_item in self.files
         }
 
-        new_items = []
+        candidate_paths = []
         unsupported_paths = []
         for file_path in file_paths:
             abs_path = normalized_path_key(file_path)
@@ -218,48 +237,130 @@ class FileListActionsMixin:
                 unsupported_paths.append(str(file_path))
                 continue
 
-            try:
-                file_item = FileItem(file_path)
-                self.files.append(file_item)
-                added_count += 1
-                existing_paths.add(abs_path)
-                new_items.append(file_item)
+            existing_paths.add(abs_path)
+            candidate_paths.append(file_path)
 
-            except Exception as e:
+        self._report_unsupported_paths(unsupported_paths)
+        if len(candidate_paths) >= self._ASYNC_METADATA_THRESHOLD:
+            self._start_file_metadata_worker(candidate_paths)
+            return
+
+        new_items = []
+        for file_path in candidate_paths:
+            try:
+                new_items.append(FileItem(file_path))
+            except Exception as error:
                 QMessageBox.warning(
                     self,
                     "Ошибка",
-                    f"Не удалось добавить файл {os.path.basename(file_path)}: {e}",
+                    f"Не удалось добавить файл {os.path.basename(file_path)}: {error}",
                 )
+        if new_items:
+            self.files.extend(new_items)
+            self._complete_file_add(len(new_items))
 
-        if unsupported_paths:
-            file_names = "\n".join(
-                os.path.basename(path) for path in unsupported_paths
+    def _report_unsupported_paths(self, unsupported_paths: list[str]) -> None:
+        if not unsupported_paths:
+            return
+        file_names = "\n".join(
+            os.path.basename(path) for path in unsupported_paths
+        )
+        QMessageBox.warning(
+            self,
+            "Неподдерживаемые файлы",
+            "Эти файлы не добавлены в проект, потому что их форматы "
+            f"не поддерживаются:\n\n{file_names}",
+        )
+        if callable(getattr(self, "log_event", None)):
+            self.log_event(
+                f"Не добавлены неподдерживаемые файлы: {len(unsupported_paths)}",
+                "WARN",
             )
+
+    def _start_file_metadata_worker(self, paths: list[str]) -> None:
+        from core.workers.file_metadata_worker import FileMetadataWorker
+
+        worker = FileMetadataWorker(paths, parent=self)
+        self._attach_file_metadata_worker(
+            worker, f"Чтение метаданных: 0 из {len(paths)} файлов"
+        )
+
+    def _start_folder_metadata_worker(
+        self,
+        entries: list[tuple[str, bool]],
+        existing_paths: set[str],
+    ) -> None:
+        from core.workers.file_metadata_worker import FolderMetadataWorker
+
+        worker = FolderMetadataWorker(entries, existing_paths, parent=self)
+        self._attach_file_metadata_worker(
+            worker, "Сканирование содержимого папок..."
+        )
+
+    def _attach_file_metadata_worker(self, worker, status: str) -> None:
+        self._file_metadata_worker = worker
+        self._metadata_added_count = 0
+        worker.batch_ready.connect(self._on_file_metadata_batch)
+        worker.finished.connect(self._on_file_metadata_finished)
+        self.status_bar.showMessage(status)
+        worker.start()
+
+    def _on_file_metadata_batch(self, items: list[FileItem]) -> None:
+        worker = getattr(self, "_file_metadata_worker", None)
+        if worker is None:
+            return
+        self.files.extend(items)
+        self._metadata_added_count += len(items)
+        self.update_file_list()
+        self.update_file_info()
+        self.status_bar.showMessage(
+            f"Прочитаны метаданные: {self._metadata_added_count} файлов"
+        )
+
+    def _on_file_metadata_finished(self) -> None:
+        worker = getattr(self, "_file_metadata_worker", None)
+        if worker is None:
+            return
+        errors = list(worker.errors)
+        unsupported_paths = list(
+            getattr(worker, "unsupported_paths", [])
+        )
+        added_count = int(getattr(self, "_metadata_added_count", 0))
+        worker.deleteLater()
+        self._file_metadata_worker = None
+
+        if errors and not getattr(self, "_pending_metadata_close", False):
+            first_path, first_error = errors[0]
             QMessageBox.warning(
                 self,
-                "Неподдерживаемые файлы",
-                "Эти файлы не добавлены в проект, потому что их форматы "
-                f"не поддерживаются:\n\n{file_names}",
+                "Ошибка добавления файлов",
+                f"Не удалось добавить файлов: {len(errors)}.\n"
+                f"Первый: {os.path.basename(first_path)} — {first_error}",
             )
-            if callable(getattr(self, "log_event", None)):
-                self.log_event(
-                    "Не добавлены неподдерживаемые файлы: "
-                    f"{len(unsupported_paths)}",
-                    "WARN",
-                )
+        if not getattr(self, "_pending_metadata_close", False):
+            self._report_unsupported_paths(unsupported_paths)
+        if added_count:
+            self._complete_file_add(added_count)
 
-        if new_items:
-            column = getattr(self, "_column_sort_section", None)
-            if column is not None:
-                self.sort_files_by_column(
-                    column,
-                    getattr(
-                        self, "_column_sort_order", Qt.SortOrder.AscendingOrder
-                    ),
-                )
-            else:
-                self.update_file_list()
+        if getattr(self, "_pending_metadata_close", False):
+            self._pending_metadata_close = False
+            self.close()
+            return
+        pending = getattr(self, "_pending_file_add_requests", [])
+        if pending:
+            self.add_files(pending.pop(0))
+
+    def _complete_file_add(self, added_count: int) -> None:
+        column = getattr(self, "_column_sort_section", None)
+        if column is not None:
+            self.sort_files_by_column(
+                column,
+                getattr(
+                    self, "_column_sort_order", Qt.SortOrder.AscendingOrder
+                ),
+            )
+        else:
+            self.update_file_list()
 
         if added_count > 0:
             self.update_file_info()

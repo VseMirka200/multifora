@@ -175,6 +175,8 @@ jobs:
             dist/installer/Multifora-Silent-Install-*.bat
             dist/installer/Multifora-Silent-Install-*.sha256
             dist/CHANGELOG.md
+            dist/bundle-metrics.json
+            dist/runtime-metrics.json
   
   # Публикация изолирована от установки зависимостей, тестов и Windows-сборки.
   publish-release:

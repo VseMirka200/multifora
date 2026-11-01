@@ -119,16 +119,23 @@ class AppearanceMixin:
             else normalized
         )
         self._effective_theme_mode = effective_mode
-        if effective_mode == "light":
-            self.apply_light_style()
-        else:
-            self.apply_dark_style()
+        if (
+            getattr(self, "_applied_effective_theme_mode", None)
+            != effective_mode
+        ):
+            if effective_mode == "light":
+                self.apply_light_style()
+            else:
+                self.apply_dark_style()
+            self._applied_effective_theme_mode = effective_mode
 
-        try:
-            if callable(getattr(self, "_apply_theme_runtime_widgets", None)):
-                self._apply_theme_runtime_widgets()
-        except Exception as error:
-            _log_ignored_error("AppearanceMixin.apply_theme_mode", error)
+            try:
+                if callable(
+                    getattr(self, "_apply_theme_runtime_widgets", None)
+                ):
+                    self._apply_theme_runtime_widgets()
+            except Exception as error:
+                _log_ignored_error("AppearanceMixin.apply_theme_mode", error)
 
         if (
             hasattr(self, "theme_mode_combo")
