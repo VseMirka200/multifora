@@ -177,7 +177,7 @@ class DocxSafetyTests(unittest.TestCase):
 
 
 class ConversionOutputSafetyTests(unittest.TestCase):
-    def test_failed_pdf_to_word_removes_partial_document_and_closes_converter(
+    def test_failed_pdf_to_docx_removes_partial_document_and_closes_converter(
         self,
     ):
         from unittest.mock import Mock
@@ -207,11 +207,11 @@ class ConversionOutputSafetyTests(unittest.TestCase):
             converter.convert.side_effect = partial_then_fail
             factory = SimpleNamespace(Converter=Mock(return_value=converter))
             with (
-                patch.object(module, "HAS_PDF_TO_WORD", True),
+                patch.object(module, "HAS_PDF_TO_DOCX", True),
                 patch.object(module, "pdf2docx", factory),
             ):
                 with self.assertRaisesRegex(Exception, "simulated failure"):
-                    Worker()._convert_pdf_to_word(FileItem(str(pdf)))
+                    Worker()._convert_pdf_to_docx(FileItem(str(pdf)))
             self.assertFalse(Path(directory, "document.docx").exists())
             self.assertFalse(list(Path(directory).glob(".__multifora_*")))
             converter.close.assert_called_once()

@@ -19,7 +19,11 @@ try {
     }
     & (Join-Path $bundlePath 'bin\gswin64\gswin64c.exe') --version
     if ($LASTEXITCODE -ne 0) { throw 'Bundled Ghostscript did not start' }
-    Write-Host 'Frozen EXE, PDF, DOCX merge and Ghostscript verified.'
+    & (Join-Path $bundlePath 'bin\pandoc\pandoc.exe') --version
+    if ($LASTEXITCODE -ne 0) { throw 'Bundled Pandoc did not start' }
+    & (Join-Path $bundlePath 'bin\tectonic\tectonic.exe') --version
+    if ($LASTEXITCODE -ne 0) { throw 'Bundled Tectonic did not start' }
+    Write-Host 'Frozen EXE, PDF, DOCX merge, Ghostscript, Pandoc and Tectonic verified.'
 } finally {
     $env:MULTIFORA_SMOKE_REPORT = $previousReport
     $env:QT_QPA_PLATFORM = $previousPlatform

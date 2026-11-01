@@ -18,6 +18,8 @@ def test_bundle_validator_accepts_complete_layout(tmp_path: Path):
         "Multifora.exe",
         "bin/gswin64/gswin64c.exe",
         "bin/gswin64/gsdll64.dll",
+        "bin/pandoc/pandoc.exe",
+        "bin/tectonic/tectonic.exe",
         "_internal/assets/icon.ico",
         "_internal/docxcompose/templates/custom.xml",
         "_internal/PySide6/plugins/platforms/qwindows.dll",
@@ -79,8 +81,8 @@ def test_build_environment_rejects_32_bit_python():
 def test_build_environment_detects_missing_and_changed_packages(tmp_path: Path):
     from importlib.metadata import PackageNotFoundError
 
-    requirements = tmp_path / "requirements-build.txt"
-    requirements.write_text("# Lock\n-r requirements-dev.txt\nfirst==1.0\nsecond==2.0\nthird==3.0\n")
+    requirements = tmp_path / "requirements.txt"
+    requirements.write_text("# Lock\n-r shared-fixture.txt\nfirst==1.0\nsecond==2.0\nthird==3.0\n")
     with patch(
         "scripts.verify_build_environment.version",
         side_effect=["1.0", "2.1", PackageNotFoundError("third")],

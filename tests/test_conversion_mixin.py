@@ -30,8 +30,6 @@ class _DummyConversionWorker(ConversionMixin):
         self.progress = _SignalStub()
         self.finished = _SignalStub()
         self.error = _SignalStub()
-        self._word_warmup_done = False
-        self._word_pdf_unavailable = False
         self._cancel_requested = False
 
     def _should_cancel(self):
@@ -52,54 +50,88 @@ class _DummyConversionWorker(ConversionMixin):
 
 
 class ConversionMixinTests(unittest.TestCase):
-    def test_hidden_word_application_disables_ui_and_starts_window_guard(self):
-        word_application = Mock()
-        win32 = Mock()
-        win32.DispatchEx.return_value = word_application
-        guard = Mock()
-
-        with (
-            patch.object(conv_module, "_foreground_window", return_value=123),
-            patch.object(
-                conv_module,
-                "_HiddenWordWindowGuard",
-                return_value=guard,
-            ) as guard_factory,
-        ):
-            result_application, result_guard = (
-                conv_module._start_hidden_word_application(win32)
+    def test_bundled_tectonic_is_used_for_pdf_conversion(self):
+        worker = _DummyConversionWorker()
+        with tempfile.TemporaryDirectory() as directory:
+            source_path = os.path.join(directory, "source.docx")
+            engine_path = os.path.join(
+                directory, "bin", "tectonic", "tectonic.exe"
             )
+            os.makedirs(os.path.dirname(engine_path))
+            with open(source_path, "wb") as stream:
+                stream.write(b"docx")
+            with open(engine_path, "wb") as stream:
+                stream.write(b"tectonic")
 
-        win32.DispatchEx.assert_called_once_with("Word.Application")
-        self.assertIs(result_application, word_application)
-        self.assertIs(result_guard, guard)
-        self.assertFalse(word_application.Visible)
-        self.assertEqual(word_application.DisplayAlerts, 0)
-        self.assertFalse(word_application.ScreenUpdating)
-        guard_factory.assert_called_once_with(word_application, 123)
-        guard.start.assert_called_once_with()
+            process = Mock(returncode=0)
 
-    def test_word_window_guard_hides_and_restores_focus_if_word_stole_it(self):
-        with (
-            patch.object(conv_module, "_word_window_handle", return_value=456),
-            patch.object(
-                conv_module,
-                "_foreground_window",
-                return_value=456,
-            ),
-            patch.object(conv_module, "_hide_window") as hide_mock,
-            patch.object(
-                conv_module,
-                "_restore_foreground_window",
-            ) as restore_mock,
-        ):
-            guard = conv_module._HiddenWordWindowGuard(
-                Mock(), foreground_handle=123
+            def create_output():
+                command = popen_mock.call_args.args[0]
+                output_path = command[command.index("--output") + 1]
+                with open(output_path, "wb") as stream:
+                    stream.write(b"pdf")
+                return "", ""
+
+            process.communicate.side_effect = create_output
+            with (
+                patch.object(conv_module.sys, "argv", [os.path.join(directory, "Multifora.exe")]),
+                patch.object(
+                    conv_module,
+                    "ensure_pandoc_detected",
+                    return_value=(True, r"C:\Pandoc\pandoc.exe"),
+                ),
+                patch.object(
+                    conv_module.subprocess,
+                    "Popen",
+                    return_value=process,
+                ) as popen_mock,
+            ):
+                worker._convert_with_pandoc(FileItem(source_path), "PDF")
+
+            command = popen_mock.call_args.args[0]
+            self.assertEqual(
+                command[command.index("--pdf-engine") + 1], engine_path
             )
-            guard.keep_hidden()
+            self.assertEqual(command[-2:], ["--variable", "mainfont=Arial"])
 
-        hide_mock.assert_called_once_with(456)
-        restore_mock.assert_called_once_with(123, 456)
+    def test_pandoc_conversion_invokes_cli_and_publishes_output(self):
+        worker = _DummyConversionWorker()
+        with tempfile.TemporaryDirectory() as directory:
+            source_path = os.path.join(directory, "source.docx")
+            with open(source_path, "wb") as stream:
+                stream.write(b"docx")
+
+            process = Mock(returncode=0)
+
+            def create_output():
+                command = popen_mock.call_args.args[0]
+                output_path = command[command.index("--output") + 1]
+                with open(output_path, "wb") as stream:
+                    stream.write(b"odt")
+                return "", ""
+
+            process.communicate.side_effect = create_output
+            with (
+                patch.object(
+                    conv_module,
+                    "ensure_pandoc_detected",
+                    return_value=(True, r"C:\Pandoc\pandoc.exe"),
+                ),
+                patch.object(
+                    conv_module.subprocess,
+                    "Popen",
+                    return_value=process,
+                ) as popen_mock,
+            ):
+                result = worker._convert_with_pandoc(
+                    FileItem(source_path), "ODT"
+                )
+
+            self.assertTrue(os.path.isfile(result))
+            command = popen_mock.call_args.args[0]
+            self.assertEqual(command[0], r"C:\Pandoc\pandoc.exe")
+            self.assertEqual(command[1], source_path)
+            self.assertEqual(command[-1], "--standalone")
 
     def test_convert_files_accepts_pdf_to_images_alias(self):
         worker = _DummyConversionWorker()
@@ -148,101 +180,22 @@ class ConversionMixinTests(unittest.TestCase):
         self.assertEqual(len(worker.finished.emitted), 1)
         self.assertEqual(worker.finished.emitted[0].get("new_files"), [])
 
-    def test_word_to_pdf_uses_internal_fallback_when_hidden_com_is_unavailable(
-        self,
-    ):
-        worker = _DummyConversionWorker()
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            source_docx = os.path.join(tmpdir, "source.docx")
-            with open(source_docx, "wb") as f:
-                f.write(b"x")
-
-            source_item = FileItem(source_docx)
-
-            with patch.object(worker, "_warmup_word", return_value=None):
-                with patch.object(
-                    worker,
-                    "_convert_word_to_pdf_hidden_com",
-                    return_value=False,
-                ):
-                    with patch.object(
-                        worker,
-                        "_convert_docx_to_pdf_internal",
-                        return_value=os.path.join(tmpdir, "source.pdf"),
-                    ) as fallback_mock:
-                        with patch.object(
-                            conv_module, "HAS_WORD_TO_PDF", True
-                        ):
-                            result = worker._convert_word_to_pdf(source_item)
-
-            self.assertEqual(result, os.path.join(tmpdir, "source.pdf"))
-            fallback_mock.assert_called_once_with(
-                source_item, output_reference=None
-            )
-            # COM недоступен за пределами Windows: внутренний экспорт
-            # выбирается сразу, без попытки пометить Word неисправным.
-            self.assertEqual(worker._word_pdf_unavailable, os.name == "nt")
-
-    def test_word_to_pdf_uses_internal_fallback_when_word_dependency_is_missing(
-        self,
-    ):
-        worker = _DummyConversionWorker()
-        with tempfile.TemporaryDirectory() as tmpdir:
-            source_path = os.path.join(tmpdir, "source.docx")
-            with open(source_path, "wb") as stream:
-                stream.write(b"x")
-            source_item = FileItem(source_path)
-
-            with (
-                patch.object(
-                    worker,
-                    "_convert_docx_to_pdf_internal",
-                    return_value=os.path.join(tmpdir, "source.pdf"),
-                ) as fallback_mock,
-                patch.object(conv_module, "HAS_WORD_TO_PDF", False),
-            ):
-                result = worker._convert_word_to_pdf(source_item)
-
-            self.assertEqual(result, os.path.join(tmpdir, "source.pdf"))
-            fallback_mock.assert_called_once_with(
-                source_item, output_reference=None
-            )
-
-    def test_internal_fallback_explains_that_legacy_doc_needs_word(self):
-        worker = _DummyConversionWorker()
-        with tempfile.TemporaryDirectory() as tmpdir:
-            source_path = os.path.join(tmpdir, "source.doc")
-            with open(source_path, "wb") as stream:
-                stream.write(b"x")
-
-            with self.assertRaisesRegex(
-                Exception, "Внутренний конвертер поддерживает DOCX"
-            ):
-                worker._convert_docx_to_pdf_internal(FileItem(source_path))
-
-    def test_internal_fallback_extracts_docx_text_and_writes_pdf(self):
+    def test_docx_to_pdf_uses_pandoc(self):
         worker = _DummyConversionWorker()
         source_item = FileItem(r"C:\temp\source.docx")
         reference_item = FileItem(r"C:\temp\original.odt")
-
         with patch.object(
-            worker, "_extract_document_text", return_value="Текст"
-        ) as extract_mock:
-            with patch.object(
-                worker, "_write_text_pdf", return_value=r"C:\temp\source.pdf"
-            ) as write_mock:
-                result = worker._convert_docx_to_pdf_internal(
-                    source_item,
-                    output_reference=reference_item,
-                )
+            worker,
+            "_convert_with_pandoc",
+            return_value=r"C:\temp\source.pdf",
+        ) as pandoc_mock:
+            result = worker._convert_docx_to_pdf(
+                source_item, output_reference=reference_item
+            )
 
         self.assertEqual(result, r"C:\temp\source.pdf")
-        extract_mock.assert_called_once_with(source_item)
-        write_mock.assert_called_once_with(
-            source_item,
-            "Текст",
-            output_reference=reference_item,
+        pandoc_mock.assert_called_once_with(
+            source_item, "PDF", output_reference=reference_item
         )
 
     def test_default_conversion_output_goes_to_sibling_converted_folder(self):
@@ -482,12 +435,16 @@ class ConversionMixinTests(unittest.TestCase):
             with open(source_path, "w", encoding="utf-8") as stream:
                 stream.write("Пример документа\nВторая строка")
 
-            output_path = worker._convert_document_auto(
-                FileItem(source_path), "DOCX"
-            )
+            expected = os.path.join(output_dir, "note.docx")
+            with patch.object(
+                worker, "_convert_with_pandoc", return_value=expected
+            ) as pandoc_mock:
+                output_path = worker._convert_document_auto(
+                    FileItem(source_path), "DOCX"
+                )
 
             self.assertTrue(output_path.endswith(".docx"))
-            self.assertTrue(os.path.exists(output_path))
+            pandoc_mock.assert_called_once()
 
     def test_auto_conversion_skips_file_already_in_target_format(self):
         worker = _DummyConversionWorker()

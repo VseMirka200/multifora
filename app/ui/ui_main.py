@@ -808,7 +808,6 @@ class MultiforaMainWindow(
         )
 
         options = (
-            ("DOC", ".doc"),
             ("DOCX", ".docx"),
             ("PDF", ".pdf"),
             ("TXT", ".txt"),

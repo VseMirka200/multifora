@@ -72,9 +72,16 @@ git clone https://github.com/VseMirka200/multifora.git
 cd multifora
 py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe multifora_start.py
 ```
+
+Для конвертации документов установите [Pandoc](https://pandoc.org/installing.html).
+Мультифора ищет `pandoc.exe` в `bin\pandoc`, в `PATH` или по пути из
+переменной `MULTIFORA_PANDOC_PATH`. Для экспорта в PDF Pandoc также нужен
+TeX-движок. Сборка включает переносимый Tectonic в `bin\tectonic`; другой
+движок можно явно указать через `MULTIFORA_PANDOC_PDF_ENGINE`. Старый бинарный формат DOC не поддерживается;
+используйте DOCX.
 
 Проверки проекта запускаются командой:
 

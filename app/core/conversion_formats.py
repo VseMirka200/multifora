@@ -28,7 +28,6 @@ MIXED_SOURCE_LABELS: dict[str, str] = {
 
 CATEGORY_SOURCE_FORMATS: dict[str, tuple[str, ...]] = {
     DOCUMENT_CATEGORY: (
-        "DOC",
         "DOCX",
         "PDF",
         "ODT",
@@ -74,7 +73,6 @@ CATEGORY_SOURCE_FORMATS: dict[str, tuple[str, ...]] = {
 # сохранить в отдельный PDF, в том числе при обработке смешанного набора.
 CATEGORY_TARGET_FORMATS: dict[str, tuple[str, ...]] = {
     DOCUMENT_CATEGORY: (
-        "DOC",
         "DOCX",
         "PDF",
         "ODT",

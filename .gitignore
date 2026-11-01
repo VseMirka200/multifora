@@ -40,6 +40,10 @@ dist/
 site/
 *.egg-info/
 
+# Downloaded third-party runtime (restored by scripts/install_*.ps1)
+bin/pandoc/
+bin/tectonic/
+
 # PyInstaller
 *.spec
 !Multifora.spec

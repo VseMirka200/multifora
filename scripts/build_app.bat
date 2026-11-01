@@ -21,11 +21,16 @@ set BUILD_PYTHON="%PROJECT%\.venv-build\Scripts\python.exe"
 %BUILD_PYTHON% "scripts\verify_build_environment.py" --python-only
 if errorlevel 1 goto :error
 
-%BUILD_PYTHON% -m pip install -r "requirements-build.txt"
+%BUILD_PYTHON% -m pip install -r "requirements.txt"
 if errorlevel 1 goto :error
 %BUILD_PYTHON% -m pip check
 if errorlevel 1 goto :error
 %BUILD_PYTHON% "scripts\verify_build_environment.py"
+if errorlevel 1 goto :error
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "scripts\install_pandoc.ps1"
+if errorlevel 1 goto :error
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "scripts\install_tectonic.ps1"
 if errorlevel 1 goto :error
 
 if exist "build" rmdir /s /q "build"

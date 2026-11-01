@@ -24,8 +24,9 @@ teletype = None
 load = None
 OpenDocumentText = None
 
-HAS_WORD_TO_PDF = False
-HAS_PDF_TO_WORD = False
+HAS_PANDOC = False
+PANDOC_PATH = None
+HAS_PDF_TO_DOCX = False
 HAS_PYMUPDF = False
 HAS_ODF_PYTHON = False
 HAS_PIL = False
@@ -215,18 +216,54 @@ def ensure_ghostscript_detected(
     return HAS_GHOSTSCRIPT, GHOSTSCRIPT_PATH
 
 
-try:
-    import pythoncom
-    import win32com.client
+def _pandoc_candidates(custom_path: str | None = None) -> list[str]:
+    candidates = []
+    if custom_path:
+        candidates.append(custom_path)
+    environment_path = os.environ.get("MULTIFORA_PANDOC_PATH")
+    if environment_path:
+        candidates.append(environment_path)
 
-    HAS_WORD_TO_PDF = True
-except ImportError:
-    _debug_log("pywin32 не найден: конвертация Word в PDF недоступна")
+    executable = sys.argv[0] if sys.argv else ""
+    if executable:
+        base_dir = os.path.dirname(os.path.abspath(executable))
+        candidates.append(os.path.join(base_dir, "bin", "pandoc", "pandoc.exe"))
+        candidates.append(os.path.join(base_dir, "bin", "pandoc.exe"))
+    candidates.extend(("pandoc.exe", "pandoc"))
+    return candidates
+
+
+def _detect_pandoc(custom_path: str | None = None) -> None:
+    """Определяет путь к CLI Pandoc без запуска внешнего процесса."""
+    global HAS_PANDOC, PANDOC_PATH
+    HAS_PANDOC = False
+    PANDOC_PATH = None
+    for candidate in _pandoc_candidates(custom_path):
+        resolved_path = shutil.which(candidate)
+        if not resolved_path and os.path.isfile(candidate):
+            resolved_path = os.path.abspath(candidate)
+        if resolved_path:
+            HAS_PANDOC = True
+            PANDOC_PATH = resolved_path
+            _debug_log(f"Pandoc найден: {resolved_path}")
+            return
+    _debug_log("Pandoc не найден")
+
+
+def ensure_pandoc_detected(
+    custom_path: str | None = None,
+) -> tuple[bool, str | None]:
+    if custom_path or not HAS_PANDOC or not PANDOC_PATH:
+        _detect_pandoc(custom_path)
+    return HAS_PANDOC, PANDOC_PATH
+
+
+_detect_pandoc()
 
 try:
     import pdf2docx
 
-    HAS_PDF_TO_WORD = True
+    HAS_PDF_TO_DOCX = True
 except ImportError:
     _debug_log("pdf2docx не найден")
 

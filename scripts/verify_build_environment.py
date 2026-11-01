@@ -43,7 +43,7 @@ def main() -> int:
     args = parser.parse_args()
     errors = check_python()
     if not args.python_only:
-        errors += check_packages(Path(__file__).resolve().parents[1] / "requirements-build.txt")
+        errors += check_packages(Path(__file__).resolve().parents[1] / "requirements.txt")
     if errors:
         print("Build environment is not supported:", file=sys.stderr)
         print("\n".join(f"  - {error}" for error in errors), file=sys.stderr)

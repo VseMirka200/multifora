@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pymupdf
-from PIL import Image
+from PIL import EpsImagePlugin, Image
 
 from app.core.conversion_formats import (
     DOCUMENT_CATEGORY,
@@ -16,6 +16,29 @@ from tests.test_conversion_mixin import _DummyConversionWorker
 
 
 class ImageConversionIntegrationTests(unittest.TestCase):
+    def test_eps_reader_uses_bundled_ghostscript_path(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "source.eps"
+            source.write_bytes(b"%!PS-Adobe-3.0\n")
+            ghostscript = str(Path(folder) / "gswin64c.exe")
+            worker = _DummyConversionWorker()
+            with (
+                patch(
+                    "core.workers.conversion.image_conversion_mixin.deps.ensure_ghostscript_detected",
+                    return_value=(True, ghostscript),
+                ),
+                patch(
+                    "core.workers.conversion.image_conversion_mixin.Image.open",
+                    return_value=Image.new("RGB", (10, 10), "red"),
+                ),
+            ):
+                output = worker._convert_image_auto(FileItem(str(source)), "PNG")
+
+            self.assertEqual(EpsImagePlugin.gs_binary, ghostscript)
+            self.assertEqual(EpsImagePlugin.gs_windows_binary, ghostscript)
+            with Image.open(output) as image:
+                self.assertEqual(image.format, "PNG")
+
     def test_grayscale_images_can_be_saved_as_qoi(self):
         with tempfile.TemporaryDirectory() as folder:
             for mode, value in (("L", 120), ("LA", (120, 64))):

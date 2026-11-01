@@ -34,8 +34,6 @@ class FileWorker(
         self.merge_output_format = "pdf"
         self.merge_output_path = ""
         self._last_pdf_error = ""
-        self._word_warmup_done = False
-        self._word_pdf_unavailable = False
         self._conversion_reserved_paths: set[str] = set()
 
     def set_conversion(
@@ -60,8 +58,6 @@ class FileWorker(
             else "source_subfolder"
         )
         self._conversion_reserved_paths = set()
-        self._word_warmup_done = False
-        self._word_pdf_unavailable = False
 
     def set_compression(
         self,

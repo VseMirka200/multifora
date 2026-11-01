@@ -1,14 +1,13 @@
 import html
 import os
 import re
-import tempfile
+import shutil
+import subprocess
+import sys
 import textwrap
 import threading
-import time
-import urllib.parse
 from collections.abc import Callable
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
-from functools import partial
 
 from app.core.app_utils import _debug_log
 from app.core.conversion_formats import (
@@ -20,10 +19,10 @@ from app.core.conversion_formats import (
 )
 from app.core.deps import (
     HAS_ODF_PYTHON,
-    HAS_PDF_TO_WORD,
+    HAS_PDF_TO_DOCX,
     HAS_PYMUPDF,
-    HAS_WORD_TO_PDF,
     OpenDocumentText,
+    ensure_pandoc_detected,
     load,
     pdf2docx,
     teletype,
@@ -48,223 +47,23 @@ _HTML_BLOCK_TAGS = frozenset(
 _HTML_END_BLOCK_TAGS = _HTML_BLOCK_TAGS - {"br"}
 
 
-_WORD_WARMUP_LOCK = threading.Lock()
 _CONVERSION_OUTPUT_PATH_LOCK = threading.Lock()
-_WORD_WARMUP_DONE = False
-_WD_EXPORT_FORMAT_PDF = 17
-_SW_HIDE = 0
-
-
-_WORD_DIRECT_SOURCE_FORMATS = frozenset(
-    {"DOC", "DOCX", "ODT", "RTF", "TXT", "HTML"}
+_PANDOC_SOURCE_FORMATS = frozenset(
+    {"DOCX", "ODT", "RTF", "TXT", "HTML", "MD", "EPUB"}
 )
-_WORD_DIRECT_TARGET_FORMATS = frozenset(
-    {"DOC", "DOCX", "PDF", "ODT", "RTF", "HTML"}
+_PANDOC_TARGET_FORMATS = frozenset(
+    {"DOCX", "ODT", "RTF", "TXT", "HTML", "MD", "EPUB", "PDF"}
 )
-_WORD_SAVE_FORMATS: dict[str, int] = {
-    "DOC": 0,
-    "DOCX": 16,
-    "RTF": 6,
-    "HTML": 10,
-    "ODT": 23,
-}
 
 
-def _word_window_handle(word_application) -> int:
-    """Returns the HWND of the automation instance without failing conversion."""
-    if os.name != "nt" or word_application is None:
-        return 0
-    try:
-        return int(word_application.Hwnd or 0)
-    except Exception:
-        return 0
-
-
-def _hide_window(window_handle: int) -> None:
-    if os.name != "nt" or not window_handle:
-        return
-    try:
-        import ctypes
-
-        ctypes.windll.user32.ShowWindow(window_handle, _SW_HIDE)
-    except Exception as error:
-        _debug_log(f"Не удалось скрыть окно Microsoft Word: {error}")
-
-
-def _terminate_window_process(window_handle: int) -> None:
-    """Принудительно завершает только изолированный процесс по HWND."""
-    if os.name != "nt" or not window_handle:
-        return
-    try:
-        import ctypes
-
-        process_id = ctypes.c_ulong()
-        ctypes.windll.user32.GetWindowThreadProcessId(
-            window_handle,
-            ctypes.byref(process_id),
-        )
-        if not process_id.value:
-            return
-        process_handle = ctypes.windll.kernel32.OpenProcess(
-            0x0001,  # PROCESS_TERMINATE
-            False,
-            process_id.value,
-        )
-        if not process_handle:
-            return
-        try:
-            ctypes.windll.kernel32.TerminateProcess(process_handle, 1)
-        finally:
-            ctypes.windll.kernel32.CloseHandle(process_handle)
-    except Exception as error:
-        _debug_log(f"Не удалось немедленно остановить Microsoft Word: {error}")
-
-
-def _foreground_window() -> int:
-    if os.name != "nt":
-        return 0
-    try:
-        import ctypes
-
-        return int(ctypes.windll.user32.GetForegroundWindow() or 0)
-    except Exception:
-        return 0
-
-
-def _restore_foreground_window(window_handle: int, hidden_handle: int) -> None:
-    """Gives focus back only when the automation window actually stole it."""
-    if os.name != "nt" or not window_handle or window_handle == hidden_handle:
-        return
-    try:
-        import ctypes
-
-        user32 = ctypes.windll.user32
-        user32.SetForegroundWindow(window_handle)
-    except Exception:
-        pass
-
-
-class _HiddenWordWindowGuard:
-    """Keeps Word automation invisible while a blocking COM call is running."""
-
-    def __init__(self, word_application, foreground_handle: int = 0):
-        self._window_handle = _word_window_handle(word_application)
-        self._foreground_handle = foreground_handle
-        self._stop_event = threading.Event()
-        self._thread = None
-
-    def start(self) -> None:
-        if not self._window_handle:
-            return
-        self.keep_hidden()
-        self._thread = threading.Thread(
-            target=self._watch,
-            name="multifora-word-window-guard",
-            daemon=True,
-        )
-        self._thread.start()
-
-    def _watch(self) -> None:
-        while not self._stop_event.wait(0.05):
-            self.keep_hidden()
-
-    def keep_hidden(self) -> None:
-        stole_focus = _foreground_window() == self._window_handle
-        _hide_window(self._window_handle)
-        if stole_focus:
-            _restore_foreground_window(
-                self._foreground_handle,
-                self._window_handle,
-            )
-
-    def stop(self) -> None:
-        self._stop_event.set()
-        if self._thread is not None:
-            self._thread.join(timeout=0.3)
-
-
-def _start_hidden_word_application(win32_module):
-    """Starts an isolated Word instance and suppresses its UI for its lifetime."""
-    foreground_handle = _foreground_window()
-    word_application = win32_module.DispatchEx("Word.Application")
-    try:
-        word_application.Visible = False
-        word_application.DisplayAlerts = 0
-        word_application.ScreenUpdating = False
-        guard = _HiddenWordWindowGuard(word_application, foreground_handle)
-        guard.start()
-        return word_application, guard
-    except Exception:
-        _quit_word_application(word_application)
-        raise
-
-
-def _close_word_document(document) -> None:
-    if document is None:
-        return
-    try:
-        document.Close(False)
-    except Exception as error:
-        _debug_log(f"Не удалось закрыть документ Word: {error}")
-
-
-def _quit_word_application(word_application) -> None:
-    if word_application is None:
-        return
-    try:
-        word_application.Quit()
-    except Exception as error:
-        _debug_log(f"Не удалось закрыть Microsoft Word: {error}")
-
-
-def _uninitialize_com(pythoncom_module) -> None:
-    try:
-        pythoncom_module.CoUninitialize()
-    except Exception as error:
-        _debug_log(f"Не удалось завершить COM-сеанс Word: {error}")
-
-
-def prewarm_word_background(status_callback=None, log_callback=None) -> bool:
-    """Запускает фоновую подготовку Microsoft Word один раз за сессию."""
-    global _WORD_WARMUP_DONE
-    if os.name != "nt" or not HAS_WORD_TO_PDF:
-        return False
-    if _WORD_WARMUP_DONE:
-        return False
-
-    with _WORD_WARMUP_LOCK:
-        if _WORD_WARMUP_DONE:
-            return False
-        try:
-            if callable(status_callback):
-                status_callback("Фоновая подготовка Microsoft Word...")
-            import pythoncom
-            import win32com.client as win32
-
-            pythoncom.CoInitialize()
-            word_app = None
-            window_guard = None
-            try:
-                word_app, window_guard = _start_hidden_word_application(win32)
-                _WORD_WARMUP_DONE = True
-                return True
-            finally:
-                _quit_word_application(word_app)
-                if window_guard is not None:
-                    window_guard.stop()
-                _uninitialize_com(pythoncom)
-        except Exception as e:
-            msg = (
-                f"Не удалось запустить фоновую подготовку Microsoft Word: {e}"
-            )
-            if callable(log_callback):
-                try:
-                    log_callback(msg)
-                except Exception:
-                    _debug_log(msg)
-            else:
-                _debug_log(msg)
-            return False
+def _bundled_pdf_engine() -> str | None:
+    executable = os.path.abspath(sys.argv[0]) if sys.argv else ""
+    if not executable:
+        return None
+    candidate = os.path.join(
+        os.path.dirname(executable), "bin", "tectonic", "tectonic.exe"
+    )
+    return candidate if os.path.isfile(candidate) else None
 
 
 class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
@@ -363,8 +162,8 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         self,
     ) -> Callable[[FileItem], str | list[str] | None] | None:
         handlers: dict[str, Callable[[FileItem], str | list[str] | None]] = {
-            "word_to_odt": self._convert_word_to_odt,
-            "odt_to_word": self._convert_odt_to_word,
+            "docx_to_odt": self._convert_docx_to_odt,
+            "odt_to_docx": self._convert_odt_to_docx,
             "odt_to_pdf": self._convert_odt_to_pdf,
             "pdf_to_odt": self._convert_pdf_to_odt,
             "pdf_to_image": self._convert_pdf_to_image,
@@ -382,18 +181,90 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         }
         return handlers.get(self.conversion_type)
 
-    @staticmethod
-    def _normalize_word_com_path(path: str) -> str:
-        value = str(path or "").strip().strip('"')
-        if not value:
-            return value
-        if value.lower().startswith("file:///"):
-            value = value[8:]
-        value = urllib.parse.unquote(value)
-        if value.startswith("/") and len(value) >= 3 and value[2] == ":":
-            value = value[1:]
-        value = value.replace("/", "\\")
-        return os.path.normpath(value)
+    def _convert_with_pandoc(
+        self,
+        file: FileItem,
+        target_format: str,
+        *,
+        output_reference: FileItem | None = None,
+    ) -> str:
+        source_format = format_for_path(file.path)
+        normalized_target = str(target_format or "").upper()
+        if source_format not in _PANDOC_SOURCE_FORMATS:
+            raise Exception(
+                f"Pandoc не поддерживает входной формат {source_format}"
+            )
+        if normalized_target not in _PANDOC_TARGET_FORMATS:
+            raise Exception(
+                f"Pandoc не поддерживает выходной формат {normalized_target}"
+            )
+
+        available, pandoc_path = ensure_pandoc_detected()
+        if not available or not pandoc_path:
+            raise Exception(
+                "Pandoc не найден. Установите Pandoc или задайте MULTIFORA_PANDOC_PATH"
+            )
+
+        output_path = self._conversion_output_path(
+            file,
+            suffix_for_format(normalized_target),
+            reference_file=output_reference,
+        )
+        command = [pandoc_path, file.path, "--output", output_path, "--standalone"]
+        if normalized_target == "PDF":
+            configured_engine = os.environ.get("MULTIFORA_PANDOC_PDF_ENGINE")
+            pdf_engine = configured_engine or _bundled_pdf_engine() or next(
+                (
+                    engine
+                    for engine in ("tectonic", "xelatex", "lualatex", "pdflatex")
+                    if shutil.which(engine)
+                ),
+                None,
+            )
+            if pdf_engine:
+                command.extend(("--pdf-engine", pdf_engine))
+                if os.path.basename(pdf_engine).lower() in {
+                    "tectonic",
+                    "tectonic.exe",
+                }:
+                    command.extend(("--variable", "mainfont=Arial"))
+        creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        process = None
+        cancel_action = None
+        try:
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                creationflags=creation_flags,
+            )
+            cancel_action = process.terminate
+            register_cancel = getattr(self, "_set_active_cancel_action", None)
+            if callable(register_cancel):
+                register_cancel(cancel_action)
+            _stdout, stderr = process.communicate()
+            if self._should_cancel():
+                raise InterruptedError("Конвертация отменена пользователем")
+            if process.returncode != 0:
+                details = (stderr or "неизвестная ошибка").strip()
+                if normalized_target == "PDF":
+                    details += (
+                        ". Для PDF Pandoc требуется TeX-движок, например MiKTeX или Tectonic"
+                    )
+                raise Exception(f"Pandoc завершился с ошибкой: {details}")
+            if not os.path.isfile(output_path):
+                raise Exception("Pandoc не создал выходной файл")
+            return output_path
+        except Exception:
+            self._discard_conversion_output(output_path)
+            raise
+        finally:
+            clear_cancel = getattr(self, "_clear_active_cancel_action", None)
+            if cancel_action is not None and callable(clear_cancel):
+                clear_cancel(cancel_action)
 
     @staticmethod
     def _read_text_file(path: str) -> str:
@@ -435,8 +306,7 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
 
     @staticmethod
     def _rtf_to_text(value: str) -> str:
-        # Достаточный резервный разбор для обычного RTF. При наличии Word используется
-        # COM-конвертация, которая сохраняет форматирование намного точнее.
+        # Достаточный резервный разбор для обычного RTF.
         value = re.sub(
             r"\\'([0-9a-fA-F]{2})",
             lambda match: bytes([int(match.group(1), 16)]).decode(
@@ -462,37 +332,6 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         value = re.sub(r"\n{3,}", "\n\n", value)
         return value.strip()
 
-    def _extract_text_via_word(self, path: str) -> str:
-        if os.name != "nt" or not HAS_WORD_TO_PDF:
-            raise Exception(
-                "Для чтения DOC требуется Microsoft Word и pywin32"
-            )
-        import pythoncom
-        import win32com.client as win32
-
-        pythoncom.CoInitialize()
-        word_app = None
-        document = None
-        window_guard = None
-        try:
-            word_app, window_guard = _start_hidden_word_application(win32)
-            document = word_app.Documents.Open(
-                self._normalize_word_com_path(path),
-                ConfirmConversions=False,
-                ReadOnly=True,
-                AddToRecentFiles=False,
-                Revert=False,
-                Visible=False,
-                OpenAndRepair=True,
-            )
-            return str(document.Content.Text or "")
-        finally:
-            _close_word_document(document)
-            _quit_word_application(word_app)
-            if window_guard is not None:
-                window_guard.stop()
-            _uninitialize_com(pythoncom)
-
     def _extract_document_text(self, file: FileItem) -> str:
         source_format = format_for_path(file.path)
         if source_format in {"TXT", "MD"}:
@@ -500,16 +339,7 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         if source_format == "HTML":
             return self._html_to_text(self._read_text_file(file.path))
         if source_format == "RTF":
-            try:
-                if os.name == "nt" and HAS_WORD_TO_PDF:
-                    return self._extract_text_via_word(file.path)
-            except Exception as error:
-                _debug_log(
-                    f"Word не смог прочитать RTF, используется fallback: {error}"
-                )
             return self._rtf_to_text(self._read_text_file(file.path))
-        if source_format == "DOC":
-            return self._extract_text_via_word(file.path)
         if source_format == "DOCX":
             try:
                 import docx
@@ -742,7 +572,7 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         finally:
             document.close()
 
-    def _try_word_direct_conversion(
+    def _try_pandoc_conversion(
         self,
         file: FileItem,
         target_format: str,
@@ -751,64 +581,15 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
     ) -> str | None:
         source_format = format_for_path(file.path)
         target_format = str(target_format or "").upper()
-        if os.name != "nt" or not HAS_WORD_TO_PDF:
+        if source_format not in _PANDOC_SOURCE_FORMATS:
             return None
-        if source_format not in _WORD_DIRECT_SOURCE_FORMATS:
+        if target_format not in _PANDOC_TARGET_FORMATS:
             return None
-        if target_format not in _WORD_DIRECT_TARGET_FORMATS:
-            return None
-        target_ext = suffix_for_format(target_format)
-        output_path = self._conversion_output_path(
+        return self._convert_with_pandoc(
             file,
-            target_ext,
-            reference_file=output_reference,
+            target_format,
+            output_reference=output_reference,
         )
-
-        import pythoncom
-        import win32com.client as win32
-
-        pythoncom.CoInitialize()
-        word_app = None
-        document = None
-        window_guard = None
-        try:
-            word_app, window_guard = _start_hidden_word_application(win32)
-            document = word_app.Documents.Open(
-                self._normalize_word_com_path(file.path),
-                ConfirmConversions=False,
-                ReadOnly=True,
-                AddToRecentFiles=False,
-                Revert=False,
-                Visible=False,
-                OpenAndRepair=True,
-            )
-            normalized_dst = self._normalize_word_com_path(output_path)
-            if target_format == "PDF":
-                document.ExportAsFixedFormat(
-                    OutputFileName=normalized_dst,
-                    ExportFormat=_WD_EXPORT_FORMAT_PDF,
-                    OpenAfterExport=False,
-                )
-            else:
-                document.SaveAs2(
-                    FileName=normalized_dst,
-                    FileFormat=_WORD_SAVE_FORMATS[target_format],
-                )
-            if not os.path.exists(normalized_dst):
-                raise Exception("Microsoft Word не создал выходной файл")
-            return output_path
-        except Exception as error:
-            _debug_log(
-                f"Прямая конвертация Word {source_format} → {target_format} не удалась: {error}"
-            )
-            self._discard_conversion_output(output_path)
-            return None
-        finally:
-            _close_word_document(document)
-            _quit_word_application(word_app)
-            if window_guard is not None:
-                window_guard.stop()
-            _uninitialize_com(pythoncom)
 
     def _convert_pymupdf_document_to_pdf(self, file: FileItem) -> str | None:
         source_format = format_for_path(file.path)
@@ -834,70 +615,18 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
             )
             return None
 
-    def _convert_document_to_doc(
-        self,
-        file: FileItem,
-        source_format: str,
-    ) -> str:
-        direct_result = self._try_word_direct_conversion(file, "DOC")
-        if direct_result:
-            return direct_result
-        if os.name != "nt" or not HAS_WORD_TO_PDF:
-            raise Exception(
-                "Для сохранения в DOC требуется Microsoft Word и pywin32"
-            )
-
-        with tempfile.TemporaryDirectory(prefix="multifora_doc_") as temp_dir:
-            generated_intermediate = source_format == "PDF"
-            if generated_intermediate:
-                temp_docx = self._convert_pdf_to_word(file)
-                if not temp_docx:
-                    raise Exception(
-                        "Не удалось подготовить промежуточный DOCX"
-                    )
-            else:
-                temp_docx = os.path.join(temp_dir, "intermediate.docx")
-                content = self._extract_document_text(file)
-                self._warn_text_only_conversion(file)
-                self._write_docx_file(temp_docx, content)
-
-            try:
-                result = self._try_word_direct_conversion(
-                    FileItem(temp_docx),
-                    "DOC",
-                    output_reference=file,
-                )
-                if not result:
-                    raise Exception("Microsoft Word не смог создать DOC")
-                return result
-            finally:
-                if generated_intermediate:
-                    try:
-                        os.remove(temp_docx)
-                    except FileNotFoundError:
-                        pass
-                    except OSError as error:
-                        _debug_log(
-                            f"Не удалось удалить промежуточный DOCX {temp_docx}: {error}"
-                        )
-                    finally:
-                        self._release_conversion_output_path(temp_docx)
-
     def _convert_document_to_pdf(
         self,
         file: FileItem,
         source_format: str,
     ) -> str:
-        direct_result = self._try_word_direct_conversion(file, "PDF")
+        direct_result = self._try_pandoc_conversion(file, "PDF")
         if direct_result:
             return direct_result
 
         pymupdf_result = self._convert_pymupdf_document_to_pdf(file)
         if pymupdf_result:
             return pymupdf_result
-
-        if source_format == "DOC" and (os.name != "nt" or not HAS_WORD_TO_PDF):
-            raise Exception("Для DOC → PDF требуется Microsoft Word и pywin32")
 
         content = self._extract_document_text(file)
         self._warn_text_only_conversion(file)
@@ -933,18 +662,16 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         # Для PDF сохраняем специализированные конвертеры, потому что они лучше
         # восстанавливают структуру документа, чем текстовый резервный маршрут.
         if source_format == "PDF" and normalized_target == "DOCX":
-            return self._convert_pdf_to_word(file)
+            return self._convert_pdf_to_docx(file)
         if source_format == "PDF" and normalized_target == "ODT":
             return self._convert_pdf_to_odt(file)
-        if normalized_target == "DOC":
-            return self._convert_document_to_doc(file, source_format)
         if normalized_target == "PDF":
             return self._convert_document_to_pdf(file, source_format)
 
-        # Word используется первым для совместимых форматов, чтобы максимально
-        # сохранить таблицы, шрифты и исходное форматирование.
+        # Pandoc используется первым для совместимых форматов, чтобы сохранить
+        # структуру документа и не зависеть от офисных приложений.
         if normalized_target in {"DOCX", "ODT", "RTF", "HTML"}:
-            direct_result = self._try_word_direct_conversion(
+            direct_result = self._try_pandoc_conversion(
                 file, normalized_target
             )
             if direct_result:
@@ -958,13 +685,11 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         total = len(self.files)
         results: list[FileItem] = []
 
-        # Для тяжёлых сценариев отдельные пакетные обработчики переиспользуют
-        # один Word-процесс или ограниченный пул потоков.
-        if self.conversion_type == "word_to_pdf":
-            self._emit_finished(self._convert_word_to_pdf_batch(), [])
+        if self.conversion_type == "pandoc_to_pdf":
+            self._emit_finished(self._convert_pandoc_to_pdf_batch(), [])
             return
-        if self.conversion_type == "pdf_to_word":
-            self._emit_finished(self._convert_pdf_to_word_batch(), [])
+        if self.conversion_type == "pdf_to_docx":
+            self._emit_finished(self._convert_pdf_to_docx_batch(), [])
             return
 
         handler = self._get_conversion_handler()
@@ -1019,144 +744,21 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
             self.progress.emit(int((index + 1) / total * 100))
         return results
 
-    def _convert_word_file_with_application(
-        self, word_app, file: FileItem
-    ) -> str:
-        """Экспортирует один DOC/DOCX через уже запущенный экземпляр Word."""
-        if not file.path.lower().endswith((".doc", ".docx")):
-            raise Exception("Поддерживаются только DOC/DOCX")
+    def _convert_pandoc_to_pdf_batch(self) -> list[FileItem]:
+        """Последовательно конвертирует DOCX в PDF через Pandoc."""
+        return self._convert_sequential_batch(
+            list(self.files),
+            self._convert_docx_to_pdf,
+        )
 
-        pdf_path = self._conversion_output_path(file, ".pdf")
-        try:
-            normalized_src = self._normalize_word_com_path(file.path)
-            normalized_dst = self._normalize_word_com_path(pdf_path)
-            if not os.path.exists(normalized_src):
-                raise FileNotFoundError(f"Файл не найден: {normalized_src}")
-
-            document = None
-            try:
-                document = word_app.Documents.Open(
-                    normalized_src,
-                    ConfirmConversions=False,
-                    ReadOnly=True,
-                    AddToRecentFiles=False,
-                    Revert=False,
-                    Visible=False,
-                    OpenAndRepair=True,
-                )
-                document.ExportAsFixedFormat(
-                    OutputFileName=normalized_dst,
-                    ExportFormat=_WD_EXPORT_FORMAT_PDF,
-                    OpenAfterExport=False,
-                )
-            finally:
-                _close_word_document(document)
-
-            if not os.path.exists(normalized_dst):
-                raise Exception("Word не создал выходной PDF-файл")
-            return pdf_path
-        except Exception:
-            self._discard_conversion_output(pdf_path)
-            raise
-
-    def _convert_word_to_pdf_batch(self) -> list[FileItem]:
-        """Быстрый пакетный DOC/DOCX -> PDF через один скрытый экземпляр Word."""
-        total = len(self.files)
-        results: list[FileItem] = []
-        if total == 0:
-            return results
-
-        if (
-            os.name != "nt"
-            or not HAS_WORD_TO_PDF
-            or getattr(self, "_word_pdf_unavailable", False)
-        ):
-            return self._convert_sequential_batch(
-                list(self.files),
-                self._convert_word_to_pdf,
-            )
-
-        try:
-            import pythoncom
-            import win32com.client as win32
-        except (ImportError, OSError) as error:
-            _debug_log(f"Скрытая конвертация Word недоступна: {error}")
-            self._word_pdf_unavailable = True
-            return self._convert_sequential_batch(
-                list(self.files),
-                self._convert_word_to_pdf,
-            )
-
-        self._warmup_word()
-        word_app = None
-        window_guard = None
-        cancel_action = None
-        pythoncom.CoInitialize()
-        try:
-            # Один COM-экземпляр Word на всю пачку файлов заметно ускоряет конвертацию.
-            try:
-                word_app, window_guard = _start_hidden_word_application(win32)
-            except Exception as error:
-                _debug_log(
-                    f"Microsoft Word не запустился, включён внутренний конвертер: {error}"
-                )
-                self._word_pdf_unavailable = True
-                return self._convert_sequential_batch(
-                    list(self.files),
-                    self._convert_word_to_pdf,
-                )
-            word_handle = _word_window_handle(word_app)
-            if word_handle:
-                cancel_action = partial(_terminate_window_process, word_handle)
-                register_cancel = getattr(
-                    self, "_set_active_cancel_action", None
-                )
-                if callable(register_cancel):
-                    register_cancel(cancel_action)
-            for index, file in enumerate(self.files):
-                if self._should_cancel():
-                    self.status.emit("Операция отменена пользователем")
-                    break
-                if not file.is_file:
-                    continue
-
-                self.status.emit(f"Конвертация: {file.name}")
-                try:
-                    pdf_path = self._convert_word_file_with_application(
-                        word_app, file
-                    )
-                    results.append(FileItem(pdf_path))
-                except Exception as error:
-                    if file.path.lower().endswith(".docx"):
-                        try:
-                            pdf_path = self._convert_docx_to_pdf_internal(file)
-                            results.append(FileItem(pdf_path))
-                        except Exception as fallback_error:
-                            self._report_file_conversion_error(
-                                file, fallback_error
-                            )
-                    else:
-                        self._report_file_conversion_error(file, error)
-                self.progress.emit(int((index + 1) / total * 100))
-        finally:
-            clear_cancel = getattr(self, "_clear_active_cancel_action", None)
-            if cancel_action is not None and callable(clear_cancel):
-                clear_cancel(cancel_action)
-            _quit_word_application(word_app)
-            if window_guard is not None:
-                window_guard.stop()
-            _uninitialize_com(pythoncom)
-
-        return results
-
-    def _convert_pdf_to_word_batch(self) -> list[FileItem]:
+    def _convert_pdf_to_docx_batch(self) -> list[FileItem]:
         files = [f for f in self.files if getattr(f, "is_file", False)]
         total = len(files)
         results: list[FileItem] = []
         if total == 0:
             return results
 
-        if not HAS_PDF_TO_WORD:
+        if not HAS_PDF_TO_DOCX:
             msg = "Установите pdf2docx"
             record_file_error(self, None, msg)
             return results
@@ -1164,7 +766,7 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         max_workers = min(4, max(1, ((os.cpu_count() or 2) // 2)))
         if total <= 1 or max_workers == 1:
             return self._convert_sequential_batch(
-                files, self._convert_pdf_to_word
+                files, self._convert_pdf_to_docx
             )
 
         processed = 0
@@ -1178,7 +780,7 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
                     break
                 if file.path.lower().endswith(".pdf"):
                     future_map[
-                        executor.submit(self._convert_pdf_to_word, file)
+                        executor.submit(self._convert_pdf_to_docx, file)
                     ] = file
                 else:
                     processed += 1
@@ -1233,161 +835,24 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
 
         return results
 
-    def _warmup_word(self):
-        if self._word_warmup_done:
-            return
-        if os.name != "nt" or not HAS_WORD_TO_PDF:
-            self._word_warmup_done = True
-            return
-        try:
-            started = prewarm_word_background(
-                status_callback=(
-                    self.status.emit
-                    if callable(getattr(self, "status", None))
-                    else None
-                ),
-                log_callback=_debug_log,
-            )
-            if started:
-                time.sleep(0.6)
-        except Exception as e:
-            _debug_log(f"Не удалось подготовить Microsoft Word: {e}")
-        finally:
-            self._word_warmup_done = True
-
-    def _convert_word_to_pdf(
+    def _convert_docx_to_pdf(
         self,
         file: FileItem,
         *,
         output_reference: FileItem | None = None,
     ) -> str:
-        if not file.path.lower().endswith((".doc", ".docx")):
-            return None
-        can_use_word = (
-            HAS_WORD_TO_PDF
-            and os.name == "nt"
-            and not getattr(self, "_word_pdf_unavailable", False)
-        )
-        if not can_use_word:
-            return self._convert_docx_to_pdf_internal(
-                file,
-                output_reference=output_reference,
-            )
-
-        pdf_path = self._conversion_output_path(
-            file,
-            ".pdf",
-            reference_file=output_reference,
-        )
-        try:
-            self._warmup_word()
-            if self._should_cancel():
-                raise Exception("Конвертация отменена пользователем")
-            if not self._convert_word_to_pdf_hidden_com(file.path, pdf_path):
-                raise Exception("Microsoft Word не создал выходной PDF-файл")
-            if self._should_cancel():
-                raise Exception("Конвертация отменена пользователем")
-            return pdf_path
-        except Exception as error:
-            self._discard_conversion_output(pdf_path)
-            if self._should_cancel():
-                raise Exception(
-                    "Конвертация отменена пользователем"
-                ) from error
-            self._word_pdf_unavailable = True
-            _debug_log(
-                f"Microsoft Word не смог создать PDF, включён внутренний конвертер: {error}"
-            )
-            return self._convert_docx_to_pdf_internal(
-                file,
-                output_reference=output_reference,
-            )
-
-    def _convert_docx_to_pdf_internal(
-        self,
-        file: FileItem,
-        *,
-        output_reference: FileItem | None = None,
-    ) -> str:
-        """Резервный DOCX -> PDF без внешнего офисного приложения."""
         if not file.path.lower().endswith(".docx"):
-            raise Exception(
-                "Для старого формата DOC требуется Microsoft Word. "
-                "Внутренний конвертер поддерживает DOCX."
-            )
-        if self._should_cancel():
-            raise Exception("Конвертация отменена пользователем")
-        self.status.emit(f"Внутренняя конвертация DOCX в PDF: {file.name}")
-        content = self._extract_document_text(file)
-        if self._should_cancel():
-            raise Exception("Конвертация отменена пользователем")
-        self._warn_text_only_conversion(file)
-        return self._write_text_pdf(
+            return None
+        return self._convert_with_pandoc(
             file,
-            content,
+            "PDF",
             output_reference=output_reference,
         )
 
-    def _convert_word_to_pdf_hidden_com(
-        self, src_path: str, dst_pdf_path: str
-    ) -> bool:
-        if os.name != "nt":
-            return False
-        try:
-            import pythoncom
-            import win32com.client as win32
-        except Exception:
-            return False
-
-        word_app = None
-        document = None
-        window_guard = None
-        cancel_action = None
-        normalized_src = self._normalize_word_com_path(src_path)
-        normalized_dst = self._normalize_word_com_path(dst_pdf_path)
-        if not os.path.exists(normalized_src):
-            raise FileNotFoundError(f"Файл не найден: {normalized_src}")
-        pythoncom.CoInitialize()
-        try:
-            word_app, window_guard = _start_hidden_word_application(win32)
-            word_handle = _word_window_handle(word_app)
-            if word_handle:
-                cancel_action = partial(_terminate_window_process, word_handle)
-                register_cancel = getattr(
-                    self, "_set_active_cancel_action", None
-                )
-                if callable(register_cancel):
-                    register_cancel(cancel_action)
-
-            document = word_app.Documents.Open(
-                normalized_src,
-                ConfirmConversions=False,
-                ReadOnly=True,
-                AddToRecentFiles=False,
-                Revert=False,
-                Visible=False,
-                OpenAndRepair=True,
-            )
-            document.ExportAsFixedFormat(
-                OutputFileName=normalized_dst,
-                ExportFormat=_WD_EXPORT_FORMAT_PDF,
-                OpenAfterExport=False,
-            )
-            return os.path.exists(normalized_dst)
-        finally:
-            clear_cancel = getattr(self, "_clear_active_cancel_action", None)
-            if cancel_action is not None and callable(clear_cancel):
-                clear_cancel(cancel_action)
-            _close_word_document(document)
-            _quit_word_application(word_app)
-            if window_guard is not None:
-                window_guard.stop()
-            _uninitialize_com(pythoncom)
-
-    def _convert_pdf_to_word(self, file: FileItem) -> str:
+    def _convert_pdf_to_docx(self, file: FileItem) -> str:
         if not file.path.lower().endswith(".pdf"):
             return None
-        if not HAS_PDF_TO_WORD:
+        if not HAS_PDF_TO_DOCX:
             raise Exception("Установите pdf2docx")
 
         docx_path = self._conversion_output_path(file, ".docx")
@@ -1406,92 +871,38 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         except Exception as error:
             self._release_conversion_output_path(docx_path)
             raise Exception(
-                f"Ошибка конвертации PDF в Word: {error}"
+                f"Ошибка конвертации PDF в DOCX: {error}"
             ) from error
 
-    def _convert_word_to_odt(
+    def _convert_docx_to_odt(
         self,
         file: FileItem,
         *,
         output_reference: FileItem | None = None,
     ) -> str:
-        if file.path.lower().endswith((".doc", ".docx")):
-            if not HAS_ODF_PYTHON:
-                raise Exception("Установите odfpy для конвертации ODT")
-            try:
-                import docx
+        if not file.path.lower().endswith(".docx"):
+            return None
+        return self._convert_with_pandoc(
+            file, "ODT", output_reference=output_reference
+        )
 
-                doc = docx.Document(file.path)
-                self._warn_text_only_conversion(file)
-                odt_doc = OpenDocumentText()
-                for para in doc.paragraphs:
-                    p = text.P(text=para.text)
-                    odt_doc.text.addElement(p)
-                odt_path = self._conversion_output_path(
-                    file,
-                    ".odt",
-                    reference_file=output_reference,
-                )
-                with atomic_output_path(odt_path) as temporary:
-                    odt_doc.save(temporary)
-                return odt_path
-            except Exception as error:
-                raise Exception(
-                    f"Ошибка конвертации Word в ODT: {error}"
-                ) from error
-        return None
-
-    def _convert_odt_to_word(self, file: FileItem) -> str:
-        if file.path.lower().endswith(".odt"):
-            if not HAS_ODF_PYTHON:
-                raise Exception("Установите odfpy для конвертации ODT")
-            try:
-                import docx
-
-                odt_doc = load(file.path)
-                self._warn_text_only_conversion(file)
-                docx_doc = docx.Document()
-                for elem in odt_doc.getElementsByType(text.P):
-                    txt = teletype.extractText(elem)
-                    if txt and txt.strip():
-                        docx_doc.add_paragraph(txt)
-                docx_path = self._conversion_output_path(file, ".docx")
-                with atomic_output_path(docx_path) as temporary:
-                    docx_doc.save(temporary)
-                return docx_path
-            except Exception as error:
-                raise Exception(
-                    f"Ошибка конвертации ODT в DOCX: {error}"
-                ) from error
-        return None
+    def _convert_odt_to_docx(self, file: FileItem) -> str:
+        if not file.path.lower().endswith(".odt"):
+            return None
+        return self._convert_with_pandoc(file, "DOCX")
 
     def _convert_odt_to_pdf(self, file: FileItem) -> str:
-        if file.path.lower().endswith(".odt"):
-            docx_path = self._convert_odt_to_word(file)
-            if not docx_path or not os.path.exists(docx_path):
-                raise Exception("Не удалось создать DOCX из ODT")
-            try:
-                return self._convert_word_to_pdf(
-                    FileItem(docx_path),
-                    output_reference=file,
-                )
-            finally:
-                try:
-                    if os.path.exists(docx_path):
-                        os.remove(docx_path)
-                except OSError as error:
-                    _debug_log(
-                        f"Не удалось удалить промежуточный DOCX: {error}"
-                    )
-        return None
+        if not file.path.lower().endswith(".odt"):
+            return None
+        return self._convert_with_pandoc(file, "PDF")
 
     def _convert_pdf_to_odt(self, file: FileItem) -> str:
         if file.path.lower().endswith(".pdf"):
-            docx_path = self._convert_pdf_to_word(file)
+            docx_path = self._convert_pdf_to_docx(file)
             if not docx_path or not os.path.exists(docx_path):
                 raise Exception("Не удалось создать DOCX из PDF")
             try:
-                return self._convert_word_to_odt(
+                return self._convert_docx_to_odt(
                     FileItem(docx_path),
                     output_reference=file,
                 )

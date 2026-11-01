@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 
+from app.core import deps
 from app.core.app_utils import _debug_log
 from app.core.conversion_formats import (
     IMAGE_CATEGORY,
@@ -18,7 +19,7 @@ from core.workers.atomic_output import atomic_output_path
 
 
 class ImageConversionMixin:
-    """Конвертация графики, изолированная от Word/RTF/ODT логики."""
+    """Конвертация графики, изолированная от документных форматов."""
 
     def _convert_image_to_image(
         self, file: FileItem, target_format: str
@@ -44,6 +45,16 @@ class ImageConversionMixin:
         output_path = self._conversion_output_path(file, target_ext)
         image = None
         try:
+            if source_format == "EPS":
+                available, ghostscript_path = deps.ensure_ghostscript_detected()
+                if not available or not ghostscript_path:
+                    raise Exception(
+                        "Ghostscript не найден; он требуется для чтения EPS"
+                    )
+                from PIL import EpsImagePlugin
+
+                EpsImagePlugin.gs_binary = ghostscript_path
+                EpsImagePlugin.gs_windows_binary = ghostscript_path
             image = (
                 self._load_svg_as_pillow_image(file.path)
                 if source_format == "SVG"

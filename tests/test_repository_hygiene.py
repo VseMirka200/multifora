@@ -53,6 +53,14 @@ class RepositoryHygieneTests(unittest.TestCase):
         )
         self.assertNotIn(".pyw", launcher)
 
+    def test_batch_launcher_requires_supported_python_without_word_modules(self):
+        launcher = Path("start_multifora.bat").read_text(encoding="ascii")
+
+        self.assertIn("sys.version_info[:2] == (3, 11)", launcher)
+        self.assertIn("py.exe -3.11", launcher)
+        self.assertNotIn("pythoncom", launcher)
+        self.assertNotIn("win32com", launcher)
+
     def test_python_modules_have_no_unresolved_global_names(self):
         paths = list(Path("app").rglob("*.py"))
         paths.extend(Path("core").rglob("*.py"))

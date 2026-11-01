@@ -17,7 +17,7 @@ if not exist "%APP_ENTRY%" (
 )
 
 if exist "%VENV_PY%" (
-    "%VENV_PY%" -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>nul
+    "%VENV_PY%" -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 11) else 1)" >nul 2>nul
     if not errorlevel 1 goto venv_ready
 
     echo Removing an incompatible virtual environment...
@@ -26,25 +26,22 @@ if exist "%VENV_PY%" (
 
 where py.exe >nul 2>nul
 if not errorlevel 1 (
-    py.exe -3 -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>nul
+    py.exe -3.11 -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 11) else 1)" >nul 2>nul
     if not errorlevel 1 (
         set "PYTHON_EXE=py.exe"
-        set "PYTHON_ARGS=-3"
+        set "PYTHON_ARGS=-3.11"
         goto python_found
     )
 )
 
-for /f "delims=" %%D in ('dir /b /ad /o-n "%LocalAppData%\Programs\Python\Python3*" 2^>nul') do (
-    if not defined PYTHON_EXE if exist "%LocalAppData%\Programs\Python\%%D\python.exe" (
-        "%LocalAppData%\Programs\Python\%%D\python.exe" -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>nul
-        if not errorlevel 1 set "PYTHON_EXE=%LocalAppData%\Programs\Python\%%D\python.exe"
-    )
+if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
+    set "PYTHON_EXE=%LocalAppData%\Programs\Python\Python311\python.exe"
+    goto python_found
 )
-if defined PYTHON_EXE goto python_found
 
 where python.exe >nul 2>nul
 if not errorlevel 1 (
-    python.exe -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)" >nul 2>nul
+    python.exe -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 11) else 1)" >nul 2>nul
     if not errorlevel 1 (
         set "PYTHON_EXE=python.exe"
         goto python_found
@@ -52,8 +49,9 @@ if not errorlevel 1 (
 )
 
 echo.
-echo ERROR: Python 3.11 or newer was not found.
-echo Download: https://www.python.org/downloads/
+echo ERROR: Python 3.11 x64 was not found.
+echo Install Python 3.11 x64 from: https://www.python.org/downloads/windows/
+echo Then run start_multifora.bat again.
 goto error
 
 :python_found
@@ -65,7 +63,7 @@ if errorlevel 1 goto error
 set "PYTHONNOUSERSITE=1"
 
 echo Checking required packages...
-"%VENV_PY%" -c "import PySide6, pymupdf, PIL, docx, pdf2docx, odf, pythoncom, win32com.client" >nul 2>nul
+"%VENV_PY%" -c "import PySide6, pymupdf, PIL, docx, pdf2docx, odf" >nul 2>nul
 if errorlevel 1 goto install_packages
 
 "%VENV_PY%" -m pip check >nul 2>nul

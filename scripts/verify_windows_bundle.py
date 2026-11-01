@@ -18,6 +18,8 @@ def check_bundle(bundle: Path) -> list[str]:
         "Multifora.exe",
         "bin/gswin64/gswin64c.exe",
         "bin/gswin64/gsdll64.dll",
+        "bin/pandoc/pandoc.exe",
+        "bin/tectonic/tectonic.exe",
         "_internal/docxcompose/templates/custom.xml",
     ):
         path = bundle / relative
