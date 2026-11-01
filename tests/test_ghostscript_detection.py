@@ -40,6 +40,22 @@ class _DummyCompressionWorker(CompressionMixin):
 
 
 class GhostscriptDetectionTests(unittest.TestCase):
+    def test_executable_resolver_supports_explicit_paths_and_path_lookup(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            executable = os.path.join(tmpdir, "tool.exe")
+            with open(executable, "wb") as stream:
+                stream.write(b"")
+
+            self.assertEqual(
+                deps._resolve_executable_candidate(executable),
+                os.path.abspath(executable),
+            )
+            with patch("app.core.deps.shutil.which", return_value=executable):
+                self.assertEqual(
+                    deps._resolve_executable_candidate("tool"),
+                    os.path.abspath(executable),
+                )
+
     def test_ensure_ghostscript_detected_invokes_detection_when_state_is_empty(
         self,
     ):

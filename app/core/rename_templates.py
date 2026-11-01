@@ -15,6 +15,14 @@ _DATE_FORMAT_PATTERNS = (
 )
 _CUSTOM_NUM_TOKEN_RE = re.compile(r"\{num([^}]*)\}")
 _WIDTH_FORMAT_RE = re.compile(r"0?(\d+)d")
+_METADATA_TOKENS = (
+    "created",
+    "modified",
+    "file_date",
+    "exif_date",
+    "width",
+    "height",
+)
 
 
 def apply_case_mode(value: str, mode: str) -> str:
@@ -119,6 +127,29 @@ def _format_width(value: str):
     return max(1, int(match.group(1))) if match else None
 
 
+def _parse_number_setting(part: str) -> tuple[str, int] | None:
+    if part.startswith(":"):
+        width = _format_width(part[1:])
+        return ("digits", width) if width is not None else None
+
+    if "=" in part:
+        key, value = (segment.strip() for segment in part.split("=", 1))
+        if key == "fmt":
+            width = _format_width(value)
+            return ("digits", width) if width is not None else None
+        if key not in {"digits", "width", "start", "step"}:
+            return None
+        parsed_value = _positive_int(value)
+        if parsed_value is None:
+            return None
+        return ("digits" if key == "width" else key, parsed_value)
+
+    width_match = re.fullmatch(_WIDTH_FORMAT_RE, part)
+    if width_match:
+        return "digits", max(1, int(width_match.group(1)))
+    return None
+
+
 def parse_custom_template_settings(template: str) -> dict[str, int | bool]:
     settings: dict[str, int | bool] = {
         "start": 1,
@@ -139,29 +170,10 @@ def parse_custom_template_settings(template: str) -> dict[str, int | bool]:
     for part in (chunk.strip() for chunk in specification.split(",")):
         if not part:
             continue
-
-        if part.startswith(":"):
-            width = _format_width(part[1:])
-            if width is not None:
-                settings["digits"] = width
-            continue
-
-        if "=" in part:
-            key, value = (segment.strip() for segment in part.split("=", 1))
-            if key == "fmt":
-                width = _format_width(value)
-                if width is not None:
-                    settings["digits"] = width
-            elif key in {"digits", "width", "start", "step"}:
-                parsed_value = _positive_int(value)
-                if parsed_value is not None:
-                    target_key = "digits" if key == "width" else key
-                    settings[target_key] = parsed_value
-            continue
-
-        width_match = re.fullmatch(_WIDTH_FORMAT_RE, part)
-        if width_match:
-            settings["digits"] = max(1, int(width_match.group(1)))
+        parsed = _parse_number_setting(part)
+        if parsed is not None:
+            key, value = parsed
+            settings[key] = value
 
     return settings
 
@@ -183,21 +195,13 @@ def apply_custom_template(
     new_name = new_name.replace(
         "{ext}", ext[1:] if ext.startswith(".") else ext
     )
-    metadata_tokens = (
-        "created",
-        "modified",
-        "file_date",
-        "exif_date",
-        "width",
-        "height",
-    )
-    if any(f"{{{token}}}" in new_name for token in metadata_tokens):
+    if any(f"{{{token}}}" in new_name for token in _METADATA_TOKENS):
         metadata = (
             build_file_token_values(file_path)
             if token_values is None
             else token_values
         )
-        for token in metadata_tokens:
+        for token in _METADATA_TOKENS:
             new_name = new_name.replace(
                 f"{{{token}}}", str(metadata.get(token, "") or "")
             )

@@ -9,12 +9,8 @@ from __future__ import annotations
 import os
 from collections.abc import Callable, Sequence
 
+from app.core.models import normalized_path_key as path_key
 from app.core.rename_validation import _windows_name_error
-
-
-def path_key(path: str) -> str:
-    # NTFS обрабатывает имена без учёта регистра; такая же проверка нужна в тестах на Unix.
-    return os.path.normcase(os.path.abspath(path)).casefold()
 
 
 def resolve_rename_targets(

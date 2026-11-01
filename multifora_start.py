@@ -49,8 +49,6 @@ def _run_build_smoke_test() -> int:
             "docx",
             "docxcompose.composer",
             "odf.opendocument",
-            "pythoncom",
-            "win32com.client",
         ):
             importlib.import_module(module)
             report["imports"].append(module)

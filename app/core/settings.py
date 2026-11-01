@@ -210,6 +210,33 @@ def _restore_boolean_option(
     _set_checkbox_state(getattr(window, checkbox_name, None), value)
 
 
+def _find_tab_index(tab_bar, label: str) -> int | None:
+    normalized_label = label.casefold()
+    return next(
+        (
+            index
+            for index in range(tab_bar.count())
+            if tab_bar.tabText(index).casefold() == normalized_label
+        ),
+        None,
+    )
+
+
+def _saved_operation_tab_index(tab_bar, data: dict) -> int | None:
+    saved_label = str(data.get("operations_tab_label") or "").strip()
+    if saved_label:
+        return _find_tab_index(tab_bar, saved_label)
+    if "operations_tab_index" not in data:
+        return None
+
+    legacy_index = int(data.get("operations_tab_index"))
+    # В старой раскладке 2 было «Объединение», 3 — «Сжатие», 4 — «Настройки».
+    legacy_label = {2: "Объединение", 3: "Сжатие"}.get(legacy_index)
+    if legacy_label:
+        return _find_tab_index(tab_bar, legacy_label) or 0
+    return 0 if legacy_index == 4 else legacy_index
+
+
 def _restore_operations_tab_state(window, data: dict) -> None:
     if (
         "operations_tab_index" not in data
@@ -222,49 +249,7 @@ def _restore_operations_tab_state(window, data: dict) -> None:
 
     try:
         settings_index = getattr(window, "_settings_tab_index", -1)
-        saved_label = str(data.get("operations_tab_label") or "").strip()
-        index = None
-
-        if saved_label:
-            for candidate in range(operations_tab_bar.count()):
-                if (
-                    operations_tab_bar.tabText(candidate).casefold()
-                    == saved_label.casefold()
-                ):
-                    index = candidate
-                    break
-            if index == settings_index:
-                index = 0
-        elif "operations_tab_index" in data:
-            legacy_index = int(data.get("operations_tab_index"))
-            # В старой раскладке индексы были:
-            # 0 Переименование, 1 Конвертация, 2 Объединение, 3 Сжатие, 4 Настройки.
-            # Сохраняем поведение старых settings.json после изменения порядка вкладок.
-            if legacy_index == 2:
-                target_label = "Объединение"
-                index = next(
-                    (
-                        candidate
-                        for candidate in range(operations_tab_bar.count())
-                        if operations_tab_bar.tabText(candidate).casefold()
-                        == target_label.casefold()
-                    ),
-                    0,
-                )
-            elif legacy_index == 3:
-                index = next(
-                    (
-                        candidate
-                        for candidate in range(operations_tab_bar.count())
-                        if operations_tab_bar.tabText(candidate).casefold()
-                        == "Сжатие".casefold()
-                    ),
-                    0,
-                )
-            elif legacy_index == 4:
-                index = 0
-            else:
-                index = legacy_index
+        index = _saved_operation_tab_index(operations_tab_bar, data)
 
         if (
             index is None
@@ -382,40 +367,30 @@ def _restore_image_compression_output_settings(window, data: dict) -> None:
         updater()
 
 
-def _apply_settings_data(window, data: dict) -> None:
-    if "custom_templates" in data:
-        window.custom_templates = data["custom_templates"]
-
-    auto_clear_by_operation = data.get("auto_clear_by_operation")
-    if isinstance(auto_clear_by_operation, dict):
-        for operation, attribute_name in _AUTO_CLEAR_CHECKBOXES.items():
-            value = auto_clear_by_operation.get(
+def _restore_auto_clear_settings(window, data: dict) -> None:
+    operation_values = data.get("auto_clear_by_operation")
+    if isinstance(operation_values, dict):
+        for operation, checkbox_name in _AUTO_CLEAR_CHECKBOXES.items():
+            value = operation_values.get(
                 operation, _AUTO_CLEAR_DEFAULTS[operation]
             )
-            _set_checkbox_state(
-                getattr(window, attribute_name, None), bool(value)
-            )
+            _set_checkbox_state(getattr(window, checkbox_name, None), bool(value))
+        enabled = any(bool(value) for value in operation_values.values())
     elif "auto_clear" in data:
-        legacy_value = bool(data["auto_clear"])
-        for attribute_name in _AUTO_CLEAR_CHECKBOXES.values():
-            _set_checkbox_state(
-                getattr(window, attribute_name, None), legacy_value
-            )
+        enabled = bool(data["auto_clear"])
+        for checkbox_name in _AUTO_CLEAR_CHECKBOXES.values():
+            _set_checkbox_state(getattr(window, checkbox_name, None), enabled)
+    else:
+        enabled = False
 
     if "auto_clear_enabled" in data:
-        auto_clear_enabled = bool(data["auto_clear_enabled"])
-    elif isinstance(auto_clear_by_operation, dict):
-        auto_clear_enabled = any(
-            bool(value) for value in auto_clear_by_operation.values()
-        )
-    elif "auto_clear" in data:
-        auto_clear_enabled = bool(data["auto_clear"])
-    else:
-        auto_clear_enabled = False
+        enabled = bool(data["auto_clear_enabled"])
     _set_checkbox_state(
-        getattr(window, "auto_clear_enabled_checkbox", None),
-        auto_clear_enabled,
+        getattr(window, "auto_clear_enabled_checkbox", None), enabled
     )
+
+
+def _restore_general_boolean_options(window, data: dict) -> None:
     boolean_options = (
         (
             "disable_warning_dialogs",
@@ -446,6 +421,14 @@ def _apply_settings_data(window, data: dict) -> None:
             attribute_name,
             checkbox_name,
         )
+
+
+def _apply_settings_data(window, data: dict) -> None:
+    if "custom_templates" in data:
+        window.custom_templates = data["custom_templates"]
+
+    _restore_auto_clear_settings(window, data)
+    _restore_general_boolean_options(window, data)
     if "auto_check_updates" in data:
         _set_checkbox_state(
             getattr(window, "auto_update_check_checkbox", None),

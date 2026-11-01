@@ -167,17 +167,18 @@ def _ghostscript_candidates(custom_path: str | None = None) -> list[str]:
     return candidates
 
 
-def _resolve_ghostscript_candidate(candidate: str) -> str | None:
+def _resolve_executable_candidate(candidate: str) -> str | None:
+    """Разрешает явный путь, glob-шаблон или имя команды из PATH."""
     if not candidate:
         return None
 
     paths = glob.glob(candidate) if "*" in candidate else [candidate]
     for path in paths:
-        if os.path.exists(path):
-            return path
+        if os.path.isfile(path):
+            return os.path.abspath(path)
         resolved_path = shutil.which(path)
-        if resolved_path and os.path.exists(resolved_path):
-            return resolved_path
+        if resolved_path and os.path.isfile(resolved_path):
+            return os.path.abspath(resolved_path)
     return None
 
 
@@ -190,7 +191,7 @@ def _detect_ghostscript(custom_path: str | None = None) -> None:
 
     for candidate in _ghostscript_candidates(custom_path):
         try:
-            resolved_path = _resolve_ghostscript_candidate(candidate)
+            resolved_path = _resolve_executable_candidate(candidate)
         except OSError as error:
             _debug_log(
                 f"Ошибка проверки пути Ghostscript {candidate!r}: {error}"
@@ -239,9 +240,11 @@ def _detect_pandoc(custom_path: str | None = None) -> None:
     HAS_PANDOC = False
     PANDOC_PATH = None
     for candidate in _pandoc_candidates(custom_path):
-        resolved_path = shutil.which(candidate)
-        if not resolved_path and os.path.isfile(candidate):
-            resolved_path = os.path.abspath(candidate)
+        try:
+            resolved_path = _resolve_executable_candidate(candidate)
+        except OSError as error:
+            _debug_log(f"Ошибка проверки пути Pandoc {candidate!r}: {error}")
+            continue
         if resolved_path:
             HAS_PANDOC = True
             PANDOC_PATH = resolved_path

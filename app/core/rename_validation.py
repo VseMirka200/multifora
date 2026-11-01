@@ -5,6 +5,8 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 
+from app.core.models import normalized_path_key
+
 _INVALID_WINDOWS_CHARS_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 _RESERVED_WINDOWS_NAMES = {
     "CON",
@@ -46,14 +48,12 @@ def analyze_rename_plan(
     """Проверяет пакетное переименование до изменения файлов на диске."""
     pairs = list(zip(file_items, new_names, strict=False))
     normalized_targets = [
-        os.path.normcase(os.path.abspath(os.path.join(item.folder, str(name))))
+        normalized_path_key(os.path.join(item.folder, str(name)))
         for item, name in pairs
     ]
-    target_counts = Counter(target.casefold() for target in normalized_targets)
+    target_counts = Counter(normalized_targets)
     source_paths = {
-        os.path.normcase(
-            os.path.abspath(str(getattr(item, "path", "")))
-        ).casefold()
+        normalized_path_key(getattr(item, "path", ""))
         for item, _name in pairs
     }
 
@@ -73,7 +73,7 @@ def analyze_rename_plan(
             )
             continue
 
-        target_key = normalized_target.casefold()
+        target_key = normalized_target
         if target_counts[target_key] > 1:
             issues.append(
                 RenamePlanIssue(
@@ -83,9 +83,7 @@ def analyze_rename_plan(
                     "несколько файлов получат одинаковое имя",
                 )
             )
-        if target_key != os.path.normcase(
-            os.path.abspath(source)
-        ).casefold() and os.path.exists(target):
+        if target_key != normalized_path_key(source) and os.path.exists(target):
             message = (
                 "целевое имя занято другим файлом из пакета"
                 if target_key in source_paths

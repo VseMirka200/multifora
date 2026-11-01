@@ -11,6 +11,7 @@ from app.core.models import (
     file_item_source_folder,
     file_item_type_label,
     natural_sort_key,
+    normalized_path_key,
 )
 
 
@@ -202,20 +203,14 @@ class FileListActionsMixin:
         file_paths = expanded_paths
 
         added_count = 0
-        existing_paths = set()
-        for f in self.files:
-            try:
-                existing_paths.add(os.path.normcase(os.path.abspath(f.path)))
-            except Exception:
-                existing_paths.add(os.path.normcase(f.path))
+        existing_paths = {
+            normalized_path_key(file_item.path) for file_item in self.files
+        }
 
         new_items = []
         unsupported_paths = []
         for file_path in file_paths:
-            try:
-                abs_path = os.path.normcase(os.path.abspath(file_path))
-            except Exception:
-                abs_path = os.path.normcase(file_path)
+            abs_path = normalized_path_key(file_path)
             if abs_path in existing_paths:
                 continue
 

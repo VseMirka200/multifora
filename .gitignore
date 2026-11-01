@@ -40,9 +40,8 @@ dist/
 site/
 *.egg-info/
 
-# Downloaded third-party runtime (restored by scripts/install_*.ps1)
+# Downloaded third-party runtime (restored by scripts/install_pandoc.ps1)
 bin/pandoc/
-bin/tectonic/
 
 # PyInstaller
 *.spec

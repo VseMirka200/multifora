@@ -171,6 +171,14 @@ class RenameTemplateTests(unittest.TestCase):
         self.assertEqual(settings["digits"], 4)
         self.assertTrue(settings["use_numbering"])
 
+    def test_number_settings_support_aliases_and_ignore_invalid_values(self):
+        settings = rt.parse_custom_template_settings(
+            "{num:fmt=05d,width=6,start=0,step=bad,unknown=9}"
+        )
+        self.assertEqual(settings["digits"], 6)
+        self.assertEqual(settings["start"], 1)
+        self.assertEqual(settings["step"], 1)
+
     def test_custom_template_without_num(self):
         name, nxt = rt.apply_custom_template(
             "{name}_{date}",

@@ -14,6 +14,15 @@ def natural_sort_key(value: object) -> tuple:
     )
 
 
+def normalized_path_key(path: object) -> str:
+    """Возвращает устойчивый к регистру ключ пути для сравнений."""
+    try:
+        normalized = os.path.abspath(os.fspath(path))
+    except (OSError, TypeError, ValueError):
+        normalized = str(path)
+    return os.path.normcase(normalized).casefold()
+
+
 def file_item_source_folder(file_item: object) -> str:
     """Возвращает исходную папку файла или путь самой папки."""
     path = str(getattr(file_item, "path", ""))

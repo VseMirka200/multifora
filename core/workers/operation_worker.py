@@ -35,11 +35,7 @@ class OperationWorker(QThread):
         with self._cancel_lock:
             self._cancel_requested = True
             cancel_action = self._active_cancel_action
-        if cancel_action is not None:
-            try:
-                cancel_action()
-            except Exception:
-                pass
+        self._run_cancel_action(cancel_action)
 
     def _should_cancel(self) -> bool:
         with self._cancel_lock:
@@ -50,10 +46,17 @@ class OperationWorker(QThread):
             self._active_cancel_action = action
             cancel_requested = self._cancel_requested
         if cancel_requested:
-            try:
-                action()
-            except Exception:
-                pass
+            self._run_cancel_action(action)
+
+    @staticmethod
+    def _run_cancel_action(action: Callable[[], None] | None) -> None:
+        if action is None:
+            return
+        try:
+            action()
+        except Exception:
+            # Отмена является best-effort: рабочий поток сам завершит очистку.
+            pass
 
     def _clear_active_cancel_action(self, action: Callable[[], None]) -> None:
         with self._cancel_lock:

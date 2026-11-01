@@ -10,6 +10,7 @@ from PySide6.QtCore import (
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox
 
 from app.core.message_boxes import show_app_confirmation_with_checkbox
+from app.core.models import normalized_path_key
 from app.ui.ui_components import (
     get_russian_text_input,
     selected_file_items,
@@ -182,10 +183,7 @@ class FileListContextMixin:
         trashed_files = 0
         failed_moves = []
         for item in selected:
-            try:
-                normalized_path = os.path.normcase(os.path.abspath(item.path))
-            except Exception:
-                normalized_path = os.path.normcase(item.path)
+            normalized_path = normalized_path_key(item.path)
 
             if move_to_trash and getattr(item, "is_file", False):
                 try:
@@ -200,15 +198,11 @@ class FileListContextMixin:
                     continue
             removable_paths.add(normalized_path)
 
-        kept_files = []
-        for f in self.files:
-            try:
-                abs_path = os.path.normcase(os.path.abspath(f.path))
-            except Exception:
-                abs_path = os.path.normcase(f.path)
-            if abs_path not in removable_paths:
-                kept_files.append(f)
-        self.files = kept_files
+        self.files = [
+            file_item
+            for file_item in self.files
+            if normalized_path_key(file_item.path) not in removable_paths
+        ]
         self.update_file_list()
         self.update_file_info()
         removed_count = len(selected) - len(failed_moves)

@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import collect_data_files
 
 a = Analysis(
     ['multifora_start.py'],
@@ -10,7 +10,7 @@ a = Analysis(
     datas=[('assets', 'assets')]
     + collect_data_files('docxcompose')
     + collect_data_files('pymupdf'),
-    hiddenimports=collect_submodules('docxcompose'),
+    hiddenimports=['docxcompose.composer'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
