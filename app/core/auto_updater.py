@@ -53,6 +53,10 @@ def _find_asset(release: dict, predicate) -> dict:
 def _approved_download_url(url: str) -> bool:
     try:
         parsed = urlsplit(url)
+        if parsed.hostname == "github.com" and not parsed.path.startswith(
+            f"/{REPO}/releases/download/"
+        ):
+            return False
         return (
             parsed.scheme == "https"
             and parsed.hostname in _ALLOWED_DOWNLOAD_HOSTS
