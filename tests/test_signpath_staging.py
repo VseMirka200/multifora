@@ -29,7 +29,7 @@ class SignPathStagingTests(unittest.TestCase):
             [file["kind"] for file in manifest["files"]],
             ["application", "installer"],
         )
-        for entry, source in zip(manifest["files"], (self.app, self.installer)):
+        for entry, source in zip(manifest["files"], (self.app, self.installer), strict=True):
             with zipfile.ZipFile(self.output / entry["archive"]) as archive:
                 self.assertEqual(archive.namelist(), [source.name])
                 self.assertEqual(archive.read(source.name), source.read_bytes())
