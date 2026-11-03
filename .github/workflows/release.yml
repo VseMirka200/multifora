@@ -58,6 +58,220 @@ jobs:
           fetch-depth: 0
           ref: ${{ needs.prepare-release.outputs.commit }}
 
+      - name: Проверить конфигурацию цифровой подписи
+        shell: pwsh
+        env:
+          SIGN_MODE: ${{ vars.MULTIFORA_SIGN_RELEASE }}
+          CERT_SHA256: ${{ vars.MULTIFORA_SIGNER_CERT_SHA256 }}
+          HAS_SIGNING_PFX: ${{ secrets.MULTIFORA_CODESIGN_PFX_BASE64 != '' }}
+          HAS_SIGNING_PASSWORD: ${{ secrets.MULTIFORA_CODESIGN_PFX_PASSWORD != '' }}
+        run: |
+          if ($env:SIGN_MODE -notin @('', 'false', 'true')) {
+            throw 'MULTIFORA_SIGN_RELEASE must be true or false.'
+          }
+          if ($env:SIGN_MODE -eq 'true') {
+            if ($env:CERT_SHA256 -notmatch '^[0-9a-fA-F]{64}        with:
+          python-version: "3.11"
+          architecture: x64
+          cache: pip
+
+      - name: Установить зависимости для разработки и сборки
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements.txt
+          python -m pip check
+          python scripts/verify_build_environment.py
+
+      - name: Проверить стиль кода
+        run: python -m ruff check .
+
+      - name: Запустить тесты
+        run: python -m pytest -q
+
+      - name: Собрать приложение
+        shell: cmd
+        run: scripts\build_app.bat --no-pause
+
+      - name: Проверить собранный EXE и Ghostscript
+        shell: pwsh
+        run: .\scripts\verify_windows_runtime.ps1
+
+      - name: Подписать и проверить Multifora.exe
+        if: ${{ vars.MULTIFORA_SIGN_RELEASE == 'true' }}
+        shell: pwsh
+        env:
+          MULTIFORA_CODESIGN_PFX_BASE64: ${{ secrets.MULTIFORA_CODESIGN_PFX_BASE64 }}
+          MULTIFORA_CODESIGN_PFX_PASSWORD: ${{ secrets.MULTIFORA_CODESIGN_PFX_PASSWORD }}
+          SIGNER_CERT_SHA256: ${{ vars.MULTIFORA_SIGNER_CERT_SHA256 }}
+        run: |
+          .\scripts\sign_windows_artifact.ps1 -FilePath 'dist/Multifora/Multifora.exe' -ExpectedCertificateSha256 $env:SIGNER_CERT_SHA256
+
+      - name: Установить Inno Setup
+        shell: pwsh
+        run: |
+          $knownPaths = @(
+            "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
+            "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          )
+          if (-not ($knownPaths | Where-Object { Test-Path $_ })) {
+            choco install innosetup --no-progress -y
+          }
+
+      - name: Собрать установщик Windows
+        shell: pwsh
+        run: |
+          $tagVersion = $env:RELEASE_TAG.TrimStart('v')
+          $versionLine = Select-String -Path app/core/app_identity.py -Pattern '^APP_VERSION = "([^"]+)"$'
+          $appVersion = $versionLine.Matches[0].Groups[1].Value
+          if ($tagVersion -ne $appVersion) {
+            throw "Application version $appVersion does not match release tag $env:RELEASE_TAG."
+          }
+          cmd /c scripts\build_installer.bat --skip-app-build
+          if ($LASTEXITCODE -ne 0) {
+            throw "Не удалось собрать установщик."
+          }
+
+      - name: Подписать и проверить установщик Windows
+        if: ${{ vars.MULTIFORA_SIGN_RELEASE == 'true' }}
+        shell: pwsh
+        env:
+          MULTIFORA_CODESIGN_PFX_BASE64: ${{ secrets.MULTIFORA_CODESIGN_PFX_BASE64 }}
+          MULTIFORA_CODESIGN_PFX_PASSWORD: ${{ secrets.MULTIFORA_CODESIGN_PFX_PASSWORD }}
+          SIGNER_CERT_SHA256: ${{ vars.MULTIFORA_SIGNER_CERT_SHA256 }}
+        run: |
+          $installers = @(Get-ChildItem -Path dist/installer -Filter 'Multifora-Setup-*.exe')
+          if ($installers.Count -ne 1) {
+            throw "Expected exactly one installer to sign, found $($installers.Count)."
+          }
+          .\scripts\sign_windows_artifact.ps1 -FilePath $installers[0].FullName -ExpectedCertificateSha256 $env:SIGNER_CERT_SHA256
+
+      - name: Упаковать файлы и подготовить данные выпуска
+        shell: pwsh
+        run: |
+          $version = $env:RELEASE_TAG
+          $archive = "dist/Multifora-$version-windows-x64.zip"
+          Compress-Archive -Path dist/Multifora/* -DestinationPath $archive -Force
+
+          $hash = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          "$hash  $(Split-Path $archive -Leaf)" | Set-Content -Encoding ascii "dist/Multifora-$version-windows-x64.sha256"
+
+          $installers = @(Get-ChildItem -Path dist/installer -Filter "Multifora-Setup-*.exe")
+          if ($installers.Count -ne 1) {
+            throw "Ожидался один установщик, найдено: $($installers.Count)."
+          }
+          $installer = $installers[0]
+          $installerChecksum = [System.IO.Path]::ChangeExtension($installer.FullName, ".sha256")
+          $installerHash = (Get-FileHash -Algorithm SHA256 $installer.FullName).Hash.ToLowerInvariant()
+          "$installerHash  $($installer.Name)" | Set-Content -Encoding ascii $installerChecksum
+
+          $silentInstallers = @(Get-ChildItem -Path dist/installer -Filter "Multifora-Silent-Install-*.bat")
+          if ($silentInstallers.Count -ne 1) {
+            throw "Expected one silent-install script, found: $($silentInstallers.Count)."
+          }
+          $silentInstaller = $silentInstallers[0]
+          $silentInstallerChecksum = [System.IO.Path]::ChangeExtension($silentInstaller.FullName, ".sha256")
+          $silentInstallerHash = (Get-FileHash -Algorithm SHA256 $silentInstaller.FullName).Hash.ToLowerInvariant()
+          "$silentInstallerHash  $($silentInstaller.Name)" | Set-Content -Encoding ascii $silentInstallerChecksum
+
+          $previousTag = (& git describe --tags --abbrev=0 HEAD^ 2>$null)
+          if ($LASTEXITCODE -ne 0) { $previousTag = $null }
+          $range = if ($previousTag) { "$previousTag..HEAD" } else { "HEAD" }
+          $changes = @(git log $range --pretty=format:"- %s (%h)" --no-merges)
+          $releaseAssets = @(
+            "## Файлы для Windows"
+            ""
+            "- **Установщик** `Multifora-Setup-$($version.TrimStart('v')).exe` — устанавливает приложение в Windows."
+            "- **Тихая установка** `Multifora-Silent-Install-$($version.TrimStart('v')).bat` — положите рядом с установщиком и запустите; появится только системный запрос прав администратора."
+            "- **Портативная версия** `Multifora-$version-windows-x64.zip` — запускается из распакованной папки без установки."
+          )
+          if (-not $changes) { $changes = @("- Технический релиз") }
+          @(
+            "# Изменения $version"
+            ""
+            $releaseAssets
+            ""
+            "Изменения после $($previousTag ?? 'начала истории'):"
+            ""
+            $changes
+          ) | Set-Content -Encoding utf8 dist/CHANGELOG.md
+
+      - name: Загрузить артефакты сборки
+        uses: actions/upload-artifact@v7
+        with:
+          name: Multifora-${{ needs.prepare-release.outputs.tag }}-windows-x64
+          path: |
+            dist/Multifora-${{ needs.prepare-release.outputs.tag }}-windows-x64.zip
+            dist/Multifora-${{ needs.prepare-release.outputs.tag }}-windows-x64.sha256
+            dist/installer/Multifora-Setup-*.exe
+            dist/installer/Multifora-Setup-*.sha256
+            dist/installer/Multifora-Silent-Install-*.bat
+            dist/installer/Multifora-Silent-Install-*.sha256
+            dist/CHANGELOG.md
+            dist/bundle-metrics.json
+            dist/runtime-metrics.json
+  
+  # Публикация изолирована от установки зависимостей, тестов и Windows-сборки.
+  publish-release:
+    name: Опубликовать выпуск
+    needs: [prepare-release, build-windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Скачать артефакты сборки
+        uses: actions/download-artifact@v8
+        with:
+          name: Multifora-${{ needs.prepare-release.outputs.tag }}-windows-x64
+          path: release-assets
+
+      - name: Проверить контрольные суммы и опубликовать выпуск
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.prepare-release.outputs.tag }}
+          TARGET: ${{ needs.prepare-release.outputs.commit }}
+        run: |
+          set -euo pipefail
+          root="release-assets"
+          archive="$root/Multifora-$TAG-windows-x64.zip"
+          archive_sum="$root/Multifora-$TAG-windows-x64.sha256"
+          notes="$root/CHANGELOG.md"
+          mapfile -t installers < <(find "$root/installer" -maxdepth 1 -type f -name 'Multifora-Setup-*.exe')
+          if [ "${#installers[@]}" -ne 1 ]; then
+            echo "Expected exactly one installer" >&2
+            exit 1
+          fi
+          installer="${installers[0]}"
+          installer_sum="${installer%.exe}.sha256"
+          mapfile -t silent_installers < <(find "$root/installer" -maxdepth 1 -type f -name 'Multifora-Silent-Install-*.bat')
+          if [ "${#silent_installers[@]}" -ne 1 ]; then
+            echo "Expected exactly one silent-install script" >&2
+            exit 1
+          fi
+          silent_installer="${silent_installers[0]}"
+          silent_installer_sum="${silent_installer%.bat}.sha256"
+          test -f "$archive" && test -f "$archive_sum" && test -f "$notes" && test -f "$installer_sum" && test -f "$silent_installer_sum"
+          (cd "$root" && sha256sum -c "$(basename "$archive_sum")")
+          (cd "$root/installer" && sha256sum -c "$(basename "$installer_sum")")
+          (cd "$root/installer" && sha256sum -c "$(basename "$silent_installer_sum")")
+          assets=("$archive" "$archive_sum" "$installer" "$installer_sum" "$silent_installer" "$silent_installer_sum")
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Релиз $TAG уже опубликован. Перезапись файлов запрещена." >&2
+            exit 1
+          fi
+          gh release create "$TAG" "${assets[@]}" --target "$TARGET" --title "Мультифора $TAG" --notes-file "$notes"
+) {
+              throw 'MULTIFORA_SIGNER_CERT_SHA256 must be the 64-character DER certificate SHA-256.'
+            }
+            if ($env:HAS_SIGNING_PFX -ne 'true' -or $env:HAS_SIGNING_PASSWORD -ne 'true') {
+              throw 'Missing signing secrets: MULTIFORA_CODESIGN_PFX_BASE64 or MULTIFORA_CODESIGN_PFX_PASSWORD.'
+            }
+          } else {
+            Write-Warning 'Authenticode signing is disabled: this release will be UNSIGNED.'
+          }
+
       - name: Настроить Python
         uses: actions/setup-python@v7
         with:
