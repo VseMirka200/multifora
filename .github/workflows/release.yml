@@ -24,6 +24,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Проверить принадлежность релизного коммита защищённой main
+        shell: bash
+        run: python scripts/verify_release_commit.py --tag "$GITHUB_REF_NAME"
+
       - name: Определить версию и коммит выпуска
         id: release
         shell: bash
