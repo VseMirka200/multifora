@@ -1,0 +1,8 @@
+# Unified runtime, development and Windows build dependencies.
+# Pinned environment: Windows x64 / Python 3.11, including transitive dependencies.
+# Update deliberately, then run tests, build the EXE and check its runtime.
+# Complete development environment. Production builds install only the runtime
+# and build lock files directly; CI and contributors use this umbrella lock.
+-r requirements-runtime.txt
+-r requirements-build.txt
+-r requirements-dev.txt

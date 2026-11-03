@@ -1,0 +1,116 @@
+<table>
+  <tr>
+    <td width="175" align="center" valign="middle">
+      <img src="assets/icon.svg" alt="Логотип Мультифоры" width="150" height="150">
+    </td>
+    <td valign="middle">
+      <h1>Мультифора</h1>
+      <p>Windows-приложение для пакетной работы с файлами.</p>
+      <p>
+        <a href="https://vsemirka200.github.io/multifora/"><img src="https://img.shields.io/badge/%D0%9E%D1%82%D0%BA%D1%80%D1%8B%D1%82%D1%8C_%D1%81%D0%B0%D0%B9%D1%82-%232f82e9?style=for-the-badge" alt="Открыть сайт"></a>
+        <a href="https://github.com/VseMirka200/multifora/releases/latest"><img src="https://img.shields.io/badge/%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C-%232f82e9?style=for-the-badge" alt="Скачать Мультифору"></a>
+        <a href="https://vsemirka200.github.io/multifora/"><img src="https://img.shields.io/badge/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D0%B0%D1%86%D0%B8%D1%8F-%23232b3b?style=for-the-badge" alt="Открыть документацию"></a>
+        <a href="https://github.com/VseMirka200/multifora/issues/new/choose"><img src="https://img.shields.io/badge/%D0%A1%D0%BE%D0%BE%D0%B1%D1%89%D0%B8%D1%82%D1%8C_%D0%BE_%D0%BF%D1%80%D0%BE%D0%B1%D0%BB%D0%B5%D0%BC%D0%B5-%23d73a49?style=for-the-badge" alt="Сообщить о проблеме"></a>
+      </p>
+    </td>
+  </tr>
+</table>
+
+Мультифора помогает выполнять повторяющиеся операции над большим количеством файлов из одного окна: переименовывать, конвертировать, объединять и сжимать. Приложение рассчитано на Windows и работает локально.
+
+## Возможности
+
+- Пакетное переименование: шаблоны, нумерация, дата, замена текста и предварительный просмотр результата.
+- Конвертация документов и изображений в поддерживаемые форматы.
+- Объединение PDF и DOCX в один файл с заданным порядком.
+- Сжатие PDF и изображений с выбором параметров качества.
+- Добавление файлов перетаскиванием, через окно выбора и из контекстного меню Проводника Windows.
+- Журнал операций и сохранение настроек интерфейса.
+- Отметки файлов в колонке «В работу» и общий флажок в заголовке для установки и снятия всех отметок.
+
+<p align="center">
+  <img src="docs/assets/screenshots/rename.png" alt="Пакетное переименование в Мультифоре" width="760">
+</p>
+
+## Установка
+
+Для большинства пользователей достаточно готовой сборки:
+
+1. Откройте [последний релиз](https://github.com/VseMirka200/multifora/releases/latest).
+2. Скачайте `Multifora-Setup-<версия>.exe`.
+3. Запустите установщик и следуйте его шагам.
+
+Также доступна переносная ZIP-версия. Распакуйте архив целиком в постоянную папку и запускайте `Multifora.exe` — не запускайте приложение прямо из архива.
+
+Подробности, включая проверку контрольной суммы и обновление, есть в [руководстве по установке](https://vsemirka200.github.io/multifora/guide/install.html).
+
+## Быстрый старт
+
+1. Добавьте файлы в окно приложения.
+2. Выберите операцию: переименование, конвертацию, объединение или сжатие.
+3. Настройте параметры и проверьте предварительный результат, если он доступен.
+4. Отметьте нужные файлы в колонке «В работу». Без отметок обрабатываются все подходящие файлы текущего списка с учётом фильтров.
+5. Запустите обработку; для объединения выберите итоговый файл в открывшемся диалоге.
+
+Для важных данных сначала обработайте копии нескольких файлов. Полное пошаговое описание доступно в [быстром старте](https://vsemirka200.github.io/multifora/guide/quick-start.html).
+
+## Поддерживаемые задачи
+
+| Задача | Где узнать больше |
+| --- | --- |
+| Переименовать множество файлов по правилу | [Переименование](https://vsemirka200.github.io/multifora/guide/rename.html) |
+| Изменить формат документа или изображения | [Конвертация](https://vsemirka200.github.io/multifora/guide/conversion.html) |
+| Собрать несколько PDF или DOCX | [Объединение](https://vsemirka200.github.io/multifora/guide/optimize.html#объединение-документов) |
+| Уменьшить размер PDF или изображения | [Сжатие](https://vsemirka200.github.io/multifora/guide/optimize.html#сжатие-файлов) |
+
+## Разработка
+
+Для разработки используйте Windows и Python 3.11 x64: эта версия Python настроена в CI. Создайте окружение, установите зависимости и запустите приложение:
+
+```powershell
+git clone https://github.com/VseMirka200/multifora.git
+cd multifora
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe multifora_start.py
+```
+
+Для конвертации документов установите [Pandoc](https://pandoc.org/installing.html).
+Мультифора ищет `pandoc.exe` в `bin\pandoc`, в `PATH` или по пути из
+переменной `MULTIFORA_PANDOC_PATH`. Для экспорта в PDF Pandoc также нужен
+TeX-движок. Сборка включает переносимый Tectonic в `bin\tectonic`; другой
+движок можно явно указать через `MULTIFORA_PANDOC_PDF_ENGINE`. Старый бинарный формат DOC не поддерживается;
+используйте DOCX.
+
+Проверки проекта запускаются командой:
+
+```powershell
+$env:QT_QPA_PLATFORM = "offscreen"
+.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe -m ruff check .
+```
+
+Перед предложением изменений прочитайте [правила участия](CONTRIBUTING.md), [Кодекс поведения](CODE_OF_CONDUCT.md) и [политику безопасности](SECURITY.md).
+
+## Документы проекта
+
+| Документ | Назначение |
+| --- | --- |
+| [Правила участия](CONTRIBUTING.md) | Как подготовить и проверить Pull Request. |
+| [Кодекс поведения](CODE_OF_CONDUCT.md) | Правила общения в пространствах проекта. |
+| [Политика безопасности](SECURITY.md) | Как конфиденциально сообщить об уязвимости. |
+| [Поддержка](SUPPORT.md) | Где задать вопрос или сообщить о проблеме. |
+| [Выпуск версии](CONTRIBUTING.md#выпуск-версии) | Как собрать и опубликовать Windows-релиз. |
+| [Журнал изменений](CHANGELOG.md) | Где отслеживать изменения версий. |
+| [Лицензия MIT](LICENSE) | Условия использования и вкладов. |
+
+## Помощь и обратная связь
+
+- Ответы на распространённые вопросы: [устранение неполадок](https://vsemirka200.github.io/multifora/reference/troubleshooting.html).
+- Ошибка или предложение: [создать issue](https://github.com/VseMirka200/multifora/issues/new/choose).
+- Вопросы о параметрах программы: [настройки](https://vsemirka200.github.io/multifora/reference/settings.html).
+
+## Лицензия
+
+Проект распространяется по [лицензии MIT](LICENSE).

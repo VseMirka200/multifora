@@ -1,0 +1,21 @@
+name: Проверка зависимостей
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    name: Проверка добавленных и обновлённых зависимостей
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Получить исходный код
+        uses: actions/checkout@v6
+      - name: Проверить добавленные и обновлённые зависимости
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high

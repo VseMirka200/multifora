@@ -1,0 +1,508 @@
+import os
+
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QMessageBox
+
+from app.core.app_utils import _log_ignored_error
+from app.core.conversion_formats import KNOWN_FILE_EXTENSIONS
+from app.core.message_boxes import show_app_choice
+from app.core.models import (
+    FileItem,
+    file_item_source_folder,
+    file_item_type_label,
+    natural_sort_key,
+    normalized_path_key,
+)
+
+
+class FileListActionsMixin:
+    # Добавляет и удаляет файлы, сохраняя согласованность списка и предпросмотра.
+    _ASYNC_METADATA_THRESHOLD = 500
+    _FILTERABLE_FILE_TYPES = frozenset(
+        ("document", "image", "archive", "folder", "other")
+    )
+    _MERGE_EXTENSIONS = frozenset((".pdf", ".docx"))
+
+    @staticmethod
+    def _is_supported_queue_path(path: str) -> bool:
+        """Проверяет, может ли приложение работать с добавляемым объектом."""
+        extension = os.path.splitext(str(path or ""))[1].lower()
+        return extension in KNOWN_FILE_EXTENSIONS or os.path.isdir(path)
+
+    def _files_visible_for_active_operation(self, files: list) -> list:
+        """Оставляет в списке только форматы текущей специализированной операции."""
+        active_operation = getattr(self, "_active_operation_id", lambda: "")()
+        if active_operation != "merge":
+            return list(files)
+        return [
+            file_item
+            for file_item in files
+            if getattr(file_item, "is_file", False)
+            and os.path.splitext(str(getattr(file_item, "path", "")))[1].lower()
+            in self._MERGE_EXTENSIONS
+        ]
+
+    def _selected_type_filter(self) -> set[str]:
+        if (
+            not hasattr(self, "_type_filter_actions")
+            or not self._type_filter_actions
+        ):
+            return set(self._FILTERABLE_FILE_TYPES)
+        selected = {
+            k for k, a in self._type_filter_actions.items() if a.isChecked()
+        }
+        return selected
+
+    def _current_search_query(self) -> str:
+        if hasattr(self, "input_search") and self.input_search is not None:
+            return self.input_search.text().strip().casefold()
+        return ""
+
+    def _is_search_active(self) -> bool:
+        return bool(self._current_search_query())
+
+    def _is_type_filter_active(self) -> bool:
+        all_types = self._FILTERABLE_FILE_TYPES
+        return self._selected_type_filter() != all_types
+
+    def _is_any_filter_active(self) -> bool:
+        return (
+            self._is_search_active()
+            or self._is_type_filter_active()
+            or self._is_extension_filter_active()
+        )
+
+    def _selected_extension_filter(self) -> set[str]:
+        if (
+            not hasattr(self, "_ext_filter_actions")
+            or not self._ext_filter_actions
+        ):
+            return set()
+        return {
+            k for k, a in self._ext_filter_actions.items() if a.isChecked()
+        }
+
+    def _is_extension_filter_active(self) -> bool:
+        if (
+            not hasattr(self, "_ext_filter_actions")
+            or not self._ext_filter_actions
+        ):
+            return False
+        all_ext = set(self._ext_filter_actions.keys())
+        return self._selected_extension_filter() != all_ext
+
+    def _get_filtered_files(self):
+        type_filter = self._selected_type_filter()
+        ext_filter = self._selected_extension_filter()
+        query = self._current_search_query()
+        operation_files = self._files_visible_for_active_operation(self.files)
+        if (
+            not query
+            and not self._is_type_filter_active()
+            and not self._is_extension_filter_active()
+        ):
+            return operation_files
+
+        result = []
+        for file_item in operation_files:
+            ftype = str(getattr(file_item, "file_type", "other")).lower()
+            if ftype not in type_filter:
+                continue
+
+            ext = os.path.splitext(str(getattr(file_item, "name", "")))[
+                1
+            ].lower()
+            ext_key = ext
+            if ftype == "folder":
+                ext_key = "__folder__"
+            elif not ext or ext not in KNOWN_FILE_EXTENSIONS:
+                ext_key = "__otherext__"
+
+            if (
+                self._is_extension_filter_active()
+                and ext_key not in ext_filter
+            ):
+                continue
+
+            if (
+                query
+                and query not in str(getattr(file_item, "name", "")).casefold()
+            ):
+                continue
+            result.append(file_item)
+        return result
+
+    def on_search_text_changed(self, _text):
+        self.list_files.set_manual_sorting(True)
+        self.update_file_list()
+
+    def on_file_type_filter_changed(self, _checked=False):
+        if hasattr(self, "_update_type_filter_button_text"):
+            self._update_type_filter_button_text()
+        self.list_files.set_manual_sorting(True)
+        self.update_file_list()
+
+    def on_extension_filter_changed(self, _checked=False):
+        if hasattr(self, "_update_ext_filter_button_text"):
+            self._update_ext_filter_button_text()
+        self.list_files.set_manual_sorting(True)
+        self.update_file_list()
+
+    def _ask_folder_add_mode(self):
+        selected = show_app_choice(
+            self,
+            "Добавление папки",
+            "Выберите способ добавления:\nдобавить папку целиком или только её содержимое?",
+            (
+                ("folder", "Добавить папку", "secondary"),
+                ("contents", "Добавить содержимое", "secondary"),
+                ("cancel", "Отмена", "secondary"),
+            ),
+            icon=QMessageBox.Icon.Question,
+            default_key="folder",
+            cancel_key="cancel",
+        )
+        return None if selected == "cancel" else selected
+
+    def add_files(self, file_paths):
+        """Добавление файлов в список"""
+        if not isinstance(file_paths, list):
+            if isinstance(file_paths, str):
+                file_paths = [file_paths]
+            elif hasattr(file_paths, "__iter__"):
+                file_paths = list(file_paths)
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Ошибка",
+                    f"Неправильный формат файлов: {type(file_paths)}",
+                )
+                return
+
+        metadata_worker = getattr(self, "_file_metadata_worker", None)
+        if metadata_worker is not None and metadata_worker.isRunning():
+            pending = getattr(self, "_pending_file_add_requests", None)
+            if pending is None:
+                pending = []
+                self._pending_file_add_requests = pending
+            pending.append(list(file_paths))
+            self.status_bar.showMessage(
+                "Новый набор файлов поставлен в очередь добавления."
+            )
+            return
+
+        folder_mode = None
+        expanded_paths = []
+        classified_paths = []
+        for path in list(file_paths):
+            try:
+                is_directory = os.path.isdir(path)
+                classified_paths.append((path, is_directory))
+                if is_directory:
+                    if folder_mode is None:
+                        folder_mode = self._ask_folder_add_mode()
+                    if folder_mode == "contents":
+                        continue
+                    elif folder_mode == "folder":
+                        expanded_paths.append(path)
+                    elif folder_mode is None:
+                        folder_mode = "cancel"
+                else:
+                    expanded_paths.append(path)
+            except Exception:
+                classified_paths.append((path, False))
+                expanded_paths.append(path)
+        if folder_mode == "contents":
+            existing_paths = {
+                normalized_path_key(file_item.path) for file_item in self.files
+            }
+            self._start_folder_metadata_worker(
+                classified_paths, existing_paths
+            )
+            return
+        file_paths = expanded_paths
+
+        existing_paths = {
+            normalized_path_key(file_item.path) for file_item in self.files
+        }
+
+        candidate_paths = []
+        unsupported_paths = []
+        for file_path in file_paths:
+            abs_path = normalized_path_key(file_path)
+            if abs_path in existing_paths:
+                continue
+
+            if not self._is_supported_queue_path(file_path):
+                unsupported_paths.append(str(file_path))
+                continue
+
+            existing_paths.add(abs_path)
+            candidate_paths.append(file_path)
+
+        self._report_unsupported_paths(unsupported_paths)
+        if len(candidate_paths) >= self._ASYNC_METADATA_THRESHOLD:
+            self._start_file_metadata_worker(candidate_paths)
+            return
+
+        new_items = []
+        for file_path in candidate_paths:
+            try:
+                new_items.append(FileItem(file_path))
+            except Exception as error:
+                QMessageBox.warning(
+                    self,
+                    "Ошибка",
+                    f"Не удалось добавить файл {os.path.basename(file_path)}: {error}",
+                )
+        if new_items:
+            self.files.extend(new_items)
+            self._complete_file_add(len(new_items))
+
+    def _report_unsupported_paths(self, unsupported_paths: list[str]) -> None:
+        if not unsupported_paths:
+            return
+        file_names = "\n".join(
+            os.path.basename(path) for path in unsupported_paths
+        )
+        QMessageBox.warning(
+            self,
+            "Неподдерживаемые файлы",
+            "Эти файлы не добавлены в проект, потому что их форматы "
+            f"не поддерживаются:\n\n{file_names}",
+        )
+        if callable(getattr(self, "log_event", None)):
+            self.log_event(
+                f"Не добавлены неподдерживаемые файлы: {len(unsupported_paths)}",
+                "WARN",
+            )
+
+    def _start_file_metadata_worker(self, paths: list[str]) -> None:
+        from core.workers.file_metadata_worker import FileMetadataWorker
+
+        worker = FileMetadataWorker(paths, parent=self)
+        self._attach_file_metadata_worker(
+            worker, f"Чтение метаданных: 0 из {len(paths)} файлов"
+        )
+
+    def _start_folder_metadata_worker(
+        self,
+        entries: list[tuple[str, bool]],
+        existing_paths: set[str],
+    ) -> None:
+        from core.workers.file_metadata_worker import FolderMetadataWorker
+
+        worker = FolderMetadataWorker(entries, existing_paths, parent=self)
+        self._attach_file_metadata_worker(
+            worker, "Сканирование содержимого папок..."
+        )
+
+    def _attach_file_metadata_worker(self, worker, status: str) -> None:
+        self._file_metadata_worker = worker
+        self._metadata_added_count = 0
+        worker.batch_ready.connect(self._on_file_metadata_batch)
+        worker.finished.connect(self._on_file_metadata_finished)
+        self.status_bar.showMessage(status)
+        worker.start()
+
+    def _on_file_metadata_batch(self, items: list[FileItem]) -> None:
+        worker = getattr(self, "_file_metadata_worker", None)
+        if worker is None:
+            return
+        self.files.extend(items)
+        self._metadata_added_count += len(items)
+        self.update_file_list()
+        self.update_file_info()
+        self.status_bar.showMessage(
+            f"Прочитаны метаданные: {self._metadata_added_count} файлов"
+        )
+
+    def _on_file_metadata_finished(self) -> None:
+        worker = getattr(self, "_file_metadata_worker", None)
+        if worker is None:
+            return
+        errors = list(worker.errors)
+        unsupported_paths = list(
+            getattr(worker, "unsupported_paths", [])
+        )
+        added_count = int(getattr(self, "_metadata_added_count", 0))
+        worker.deleteLater()
+        self._file_metadata_worker = None
+
+        if errors and not getattr(self, "_pending_metadata_close", False):
+            first_path, first_error = errors[0]
+            QMessageBox.warning(
+                self,
+                "Ошибка добавления файлов",
+                f"Не удалось добавить файлов: {len(errors)}.\n"
+                f"Первый: {os.path.basename(first_path)} — {first_error}",
+            )
+        if not getattr(self, "_pending_metadata_close", False):
+            self._report_unsupported_paths(unsupported_paths)
+        if added_count:
+            self._complete_file_add(added_count)
+
+        if getattr(self, "_pending_metadata_close", False):
+            self._pending_metadata_close = False
+            self.close()
+            return
+        pending = getattr(self, "_pending_file_add_requests", [])
+        if pending:
+            self.add_files(pending.pop(0))
+
+    def _complete_file_add(self, added_count: int) -> None:
+        column = getattr(self, "_column_sort_section", None)
+        if column is not None:
+            self.sort_files_by_column(
+                column,
+                getattr(
+                    self, "_column_sort_order", Qt.SortOrder.AscendingOrder
+                ),
+            )
+        else:
+            self.update_file_list()
+
+        if added_count > 0:
+            self.update_file_info()
+            try:
+                if callable(
+                    getattr(self, "refresh_active_file_preview", None)
+                ):
+                    self.refresh_active_file_preview()
+                elif getattr(self, "current_template", None):
+                    self.refresh_rename_preview()
+            except Exception as error:
+                _log_ignored_error("FileListActionsMixin.add_files", error)
+            if callable(getattr(self, "log_event", None)):
+                self.log_event(
+                    f"Добавлены файлы в список: {self._ru_files_label(added_count)}"
+                )
+            self.status_bar.showMessage(
+                f"Добавлено {self._ru_files_label(added_count)}"
+            )
+
+    def update_file_info(self):
+        """Обновление информации о файлах"""
+        total_files = len(self.files)
+        total_size = sum(f.size for f in self.files) / (1024 * 1024)
+        item_size = self.files[0].size / (1024 * 1024) if self.files else 0.0
+
+        self.label_count.setText(f"Файлов: {total_files}")
+        self.label_item_size.setText(f"Размер: {item_size:.2f} MB")
+        self.label_total_size.setText(f"Общий объем: {total_size:.2f} MB")
+
+    def on_file_header_clicked(self, section: int):
+        """Переключает общий флажок или сортирует выбранную колонку."""
+        if section == self.list_files.model().COLUMN_CHECK:
+            self.list_files.check_all_checkbox.click()
+            return
+        current_section = getattr(self, "_column_sort_section", None)
+        current_order = getattr(
+            self,
+            "_column_sort_order",
+            Qt.SortOrder.AscendingOrder,
+        )
+        if (
+            current_section == section
+            and current_order == Qt.SortOrder.DescendingOrder
+        ):
+            self._column_sort_section = None
+            self.list_files.horizontalHeader().setSortIndicatorShown(False)
+            self.list_files._resize_columns_to_contents()
+            self.list_files.set_manual_sorting(True)
+            if callable(getattr(self, "_schedule_settings_save", None)):
+                self._schedule_settings_save()
+            return
+        order = (
+            Qt.SortOrder.DescendingOrder
+            if current_section == section
+            else Qt.SortOrder.AscendingOrder
+        )
+        self.sort_files_by_column(section, order)
+
+    def sort_files_by_column(self, section: int, order=Qt.SortOrder.AscendingOrder):
+        if not hasattr(self, "list_files"):
+            return
+        model = self.list_files.model()
+        valid_columns = {
+            model.COLUMN_OLD_NAME,
+            model.COLUMN_NEW_NAME,
+            model.COLUMN_TYPE,
+            model.COLUMN_PATH,
+        }
+        if section not in valid_columns:
+            return
+
+        if section == model.COLUMN_OLD_NAME:
+
+            def key_func(file_item):
+                return (
+                    natural_sort_key(getattr(file_item, "name", "")),
+                    str(file_item.path).casefold(),
+                )
+
+        elif section == model.COLUMN_NEW_NAME:
+
+            def key_func(file_item):
+                return (
+                    natural_sort_key(
+                        getattr(file_item, "preview_name", None)
+                        or getattr(file_item, "name", "")
+                    ),
+                    str(file_item.path).casefold(),
+                )
+
+        elif section == model.COLUMN_TYPE:
+
+            def key_func(file_item):
+                if model.compression_sizes_visible:
+                    return (getattr(file_item, "size", 0), natural_sort_key(getattr(file_item, "name", "")))
+                return (
+                    natural_sort_key(file_item_type_label(file_item)),
+                    natural_sort_key(getattr(file_item, "name", "")),
+                )
+
+        else:
+
+            def key_func(file_item):
+                return (
+                    natural_sort_key(
+                        getattr(file_item, "preview_folder", "")
+                        or file_item_source_folder(file_item)
+                    ),
+                    natural_sort_key(getattr(file_item, "name", "")),
+                )
+
+        self.files.sort(
+            key=key_func,
+            reverse=order == Qt.SortOrder.DescendingOrder,
+        )
+        self._column_sort_section = section
+        self._column_sort_order = order
+        self.list_files.set_manual_sorting(True)
+        header = self.list_files.horizontalHeader()
+        header.setSortIndicator(section, order)
+        header.setSortIndicatorShown(True)
+        self.update_file_list()
+        if callable(getattr(self, "_schedule_settings_save", None)):
+            self._schedule_settings_save()
+
+    def on_list_order_changed(self):
+        visible_files = self.list_files.model().files()
+        if self._is_any_filter_active() or len(visible_files) != len(self.files):
+            visible_ids = {id(file_item) for file_item in visible_files}
+            visible_iterator = iter(visible_files)
+            self.files = [
+                next(visible_iterator)
+                if id(file_item) in visible_ids
+                else file_item
+                for file_item in self.files
+            ]
+        else:
+            self.files = visible_files
+        self._column_sort_section = None
+        self.list_files.horizontalHeader().setSortIndicatorShown(False)
+        self.list_files._resize_columns_to_contents()
+        self.list_files.set_manual_sorting(True)
+        if callable(getattr(self, "_schedule_settings_save", None)):
+            self._schedule_settings_save()
