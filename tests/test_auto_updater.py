@@ -38,7 +38,7 @@ class AutoUpdaterTests(unittest.TestCase):
             checksum = installer.with_suffix(".sha256")
             installer.write_bytes(b"installer")
             digest = hashlib.sha256(b"installer").hexdigest()
-            checksum.write_text(f"{digest}  {installer.name}\\n", encoding="utf-8")
+            checksum.write_text(f"{digest}  {installer.name}\n", encoding="utf-8")
             auto_updater._verify_checksum(installer, checksum)
 
     def test_verify_checksum_rejects_tampered_file(self):
