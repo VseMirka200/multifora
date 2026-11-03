@@ -167,7 +167,7 @@ class AutoUpdaterTests(unittest.TestCase):
                 builder.return_value.open.return_value = io.BytesIO(b"0123456")
                 with self.assertRaisesRegex(RuntimeError, "размер"):
                     auto_updater._download(
-                        "https://github.com/owner/repo/releases/download/v1/file.exe",
+                        "https://github.com/VseMirka200/multifora/releases/download/v1.1.0/file.exe",
                         Path(directory, "file.exe"), max_bytes=5,
                     )
 
@@ -177,7 +177,7 @@ class AutoUpdaterTests(unittest.TestCase):
                 builder.return_value.open.return_value = io.BytesIO(b"short")
                 with self.assertRaisesRegex(RuntimeError, "Размер"):
                     auto_updater._download(
-                        "https://github.com/owner/repo/releases/download/v1/file.exe",
+                        "https://github.com/VseMirka200/multifora/releases/download/v1.1.0/file.exe",
                         Path(directory, "file.exe"), expected_size=9,
                     )
 
@@ -190,6 +190,7 @@ class AutoUpdaterTests(unittest.TestCase):
             "http://release-assets.githubusercontent.com/file",
             "https://example.com/file",
             "https://github.com.evil.example/file",
+            "https://github.com/attacker/repo/releases/download/v1/file.exe",
         ):
             with self.subTest(target=target):
                 with self.assertRaisesRegex(RuntimeError, "перенаправления"):
