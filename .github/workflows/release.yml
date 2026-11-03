@@ -62,10 +62,17 @@ jobs:
         shell: pwsh
         env:
           SIGN_MODE: ${{ vars.MULTIFORA_SIGN_RELEASE }}
+          SIGN_PROVIDER: ${{ vars.MULTIFORA_SIGN_PROVIDER }}
           CERT_SHA256: ${{ vars.MULTIFORA_SIGNER_CERT_SHA256 }}
           HAS_SIGNING_PFX: ${{ secrets.MULTIFORA_CODESIGN_PFX_BASE64 != '' }}
           HAS_SIGNING_PASSWORD: ${{ secrets.MULTIFORA_CODESIGN_PFX_PASSWORD != '' }}
         run: |
+          if ($env:SIGN_PROVIDER -eq 'signpath') {
+            throw 'SignPath Foundation is not connected. Provider approval and a reviewed signing integration are required before publishing.'
+          }
+          if ($env:SIGN_PROVIDER -notin @('', 'pfx')) {
+            throw 'Unsupported MULTIFORA_SIGN_PROVIDER: use pfx or leave it empty.'
+          }
           if ($env:SIGN_MODE -notin @('', 'false', 'true')) {
             throw 'MULTIFORA_SIGN_RELEASE must be true or false.'
           }
