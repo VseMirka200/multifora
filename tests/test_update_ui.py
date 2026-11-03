@@ -93,6 +93,73 @@ class UpdateUiTests(unittest.TestCase):
         self.assertTrue(self.host._update_poll_timer.isActive())
         self.host._update_poll_timer.stop()
 
+    def test_installed_app_requests_confirmation_before_update(self):
+        from PySide6.QtWidgets import QMessageBox
+
+        check_future = concurrent.futures.Future()
+        check_future.set_result(
+            {
+                "current_version": "1.0.3",
+                "latest_version": "v1.1.0",
+                "comparison": -1,
+            }
+        )
+        self.host._update_future = check_future
+        self.host._update_executor = Mock()
+        self.host.status_bar = Mock()
+
+        with (
+            patch(
+                "app.ui.mixins.settings_panel_mixin.automatic_updates_supported",
+                return_value=True,
+            ),
+            patch(
+                "app.ui.mixins.settings_panel_mixin.QMessageBox.question",
+                return_value=QMessageBox.StandardButton.Yes,
+            ) as question,
+        ):
+            SettingsPanelMixin._poll_update_future(self.host)
+
+        question.assert_called_once()
+        self.assertIn("Цифровая подпись", question.call_args.args[2])
+        self.host._update_executor.submit.assert_called_once()
+        submission = self.host._update_executor.submit.call_args
+        self.assertEqual(submission.kwargs, {"expected_tag": "v1.1.0"})
+        self.assertEqual(self.host._update_operation, "install")
+        self.assertFalse(self.host.check_updates_action.isEnabled())
+
+    def test_declined_update_does_not_start_installer(self):
+        from PySide6.QtWidgets import QMessageBox
+
+        check_future = concurrent.futures.Future()
+        check_future.set_result(
+            {
+                "current_version": "1.0.3",
+                "latest_version": "v1.1.0",
+                "comparison": -1,
+            }
+        )
+        self.host._update_future = check_future
+        self.host._update_executor = Mock()
+        self.host.status_bar = Mock()
+
+        with (
+            patch(
+                "app.ui.mixins.settings_panel_mixin.automatic_updates_supported",
+                return_value=True,
+            ),
+            patch(
+                "app.ui.mixins.settings_panel_mixin.QMessageBox.question",
+                return_value=QMessageBox.StandardButton.No,
+            ) as question,
+        ):
+            SettingsPanelMixin._poll_update_future(self.host)
+
+        question.assert_called_once()
+        self.host._update_executor.submit.assert_not_called()
+        self.assertTrue(self.host.check_updates_action.isEnabled())
+
+
 
 if __name__ == "__main__":
     unittest.main()

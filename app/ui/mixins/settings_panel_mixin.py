@@ -779,12 +779,23 @@ class SettingsPanelMixin:
 
             if cmp_result == -1 and not getattr(self, "_update_silent", False):
                 if automatic_updates_supported():
+                    confirmation = QMessageBox.question(
+                        self,
+                        "Установка обновления",
+                        f"{text_msg}\n\n"
+                        "Скачать установщик с GitHub и запустить установку?\n"
+                        "Цифровая подпись издателя пока не проверяется.",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.No,
+                    )
+                    if confirmation != QMessageBox.StandardButton.Yes:
+                        return
                     self.status_bar.showMessage("Загрузка обновления…")
                     action = getattr(self, "check_updates_action", None)
                     if action is not None:
                         action.setEnabled(False)
                     self._update_future = self._update_executor.submit(
-                        download_and_launch_latest_installer
+                        download_and_launch_latest_installer, expected_tag=latest
                     )
                     self._update_operation = "install"
                     self._update_poll_timer.start()
