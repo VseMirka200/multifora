@@ -782,8 +782,8 @@ class SettingsPanelMixin:
                     confirmation = QMessageBox.question(
                         self,
                         "Установка обновления",
-                        f"{text_msg}\\n\\n"
-                        "Скачать установщик с GitHub и запустить установку?\\n"
+                        f"{text_msg}\n\n"
+                        "Скачать установщик с GitHub и запустить установку?\n"
                         "Цифровая подпись издателя пока не проверяется.",
                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                         QMessageBox.StandardButton.No,
