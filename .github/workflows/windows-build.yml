@@ -48,6 +48,20 @@ jobs:
       - name: Проверить установленное приложение
         shell: pwsh
         run: .\scripts\verify_installer.ps1
+      # Onboarding artifacts only: NOT signed, NEVER published as a release.
+      # The final SignPath service integration must sign the application before
+      # Inno Setup and the installer before release checksums are generated.
+      - name: Подготовить пакеты для SignPath Foundation (без подписи)
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem -Path dist/installer -Filter 'Multifora-Setup-*.exe' -File)
+          if ($installers.Count -ne 1) {
+            throw "Expected exactly one unsigned installer, found $($installers.Count)."
+          }
+          python scripts/prepare_signpath_payloads.py --app dist/Multifora/Multifora.exe --installer $installers[0].FullName --output dist/signpath-staging
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Preparing SignPath onboarding artifacts failed.'
+          }
       - name: Создать ZIP-архив и контрольные суммы
         shell: pwsh
         run: .\scripts\package_release.ps1
@@ -61,6 +75,7 @@ jobs:
             dist/installer/Multifora-Silent-Install-*.bat
             dist/Multifora-Portable-*.zip
             dist/SHA256SUMS.txt
+            dist/signpath-staging/
             dist/bundle-metrics.json
             dist/runtime-metrics.json
           if-no-files-found: error
