@@ -84,6 +84,7 @@
           <a href="https://github.com/VseMirka200/multifora/issues/new/choose">Сообщить об ошибке</a>
           <p class="nav-label">Проект</p>
           <a href="https://github.com/VseMirka200/multifora/blob/main/CONTRIBUTING.md">Участие в разработке</a>
+          <a href="https://github.com/VseMirka200/multifora/blob/main/CODE_OF_CONDUCT.md">Кодекс поведения</a>
           <a href="https://github.com/VseMirka200/multifora/blob/main/SECURITY.md">Безопасность</a>
           <a href="https://github.com/VseMirka200/multifora/blob/main/SUPPORT.md">Поддержка</a>
         </nav>
@@ -170,7 +171,7 @@
       </div>
     </dialog>
     <script>
-      const pages=[['Быстрый старт','guide/quick-start.html'],['Установка и обновление','guide/install.html'],['Переименование','guide/rename.html'],['Конвертация','guide/conversion.html'],['Объединение и сжатие','guide/optimize.html'],['Настройки','reference/settings.html'],['Проблемы и решения','reference/troubleshooting.html'],['Участие в разработке','https://github.com/VseMirka200/multifora/blob/main/CONTRIBUTING.md'],['Безопасность','https://github.com/VseMirka200/multifora/blob/main/SECURITY.md'],['Поддержка','https://github.com/VseMirka200/multifora/blob/main/SUPPORT.md'],['Выпуск версии','https://github.com/VseMirka200/multifora/blob/main/CONTRIBUTING.md#выпуск-версии'],['Журнал изменений','https://github.com/VseMirka200/multifora/blob/main/CHANGELOG.md']];
+      const pages=[['Быстрый старт','guide/quick-start.html'],['Установка и обновление','guide/install.html'],['Переименование','guide/rename.html'],['Конвертация','guide/conversion.html'],['Объединение и сжатие','guide/optimize.html'],['Настройки','reference/settings.html'],['Проблемы и решения','reference/troubleshooting.html'],['Участие в разработке','https://github.com/VseMirka200/multifora/blob/main/CONTRIBUTING.md'],['Кодекс поведения','https://github.com/VseMirka200/multifora/blob/main/CODE_OF_CONDUCT.md'],['Безопасность','https://github.com/VseMirka200/multifora/blob/main/SECURITY.md'],['Поддержка','https://github.com/VseMirka200/multifora/blob/main/SUPPORT.md'],['Выпуск версии','https://github.com/VseMirka200/multifora/blob/main/CONTRIBUTING.md#выпуск-версии'],['Журнал изменений','https://github.com/VseMirka200/multifora/blob/main/CHANGELOG.md']];
       const dialog=document.querySelector('#search-dialog'), input=document.querySelector('#search-input'), results=document.querySelector('#results');
       function render(query=''){ const items=pages.filter(([name])=>name.toLowerCase().includes(query.toLowerCase())); results.innerHTML=items.map(([name,url])=>`<a href="${url}">${name}</a>`).join('')||'<span>Ничего не найдено.</span>'; }
       function openSearch(){ render(); dialog.showModal(); input.focus(); }

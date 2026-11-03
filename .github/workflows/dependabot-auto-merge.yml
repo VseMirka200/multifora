@@ -1,32 +1,19 @@
-name: Dependabot safe auto-merge
+# Автоматическое слияние зависимостей временно отключено до защиты main и настройки обязательных проверок.
+# Dependabot продолжает открывать предложения обновлений согласно .github/dependabot.yml.
+name: Dependabot — автоматическое слияние отключено
 
 on:
-  schedule:
-    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 permissions:
-  actions: read
-  checks: read
-  contents: write
-  pull-requests: write
-
-concurrency:
-  group: dependabot-safe-auto-merge
-  cancel-in-progress: false
+  contents: read
 
 jobs:
-  merge:
-    name: Merge only tested patch/minor updates
+  notice:
+    name: Подтверждение отключения
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      GH_TOKEN: ${{ github.token }}
-      BASE_BRANCH: main
-      MERGE_METHOD: squash
     steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Inspect and safely merge Dependabot PRs
-        run: bash .github/scripts/merge-dependabot.sh
+      - name: Сообщить о текущем режиме
+        run: |
+          echo "Автоматическое слияние Dependabot отключено."
+          echo "Изменения зависимостей нужно проверять и принимать вручную."
