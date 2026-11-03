@@ -10,7 +10,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $resolvedFile = (Resolve-Path -LiteralPath $FilePath -ErrorAction Stop).Path
-$signature = Get-AuthenticodeSignature -LiteralPath $resolvedFile
+try {
+    $signature = Get-AuthenticodeSignature -LiteralPath $resolvedFile -ErrorAction Stop
+} catch {
+    throw "Authenticode verification failed for $resolvedFile : $($_.Exception.Message)"
+}
 
 if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::Valid) {
     throw "Authenticode verification failed for $resolvedFile (status: $($signature.Status))."
