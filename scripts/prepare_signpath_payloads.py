@@ -58,7 +58,7 @@ def prepare_payloads(app: Path, installer: Path, output: Path) -> dict:
     staging = Path(tempfile.mkdtemp(prefix="signpath-staging-", dir=output.parent))
     try:
         manifest = {"signed": False, "purpose": "SignPath Foundation onboarding", "files": []}
-        for (kind, archive_name), source in zip(_PAYLOADS, (app, installer)):
+        for (kind, archive_name), source in zip(_PAYLOADS, (app, installer), strict=True):
             archive_path = staging / archive_name
             expected = _sha256(source)
             with zipfile.ZipFile(
