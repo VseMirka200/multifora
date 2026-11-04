@@ -1,3 +1,4 @@
+# GitHub Actions are pinned to reviewed full commit SHAs.
 name: Проверка качества
 
 on:
