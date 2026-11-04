@@ -58,28 +58,6 @@ jobs:
           fetch-depth: 0
           ref: ${{ needs.prepare-release.outputs.commit }}
 
-      - name: Проверить конфигурацию цифровой подписи
-        shell: pwsh
-        env:
-          SIGN_MODE: ${{ vars.MULTIFORA_SIGN_RELEASE }}
-          CERT_SHA256: ${{ vars.MULTIFORA_SIGNER_CERT_SHA256 }}
-          HAS_SIGNING_PFX: ${{ secrets.MULTIFORA_CODESIGN_PFX_BASE64 != '' }}
-          HAS_SIGNING_PASSWORD: ${{ secrets.MULTIFORA_CODESIGN_PFX_PASSWORD != '' }}
-        run: |
-          if ($env:SIGN_MODE -notin @('', 'false', 'true')) {
-            throw 'MULTIFORA_SIGN_RELEASE must be true or false.'
-          }
-          if ($env:SIGN_MODE -eq 'true') {
-            if ($env:CERT_SHA256 -notmatch '^[0-9a-fA-F]{64}$') {
-              throw 'MULTIFORA_SIGNER_CERT_SHA256 must be the 64-character DER certificate SHA-256.'
-            }
-            if ($env:HAS_SIGNING_PFX -ne 'true' -or $env:HAS_SIGNING_PASSWORD -ne 'true') {
-              throw 'Missing signing secrets: MULTIFORA_CODESIGN_PFX_BASE64 or MULTIFORA_CODESIGN_PFX_PASSWORD.'
-            }
-          } else {
-            Write-Warning 'Authenticode signing is disabled: this release will be UNSIGNED.'
-          }
-
       - name: Настроить Python
         uses: actions/setup-python@v7
         with:
@@ -107,16 +85,6 @@ jobs:
         shell: pwsh
         run: .\scripts\verify_windows_runtime.ps1
 
-      - name: Подписать и проверить Multifora.exe
-        if: ${{ vars.MULTIFORA_SIGN_RELEASE == 'true' }}
-        shell: pwsh
-        env:
-          MULTIFORA_CODESIGN_PFX_BASE64: ${{ secrets.MULTIFORA_CODESIGN_PFX_BASE64 }}
-          MULTIFORA_CODESIGN_PFX_PASSWORD: ${{ secrets.MULTIFORA_CODESIGN_PFX_PASSWORD }}
-          SIGNER_CERT_SHA256: ${{ vars.MULTIFORA_SIGNER_CERT_SHA256 }}
-        run: |
-          .\scripts\sign_windows_artifact.ps1 -FilePath 'dist/Multifora/Multifora.exe' -ExpectedCertificateSha256 $env:SIGNER_CERT_SHA256
-
       - name: Установить Inno Setup
         shell: pwsh
         run: |
@@ -142,20 +110,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw "Не удалось собрать установщик."
           }
-
-      - name: Подписать и проверить установщик Windows
-        if: ${{ vars.MULTIFORA_SIGN_RELEASE == 'true' }}
-        shell: pwsh
-        env:
-          MULTIFORA_CODESIGN_PFX_BASE64: ${{ secrets.MULTIFORA_CODESIGN_PFX_BASE64 }}
-          MULTIFORA_CODESIGN_PFX_PASSWORD: ${{ secrets.MULTIFORA_CODESIGN_PFX_PASSWORD }}
-          SIGNER_CERT_SHA256: ${{ vars.MULTIFORA_SIGNER_CERT_SHA256 }}
-        run: |
-          $installers = @(Get-ChildItem -Path dist/installer -Filter 'Multifora-Setup-*.exe')
-          if ($installers.Count -ne 1) {
-            throw "Expected exactly one installer to sign, found $($installers.Count)."
-          }
-          .\scripts\sign_windows_artifact.ps1 -FilePath $installers[0].FullName -ExpectedCertificateSha256 $env:SIGNER_CERT_SHA256
 
       - name: Упаковать файлы и подготовить данные выпуска
         shell: pwsh
