@@ -112,6 +112,7 @@ $env:QT_QPA_PLATFORM = "offscreen"
 - Ответы на распространённые вопросы: [устранение неполадок](https://vsemirka200.github.io/multifora/reference/troubleshooting.html).
 - Ошибка или предложение: [создать issue](https://github.com/VseMirka200/multifora/issues/new/choose).
 - Вопросы о параметрах программы: [настройки](https://vsemirka200.github.io/multifora/reference/settings.html).
+- Связаться напрямую: [vsemirka200@bk.ru](mailto:vsemirka200@bk.ru). Не отправляйте конфиденциальные данные через публичные Issues.
 
 ## Лицензия
 

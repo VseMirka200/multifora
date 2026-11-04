@@ -7,12 +7,12 @@
   const currentPath = new URL(window.location.href).pathname.replace(/\/$/, "");
   const groups = [
     ["Руководство", [["Быстрый старт", "guide/quick-start.html"], ["Установка и обновление", "guide/install.html"], ["Переименование", "guide/rename.html"], ["Конвертация", "guide/conversion.html"], ["Объединение и сжатие", "guide/optimize.html"]]],
-    ["Помощь", [["Настройки", "reference/settings.html"], ["Проблемы и решения", "reference/troubleshooting.html"], ["Сообщить об ошибке", "https://github.com/VseMirka200/multifora/issues/new/choose"]]],
+    ["Помощь", [["Настройки", "reference/settings.html"], ["Проблемы и решения", "reference/troubleshooting.html"], ["Сообщить об ошибке", "https://github.com/VseMirka200/multifora/issues/new/choose"], ["Связаться по почте", "mailto:vsemirka200@bk.ru"]]],
     ["Проект", [["Участие в разработке", "https://github.com/VseMirka200/multifora/blob/main/CONTRIBUTING.md"], ["Кодекс поведения", "https://github.com/VseMirka200/multifora/blob/main/CODE_OF_CONDUCT.md"], ["Безопасность", "https://github.com/VseMirka200/multifora/blob/main/SECURITY.md"], ["Поддержка", "https://github.com/VseMirka200/multifora/blob/main/SUPPORT.md"]]],
   ];
   const link = ([label, path]) => {
-    const href = path.startsWith("http") ? path : local(path);
-    const active = new URL(href).pathname.replace(/\/$/, "") === currentPath;
+    const href = /^(?:https?:|mailto:)/i.test(path) ? path : local(path);
+    const active = !href.startsWith("mailto:") && new URL(href).pathname.replace(/\/$/, "") === currentPath;
     return `<a${active ? ' class="active" aria-current="page"' : ""} href="${href}">${label}</a>`;
   };
 
