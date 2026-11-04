@@ -1,7 +1,7 @@
 """Safely download and launch an installer for the packaged Windows application.
 
-SHA-256 verifies download integrity, NOT publisher authenticity. A future signed
-release manifest or Authenticode policy must be provisioned separately.
+SHA-256 verifies download integrity, NOT publisher authenticity.
+The updater does not verify the publisher identity of the downloaded installer.
 """
 
 import hashlib
