@@ -9,7 +9,7 @@ from .rename_worker import RenameWorker
 
 
 class CompressionWorker(CompressionMixin, RenameWorker):
-    """Worker containing only compression and shared operation infrastructure."""
+    """Обработчик сжатия с общей инфраструктурой операций."""
 
     def __init__(self) -> None:
         super().__init__()

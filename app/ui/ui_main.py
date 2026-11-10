@@ -213,7 +213,7 @@ class MultiforaMainWindow(
         QTimer.singleShot(0, self._preload_file_worker_async)
 
     def _preload_file_worker_async(self) -> None:
-        """Load optional processing libraries without blocking an action click."""
+        """Загружает необязательные библиотеки без задержки нажатия кнопки."""
         if getattr(self, "_file_worker_preload_thread", None) is not None:
             return
 
@@ -555,11 +555,10 @@ class MultiforaMainWindow(
             self.progress_dialog.activateWindow()
 
     def _show_operation_starting(self, status_text: str) -> None:
-        """Immediately acknowledge a confirmed operation before setup begins.
+        """Сразу показывает запуск подтверждённой операции до подготовки.
 
-        Importing the worker's optional conversion libraries can take a moment.
-        Rendering this indeterminate state first prevents the action button from
-        appearing unresponsive during that preparation.
+        Загрузка необязательных библиотек может занять время. Предварительный
+        показ индикатора сообщает пользователю, что нажатие обработано.
         """
         self._show_progress_dialog(status_text, indeterminate=True)
         self.status_bar.showMessage(status_text)
@@ -1695,6 +1694,7 @@ class MultiforaMainWindow(
             QFileDialog.Option.ReadOnly
             | QFileDialog.Option.DontUseNativeDialog
             | QFileDialog.Option.DontUseCustomDirectoryIcons
+            | QFileDialog.Option.HideNameFilterDetails
         )
         files, _ = QFileDialog.getOpenFileNames(
             self,

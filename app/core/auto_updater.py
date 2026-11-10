@@ -1,8 +1,4 @@
-"""Safely download and launch an installer for the packaged Windows application.
-
-SHA-256 verifies download integrity, NOT publisher authenticity.
-The updater does not verify the publisher identity of the downloaded installer.
-"""
+"""Загрузка и запуск установщика собранного приложения для Windows."""
 
 import hashlib
 import hmac
@@ -36,7 +32,7 @@ _ALLOWED_DOWNLOAD_HOSTS = frozenset(
 
 
 def automatic_updates_supported() -> bool:
-    """Automatic replacement is only safe for the packaged Windows application."""
+    """Проверяет доступность обновления в собранном приложении для Windows."""
     return os.name == "nt" and bool(getattr(sys, "frozen", False))
 
 
@@ -131,10 +127,10 @@ def _verify_checksum(installer: Path, checksum_file: Path) -> None:
 def download_and_launch_latest_installer(
     timeout: int = 30, *, expected_tag: str | None = None
 ) -> str:
-    """Download a bounded, checksum-verified installer after the user consents.
+    """Загружает установщик с ограничением размера и проверкой суммы.
 
-    The temporary directory stays until the launched installer exits. On any
-    validation, download or launch failure the directory is removed.
+    Временная папка сохраняется до завершения установщика. При ошибке
+    проверки, загрузки или запуска папка удаляется.
     """
     if not automatic_updates_supported():
         raise RuntimeError(

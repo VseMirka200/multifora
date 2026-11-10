@@ -123,17 +123,17 @@ def test_bundle_metrics_fail_a_regressed_budget_but_write_artifact(
 
 def test_build_environment_rejects_wrong_python_before_packaging():
     with (
-        patch("scripts.verify_build_environment.sys.version_info", (3, 15)),
+        patch("scripts.verify_build_environment.sys.version_info", (3, 14)),
         patch("scripts.verify_build_environment.sys.platform", "win32"),
         patch("scripts.verify_build_environment.struct.calcsize", return_value=8),
     ):
         assert len(check_python()) == 1
-        assert "Python 3.11 is required" in check_python()[0]
+        assert "Python 3.15 is required" in check_python()[0]
 
 
 def test_build_environment_accepts_supported_python():
     with (
-        patch("scripts.verify_build_environment.sys.version_info", (3, 11)),
+        patch("scripts.verify_build_environment.sys.version_info", (3, 15)),
         patch("scripts.verify_build_environment.sys.platform", "win32"),
         patch("scripts.verify_build_environment.struct.calcsize", return_value=8),
     ):
@@ -142,7 +142,7 @@ def test_build_environment_accepts_supported_python():
 
 def test_build_environment_rejects_32_bit_python():
     with (
-        patch("scripts.verify_build_environment.sys.version_info", (3, 11)),
+        patch("scripts.verify_build_environment.sys.version_info", (3, 15)),
         patch("scripts.verify_build_environment.sys.platform", "win32"),
         patch("scripts.verify_build_environment.struct.calcsize", return_value=4),
     ):

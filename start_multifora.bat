@@ -7,7 +7,6 @@ set "APP_ENTRY=multifora_start.py"
 set "VENV_DIR=.venv"
 set "VENV_PY=%VENV_DIR%\Scripts\python.exe"
 set "PYTHON_EXE="
-set "PYTHON_ARGS="
 
 if not exist "%APP_ENTRY%" (
     echo.
@@ -17,47 +16,55 @@ if not exist "%APP_ENTRY%" (
 )
 
 if exist "%VENV_PY%" (
-    "%VENV_PY%" -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 11) else 1)" >nul 2>nul
+    "%VENV_PY%" -c "import sys" >nul 2>nul
     if not errorlevel 1 goto venv_ready
-
-    echo Removing an incompatible virtual environment...
-    rmdir /s /q "%VENV_DIR%"
+    echo ERROR: The existing virtual environment cannot be started.
+    echo Repair or remove "%VENV_DIR%" and run this file again.
+    goto error
 )
 
 where py.exe >nul 2>nul
 if not errorlevel 1 (
-    py.exe -3.11 -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 11) else 1)" >nul 2>nul
+    py.exe -c "import sys" >nul 2>nul
     if not errorlevel 1 (
         set "PYTHON_EXE=py.exe"
-        set "PYTHON_ARGS=-3.11"
         goto python_found
     )
 )
 
-if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
-    set "PYTHON_EXE=%LocalAppData%\Programs\Python\Python311\python.exe"
-    goto python_found
-)
-
 where python.exe >nul 2>nul
 if not errorlevel 1 (
-    python.exe -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 11) else 1)" >nul 2>nul
+    python.exe -c "import sys" >nul 2>nul
     if not errorlevel 1 (
         set "PYTHON_EXE=python.exe"
         goto python_found
     )
 )
 
+for /d %%D in ("%LocalAppData%\Python\pythoncore-*" "%LocalAppData%\Programs\Python\Python*") do (
+    if exist "%%~D\python.exe" (
+        "%%~D\python.exe" -c "import sys" >nul 2>nul
+        if not errorlevel 1 (
+            set "PYTHON_EXE=%%~D\python.exe"
+            goto python_found
+        )
+    )
+)
+
 echo.
-echo ERROR: Python 3.11 x64 was not found.
-echo Install Python 3.11 x64 from: https://www.python.org/downloads/windows/
+echo ERROR: Python was not found or could not be started.
+echo Install Python from: https://www.python.org/downloads/windows/
 echo Then run start_multifora.bat again.
 goto error
 
 :python_found
 echo Creating virtual environment...
-"%PYTHON_EXE%" %PYTHON_ARGS% -m venv "%VENV_DIR%"
+"%PYTHON_EXE%" -m venv "%VENV_DIR%"
 if errorlevel 1 goto error
+if not exist "%VENV_PY%" (
+    echo ERROR: The virtual environment was not created.
+    goto error
+)
 
 :venv_ready
 set "PYTHONNOUSERSITE=1"

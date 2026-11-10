@@ -1,4 +1,4 @@
-"""Shared QObject helpers without dependencies on UI widgets."""
+"""Общие функции QObject без зависимостей от виджетов интерфейса."""
 
 from contextlib import contextmanager
 

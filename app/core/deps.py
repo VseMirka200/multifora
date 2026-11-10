@@ -48,7 +48,7 @@ _pdf2docx_import_lock = threading.Lock()
 
 
 def _load_pdf2docx():
-    """Load the heavy PDF converter only inside the conversion worker."""
+    """Загружает тяжёлый конвертер PDF только при обработке документа."""
     global fitz, _pdf2docx_module
     if _pdf2docx_module is not None:
         return _pdf2docx_module
@@ -76,7 +76,7 @@ _pillow_import_lock = threading.Lock()
 
 
 def _load_pillow():
-    """Load Pillow and register optional formats on the first image operation."""
+    """Загружает Pillow и регистрирует форматы при первой обработке изображения."""
     global HAS_HEIF, HAS_PIL, _pillow_modules
     if _pillow_modules is not None:
         return _pillow_modules
@@ -114,7 +114,7 @@ _odf_import_lock = threading.Lock()
 
 
 def _load_odf():
-    """Load odfpy only when an ODT conversion is requested."""
+    """Загружает odfpy только при конвертации ODT."""
     global HAS_ODF_PYTHON, _odf_modules
     if _odf_modules is not None:
         return _odf_modules
@@ -232,9 +232,8 @@ def _ghostscript_candidates(custom_path: str | None = None) -> list[str]:
             os.path.join(base_dir, "bin", "gswin64", "gswin64c.exe")
         )
 
-    # The packaged copy is deterministic and must win over an unrelated
-    # machine-wide Ghostscript installation. Explicit custom/env overrides
-    # above remain available for users who intentionally select another build.
+        # Версия из сборки имеет приоритет перед системной установкой.
+        # Явный путь пользователя или переменная окружения по-прежнему важнее.
     registry_path = _find_ghostscript_in_registry()
     if registry_path:
         candidates.append(registry_path)

@@ -166,7 +166,7 @@ def refresh_standard_button_styles(root: QWidget):
 
 
 def resolve_widget_theme_mode(widget, preferred: str | None = None) -> str:
-    """Resolve the explicit theme or inherit it through the widget hierarchy."""
+    """Возвращает заданную тему или наследует её от родительских виджетов."""
     if preferred in ("light", "dark"):
         return preferred
     if widget is None:

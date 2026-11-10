@@ -272,22 +272,21 @@ class TemplateApplyMixin:
                 )
                 new_name = f"{date_str}{old_name}"
 
-            elif self.current_template == "Пользовательский шаблон":
-                if hasattr(self, "template_custom"):
-                    template = self.template_custom.text()
-                    if template:
-                        date_str = datetime.now().strftime("%Y-%m-%d")
-                        new_name, current_num = rt.apply_custom_template(
-                            template,
-                            name_without_ext,
-                            ext,
-                            current_num,
-                            date_str,
-                            step,
-                            use_numbering,
-                            num_digits,
-                            file_path=file_item.path,
-                        )
+            elif self.current_template == "Пользовательский шаблон" and hasattr(self, "template_custom"):
+                template = self.template_custom.text()
+                if template:
+                    date_str = datetime.now().strftime("%Y-%m-%d")
+                    new_name, current_num = rt.apply_custom_template(
+                        template,
+                        name_without_ext,
+                        ext,
+                        current_num,
+                        date_str,
+                        step,
+                        use_numbering,
+                        num_digits,
+                        file_path=file_item.path,
+                    )
 
             file_item.preview_name = new_name
 

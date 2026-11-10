@@ -435,16 +435,21 @@ class ConversionMixinTests(unittest.TestCase):
             with open(source_path, "w", encoding="utf-8") as stream:
                 stream.write("Пример документа\nВторая строка")
 
-            expected = os.path.join(output_dir, "note.docx")
             with patch.object(
-                worker, "_convert_with_pandoc", return_value=expected
+                worker, "_convert_with_pandoc", side_effect=AssertionError("Pandoc")
             ) as pandoc_mock:
                 output_path = worker._convert_document_auto(
                     FileItem(source_path), "DOCX"
                 )
 
             self.assertTrue(output_path.endswith(".docx"))
-            pandoc_mock.assert_called_once()
+            from docx import Document
+
+            self.assertEqual(
+                [paragraph.text for paragraph in Document(output_path).paragraphs],
+                ["Пример документа", "Вторая строка"],
+            )
+            pandoc_mock.assert_not_called()
 
     def test_auto_conversion_skips_file_already_in_target_format(self):
         worker = _DummyConversionWorker()
@@ -455,6 +460,30 @@ class ConversionMixinTests(unittest.TestCase):
             self.assertIsNone(
                 worker._convert_document_auto(FileItem(source_path), "TXT")
             )
+
+    def test_text_output_preserves_file_created_during_conversion(self):
+        worker = _DummyConversionWorker()
+        with tempfile.TemporaryDirectory() as directory:
+            source = os.path.join(directory, "source.txt")
+            with open(source, "w", encoding="utf-8") as stream:
+                stream.write("исходный текст")
+            worker.conversion_output_mode = "alongside"
+            destination = os.path.join(directory, "source.html")
+
+            def write_while_destination_appears(temporary, content):
+                with open(destination, "w", encoding="utf-8") as stream:
+                    stream.write("чужой файл")
+                with open(temporary, "w", encoding="utf-8") as stream:
+                    stream.write(content)
+
+            with patch.object(worker, "_write_html_file", write_while_destination_appears):
+                with self.assertRaises(FileExistsError):
+                    worker._write_text_output(FileItem(source), "HTML", "результат")
+
+            with open(destination, encoding="utf-8") as stream:
+                self.assertEqual(stream.read(), "чужой файл")
+            self.assertFalse(any(name.startswith(".__multifora_") for name in os.listdir(directory)))
+            self.assertNotIn(os.path.normcase(destination), worker._conversion_reserved_paths)
 
     @unittest.skipUnless(conv_module.HAS_PYMUPDF, "PyMuPDF is required")
     def test_text_to_pdf_reserves_output_name_only_once(self):

@@ -783,8 +783,7 @@ class SettingsPanelMixin:
                         self,
                         "Установка обновления",
                         f"{text_msg}\n\n"
-                        "Скачать установщик с GitHub и запустить установку?\n"
-                        "Цифровая подпись издателя пока не проверяется.",
+                        "Скачать установщик с GitHub и запустить установку?",
                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                         QMessageBox.StandardButton.No,
                     )

@@ -23,6 +23,8 @@ Thumbs.db
 # Virtual environments
 .venv/
 .venv-build/
+.venv-multifora/
+.venv-check/
 venv/
 
 # Test/type/lint caches

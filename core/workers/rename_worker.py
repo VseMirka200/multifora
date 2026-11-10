@@ -1,4 +1,4 @@
-"""Lightweight rename worker without conversion or compression dependencies."""
+"""Обработчик переименования без зависимостей конвертации и сжатия."""
 
 from __future__ import annotations
 

@@ -565,7 +565,7 @@ def build_operations_tab_bar_style(theme: str) -> str:
 
 
 def build_settings_navigation_style(theme: str) -> str:
-    """Style settings sections as vertical counterparts to operation tabs."""
+    """Оформляет разделы настроек по аналогии с вкладками операций."""
     foreground = "#202833" if str(theme).lower() == "light" else "#e3e6ea"
     underline = "#3d74b3"
     return f"""

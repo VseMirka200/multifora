@@ -476,10 +476,11 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
             raise Exception(f"Нельзя сохранить текст в {normalized_target}")
 
         try:
-            writer(output_path, content)
+            with atomic_output_path(output_path) as temporary:
+                writer(temporary, content)
             return output_path
         except Exception:
-            self._discard_conversion_output(output_path)
+            self._release_conversion_output_path(output_path)
             raise
 
     @staticmethod
@@ -667,6 +668,13 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
             return self._convert_pdf_to_odt(file)
         if normalized_target == "PDF":
             return self._convert_document_to_pdf(file, source_format)
+
+        # Обычный текст не содержит разметки, которую нужно передавать Pandoc.
+        # Встроенные писатели сохраняют каждую строку отдельным абзацем.
+        if source_format == "TXT" and normalized_target in {"DOCX", "ODT"}:
+            return self._write_text_output(
+                file, normalized_target, self._extract_document_text(file)
+            )
 
         # Pandoc используется первым для совместимых форматов, чтобы сохранить
         # структуру документа и не зависеть от офисных приложений.

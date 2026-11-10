@@ -5,10 +5,10 @@ set "PROJECT=%~dp0.."
 set "APP_BUILD_NAME=Multifora"
 cd /d "%PROJECT%"
 
-rem Use the selected Python when supported; otherwise try the 3.11 launcher.
+rem Use the selected Python when supported; otherwise try the 3.15 launcher.
 set "BUILD_PYTHON=python"
 python "scripts\verify_build_environment.py" --python-only >nul 2>nul
-if errorlevel 1 set "BUILD_PYTHON=py.exe -3.11"
+if errorlevel 1 set "BUILD_PYTHON=py.exe -3.15"
 %BUILD_PYTHON% "scripts\verify_build_environment.py" --python-only
 if errorlevel 1 goto :error
 

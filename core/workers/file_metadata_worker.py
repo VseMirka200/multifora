@@ -9,7 +9,7 @@ from app.core.models import FileItem, normalized_path_key
 
 
 class FileMetadataWorker(QThread):
-    """Build FileItem metadata outside the UI thread, preserving input order."""
+    """Собирает данные FileItem вне потока интерфейса, сохраняя порядок."""
 
     batch_ready = Signal(list)
 
@@ -37,7 +37,7 @@ class FileMetadataWorker(QThread):
 
 
 class FolderMetadataWorker(FileMetadataWorker):
-    """Expand selected folders and build metadata without blocking the UI."""
+    """Раскрывает выбранные папки и собирает данные без блокировки интерфейса."""
 
     def __init__(
         self,

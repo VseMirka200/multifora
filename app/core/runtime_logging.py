@@ -1,4 +1,4 @@
-"""Last-resort logging for failures outside normal application handlers."""
+"""Резервное журналирование ошибок вне обычных обработчиков приложения."""
 
 import sys
 import threading
@@ -37,7 +37,7 @@ def _log_qt_message(message_type, context, message: str) -> None:
 
 
 def install_runtime_logging() -> None:
-    """Capture uncaught Python/thread exceptions and Qt diagnostics in the main log."""
+    """Записывает необработанные исключения Python и диагностику Qt в журнал."""
     global _runtime_logging_installed
     if _runtime_logging_installed:
         return

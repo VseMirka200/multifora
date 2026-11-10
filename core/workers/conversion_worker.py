@@ -9,7 +9,7 @@ from .rename_worker import RenameWorker
 
 
 class ConversionWorker(ConversionMixin, RenameWorker):
-    """Worker containing only conversion and shared operation infrastructure."""
+    """Обработчик конвертации с общей инфраструктурой операций."""
 
     def __init__(self) -> None:
         super().__init__()

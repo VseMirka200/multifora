@@ -485,7 +485,11 @@ class WorkerOpsMixin:
             lines.append(f"• {error_message}{suffix}")
         remaining = len(grouped_errors) - 8
         more = f"\n• …и ещё {remaining} причин" if remaining > 0 else ""
-        non_retryable_markers = ("недопустимый символ", "ошибка плана")
+        non_retryable_markers = (
+            "недопустимый символ",
+            "ошибка плана",
+            "pandoc не найден",
+        )
         retryable_errors = [
             entry
             for entry in errors

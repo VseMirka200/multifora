@@ -4,7 +4,7 @@ from .operation_worker import OperationWorker
 
 
 def create_operation_worker(operation: str | None) -> OperationWorker:
-    """Create the lightest worker that supports the requested operation."""
+    """Создаёт подходящий обработчик с минимальными зависимостями."""
     if operation == "rename":
         from .rename_worker import RenameWorker
 
@@ -26,7 +26,7 @@ def create_operation_worker(operation: str | None) -> OperationWorker:
 
         return CompressionWorker()
 
-    # Compatibility for integrations that have not selected an operation yet.
+    # Совместимость с интеграциями, которые ещё не выбрали операцию.
     from .file_worker import FileWorker
 
     return FileWorker()

@@ -59,12 +59,11 @@ from app.ui.ui_styles import (
 
 
 class _HelpMenuClickFilter(QObject):
-    """Close an open help popup on a click on its anchor button.
+    """Закрывает открытую подсказку при нажатии её кнопки.
 
-    A QMenu can grab the mouse and hide *before* QPushButton.clicked is
-    emitted. In that case a regular clicked toggle would reopen the popup.
-    Filtering the press at QApplication level consumes that closing click,
-    regardless of whether Qt delivers it to QMenu or to the button.
+    QMenu может захватить мышь и скрыться до сигнала QPushButton.clicked.
+    Обычный обработчик повторно открыл бы меню. Фильтр QApplication
+    перехватывает закрывающее нажатие независимо от его получателя в Qt.
     """
 
     def __init__(self, button: QPushButton, menu: QMenu):
@@ -867,10 +866,9 @@ class OperationsTabLayoutMixin:
         self._on_operations_tab_changed(index)
 
     def _on_operations_tab_changed(self, index: int) -> None:
-        # Adding the first tab can emit ``currentChanged`` while the main
-        # window is still being built. The file list is created afterwards,
-        # so updating its preview at this point would raise from a Qt slot and
-        # terminate the process.
+        # Добавление первой вкладки может вызвать currentChanged до создания
+        # списка файлов. Обновление списка в этот момент завершило бы процесс
+        # из-за исключения в слоте Qt.
         if not hasattr(self, "list_files"):
             if 0 <= index < self.operations_stack.count():
                 self.operations_stack.setCurrentIndex(index)

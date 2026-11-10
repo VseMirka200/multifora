@@ -100,7 +100,7 @@ class OperationsCompressUiMixin:
         ).strip()
 
     def _sync_compress_mode_stack_height(self, target=None) -> None:
-        """Fits the mode stack to dynamic controls of the currently shown page."""
+        """Подстраивает размер области под элементы текущей страницы."""
         stack = getattr(self, "compress_mode_stack", None)
         if stack is None:
             return

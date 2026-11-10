@@ -121,7 +121,7 @@ class UpdateUiTests(unittest.TestCase):
             SettingsPanelMixin._poll_update_future(self.host)
 
         question.assert_called_once()
-        self.assertIn("Цифровая подпись", question.call_args.args[2])
+        self.assertIn("Скачать установщик с GitHub", question.call_args.args[2])
         self.host._update_executor.submit.assert_called_once()
         submission = self.host._update_executor.submit.call_args
         self.assertEqual(submission.kwargs, {"expected_tag": "v1.1.0"})

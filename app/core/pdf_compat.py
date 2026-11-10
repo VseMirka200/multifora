@@ -1,4 +1,4 @@
-"""Compatibility helpers for PDF backends used by third-party packages."""
+"""Совместимость PDF-библиотек, используемых сторонними пакетами."""
 
 from __future__ import annotations
 
@@ -6,12 +6,11 @@ import sys
 
 
 def import_pymupdf_with_legacy_alias():
-    """Import PyMuPDF and expose its supported legacy ``fitz`` module name.
+    """Импортирует PyMuPDF и регистрирует прежнее имя модуля ``fitz``.
 
-    pdf2docx 0.5.x still imports ``fitz``.  Importing PyMuPDF's deprecated
-    shim prints a warning, which is unsafe in a windowed frozen process with
-    no console.  Registering the already imported package under the legacy
-    name provides the same API without executing that shim.
+    pdf2docx 0.5.x использует имя ``fitz``. Устаревший модуль совместимости
+    PyMuPDF выводит предупреждение, что опасно для оконного приложения без
+    консоли. Регистрация уже загруженного пакета сохраняет тот же API.
     """
     import pymupdf
 
