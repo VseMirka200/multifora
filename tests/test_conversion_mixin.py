@@ -50,88 +50,23 @@ class _DummyConversionWorker(ConversionMixin):
 
 
 class ConversionMixinTests(unittest.TestCase):
-    def test_bundled_tectonic_is_used_for_pdf_conversion(self):
+    def test_document_conversion_does_not_start_external_process(self):
+        import docx
+        import subprocess
+        from odf import teletype, text
+        from odf.opendocument import load
+
         worker = _DummyConversionWorker()
         with tempfile.TemporaryDirectory() as directory:
-            source_path = os.path.join(directory, "source.docx")
-            engine_path = os.path.join(
-                directory, "bin", "tectonic", "tectonic.exe"
-            )
-            os.makedirs(os.path.dirname(engine_path))
-            with open(source_path, "wb") as stream:
-                stream.write(b"docx")
-            with open(engine_path, "wb") as stream:
-                stream.write(b"tectonic")
-
-            process = Mock(returncode=0)
-
-            def create_output():
-                command = popen_mock.call_args.args[0]
-                output_path = command[command.index("--output") + 1]
-                with open(output_path, "wb") as stream:
-                    stream.write(b"pdf")
-                return "", ""
-
-            process.communicate.side_effect = create_output
-            with (
-                patch.object(conv_module.sys, "argv", [os.path.join(directory, "Multifora.exe")]),
-                patch.object(
-                    conv_module,
-                    "ensure_pandoc_detected",
-                    return_value=(True, r"C:\Pandoc\pandoc.exe"),
-                ),
-                patch.object(
-                    conv_module.subprocess,
-                    "Popen",
-                    return_value=process,
-                ) as popen_mock,
-            ):
-                worker._convert_with_pandoc(FileItem(source_path), "PDF")
-
-            command = popen_mock.call_args.args[0]
-            self.assertEqual(
-                command[command.index("--pdf-engine") + 1], engine_path
-            )
-            self.assertEqual(command[-2:], ["--variable", "mainfont=Arial"])
-
-    def test_pandoc_conversion_invokes_cli_and_publishes_output(self):
-        worker = _DummyConversionWorker()
-        with tempfile.TemporaryDirectory() as directory:
-            source_path = os.path.join(directory, "source.docx")
-            with open(source_path, "wb") as stream:
-                stream.write(b"docx")
-
-            process = Mock(returncode=0)
-
-            def create_output():
-                command = popen_mock.call_args.args[0]
-                output_path = command[command.index("--output") + 1]
-                with open(output_path, "wb") as stream:
-                    stream.write(b"odt")
-                return "", ""
-
-            process.communicate.side_effect = create_output
-            with (
-                patch.object(
-                    conv_module,
-                    "ensure_pandoc_detected",
-                    return_value=(True, r"C:\Pandoc\pandoc.exe"),
-                ),
-                patch.object(
-                    conv_module.subprocess,
-                    "Popen",
-                    return_value=process,
-                ) as popen_mock,
-            ):
-                result = worker._convert_with_pandoc(
-                    FileItem(source_path), "ODT"
-                )
-
-            self.assertTrue(os.path.isfile(result))
-            command = popen_mock.call_args.args[0]
-            self.assertEqual(command[0], r"C:\Pandoc\pandoc.exe")
-            self.assertEqual(command[1], source_path)
-            self.assertEqual(command[-1], "--standalone")
+            source = os.path.join(directory, "source.docx")
+            document = docx.Document()
+            document.add_paragraph("Example document")
+            document.save(source)
+            with patch.object(subprocess, "Popen", side_effect=AssertionError("external process")):
+                output = worker._convert_docx_to_odt(FileItem(source))
+                pdf = worker._convert_docx_to_pdf(FileItem(source))
+            self.assertIn("Example document", teletype.extractText(load(output).getElementsByType(text.P)[0]))
+            self.assertTrue(os.path.getsize(pdf) > 0)
 
     def test_convert_files_accepts_pdf_to_images_alias(self):
         worker = _DummyConversionWorker()

@@ -54,7 +54,6 @@ CATEGORY_SOURCE_FORMATS: dict[str, tuple[str, ...]] = {
         "JP2",
         "QOI",
         "DDS",
-        "EPS",
         "ICNS",
         "XBM",
         "SGI",

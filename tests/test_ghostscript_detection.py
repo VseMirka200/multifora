@@ -81,13 +81,13 @@ class GhostscriptDetectionTests(unittest.TestCase):
             deps.HAS_GHOSTSCRIPT = original_has
             deps.GHOSTSCRIPT_PATH = original_path
 
-    def test_compression_mixin_calls_dynamic_ghostscript_detection(self):
+    def test_compression_does_not_detect_ghostscript(self):
         worker = _DummyCompressionWorker()
         with patch(
             "core.workers.compression.compression_mixin.deps.ensure_ghostscript_detected"
         ) as ensure_mock:
             worker._compress_pdf_files()
-        self.assertEqual(ensure_mock.call_count, 1)
+        ensure_mock.assert_not_called()
         self.assertEqual(len(worker.finished.emitted), 1)
 
     def test_detect_ghostscript_prefers_bundled_x64(self):

@@ -257,7 +257,6 @@ class CompressionMixin:
         self._emit_finished(results, updated)
 
     def _compress_pdf_files(self):
-        deps.ensure_ghostscript_detected()
         _debug_log(f"Начало сжатия PDF: {len(self.files)} файлов")
         total = len(self.files)
         results = []
@@ -280,12 +279,6 @@ class CompressionMixin:
 
                 success = False
                 compression_method = ""
-                if deps.HAS_GHOSTSCRIPT:
-                    success, compression_method, _ = (
-                        self._compress_pdf_with_ghostscript(
-                            file.path, compressed_path
-                        )
-                    )
                 if self._should_cancel():
                     self.status.emit("Операция отменена пользователем")
                     _remove_file_safely(compressed_path)

@@ -304,6 +304,13 @@ class WindowsIntegrationMixin:
                 "WindowsIntegrationMixin.refresh_shell_context_menu", error
             )
 
+    def create_context_menu_entry(self):
+        if self.register_context_menu():
+            self.windows_context_menu_enabled = True
+            self.save_settings()
+            self.refresh_shell_context_menu()
+            self.status_bar.showMessage("Пункт контекстного меню создан")
+
     def get_desktop_shortcut_path(self):
         """Возвращает путь ярлыка на рабочем столе."""
         try:
@@ -446,20 +453,6 @@ class WindowsIntegrationMixin:
 
     def apply_shortcut_settings(self, silent: bool = False):
         """Применяет настройки ярлыков без запуска PowerShell без необходимости."""
-        desktop_path = self.get_desktop_shortcut_path()
-        if self.desktop_shortcut_enabled:
-            if not os.path.exists(desktop_path):
-                self.create_windows_shortcut(desktop_path, silent=True)
-        elif os.path.exists(desktop_path):
-            self.remove_windows_shortcut(desktop_path, silent=True)
-
-        start_menu_path = self.get_start_menu_shortcut_path()
-        if self.start_menu_shortcut_enabled:
-            if not os.path.exists(start_menu_path):
-                self.create_windows_shortcut(start_menu_path, silent=True)
-        elif os.path.exists(start_menu_path):
-            self.remove_windows_shortcut(start_menu_path, silent=True)
-
         if not silent:
             self.status_bar.showMessage("Настройки ярлыков применены")
 
@@ -486,3 +479,11 @@ class WindowsIntegrationMixin:
             )
         if ok:
             self.save_settings()
+
+    def create_start_menu_shortcut(self):
+        if self.create_windows_shortcut(self.get_start_menu_shortcut_path()):
+            self.status_bar.showMessage("Ярлык в меню Пуск создан")
+
+    def create_desktop_shortcut(self):
+        if self.create_windows_shortcut(self.get_desktop_shortcut_path()):
+            self.status_bar.showMessage("Ярлык на рабочем столе создан")

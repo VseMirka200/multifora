@@ -129,6 +129,24 @@ class SettingsPanelMixin:
             layout.addWidget(self._create_settings_hint_label(hint))
         return row
 
+    def _create_shortcut_action_row(self, title: str, hint: str, action):
+        row = QWidget()
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(*MARGINS_NONE)
+        layout.setSpacing(SPACE_SM)
+        button = QPushButton("Создать ярлык")
+        button.setProperty("settingsAction", True)
+        button.clicked.connect(action)
+        layout.addWidget(button, 0, Qt.AlignmentFlag.AlignTop)
+        text_column = QWidget(row)
+        text_layout = QVBoxLayout(text_column)
+        text_layout.setContentsMargins(*MARGINS_NONE)
+        text_layout.setSpacing(SPACE_NONE)
+        text_layout.addWidget(QLabel(title))
+        text_layout.addWidget(self._create_settings_hint_label(hint))
+        layout.addWidget(text_column, 1)
+        return row, button
+
     def _create_settings_page_card(self) -> tuple[QWidget, QVBoxLayout]:
         page = QWidget()
         page.setSizePolicy(
@@ -607,47 +625,24 @@ class SettingsPanelMixin:
         self._sync_auto_clear_controls()
         auto_clear_layout.addStretch()
 
-        desktop_shortcut_row, self.desktop_shortcut_checkbox = (
-            self._create_settings_checkbox_row(
-                "Добавить ярлык на рабочий стол",
-                "Создает ярлык 'Мультифора' на рабочем столе.",
-            )
-        )
-        self.desktop_shortcut_checkbox.stateChanged.connect(
-            self.toggle_desktop_shortcut
-        )
-        self.desktop_shortcut_checkbox.stateChanged.connect(
-            lambda _state: self._schedule_settings_save()
+        desktop_shortcut_row, self.desktop_shortcut_button = self._create_shortcut_action_row(
+            "Добавить ярлык на рабочий стол", "Создает ярлык «Мультифора» на рабочем столе.",
+            self.create_desktop_shortcut,
         )
         shortcuts_layout.addWidget(desktop_shortcut_row)
 
-        start_menu_shortcut_row, self.start_menu_shortcut_checkbox = (
-            self._create_settings_checkbox_row(
-                "Добавить ярлык в меню Пуск",
-                "Создает ярлык 'Мультифора' в меню Пуск.",
-            )
+        start_row, self.start_menu_shortcut_button = self._create_shortcut_action_row(
+            "Меню Пуск", "Создает ярлык «Мультифора» в меню Пуск.",
+            self.create_start_menu_shortcut,
         )
-        self.start_menu_shortcut_checkbox.stateChanged.connect(
-            self.toggle_start_menu_shortcut
-        )
-        self.start_menu_shortcut_checkbox.stateChanged.connect(
-            lambda _state: self._schedule_settings_save()
-        )
-        shortcuts_layout.addWidget(start_menu_shortcut_row)
+        shortcuts_layout.addWidget(start_row)
 
-        context_menu_row, self.context_menu_checkbox = (
-            self._create_settings_checkbox_row(
-                "Добавить в контекстное меню Windows",
-                "Добавляет пункт 'Добавить в Мультифору' в контекстное меню файлов и папок.",
-            )
+        context_row, self.context_menu_button = self._create_shortcut_action_row(
+            "Контекстное меню Windows",
+            "Добавляет пункт «Добавить в Мультифору» в меню файлов и папок.",
+            self.create_context_menu_entry,
         )
-        self.context_menu_checkbox.stateChanged.connect(
-            self.toggle_context_menu
-        )
-        self.context_menu_checkbox.stateChanged.connect(
-            lambda _state: self._schedule_settings_save()
-        )
-        shortcuts_layout.addWidget(context_menu_row)
+        shortcuts_layout.addWidget(context_row)
         shortcuts_layout.addStretch()
 
         self._select_settings_navigation_row(0)

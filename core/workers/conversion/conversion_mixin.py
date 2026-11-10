@@ -1,9 +1,6 @@
 import html
 import os
 import re
-import shutil
-import subprocess
-import sys
 import textwrap
 import threading
 from collections.abc import Callable
@@ -22,7 +19,6 @@ from app.core.deps import (
     HAS_PDF_TO_DOCX,
     HAS_PYMUPDF,
     OpenDocumentText,
-    ensure_pandoc_detected,
     load,
     pdf2docx,
     teletype,
@@ -48,24 +44,6 @@ _HTML_END_BLOCK_TAGS = _HTML_BLOCK_TAGS - {"br"}
 
 
 _CONVERSION_OUTPUT_PATH_LOCK = threading.Lock()
-_PANDOC_SOURCE_FORMATS = frozenset(
-    {"DOCX", "ODT", "RTF", "TXT", "HTML", "MD", "EPUB"}
-)
-_PANDOC_TARGET_FORMATS = frozenset(
-    {"DOCX", "ODT", "RTF", "TXT", "HTML", "MD", "EPUB", "PDF"}
-)
-
-
-def _bundled_pdf_engine() -> str | None:
-    executable = os.path.abspath(sys.argv[0]) if sys.argv else ""
-    if not executable:
-        return None
-    candidate = os.path.join(
-        os.path.dirname(executable), "bin", "tectonic", "tectonic.exe"
-    )
-    return candidate if os.path.isfile(candidate) else None
-
-
 class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
     CONVERTED_FOLDER_NAME = "Конвертированные"
 
@@ -182,89 +160,14 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         return handlers.get(self.conversion_type)
 
     def _convert_with_pandoc(
-        self,
-        file: FileItem,
-        target_format: str,
-        *,
-        output_reference: FileItem | None = None,
+        self, file: FileItem, target_format: str, *, output_reference: FileItem | None = None
     ) -> str:
-        source_format = format_for_path(file.path)
-        normalized_target = str(target_format or "").upper()
-        if source_format not in _PANDOC_SOURCE_FORMATS:
-            raise Exception(
-                f"Pandoc не поддерживает входной формат {source_format}"
-            )
-        if normalized_target not in _PANDOC_TARGET_FORMATS:
-            raise Exception(
-                f"Pandoc не поддерживает выходной формат {normalized_target}"
-            )
-
-        available, pandoc_path = ensure_pandoc_detected()
-        if not available or not pandoc_path:
-            raise Exception(
-                "Pandoc не найден. Установите Pandoc или задайте MULTIFORA_PANDOC_PATH"
-            )
-
-        output_path = self._conversion_output_path(
-            file,
-            suffix_for_format(normalized_target),
-            reference_file=output_reference,
-        )
-        command = [pandoc_path, file.path, "--output", output_path, "--standalone"]
-        if normalized_target == "PDF":
-            configured_engine = os.environ.get("MULTIFORA_PANDOC_PDF_ENGINE")
-            pdf_engine = configured_engine or _bundled_pdf_engine() or next(
-                (
-                    engine
-                    for engine in ("tectonic", "xelatex", "lualatex", "pdflatex")
-                    if shutil.which(engine)
-                ),
-                None,
-            )
-            if pdf_engine:
-                command.extend(("--pdf-engine", pdf_engine))
-                if os.path.basename(pdf_engine).lower() in {
-                    "tectonic",
-                    "tectonic.exe",
-                }:
-                    command.extend(("--variable", "mainfont=Arial"))
-        creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-        process = None
-        cancel_action = None
-        try:
-            process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                creationflags=creation_flags,
-            )
-            cancel_action = process.terminate
-            register_cancel = getattr(self, "_set_active_cancel_action", None)
-            if callable(register_cancel):
-                register_cancel(cancel_action)
-            _stdout, stderr = process.communicate()
-            if self._should_cancel():
-                raise InterruptedError("Конвертация отменена пользователем")
-            if process.returncode != 0:
-                details = (stderr or "неизвестная ошибка").strip()
-                if normalized_target == "PDF":
-                    details += (
-                        ". Для PDF Pandoc требуется TeX-движок, например MiKTeX или Tectonic"
-                    )
-                raise Exception(f"Pandoc завершился с ошибкой: {details}")
-            if not os.path.isfile(output_path):
-                raise Exception("Pandoc не создал выходной файл")
-            return output_path
-        except Exception:
-            self._discard_conversion_output(output_path)
-            raise
-        finally:
-            clear_cancel = getattr(self, "_clear_active_cancel_action", None)
-            if cancel_action is not None and callable(clear_cancel):
-                clear_cancel(cancel_action)
+        # Legacy routes use the built-in text converter.
+        content = self._extract_document_text(file)
+        self._warn_text_only_conversion(file)
+        if target_format.upper() == "PDF":
+            return self._write_text_pdf(file, content, output_reference=output_reference)
+        return self._write_text_output(file, target_format, content, output_reference=output_reference)
 
     @staticmethod
     def _read_text_file(path: str) -> str:
@@ -450,18 +353,20 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         file: FileItem,
         target_format: str,
         content: str,
+        *,
+        output_reference: FileItem | None = None,
     ) -> str:
         normalized_target = str(target_format or "").upper()
         if normalized_target == "PDF":
             # PDF создаёт собственный путь результата. Ранний выход исключает
             # двойное резервирование имени и появление лишнего суффикса ``_1``.
-            return self._write_text_pdf(file, content)
+            return self._write_text_pdf(file, content, output_reference=output_reference)
 
         target_ext = suffix_for_format(normalized_target)
         if not target_ext:
             raise Exception(f"Нельзя сохранить текст в {normalized_target}")
 
-        output_path = self._conversion_output_path(file, target_ext)
+        output_path = self._conversion_output_path(file, target_ext, reference_file=output_reference)
         writers: dict[str, Callable[[str, str], None]] = {
             "TXT": self._write_plain_text_file,
             "MD": self._write_plain_text_file,
@@ -580,17 +485,7 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         *,
         output_reference: FileItem | None = None,
     ) -> str | None:
-        source_format = format_for_path(file.path)
-        target_format = str(target_format or "").upper()
-        if source_format not in _PANDOC_SOURCE_FORMATS:
-            return None
-        if target_format not in _PANDOC_TARGET_FORMATS:
-            return None
-        return self._convert_with_pandoc(
-            file,
-            target_format,
-            output_reference=output_reference,
-        )
+        return None
 
     def _convert_pymupdf_document_to_pdf(self, file: FileItem) -> str | None:
         source_format = format_for_path(file.path)
@@ -669,21 +564,12 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         if normalized_target == "PDF":
             return self._convert_document_to_pdf(file, source_format)
 
-        # Обычный текст не содержит разметки, которую нужно передавать Pandoc.
+        # Обычный текст не содержит разметки.
         # Встроенные писатели сохраняют каждую строку отдельным абзацем.
         if source_format == "TXT" and normalized_target in {"DOCX", "ODT"}:
             return self._write_text_output(
                 file, normalized_target, self._extract_document_text(file)
             )
-
-        # Pandoc используется первым для совместимых форматов, чтобы сохранить
-        # структуру документа и не зависеть от офисных приложений.
-        if normalized_target in {"DOCX", "ODT", "RTF", "HTML"}:
-            direct_result = self._try_pandoc_conversion(
-                file, normalized_target
-            )
-            if direct_result:
-                return direct_result
 
         content = self._extract_document_text(file)
         self._warn_text_only_conversion(file)

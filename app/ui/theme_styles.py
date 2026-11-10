@@ -55,6 +55,18 @@ QFrame#settings_card {
 QFrame#settings_card QWidget {
     background-color: transparent;
 }
+QFrame#settings_card QPushButton[settingsAction="true"] {
+    background-color: #383838;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 5px 10px;
+}
+QFrame#settings_card QPushButton[settingsAction="true"]:hover {
+    background-color: #484848;
+}
+QFrame#settings_card QPushButton[settingsAction="true"]:pressed {
+    background-color: #555555;
+}
 QFrame#settings_card QLabel[settingsHint="true"] {
     color: #a8a8a8;
     font-size: 11px;
@@ -495,6 +507,18 @@ QFrame#settings_card {
 }
 QFrame#settings_card QWidget {
     background-color: transparent;
+}
+QFrame#settings_card QPushButton[settingsAction="true"] {
+    background-color: #ffffff;
+    border: 1px solid #c7cfda;
+    border-radius: 4px;
+    padding: 5px 10px;
+}
+QFrame#settings_card QPushButton[settingsAction="true"]:hover {
+    background-color: #e8edf2;
+}
+QFrame#settings_card QPushButton[settingsAction="true"]:pressed {
+    background-color: #dce3ea;
 }
 QFrame#settings_card QLabel[settingsHint="true"] {
     color: #6f7785;

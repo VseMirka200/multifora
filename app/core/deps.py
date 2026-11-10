@@ -337,4 +337,3 @@ def ensure_pandoc_detected(
     return HAS_PANDOC, PANDOC_PATH
 
 
-_detect_pandoc()
