@@ -35,14 +35,11 @@
           <a href="../reference/settings.html">Настройки</a>
           <a href="../reference/troubleshooting.html">Неполадки</a>
           <a href="https://github.com/VseMirka200/multifora/issues/new/choose">Сообщить об ошибке</a>
-          <a href="mailto:vsemirka200@bk.ru">Связаться по почте</a>
+          <a href="../reference/contact.html">Связаться по почте</a>
         </nav>
       </aside>
       <main>
-        <header class="top">
-          <a href="../index.html">← На главную</a>
-          <a class="download" href="https://github.com/VseMirka200/multifora/releases">Скачать Мультифору</a>
-        </header>
+        <a class="site-github" href="https://github.com/VseMirka200/multifora" target="_blank" rel="noopener noreferrer">GitHub &#8599;</a>
         <div class="crumbs">
           Документация / Пакетное переименование
         </div>
@@ -60,6 +57,7 @@
             <li>Нажмите <strong>«Начать действие»</strong>.</li>
           </ol>
           <p>Шаблоны могут использовать имя файла, нумерацию, дату, размеры изображения, EXIF-данные, замену текста и регулярные выражения. Состав доступных полей зависит от выбранного шаблона.</p>
+          <p>В пользовательском шаблоне одно и то же поле можно вставить несколько раз. Например, <code>{num:03d,start=1,step=1}_{name} {num:03d,start=1,step=1}_{name}</code> для файла <code>foto.jpg</code> даст <code>001_foto 001_foto.jpg</code>. Оба номера относятся к одному файлу; для следующего файла номер увеличивается на заданный шаг.</p>
           <h2 id="что-проверить-до-запуска">Что проверить до запуска</h2>
           <ul>
             <li>У новых имён сохранены нужные расширения.</li>
@@ -78,6 +76,7 @@
           </aside>
           <p>См. также: <a href="quick-start.html">полное руководство</a> и <a href="../reference/troubleshooting.html">устранение проблем</a>.</p>
         </article>
+        <footer class="site-footer">&copy; Мультифора <span aria-hidden="true">·</span> <a href="https://github.com/VseMirka200/multifora">Исходный код</a></footer>
       </main>
     </div>
   </body>

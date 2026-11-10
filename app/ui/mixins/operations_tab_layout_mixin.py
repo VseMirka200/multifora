@@ -274,7 +274,7 @@ class OperationsTabLayoutMixin:
         )
         operations_header_layout = QVBoxLayout(self.operations_header_widget)
         operations_header_layout.setContentsMargins(*MARGINS_NONE)
-        operations_header_layout.setSpacing(SPACE_NONE)
+        operations_header_layout.setSpacing(SPACE_SM)
         operations_header_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         self.operations_header_actions_widget = QWidget(

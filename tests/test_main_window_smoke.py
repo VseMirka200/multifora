@@ -269,7 +269,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 )
                 self.assertEqual(window.btn_help.height(), 22)
                 self.assertEqual(window.btn_help.objectName(), "help_button")
-                self.assertEqual(window.operations_tab_bar.height(), 24)
+                self.assertEqual(window.operations_tab_bar.height(), 34)
                 self.assertEqual(
                     window.help_menu.objectName(), "help_menu_popup"
                 )
@@ -355,14 +355,23 @@ class MainWindowSmokeTests(unittest.TestCase):
                     [],
                 )
                 self.assertEqual(
-                    window.settings_stack.objectName(), "settings_stack"
+                    window.settings_scroll.objectName(), "settings_page_scroll"
                 )
-                self.assertEqual(window.settings_stack.count(), 4)
+                self.assertEqual(len(window.settings_sections), 4)
+                for button in (
+                    window.desktop_shortcut_button,
+                    window.start_menu_shortcut_button,
+                    window.context_menu_button,
+                ):
+                    self.assertEqual(button.property("buttonVariant"), "secondary")
+                    self.assertEqual(
+                        button.cursor().shape(), Qt.CursorShape.PointingHandCursor
+                    )
                 self.assertEqual(
                     [button.text() for button in window.settings_nav_buttons],
                     ["ИНТЕРФЕЙС", "ПОВЕДЕНИЕ", "АВТООЧИСТКА", "ЯРЛЫКИ"],
                 )
-                self.assertEqual(window.settings_stack.currentIndex(), 0)
+                self.assertTrue(window.settings_nav_buttons[0].isChecked())
                 self.assertEqual(
                     window.settings_nav_buttons[0].font().pixelSize(), 13
                 )
@@ -379,9 +388,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 checked_nav_style = settings_nav_style.split(
                     "QPushButton#settings_nav_item:checked {", 1
                 )[1].split("}", 1)[0]
-                self.assertIn(
-                    "border-bottom: 1px solid #3d74b3", checked_nav_style
-                )
+                self.assertNotIn("border-bottom", checked_nav_style)
                 self.assertTrue(window.settings_nav_buttons[0].isChecked())
                 self.assertEqual(window.help_stack.count(), 1)
                 self.assertEqual(
@@ -415,7 +422,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     open_url.call_args.args[0].toString(),
                     "https://vsemirka200.github.io/multifora/reference/troubleshooting.html",
                 )
-                behavior_page = window.settings_stack.widget(1)
+                behavior_page = window.settings_sections[1]
                 behavior_labels = [
                     label.text()
                     for label in behavior_page.findChildren(QLabel)
@@ -431,26 +438,20 @@ class MainWindowSmokeTests(unittest.TestCase):
                     "Очищать весь список после:",
                     [
                         label.text()
-                        for label in window.settings_stack.widget(
-                            2
-                        ).findChildren(QLabel)
+                        for label in window.settings_sections[2].findChildren(QLabel)
                     ],
                 )
                 self.assertIn(
                     "Добавить ярлык на рабочий стол",
                     [
                         label.text()
-                        for label in window.settings_stack.widget(
-                            3
-                        ).findChildren(QLabel)
+                        for label in window.settings_sections[3].findChildren(QLabel)
                     ],
                 )
                 settings_hints = [
                     label
-                    for index in range(window.settings_stack.count())
-                    for label in window.settings_stack.widget(
-                        index
-                    ).findChildren(QLabel)
+                    for section in window.settings_sections
+                    for label in section.findChildren(QLabel)
                     if label.property("settingsHint")
                 ]
                 self.assertEqual(len(settings_hints), 11)
@@ -491,6 +492,17 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertFalse(window.settings_panel_host.isHidden())
                 self.assertFalse(window.settings_panel_widget.isHidden())
                 self.assertTrue(window.help_panel_widget.isHidden())
+                window.show()
+                window.resize(900, 550)
+                QApplication.processEvents()
+                window.settings_nav_buttons[-1].click()
+                self.assertTrue(window.settings_nav_buttons[-1].isChecked())
+                self.assertEqual(
+                    window.settings_scroll.verticalScrollBar().value(),
+                    window.settings_scroll.verticalScrollBar().maximum(),
+                )
+                window.settings_scroll.verticalScrollBar().setValue(0)
+                self.assertTrue(window.settings_nav_buttons[0].isChecked())
                 self.assertFalse(window.btn_help.isChecked())
                 self.assertEqual(
                     window.operations_tab_bar.currentIndex(),
@@ -512,7 +524,22 @@ class MainWindowSmokeTests(unittest.TestCase):
                         window.help_panel_widget.parentWidget(), dialog
                     )
                     self.assertFalse(window.help_panel_widget.isHidden())
-                    self.assertEqual(dialog.findChildren(QPushButton), [])
+                    buttons = dialog.findChildren(QPushButton)
+                    self.assertIn(window.about_github_button, buttons)
+                    self.assertIn(window.about_guide_button, buttons)
+                    with patch(
+                        "app.ui.mixins.settings_panel_mixin.QDesktopServices.openUrl"
+                    ) as open_url:
+                        window.about_github_button.click()
+                        self.assertEqual(
+                            open_url.call_args.args[0].toString(),
+                            "https://github.com/VseMirka200/multifora",
+                        )
+                        window.about_guide_button.click()
+                        self.assertEqual(
+                            open_url.call_args.args[0].toString(),
+                            "https://vsemirka200.github.io/multifora/guide/index.html",
+                        )
                     self.assertEqual(
                         dialog.minimumSize(), dialog.maximumSize()
                     )
@@ -1285,6 +1312,13 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.files = [FileItem(path) for path in paths]
                 window.update_file_list()
                 window.on_template_selected("Пользовательский шаблон")
+                repeated = "{num:03d,start=1,step=1}_{date}_{name}"
+                window.template_custom.setText(f"{repeated} {repeated}")
+                window.refresh_rename_preview()
+                for index, item in enumerate(window.files, 1):
+                    first, second = item.preview_name.removesuffix(".docx").split(" ")
+                    self.assertEqual(first, second)
+                    self.assertTrue(first.startswith(f"{index:03d}_"))
                 window.template_custom.setText("ПР {num:1d,start=1,step=1}")
                 window.refresh_rename_preview()
 

@@ -208,24 +208,34 @@ class ThemeStyleAuditTests(unittest.TestCase):
     ):
         light = build_operations_tab_bar_style("light")
         dark = build_operations_tab_bar_style("dark")
-        for style, weight in ((light, 600), (dark, 700)):
+        for style, weight, background, active in (
+            (light, 600, "#e8ecf1", "#3d74b3"),
+            (dark, 700, "#303030", "#79b5f5"),
+        ):
             self.assertIn("border-bottom: 1px solid #3d74b3", style)
             tab = style.split("QTabBar#operations_tab_bar::tab {", 1)[1].split(
                 "}", 1
             )[0]
-            self.assertIn("padding: 0px", tab)
+            self.assertIn("padding: 0px 8px", tab)
             self.assertIn("font-size: 13px", tab)
             self.assertIn(f"font-weight: {weight}", tab)
-            self.assertIn("min-height: 22px", style)
-            self.assertIn("max-height: 22px", style)
+            self.assertIn("min-height: 32px", style)
+            self.assertIn("max-height: 32px", style)
             selected = style.split(
                 "QTabBar#operations_tab_bar::tab:selected {", 1
             )[1].split("}", 1)[0]
-            self.assertIn("color: #3d74b3", selected)
+            self.assertIn(f"color: {active}", selected)
+            inactive = style.split(
+                "QTabBar#operations_tab_bar::tab:!selected {", 1
+            )[1].split("}", 1)[0]
+            self.assertIn(f"background-color: {background}", inactive)
             self.assertNotIn("QTabBar#operations_tab_bar::tab:hover", style)
 
     def test_settings_navigation_uses_vertical_tab_selection_style(self):
-        for theme, foreground in (("light", "#202833"), ("dark", "#e3e6ea")):
+        for theme, foreground, background, active in (
+            ("light", "#202833", "#e8ecf1", "#3d74b3"),
+            ("dark", "#e3e6ea", "#303030", "#79b5f5"),
+        ):
             style = build_settings_navigation_style(theme)
             button = style.split("QPushButton#settings_nav_item {", 1)[
                 1
@@ -236,10 +246,11 @@ class ThemeStyleAuditTests(unittest.TestCase):
             self.assertIn(f"color: {foreground}", button)
             self.assertIn("font-size: 13px", button)
             self.assertIn(f"font-weight: {600 if theme == 'light' else 700}", button)
-            self.assertIn("border-bottom: 1px solid transparent", button)
+            self.assertIn(f"background-color: {background}", button)
             self.assertIn("border-radius: 0px", button)
-            self.assertIn("color: #3d74b3", selected_button)
-            self.assertIn("border-bottom: 1px solid #3d74b3", selected_button)
+            self.assertIn(f"color: {active}", selected_button)
+            self.assertIn("background-color: transparent", selected_button)
+            self.assertNotIn("border-bottom", selected_button)
 
     def test_light_theme_does_not_reintroduce_dark_template_surface(self):
         light = "\n".join(

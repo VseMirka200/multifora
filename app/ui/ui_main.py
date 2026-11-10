@@ -694,18 +694,19 @@ class MultiforaMainWindow(
         """Создаёт изменяемый разделитель рабочих панелей."""
         splitter = QSplitter(Qt.Orientation.Horizontal)
         self.main_splitter = splitter
-        splitter.setHandleWidth(SPACE_LG)
+        splitter.setHandleWidth(SPACE_SM)
         splitter.setStyleSheet(build_splitter_style())
         return splitter
 
     def _create_left_panel(self, main_layout: QVBoxLayout) -> QWidget:
         """Создаёт левую панель операций и подключает панель настроек."""
-        left_widget = QWidget()
+        left_widget = QFrame()
+        left_widget.setObjectName("operations_panel")
         # Длинные подписи шаблонов и истории не должны обрезаться
         # при сужении панели разделителем.
         left_widget.setMinimumWidth(240)
         left_layout = QVBoxLayout(left_widget)
-        left_layout.setContentsMargins(*MARGINS_NONE)
+        left_layout.setContentsMargins(SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
         left_layout.setSpacing(SPACE_NONE)
 
         operations_tab = self.create_operations_tab()
@@ -1102,10 +1103,10 @@ class MultiforaMainWindow(
     def _create_file_info_layout(self) -> QHBoxLayout:
         info_layout = QHBoxLayout()
         info_layout.setContentsMargins(
-            SPACE_NONE,
-            SPACE_XXS,
-            SPACE_NONE,
-            SPACE_NONE,
+            SPACE_SM,
+            SPACE_SM,
+            SPACE_SM,
+            SPACE_SM,
         )
         info_layout.setSpacing(SPACE_SM)
 
@@ -1143,7 +1144,10 @@ class MultiforaMainWindow(
         right_layout.addLayout(list_header)
         self._create_files_preview(right_layout)
         self._create_progress_dialog()
-        right_layout.addLayout(self._create_file_info_layout())
+        info_panel = QFrame()
+        info_panel.setObjectName("file_info_panel")
+        info_panel.setLayout(self._create_file_info_layout())
+        right_layout.addWidget(info_panel)
         return right_widget
 
     def _configure_main_splitter(
@@ -1189,7 +1193,7 @@ class MultiforaMainWindow(
         self.setCentralWidget(central)
         main_layout = QVBoxLayout(central)
         main_layout.setContentsMargins(*APP_MARGINS)
-        main_layout.setSpacing(SPACE_NONE)
+        main_layout.setSpacing(SPACE_SM)
 
         self._create_settings_panel_host()
         splitter = self._create_main_splitter()
@@ -1321,11 +1325,9 @@ class MultiforaMainWindow(
     def _configure_right_panel_spacing(self, right_layout, list_header):
         """Выравнивает единый шаг промежутков для правой панели."""
         right_layout.setContentsMargins(*MARGINS_NONE)
-        right_layout.setSpacing(SPACE_NONE)
+        right_layout.setSpacing(SPACE_SM)
 
-        list_header.setContentsMargins(
-            SPACE_NONE, SPACE_XS, SPACE_NONE, SPACE_SM
-        )
+        list_header.setContentsMargins(*MARGINS_NONE)
         list_header.setHorizontalSpacing(SPACE_SM)
         list_header.setVerticalSpacing(SPACE_SM)
 

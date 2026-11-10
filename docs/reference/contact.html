@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="theme-color" content="#111214">
+    <meta name="description" content="Связаться с командой Мультифоры и подготовить обращение.">
+    <title>Связаться с нами — Мультифора</title>
+    <link rel="icon" href="../assets/icon.ico" sizes="any">
+    <link rel="stylesheet" href="../assets/site.css">
+    <link rel="stylesheet" href="../assets/message-fixes.css">
+    <link rel="stylesheet" href="../assets/contact.css">
+    <script src="../assets/navigation.js" defer></script>
+    <script src="../assets/contact.js" defer></script>
+  </head>
+  <body>
+    <div class="layout">
+      <aside>
+        <a class="brand" href="../index.html"><img class="mark" src="../assets/icon.ico" alt="">Мультифора</a>
+        <a class="search" href="../index.html">Поиск по руководству <kbd>Ctrl K</kbd></a>
+        <nav aria-label="Навигация по документации"><a href="../index.html">Начало</a><a href="troubleshooting.html">Проблемы и решения</a></nav>
+      </aside>
+      <main>
+        <a class="site-github" href="https://github.com/VseMirka200/multifora" target="_blank" rel="noopener noreferrer">GitHub &#8599;</a>
+        <div class="crumbs">Помощь / Связаться с нами</div>
+        <article class="contact">
+          <h1>Связаться с нами</h1>
+          <p>Расскажите о проблеме, предложите улучшение или задайте вопрос о Мультифоре.</p>
+          <p>Сначала можно посмотреть <a href="troubleshooting.html">проблемы и решения</a> или <a href="https://github.com/VseMirka200/multifora/issues/new/choose">создать обращение на GitHub</a>.</p>
+          <div class="contact-channels">
+            <section class="contact-card">
+              <span class="contact-icon" aria-hidden="true">ВК</span>
+              <h2>ВКонтакте</h2>
+              <p>Напишите нам в группе проекта.</p>
+              <button type="button" disabled>Ссылка появится позже</button>
+            </section>
+            <section class="contact-card">
+              <span class="contact-icon" aria-hidden="true">@</span>
+              <h2>Электронная почта</h2>
+              <p>Выберите шаблон и удобный почтовый сервис.</p>
+              <button type="button" id="open-email" aria-expanded="false" aria-controls="email">Написать письмо</button>
+            </section>
+          </div>
+          <section id="email" class="contact-email" hidden>
+            <h2>Написать на почту</h2>
+            <p>Выберите подходящий шаблон и заполните его. Письмо откроется в выбранной почте — проверьте его перед отправкой.</p>
+            <div class="template-buttons" role="group" aria-label="Шаблоны обращения">
+              <button type="button" data-template="bug">Сообщить об ошибке</button>
+              <button type="button" data-template="idea">Предложить улучшение</button>
+              <button type="button" data-template="question">Задать вопрос</button>
+              <button type="button" data-template="other">Другое</button>
+            </div>
+            <label for="subject">Тема письма</label>
+            <input id="subject" type="text" value="Мультифора — вопрос">
+            <label for="message">Текст письма</label>
+            <textarea id="message" rows="9">Здравствуйте!
+
+У меня есть вопрос о Мультифоре:
+
+
+Спасибо!</textarea>
+            <p class="contact-note">Получатель: <strong>vsemirka200@bk.ru</strong>. Не включайте в письмо пароли и другие конфиденциальные данные.</p>
+            <h3>Открыть в почте</h3>
+            <div class="provider-buttons" aria-label="Почтовые сервисы">
+              <a data-provider="yandex" target="_blank" rel="noopener noreferrer" href="mailto:vsemirka200@bk.ru"><img src="https://www.google.com/s2/favicons?domain=mail.yandex.ru&amp;sz=64" alt="">Яндекс Почта</a>
+              <a data-provider="mailru" target="_blank" rel="noopener noreferrer" href="mailto:vsemirka200@bk.ru"><img src="https://www.google.com/s2/favicons?domain=mail.ru&amp;sz=64" alt="">Почта Mail</a>
+              <a data-provider="gmail" target="_blank" rel="noopener noreferrer" href="mailto:vsemirka200@bk.ru"><img src="https://www.google.com/s2/favicons?domain=mail.google.com&amp;sz=64" alt="">Gmail</a>
+              <a data-provider="outlook" target="_blank" rel="noopener noreferrer" href="mailto:vsemirka200@bk.ru"><img src="https://www.google.com/s2/favicons?domain=outlook.live.com&amp;sz=64" alt="">Outlook</a>
+              <a data-provider="yahoo" target="_blank" rel="noopener noreferrer" href="mailto:vsemirka200@bk.ru"><img src="https://www.google.com/s2/favicons?domain=mail.yahoo.com&amp;sz=64" alt="">Yahoo Mail</a>
+              <a data-provider="proton" target="_blank" rel="noopener noreferrer" href="mailto:vsemirka200@bk.ru"><img src="https://www.google.com/s2/favicons?domain=mail.proton.me&amp;sz=64" alt="">Proton Mail</a>
+            </div>
+            <p class="contact-note">При необходимости войдите в выбранный сервис. Если он не заполнил письмо, скопируйте текст из формы выше.</p>
+          </section>
+        </article>
+        <footer class="site-footer">&copy; Мультифора <span aria-hidden="true">·</span> <a href="https://github.com/VseMirka200/multifora">Исходный код</a></footer>
+      </main>
+    </div>
+  </body>
+</html>

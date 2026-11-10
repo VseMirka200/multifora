@@ -1,0 +1,21 @@
+.contact { max-width: 800px; }
+.contact-channels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 28px 0 12px; }
+.contact-card { padding: 22px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.contact-card h2 { margin: 14px 0 5px; padding: 0; border: 0; font-size: 20px; }
+.contact-card p { margin: 0 0 18px; }
+.contact-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; color: #a8ceff; background: #1e3049; font-size: 16px; font-weight: 700; }
+.contact button, .contact-link, .provider-buttons a { display: inline-flex; justify-content: center; align-items: center; padding: 9px 13px; border: 1px solid #394456; border-radius: 8px; background: #1a1f29; color: var(--text); font: inherit; text-decoration: none; cursor: pointer; }
+.contact button:hover:enabled, .contact-link:hover, .provider-buttons a:hover { border-color: #589be7; background: #24364c; }
+.contact button:focus-visible, .contact a:focus-visible, .contact input:focus-visible, .contact textarea:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.contact button:disabled { color: var(--faint); cursor: not-allowed; background: transparent; }
+.contact-email h2 { margin-top: 38px; }
+.contact-email h3 { margin: 24px 0 10px; }
+.template-buttons, .provider-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 20px; }
+.provider-buttons a { gap: 9px; }
+.provider-buttons a img { display: block; width: 20px; height: 20px; margin: 0; border: 0; border-radius: 0; object-fit: contain; }
+.template-buttons button[aria-pressed="true"] { color: #dcecff; border-color: #4d91df; background: #1b3453; }
+.contact label { display: block; margin: 17px 0 6px; font-weight: 600; }
+.contact input, .contact textarea { display: block; width: 100%; padding: 11px 12px; border: 1px solid #394456; border-radius: 8px; background: #14161b; color: var(--text); font: inherit; }
+.contact textarea { min-height: 180px; resize: vertical; }
+.contact p.contact-note { margin: 10px 0; color: var(--muted); font-size: 13px; }
+@media (max-width: 600px) { .contact-channels { grid-template-columns: 1fr; } .contact-card { padding: 18px; } }

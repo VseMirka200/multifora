@@ -12,6 +12,7 @@ SPLITTER_GRIP_LABEL_STYLE = (
 )
 FILE_LIST_HEADER_STYLE = (
     "QHeaderView::section { background: transparent; border: none; "
+    "border-right: 1px solid palette(mid); "
     "padding: 4px 6px; font-weight: 600; }"
     "QHeaderView::up-arrow, QHeaderView::down-arrow { "
     "image: none; width: 0px; height: 0px; }"
@@ -531,7 +532,10 @@ def build_operations_tab_bar_style(theme: str) -> str:
     is_light = str(theme).lower() == "light"
     foreground = "#202833" if is_light else "#e3e6ea"
     base_bg = "transparent"
+    inactive_bg = "#e8ecf1" if is_light else "#303030"
+    separator = "#c7cfda" if is_light else "#4f4f4f"
     underline = "#3d74b3"
+    active_text = underline if is_light else "#79b5f5"
     return f"""
         QTabBar#operations_tab_bar {{
             background-color: transparent;
@@ -540,26 +544,37 @@ def build_operations_tab_bar_style(theme: str) -> str:
             border: none;
         }}
         QTabBar#operations_tab_bar::tab {{
-            margin: 0px 12px 0px 0px;
-            padding: 0px;
+            margin: 0px;
+            padding: 0px 8px;
             min-width: 24px;
-            min-height: 22px;
-            max-height: 22px;
+            min-height: 32px;
+            max-height: 32px;
             font-size: 13px;
             font-weight: {600 if is_light else 700};
             color: {foreground};
             background-color: {base_bg};
             border: none;
-            border-bottom: 1px solid transparent;
+            border-top: 1px solid {separator};
+            border-right: 1px solid {separator};
+            border-bottom: 1px solid {separator};
+        }}
+        QTabBar#operations_tab_bar::tab:first {{
+            border-left: 1px solid {separator};
+            border-top-left-radius: {STANDARD_RADIUS}px;
+            border-bottom-left-radius: {STANDARD_RADIUS}px;
+        }}
+        QTabBar#operations_tab_bar::tab:last {{
+            border-top-right-radius: {STANDARD_RADIUS}px;
+            border-bottom-right-radius: {STANDARD_RADIUS}px;
         }}
         QTabBar#operations_tab_bar::tab:selected {{
-            color: {underline};
+            color: {active_text};
             border-bottom: 1px solid {underline};
         }}
         QTabBar#operations_tab_bar::tab:!selected {{
             color: {foreground};
-            background-color: transparent;
-            border-bottom: 1px solid transparent;
+            background-color: {inactive_bg};
+            border-bottom: 1px solid {separator};
         }}
     """
 
@@ -567,7 +582,9 @@ def build_operations_tab_bar_style(theme: str) -> str:
 def build_settings_navigation_style(theme: str) -> str:
     """Оформляет разделы настроек по аналогии с вкладками операций."""
     foreground = "#202833" if str(theme).lower() == "light" else "#e3e6ea"
-    underline = "#3d74b3"
+    inactive_bg = "#e8ecf1" if str(theme).lower() == "light" else "#303030"
+    separator = "#c7cfda" if str(theme).lower() == "light" else "#4f4f4f"
+    active_text = "#3d74b3" if str(theme).lower() == "light" else "#79b5f5"
     return f"""
         QWidget#settings_nav {{
             background-color: transparent;
@@ -575,20 +592,31 @@ def build_settings_navigation_style(theme: str) -> str:
         }}
         QPushButton#settings_nav_item {{
             margin: 0px;
-            padding: 0px;
+            padding: 0px 8px;
             font-size: 13px;
             font-weight: {600 if str(theme).lower() == "light" else 700};
             color: {foreground};
-            background-color: transparent;
+            background-color: {inactive_bg};
             border: none;
-            border-bottom: 1px solid transparent;
+            border-left: 1px solid {separator};
+            border-right: 1px solid {separator};
+            border-bottom: 1px solid {separator};
             border-radius: 0px;
             outline: none;
             text-align: left;
         }}
         QPushButton#settings_nav_item:checked {{
-            color: {underline};
-            border-bottom: 1px solid {underline};
+            color: {active_text};
+            background-color: transparent;
+        }}
+        QPushButton#settings_nav_item[navPosition="first"] {{
+            border-top: 1px solid {separator};
+            border-top-left-radius: {STANDARD_RADIUS}px;
+            border-top-right-radius: {STANDARD_RADIUS}px;
+        }}
+        QPushButton#settings_nav_item[navPosition="last"] {{
+            border-bottom-left-radius: {STANDARD_RADIUS}px;
+            border-bottom-right-radius: {STANDARD_RADIUS}px;
         }}
         QPushButton#settings_nav_item:focus {{
             outline: none;
@@ -599,7 +627,18 @@ def build_settings_navigation_style(theme: str) -> str:
 def build_tab_content_style_block(theme: str) -> str:
     is_light = str(theme).lower() == "light"
     base_text = "#1f2328" if is_light else "#e0e0e0"
+    panel_border = "#c7cfda" if is_light else "#4f4f4f"
     return f"""
+            QFrame#operations_panel {{
+                background-color: transparent;
+                border: 1px solid {panel_border};
+                border-radius: {STANDARD_RADIUS}px;
+            }}
+            QFrame#file_info_panel {{
+                background-color: transparent;
+                border: 1px solid {panel_border};
+                border-radius: {STANDARD_RADIUS}px;
+            }}
             QStackedWidget#operations_stack {{
                 background: transparent;
                 border: none;

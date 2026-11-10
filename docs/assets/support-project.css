@@ -1,0 +1,14 @@
+.support-page { max-width: 850px; }
+.support-intro { max-width: 650px; font-size: 17px; }
+.support-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 32px; }
+.support-card { display: flex; min-height: 280px; flex-direction: column; align-items: flex-start; padding: 26px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--text); text-decoration: none; transition: border-color .15s, background .15s, transform .15s; }
+.support-card:hover { border-color: #5383bf; background: #1b2330; transform: translateY(-2px); }
+.support-card:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+.support-icon { display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: 22px; border-radius: 14px; background: #233750; color: #b9d8ff; }
+.github-icon svg { width: 31px; height: 31px; }
+.donation-icon { color: #ffb7c9; background: #452b40; font-size: 30px; }
+.support-card-title { font-size: 21px; font-weight: 700; }
+.support-card-description { margin: 9px 0 24px; color: var(--muted); }
+.support-card-action { margin-top: auto; color: var(--blue); font-weight: 650; }
+@media (max-width: 600px) { .support-cards { grid-template-columns: 1fr; } .support-card { min-height: 235px; padding: 22px; } }
+@media (prefers-reduced-motion: reduce) { .support-card { transition: none; } }
