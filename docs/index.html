@@ -9,60 +9,6 @@
     <link rel="stylesheet" href="assets/site.css">
     <link rel="stylesheet" href="assets/message-fixes.css">
     <link rel="stylesheet" href="assets/landing.css">
-    <style media="print">
-      :root { color-scheme: dark; --bg:#10141d; --surface:#171d29; --line:#2b3446; --text:#edf2fb; --muted:#aab6c9; --blue:#59a4ff; --blue-strong:#2f82e9; --radius:14px; }
-      * { box-sizing:border-box; }
-      html { scroll-behavior:smooth; }
-      body { margin:0; min-width:320px; background:var(--bg); color:var(--text); font:15px/1.55 "Segoe UI", system-ui, sans-serif; }
-      a { color:inherit; text-decoration:none; }
-      .shell { display:grid; grid-template-columns:270px minmax(0, 1fr); min-height:100vh; }
-      aside { position:sticky; top:0; height:100vh; overflow:auto; background:#121824; border-right:1px solid var(--line); padding:22px 15px; }
-      .brand { display:flex; gap:10px; align-items:center; padding:0 8px 22px; font-size:18px; font-weight:700; }
-      .mark { display:grid; place-items:center; inline-size:30px; block-size:30px; border-radius:9px; background:linear-gradient(135deg,#65bbff,#426ef3); color:white; box-shadow:0 8px 22px #3269ba66; }
-      .search { display:flex; gap:8px; align-items:center; width:100%; background:#202838; color:var(--muted); border:1px solid #344055; border-radius:9px; padding:8px 10px; cursor:pointer; text-align:left; }
-      kbd { margin-left:auto; border:1px solid #4a576d; border-radius:4px; padding:0 4px; color:#c8d4e7; font:11px system-ui; }
-      nav { margin-top:22px; }
-      nav a { display:block; padding:7px 10px; margin:2px 0; border-radius:7px; color:var(--muted); }
-      nav a:hover, nav a.active { color:white; background:#25314a; }
-      nav .section { margin:18px 10px 6px; color:#718098; font-size:11px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; }
-      main { width:min(1060px, 100%); margin:0 auto; padding:42px clamp(22px,5vw,72px) 54px; }
-      .topbar { display:flex; align-items:center; justify-content:flex-end; gap:18px; color:var(--muted); font-size:14px; }
-      .topbar a:hover { color:white; }
-      .hero { padding:68px 0 44px; max-width:760px; }
-      .eyebrow { color:var(--blue); font-size:13px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
-      h1 { margin:10px 0 14px; font-size:clamp(36px,6vw,62px); line-height:1.04; letter-spacing:-.045em; }
-      .lead { color:var(--muted); font-size:19px; max-width:670px; }
-      .actions { display:flex; flex-wrap:wrap; gap:11px; margin-top:29px; }
-      .button { display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid #3a475d; border-radius:9px; padding:10px 15px; font-weight:650; }
-      .button.primary { background:var(--blue-strong); border-color:#4a9bf7; color:#fff; box-shadow:0 9px 24px #2070cd55; }
-      .button:hover { filter:brightness(1.1); }
-      .note { margin-top:17px; color:#8997ac; font-size:13px; }
-      .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin:26px 0 56px; }
-      .card { display:block; min-height:144px; padding:20px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); transition:transform .15s, border-color .15s, background .15s; }
-      .card:hover { transform:translateY(-2px); border-color:#5383bf; background:#1b2433; }
-      .card .icon { color:var(--blue); font-size:22px; }
-      .card h2 { margin:10px 0 4px; font-size:17px; }
-      .card p { margin:0; color:var(--muted); font-size:14px; }
-      section { scroll-margin-top:22px; padding:34px 0; border-top:1px solid var(--line); }
-      section h2 { margin:0 0 8px; font-size:27px; letter-spacing:-.025em; }
-      section > p { margin:0 0 20px; color:var(--muted); }
-      .steps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:13px; }
-      .step { padding:16px; border:1px solid var(--line); border-radius:12px; background:#141a25; }
-      .step b { display:block; color:var(--blue); margin-bottom:6px; }
-      .support { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:23px; border-radius:var(--radius); background:linear-gradient(115deg,#1c3760,#18233a 65%); border:1px solid #355b91; }
-      .support h2 { margin:0 0 4px; }
-      .support p { margin:0; color:#c1d0e5; }
-      footer { padding-top:28px; color:#8290a5; font-size:13px; }
-      dialog { width:min(620px,calc(100vw - 32px)); padding:0; border:1px solid #3c4a62; border-radius:14px; background:#171d29; color:var(--text); box-shadow:0 24px 80px #000b; }
-      dialog::backdrop { background:#05080dcc; }
-      .dialog-head { display:flex; justify-content:space-between; align-items:center; padding:16px 18px; border-bottom:1px solid var(--line); }
-      .close { border:0; background:none; color:var(--muted); font-size:24px; cursor:pointer; }
-      #search-input { width:calc(100% - 36px); margin:18px; padding:11px; border:1px solid #45536a; border-radius:8px; background:#10151f; color:white; font:inherit; }
-      #results { display:grid; gap:4px; padding:0 18px 18px; }
-      #results a { padding:9px; border-radius:7px; color:var(--muted); }
-      #results a:hover { background:#25314a; color:white; }
-      @media (max-width:780px) { .shell { display:block; } aside { position:static; height:auto; padding:14px; border-right:0; border-bottom:1px solid var(--line); } nav { display:none; } .brand { padding:0; } .search { margin-top:10px; } main { padding-top:22px; } .hero { padding-top:42px; } .grid, .steps { grid-template-columns:1fr; } .support { align-items:flex-start; flex-direction:column; } .topbar { display:none; } }
-    </style>
       <script src="assets/navigation.js" defer></script>
   </head>
   <body>
@@ -74,6 +20,7 @@
           <a class="active" href="#top">Начало</a>
           <a href="https://github.com/VseMirka200/multifora/releases/latest">Скачать</a>
           <p class="nav-label">Руководство</p>
+          <a href="guide/index.html">Обзор руководства</a>
           <a href="guide/quick-start.html">Быстрый старт</a>
           <a href="guide/rename.html">Переименование</a>
           <a href="guide/conversion.html">Конвертация</a>
@@ -88,6 +35,7 @@
           <a href="https://github.com/VseMirka200/multifora/blob/main/docs/CODE_OF_CONDUCT.md">Кодекс поведения</a>
           <a href="https://github.com/VseMirka200/multifora/blob/main/docs/SECURITY.md">Безопасность</a>
           <a href="https://github.com/VseMirka200/multifora/blob/main/docs/SUPPORT.md">Поддержка</a>
+          <a href="https://github.com/VseMirka200/multifora/blob/main/docs/CHANGELOG.md">Журнал изменений</a>
           <a href="reference/support-project.html">Поддержать проект</a>
         </nav>
       </aside>
@@ -187,15 +135,5 @@
       <div id="results">
       </div>
     </dialog>
-    <script>
-      const pages=[['Быстрый старт','guide/quick-start.html'],['Установка и обновление','guide/install.html'],['Переименование','guide/rename.html'],['Конвертация','guide/conversion.html'],['Объединение и сжатие','guide/optimize.html'],['Настройки','reference/settings.html'],['Проблемы и решения','reference/troubleshooting.html'],['Связаться с нами','reference/contact.html'],['Участие в разработке','https://github.com/VseMirka200/multifora/blob/main/docs/CONTRIBUTING.md'],['Кодекс поведения','https://github.com/VseMirka200/multifora/blob/main/docs/CODE_OF_CONDUCT.md'],['Безопасность','https://github.com/VseMirka200/multifora/blob/main/docs/SECURITY.md'],['Поддержка','https://github.com/VseMirka200/multifora/blob/main/docs/SUPPORT.md'],['Выпуск версии','https://github.com/VseMirka200/multifora/blob/main/docs/CONTRIBUTING.md#выпуск-версии'],['Журнал изменений','https://github.com/VseMirka200/multifora/blob/main/docs/CHANGELOG.md']];
-      const dialog=document.querySelector('#search-dialog'), input=document.querySelector('#search-input'), results=document.querySelector('#results');
-      function render(query=''){ const items=pages.filter(([name])=>name.toLowerCase().includes(query.toLowerCase())); results.innerHTML=items.map(([name,url])=>`<a href="${url}">${name}</a>`).join('')||'<span>Ничего не найдено.</span>'; }
-      function openSearch(){ render(); dialog.showModal(); input.focus(); }
-      document.querySelectorAll('[data-open-search]').forEach(button=>button.addEventListener('click',openSearch));
-      document.querySelector('[data-close-search]').addEventListener('click',()=>dialog.close()); input.addEventListener('input',event=>render(event.target.value));
-      dialog.addEventListener('click',event=>{ if(event.target===dialog) dialog.close(); });
-      document.addEventListener('keydown',event=>{ if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){ event.preventDefault(); openSearch(); } if(event.key==='Escape') dialog.close(); });
-    </script>
   </body>
 </html>

@@ -3,3 +3,8 @@
 .site-footer{text-align:center;margin-top:48px;padding:24px 0 0;border-top:1px solid var(--line);color:var(--muted);font-size:14px}.site-footer a{color:var(--blue);text-decoration:none}.site-footer a:hover{text-decoration:underline}.site-footer a:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
 
 .site-github{display:flex;width:max-content;align-items:center;gap:4px;margin:0 0 16px auto;color:var(--muted);font-size:14px;font-weight:600}.site-github:hover{color:var(--blue)}.site-github:focus-visible{outline:2px solid var(--blue);outline-offset:4px}@media(max-width:780px){.site-github{margin:0 0 12px auto}}
+
+/* Keep the complete navigation reachable on narrow screens, including without JavaScript. */
+@media(max-width:780px){.layout>aside nav{display:block;max-height:16rem;overflow-y:auto;margin-top:12px}}
+/* Print the article without navigation or dark page backgrounds. */
+@media print{body{background:#fff;color:#000}.layout{display:block}.layout>aside,.site-github,dialog{display:none}main{width:100%;padding:0}article p,article li,.lead{color:#222}a{color:#000}}
