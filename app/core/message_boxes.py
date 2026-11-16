@@ -5,12 +5,15 @@ from collections.abc import Iterable
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontMetrics, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QBoxLayout,
     QCheckBox,
     QDialog,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QStyle,
     QVBoxLayout,
@@ -110,11 +113,30 @@ def show_app_choice(
     text_label = QLabel(str(text))
     text_label.setObjectName("appMessageText")
     text_label.setWordWrap(True)
+    text_label.setTextFormat(Qt.TextFormat.PlainText)
+    text_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
     text_label.setAlignment(
         Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
     )
     text_label.setMinimumHeight(36)
-    content_row.addWidget(text_label, 1, Qt.AlignmentFlag.AlignVCenter)
+    screen = dialog.screen()
+    available = screen.availableGeometry() if screen is not None else None
+    if (
+        len(str(text)) > 500
+        or str(text).count("\n") >= 8
+        or (available is not None and available.height() < 480 and len(str(text)) > 100)
+    ):
+        text_scroll = QScrollArea(dialog)
+        text_scroll.setObjectName("appMessageTextScroll")
+        text_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        text_scroll.setWidgetResizable(True)
+        text_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        text_scroll.setWidget(text_label)
+        text_scroll.setMinimumHeight(120)
+        text_scroll.setMaximumHeight(min(360, max(120, available.height() // 2)) if available else 360)
+        content_row.addWidget(text_scroll, 1)
+    else:
+        content_row.addWidget(text_label, 1, Qt.AlignmentFlag.AlignVCenter)
     layout.addLayout(content_row)
 
     if extra_widget is not None:
@@ -179,13 +201,18 @@ def show_app_choice(
     content_width = max(
         _DIALOG_MIN_WIDTH, min(_DIALOG_MAX_WIDTH, longest_line + 90)
     )
-    text_label.setMaximumWidth(max(240, content_width - 76))
     buttons_width = (
         sum(button.minimumWidth() for button in buttons)
         + max(0, len(buttons) - 1) * 8
         + 24
     )
+    if available is not None and buttons_width > available.width() - 32:
+        button_row.setDirection(QBoxLayout.Direction.TopToBottom)
+        buttons_width = max((button.minimumWidth() for button in buttons), default=0) + 24
     dialog_width = max(content_width, buttons_width)
+    if available is not None:
+        dialog_width = min(dialog_width, max(240, available.width() - 32))
+    text_label.setMaximumWidth(max(120, dialog_width - 76))
     dialog.setMinimumWidth(dialog_width)
     dialog.setMaximumWidth(dialog_width)
     dialog.resize(dialog_width, dialog.sizeHint().height())

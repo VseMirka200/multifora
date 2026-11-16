@@ -20,13 +20,14 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[('assets', 'assets')]
-    + collect_data_files('docxcompose')
-    + collect_data_files('pymupdf', excludes=['mupdf-devel/**']),
-    hiddenimports=['docxcompose.composer'],
+    + collect_data_files('docxcompose'),
+    # With the smaller Essentials distribution, the PySide6 metapackage is
+    # absent and PyInstaller cannot detect this compatibility module by version.
+    hiddenimports=['docxcompose.composer', 'PySide6.support.deprecated'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['PyQt6', 'PyQt5', 'PySide2', 'pdf2docx.gui', 'tkinter', '_tkinter'],
+    excludes=['PyQt6', 'PyQt5', 'PySide2', 'tkinter', '_tkinter'],
     noarchive=False,
     optimize=0,
 )

@@ -17,6 +17,14 @@ if not exist "dist\Multifora\Multifora.exe" (
     echo Run this script without --skip-app-build to build the application first.
     goto error
 )
+if not exist "dist\Multifora\bin\tectonic\cache\.multifora-cache-id" (
+    echo ERROR: Offline Tectonic resources are missing. Rebuild the application before creating the installer.
+    goto error
+)
+if not exist "dist\Multifora\bin\tectonic\cache\bundles\" (
+    echo ERROR: Offline Tectonic resource files are missing. Rebuild the application.
+    goto error
+)
 
 if exist "%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" set "ISCC_EXE=%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe"
 if not defined ISCC_EXE if exist "%ProgramFiles%\Inno Setup 6\ISCC.exe" set "ISCC_EXE=%ProgramFiles%\Inno Setup 6\ISCC.exe"

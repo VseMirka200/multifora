@@ -34,9 +34,9 @@ from app.ui.ui_components import (
     MenuLikeComboBox,
     resolve_widget_theme_mode,
     setup_clickable_checkbox_label,
-    setup_standard_secondary_button,
     setup_standard_dialog,
     setup_standard_dropdown,
+    setup_standard_secondary_button,
 )
 from app.ui.ui_spacing import (
     CHECKBOX_SIZE,

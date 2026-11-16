@@ -10,7 +10,6 @@ import sys
 import threading
 
 from app.core.app_utils import _debug_log
-from app.core.pdf_compat import import_pymupdf_with_legacy_alias
 
 try:
     import winreg
@@ -18,14 +17,6 @@ except ImportError:
     winreg = None
 
 
-fitz = None
-
-HAS_PANDOC = False
-PANDOC_PATH = None
-HAS_PYMUPDF = importlib.util.find_spec("pymupdf") is not None
-HAS_PDF_TO_DOCX = (
-    HAS_PYMUPDF and importlib.util.find_spec("pdf2docx") is not None
-)
 HAS_ODF_PYTHON = importlib.util.find_spec("odf") is not None
 HAS_PIL = importlib.util.find_spec("PIL") is not None
 HAS_HEIF = HAS_PIL and importlib.util.find_spec("pillow_heif") is not None
@@ -43,24 +34,6 @@ _GHOSTSCRIPT_REGISTRY_PATHS = (
 _GHOSTSCRIPT_EXECUTABLES = ("gswin64c.exe", "gs.exe")
 
 
-_pdf2docx_module = None
-_pdf2docx_import_lock = threading.Lock()
-
-
-def _load_pdf2docx():
-    """Загружает тяжёлый конвертер PDF только при обработке документа."""
-    global fitz, _pdf2docx_module
-    if _pdf2docx_module is not None:
-        return _pdf2docx_module
-    with _pdf2docx_import_lock:
-        if _pdf2docx_module is None:
-            fitz = import_pymupdf_with_legacy_alias()
-            import pdf2docx as module
-
-            _pdf2docx_module = module
-    return _pdf2docx_module
-
-
 class _LazyModule:
     def __init__(self, loader):
         self._loader = loader
@@ -68,8 +41,6 @@ class _LazyModule:
     def __getattr__(self, name):
         return getattr(self._loader(), name)
 
-
-pdf2docx = _LazyModule(_load_pdf2docx)
 
 _pillow_modules = None
 _pillow_import_lock = threading.Lock()
@@ -234,6 +205,8 @@ def _ghostscript_candidates(custom_path: str | None = None) -> list[str]:
 
         # Версия из сборки имеет приоритет перед системной установкой.
         # Явный путь пользователя или переменная окружения по-прежнему важнее.
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    candidates.append(os.path.join(project_root, "bin", "gswin64", "gswin64c.exe"))
     registry_path = _find_ghostscript_in_registry()
     if registry_path:
         candidates.append(registry_path)
@@ -288,52 +261,8 @@ def ensure_ghostscript_detected(
     custom_path: str | None = None,
 ) -> tuple[bool, str | None]:
     """Повторно определяет Ghostscript после возможного изменения пути или настроек."""
-    if custom_path or not HAS_GHOSTSCRIPT or not GHOSTSCRIPT_PATH:
+    if custom_path or not HAS_GHOSTSCRIPT or not GHOSTSCRIPT_PATH or not os.path.isfile(GHOSTSCRIPT_PATH):
         _detect_ghostscript(custom_path)
     return HAS_GHOSTSCRIPT, GHOSTSCRIPT_PATH
-
-
-def _pandoc_candidates(custom_path: str | None = None) -> list[str]:
-    candidates = []
-    if custom_path:
-        candidates.append(custom_path)
-    environment_path = os.environ.get("MULTIFORA_PANDOC_PATH")
-    if environment_path:
-        candidates.append(environment_path)
-
-    executable = sys.argv[0] if sys.argv else ""
-    if executable:
-        base_dir = os.path.dirname(os.path.abspath(executable))
-        candidates.append(os.path.join(base_dir, "bin", "pandoc", "pandoc.exe"))
-        candidates.append(os.path.join(base_dir, "bin", "pandoc.exe"))
-    candidates.extend(("pandoc.exe", "pandoc"))
-    return candidates
-
-
-def _detect_pandoc(custom_path: str | None = None) -> None:
-    """Определяет путь к CLI Pandoc без запуска внешнего процесса."""
-    global HAS_PANDOC, PANDOC_PATH
-    HAS_PANDOC = False
-    PANDOC_PATH = None
-    for candidate in _pandoc_candidates(custom_path):
-        try:
-            resolved_path = _resolve_executable_candidate(candidate)
-        except OSError as error:
-            _debug_log(f"Ошибка проверки пути Pandoc {candidate!r}: {error}")
-            continue
-        if resolved_path:
-            HAS_PANDOC = True
-            PANDOC_PATH = resolved_path
-            _debug_log(f"Pandoc найден: {resolved_path}")
-            return
-    _debug_log("Pandoc не найден")
-
-
-def ensure_pandoc_detected(
-    custom_path: str | None = None,
-) -> tuple[bool, str | None]:
-    if custom_path or not HAS_PANDOC or not PANDOC_PATH:
-        _detect_pandoc(custom_path)
-    return HAS_PANDOC, PANDOC_PATH
 
 

@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QSplitter,
     QVBoxLayout,
@@ -92,8 +93,6 @@ from app.ui.ui_spacing import (
     SPACE_NONE,
     SPACE_SM,
     SPACE_XL,
-    SPACE_XS,
-    SPACE_XXS,
 )
 from app.ui.ui_styles import (
     FILE_INFO_LABEL_STYLE,
@@ -487,6 +486,13 @@ class MultiforaMainWindow(
             label.fontMetrics().height(), label.heightForWidth(available_width)
         )
         label.setMinimumHeight(required_height)
+        scroll = getattr(self, "progress_status_scroll", None)
+        if scroll is not None:
+            screen = dialog.screen()
+            max_height = max(80, screen.availableGeometry().height() // 3) if screen else 240
+            display_height = min(required_height + 2, max_height)
+            scroll.setMinimumHeight(display_height)
+            scroll.setMaximumHeight(display_height)
         if dialog.layout() is not None:
             dialog.layout().activate()
         dialog.adjustSize()
@@ -497,9 +503,9 @@ class MultiforaMainWindow(
             self, "_effective_theme_mode", "dark"
         )
         dialog.setObjectName("progress_dialog")
-        setup_standard_dialog(
-            dialog, title="Выполнение операции", fixed_width=360
-        )
+        screen = self.screen()
+        width = min(360, max(240, screen.availableGeometry().width() - 32)) if screen else 360
+        setup_standard_dialog(dialog, title="Выполнение операции", fixed_width=width)
         dialog.setModal(False)
         dialog.setWindowModality(Qt.WindowModality.NonModal)
         dialog.setWindowFlag(Qt.WindowType.WindowCloseButtonHint, False)
@@ -510,7 +516,14 @@ class MultiforaMainWindow(
 
         self.progress_status_label = QLabel("Выполняется операция...")
         self.progress_status_label.setWordWrap(True)
-        layout.addWidget(self.progress_status_label)
+        self.progress_status_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.progress_status_scroll = QScrollArea(dialog)
+        self.progress_status_scroll.setObjectName("progressStatusScroll")
+        self.progress_status_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.progress_status_scroll.setWidgetResizable(True)
+        self.progress_status_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.progress_status_scroll.setWidget(self.progress_status_label)
+        layout.addWidget(self.progress_status_scroll)
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setTextVisible(True)
@@ -533,6 +546,10 @@ class MultiforaMainWindow(
         *,
         indeterminate: bool = False,
     ):
+        dialog = getattr(self, "progress_dialog", None)
+        screen = self.screen()
+        if dialog is not None and screen is not None:
+            dialog.setFixedWidth(min(360, max(240, screen.availableGeometry().width() - 32)))
         self._set_progress_status_text(status_text)
         if hasattr(self, "progress_bar") and self.progress_bar is not None:
             self.progress_bar.setVisible(True)

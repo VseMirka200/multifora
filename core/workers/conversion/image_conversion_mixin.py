@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import tempfile
+from pathlib import Path
 
 from app.core.app_utils import _debug_log
 from app.core.conversion_formats import (
@@ -12,9 +14,10 @@ from app.core.conversion_formats import (
     source_formats_for_category,
     suffix_for_format,
 )
-from app.core.deps import HAS_PIL, HAS_PYMUPDF, Image
+from app.core.deps import HAS_PIL, Image
 from app.core.models import FileItem
 from core.workers.atomic_output import atomic_output_path
+from core.workers.ghostscript_engine import GhostscriptUnavailableError
 
 
 class ImageConversionMixin:
@@ -82,38 +85,38 @@ class ImageConversionMixin:
     ) -> str | list[str] | None:
         if not file.path.lower().endswith(".pdf"):
             return None
-        if not HAS_PYMUPDF or not HAS_PIL:
-            raise Exception("Для конвертации PDF в изображения нужны PyMuPDF и Pillow")
+        if not HAS_PIL:
+            raise Exception("Для конвертации PDF в изображения нужна библиотека Pillow")
         target_format = str(target_format or "JPG").strip().upper()
         if target_format not in PDF_IMAGE_TARGETS:
             raise ValueError(f"Неподдерживаемый формат экспорта PDF: {target_format}")
 
-        import pymupdf as fitz
+        from core.workers.ghostscript_engine import run_ghostscript
 
         paths = []
         try:
-            with fitz.open(file.path) as document:
-                if document.needs_pass:
-                    raise ValueError("PDF защищён паролем")
-                if document.page_count < 1:
+            with tempfile.TemporaryDirectory(prefix="multifora_pdf_images_") as directory:
+                pattern = os.path.join(directory, "page-%06d.png")
+                run_ghostscript(
+                    ["-sDEVICE=png16m", "-r200", f"-sOutputFile={pattern}", os.path.abspath(file.path)],
+                    self._should_cancel,
+                )
+                pages = sorted(Path(directory).glob("page-*.png"))
+                if not pages:
                     raise ValueError("PDF не содержит страниц")
-                for index in range(document.page_count):
+                for index, page in enumerate(pages):
                     if self._should_cancel():
                         break
                     reference = file
-                    if document.page_count > 1:
+                    if len(pages) > 1:
                         stem = os.path.splitext(file.path)[0]
                         reference = FileItem(f"{stem}_page_{index + 1}.pdf")
                     output_path = self._conversion_output_path(
                         file, suffix_for_format(target_format), reference_file=reference
                     )
                     try:
-                        pix = document.load_page(index).get_pixmap(
-                            matrix=fitz.Matrix(200 / 72, 200 / 72),
-                            colorspace=fitz.csRGB, alpha=False,
-                        )
                         with (
-                            Image.frombytes("RGB", (pix.width, pix.height), pix.samples) as image,
+                            Image.open(str(page)) as image,
                             atomic_output_path(output_path) as temporary,
                         ):
                             self._save_pillow_image(image, temporary, target_format)
@@ -122,6 +125,10 @@ class ImageConversionMixin:
                         raise
                     paths.append(output_path)
             return paths[0] if len(paths) == 1 else paths
+        except (InterruptedError, GhostscriptUnavailableError):
+            for path in paths:
+                self._discard_conversion_output(path)
+            raise
         except Exception as error:
             for path in paths:
                 self._discard_conversion_output(path)

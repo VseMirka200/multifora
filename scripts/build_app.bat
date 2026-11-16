@@ -28,13 +28,12 @@ if errorlevel 1 goto :error
 %BUILD_PYTHON% "scripts\verify_build_environment.py" --requirements "requirements-runtime.txt" --requirements "requirements-build.txt"
 if errorlevel 1 goto :error
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "scripts\install_pandoc.ps1"
-if errorlevel 1 goto :error
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "scripts\install_tectonic.ps1"
-if errorlevel 1 goto :error
-
 if exist "build" rmdir /s /q "build"
 if exist "dist\%APP_BUILD_NAME%" rmdir /s /q "dist\%APP_BUILD_NAME%"
+
+rem Prepare the TeX resources once, and verify that they work without a network.
+%BUILD_PYTHON% "scripts\prepare_tectonic_cache.py" "bin\tectonic\tectonic.exe" "build\tectonic-cache"
+if errorlevel 1 goto :error
 
 %BUILD_PYTHON% -m PyInstaller --noconfirm --clean "Multifora.spec"
 if errorlevel 1 goto :error
@@ -45,6 +44,9 @@ if exist "bin" (
     robocopy "bin" "dist\%APP_BUILD_NAME%\bin" /E /NFL /NDL /NJH /NJS /NP >nul
     if errorlevel 8 goto :error
 )
+robocopy "build\tectonic-cache" "dist\%APP_BUILD_NAME%\bin\tectonic\cache" /E /NFL /NDL /NJH /NJS /NP >nul
+if errorlevel 8 goto :error
+if not exist "dist\%APP_BUILD_NAME%\bin\tectonic\cache\.multifora-cache-id" goto :error
 
 %BUILD_PYTHON% "scripts\verify_windows_bundle.py" --bundle "dist\%APP_BUILD_NAME%"
 if errorlevel 1 goto :error

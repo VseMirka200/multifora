@@ -142,31 +142,17 @@ class MergeMixin:
         if not all(file.path.lower().endswith(".pdf") for file in files):
             raise Exception("Объединение в PDF поддерживает только файлы PDF.")
 
-        try:
-            # Импортируем только в рабочем потоке. Полный реестр необязательных
-            # backend'ов не должен задерживать простое объединение PDF.
-            import pymupdf as fitz
-        except ImportError as error:
-            raise Exception(
-                "Установите PyMuPDF для объединения PDF-файлов."
-            ) from error
+        from core.workers.ghostscript_engine import run_ghostscript
 
         output_path = self._get_merge_output_path(files, "pdf")
-        merged_pdf = fitz.open()
-        try:
-            for index, file in enumerate(files):
-                if self._should_cancel():
-                    raise InterruptedError("Операция отменена пользователем")
-                self.status.emit(f"Объединение PDF: {file.name}")
-                with fitz.open(file.path) as source_pdf:
-                    merged_pdf.insert_pdf(source_pdf)
-                self.progress.emit(int((index + 1) / len(files) * 100))
-
-            with atomic_output_path(output_path) as temporary:
-                merged_pdf.save(temporary)
-            return output_path
-        finally:
-            merged_pdf.close()
+        self.status.emit("Объединение PDF с помощью Ghostscript")
+        with atomic_output_path(output_path) as temporary:
+            run_ghostscript(
+                ["-sDEVICE=pdfwrite", f"-sOutputFile={temporary}", *[os.path.abspath(file.path) for file in files]],
+                self._should_cancel,
+            )
+        self.progress.emit(100)
+        return output_path
 
 
 def _requires_docx_composer(document) -> bool:

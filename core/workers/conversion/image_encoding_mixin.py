@@ -4,7 +4,7 @@ import base64
 from io import BytesIO
 
 from app.core.app_utils import _debug_log
-from app.core.deps import HAS_HEIF, HAS_PIL, HAS_PYMUPDF, Image
+from app.core.deps import HAS_HEIF, HAS_PIL, Image
 
 _IMAGE_SAVE_FORMATS: dict[str, str] = {
     "JPG": "JPEG",
@@ -33,9 +33,7 @@ _IMAGE_SAVE_FORMATS: dict[str, str] = {
 }
 
 
-_IMAGE_RGB_TARGETS = frozenset(
-    {"JPG", "JPEG", "BMP", "PCX", "PPM", "JP2", "EPS", "SGI"}
-)
+_IMAGE_RGB_TARGETS = frozenset({"JPG", "JPEG", "BMP", "PCX", "PPM", "JP2", "EPS", "SGI"})
 
 _IMAGE_ALPHA_TARGETS = frozenset(
     {
@@ -90,9 +88,7 @@ class ImageEncodingMixin:
             return img.convert("1")
         if target_format == "GIF":
             if img.mode not in ("P", "L"):
-                return img.convert("RGBA").convert(
-                    "P", palette=Image.Palette.ADAPTIVE
-                )
+                return img.convert("RGBA").convert("P", palette=Image.Palette.ADAPTIVE)
             return img
         if target_format == "ICO":
             if img.mode not in ("RGBA", "RGB"):
@@ -114,20 +110,36 @@ class ImageEncodingMixin:
         return _IMAGE_SAVE_FORMATS.get(str(target_format or "").upper(), "")
 
     def _load_svg_as_pillow_image(self, file_path: str):
-        if not HAS_PYMUPDF or not HAS_PIL:
-            raise Exception("Для SVG нужны PyMuPDF и Pillow")
+        if not HAS_PIL:
+            raise Exception("Для SVG нужна библиотека Pillow")
         try:
-            import pymupdf as fitz
+            import io
 
-            with fitz.open(file_path) as document:
-                if document.page_count < 1:
-                    raise Exception("SVG не содержит страницы")
-                page = document.load_page(0)
-                pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0), alpha=True)
-                mode = "RGBA" if pix.alpha else "RGB"
-                return Image.frombytes(
-                    mode, (pix.width, pix.height), pix.samples
-                )
+            from PySide6.QtCore import QBuffer, QByteArray, QIODevice, Qt
+            from PySide6.QtGui import QImage, QPainter
+            from PySide6.QtSvg import QSvgRenderer
+
+            renderer = QSvgRenderer(file_path)
+            if not renderer.isValid():
+                raise ValueError("Некорректный SVG")
+            size = renderer.defaultSize()
+            if size.isEmpty():
+                raise ValueError("Не задан размер SVG")
+            image = QImage(size.width() * 2, size.height() * 2, QImage.Format.Format_ARGB32)
+            image.fill(Qt.GlobalColor.transparent)
+            painter = QPainter(image)
+            try:
+                renderer.render(painter)
+            finally:
+                painter.end()
+            data = QByteArray()
+            buffer = QBuffer(data)
+            if not buffer.open(QIODevice.OpenModeFlag.WriteOnly) or not image.save(buffer, "PNG"):
+                raise ValueError("Не удалось сформировать изображение SVG")
+            buffer.close()
+            result = Image.open(io.BytesIO(bytes(data)))
+            result.load()
+            return result
         except Exception as error:
             raise Exception(f"Ошибка чтения SVG: {error}") from error
 
@@ -182,19 +194,13 @@ class ImageEncodingMixin:
                 try:
                     frame.close()
                 except Exception as close_error:
-                    _debug_log(
-                        f"Не удалось закрыть кадр изображения: {close_error}"
-                    )
+                    _debug_log(f"Не удалось закрыть кадр изображения: {close_error}")
 
     @staticmethod
     def _ico_sizes(frame) -> list[tuple[int, int]]:
         width, height = frame.size
         max_side = max(width, height)
-        sizes = [
-            (size, size)
-            for size in (16, 24, 32, 48, 64, 128, 256)
-            if size <= max_side
-        ]
+        sizes = [(size, size) for size in (16, 24, 32, 48, 64, 128, 256) if size <= max_side]
         return sizes or [(width, height)]
 
     def _save_pillow_image(
@@ -211,9 +217,7 @@ class ImageEncodingMixin:
             return
         save_format = self._image_save_format(normalized_target)
         if not save_format:
-            raise Exception(
-                f"Неизвестный формат изображения: {normalized_target}"
-            )
+            raise Exception(f"Неизвестный формат изображения: {normalized_target}")
         if normalized_target in {"HEIC", "HEIF"} and not HAS_HEIF:
             raise Exception("Для HEIC/HEIF установите pillow-heif")
 
@@ -223,9 +227,7 @@ class ImageEncodingMixin:
             ImageSequence = None
 
         frame_count = int(getattr(source_image, "n_frames", 1) or 1)
-        preserve_animation = (
-            frame_count > 1 and normalized_target in _ANIMATED_IMAGE_TARGETS
-        )
+        preserve_animation = frame_count > 1 and normalized_target in _ANIMATED_IMAGE_TARGETS
         save_options = self._image_save_options(normalized_target)
 
         if preserve_animation and ImageSequence is not None:
@@ -248,9 +250,7 @@ class ImageEncodingMixin:
             try:
                 frame.close()
             except Exception as close_error:
-                _debug_log(
-                    f"Не удалось закрыть подготовленное изображение: {close_error}"
-                )
+                _debug_log(f"Не удалось закрыть подготовленное изображение: {close_error}")
 
     def _save_embedded_svg(self, source_image, output_path: str) -> None:
         """Встраивает статичный PNG в автономный SVG, сохраняя прозрачность."""

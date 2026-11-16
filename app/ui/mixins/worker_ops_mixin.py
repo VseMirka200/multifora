@@ -454,7 +454,7 @@ class WorkerOpsMixin:
             QMessageBox.warning(
                 self,
                 "Предупреждения о результате",
-                "Некоторые документы преобразованы только как текст.\n"
+                "Некоторые файлы обработаны с ограничениями.\n"
                 + "\n".join(lines)
                 + extra,
             )
@@ -488,7 +488,6 @@ class WorkerOpsMixin:
         non_retryable_markers = (
             "недопустимый символ",
             "ошибка плана",
-            "pandoc не найден",
         )
         retryable_errors = [
             entry

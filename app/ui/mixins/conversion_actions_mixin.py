@@ -22,7 +22,7 @@ _CATEGORY_PLACEHOLDER = "Выберите тип файла:"
 _TARGET_PLACEHOLDER = "Выберите целевой формат:"
 
 _OPTIMIZED_DOCUMENT_ROUTES: dict[tuple[str, str], str] = {
-    ("DOCX", "PDF"): "pandoc_to_pdf",
+    ("DOCX", "PDF"): "docx_to_pdf",
     ("PDF", "DOCX"): "pdf_to_docx",
     ("DOCX", "ODT"): "docx_to_odt",
     ("ODT", "DOCX"): "odt_to_docx",
