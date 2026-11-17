@@ -19,7 +19,7 @@ from app.ui.ui_main import MultiforaMainWindow
 
 
 def _run_build_smoke_test() -> int:
-    """Check the *frozen* bundle without performing file operations.
+    """Check the *frozen* bundle using temporary files and an isolated window.
 
     The report is written to MULTIFORA_SMOKE_REPORT, because a windowed
     PyInstaller executable does not have a console on Windows.
@@ -33,8 +33,6 @@ def _run_build_smoke_test() -> int:
     from tempfile import TemporaryDirectory
     from unittest.mock import patch
 
-    from app.core.pdf_compat import import_pymupdf_with_legacy_alias
-
     report_path = os.environ.get("MULTIFORA_SMOKE_REPORT")
     report = {"status": "failed", "imports": [], "window_visible": False}
     application = None
@@ -45,29 +43,21 @@ def _run_build_smoke_test() -> int:
             "PySide6.QtGui",
             "PySide6.QtWidgets",
             "PySide6.QtNetwork",
-            "pymupdf",
             "docx",
             "docxcompose.composer",
         ):
-            if module == "pymupdf":
-                import_pymupdf_with_legacy_alias()
-            else:
-                importlib.import_module(module)
+            importlib.import_module(module)
             report["imports"].append(module)
 
         # Exercise native PDF code and DOCX package data, not only imports.
         from io import BytesIO
 
-        import pymupdf
         from docx import Document
         from docxcompose.composer import Composer
 
         from app.core import deps
 
-        report["lazy_backends"] = all(
-            module not in sys.modules
-            for module in ("pdf2docx", "PIL.Image", "pillow_heif", "odf")
-        )
+        report["lazy_backends"] = all(module not in sys.modules for module in ("PIL.Image", "pillow_heif"))
         if not report["lazy_backends"]:
             raise RuntimeError("Optional backends were imported before use")
 
@@ -84,49 +74,44 @@ def _run_build_smoke_test() -> int:
         report["image_roundtrip"] = True
         report["imports"].extend(("PIL.Image", "pillow_heif"))
 
-        with TemporaryDirectory(prefix="multifora-odf-") as directory:
-            odf_path = Path(directory, "roundtrip.odt")
-            odf_document = deps.OpenDocumentText()
-            odf_document.text.addElement(deps.text.P(text="Multifora ODF check"))
-            odf_document.save(str(odf_path))
-            loaded_odf = deps.load(str(odf_path))
-            loaded_text = "\n".join(
-                deps.teletype.extractText(element)
-                for element in loaded_odf.getElementsByType(deps.text.P)
-            )
-            if "Multifora ODF check" not in loaded_text:
-                raise RuntimeError("ODF roundtrip failed")
-        report["odf_roundtrip"] = True
-        report["imports"].append("odf.opendocument")
+        from core.workers.ghostscript_engine import run_ghostscript
+        from core.workers.office_engine import _word_script, find_libreoffice, find_word
 
-        with pymupdf.open() as document:
-            document.new_page().insert_text((72, 72), "Multifora PDF check")
-            pdf_bytes = document.tobytes()
-        with pymupdf.open(stream=pdf_bytes, filetype="pdf") as document:
-            if "Multifora PDF check" not in document[0].get_text():
-                raise RuntimeError("PDF roundtrip failed")
-            document[0].get_pixmap()
-        report["pdf_roundtrip"] = True
+        if not _word_script().is_file():
+            raise RuntimeError("Word conversion helper is missing")
+        report["office_helper"] = True
+        report["office_backends"] = {"word": bool(find_word()), "libreoffice": bool(find_libreoffice())}
 
-        # Exercise the real pdf2docx backend inside the frozen process.  A
-        # successful import alone does not prove that its native dependencies
-        # and package hooks are complete.
-        with TemporaryDirectory(prefix="multifora-pdf2docx-") as directory:
+        with TemporaryDirectory(prefix="multifora-pdf-") as directory:
             source_pdf = Path(directory, "source.pdf")
             output_docx = Path(directory, "result.docx")
-            source_pdf.write_bytes(pdf_bytes)
-            converter = deps.pdf2docx.Converter(str(source_pdf))
-            try:
-                converter.convert(str(output_docx))
-            finally:
-                converter.close()
-            converted_text = "\n".join(
-                paragraph.text for paragraph in Document(output_docx).paragraphs
+            raster = Path(directory, "page.png")
+            run_ghostscript(
+                [
+                    "-sDEVICE=pdfwrite",
+                    f"-sOutputFile={source_pdf}",
+                    "-c",
+                    "/Helvetica findfont 12 scalefont setfont 72 720 moveto (Multifora PDF check) show showpage",
+                ],
+                lambda: False,
             )
+            run_ghostscript(
+                ["-sDEVICE=png16m", "-r72", f"-sOutputFile={raster}", str(source_pdf)],
+                lambda: False,
+            )
+            with deps.Image.open(raster) as image:
+                image.load()
+                if min(image.size) <= 0:
+                    raise RuntimeError("PDF rendering failed")
+            report["pdf_roundtrip"] = True
+            run_ghostscript(
+                ["-sDEVICE=docxwrite", f"-sOutputFile={output_docx}", str(source_pdf)],
+                lambda: False,
+            )
+            converted_text = "\n".join(paragraph.text for paragraph in Document(output_docx).paragraphs)
             if "Multifora PDF check" not in converted_text:
                 raise RuntimeError("PDF to DOCX conversion failed")
-        report["pdf_to_docx"] = True
-        report["imports"].append("pdf2docx")
+            report["pdf_to_docx"] = True
 
         first = Document()
         first.add_paragraph("First document")
@@ -137,9 +122,7 @@ def _run_build_smoke_test() -> int:
         merged = BytesIO()
         composer.save(merged)
         merged.seek(0)
-        if [p.text for p in Document(merged).paragraphs] != [
-            "First document", "Second document"
-        ]:
+        if [p.text for p in Document(merged).paragraphs] != ["First document", "Second document"]:
             raise RuntimeError("DOCX merge failed")
         report["docx_merge"] = True
 
@@ -162,12 +145,8 @@ def _run_build_smoke_test() -> int:
                 "ensure_context_menu_registration",
                 return_value=None,
             ),
-            patch.object(
-                MultiforaMainWindow, "create_ipc_server", return_value=None
-            ),
-            patch.object(
-                MultiforaMainWindow, "process_startup_queue", return_value=None
-            ),
+            patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
+            patch.object(MultiforaMainWindow, "process_startup_queue", return_value=None),
             patch.object(
                 MultiforaMainWindow,
                 "check_updates_on_startup",
@@ -176,9 +155,7 @@ def _run_build_smoke_test() -> int:
         ):
             window_started = time.perf_counter()
             window = MultiforaMainWindow()
-            report["window_create_seconds"] = round(
-                time.perf_counter() - window_started, 6
-            )
+            report["window_create_seconds"] = round(time.perf_counter() - window_started, 6)
         window.show()
         application.processEvents()
         report["window_visible"] = window.isVisible()
@@ -237,9 +214,7 @@ def main():
     if not first:
         sent = send_files_to_running_instance(startup_files)
         if startup_files and not sent:
-            _debug_log(
-                "Не удалось передать стартовые файлы уже запущенному экземпляру"
-            )
+            _debug_log("Не удалось передать стартовые файлы уже запущенному экземпляру")
             _enqueue_files(startup_files)
         sys.exit(0)
 

@@ -6,6 +6,8 @@ from pathlib import Path
 from xml.etree import ElementTree
 from zipfile import ZipFile
 
+import pytest
+
 from tests.pdf_engine_fixtures import create_pdf
 
 
@@ -24,3 +26,19 @@ class PdfDocumentEngineTests(unittest.TestCase):
             self.assertIn("FIRST PAGE", text)
             self.assertIn("SECOND PAGE", text)
             self.assertLess(text.index("FIRST PAGE"), text.index("SECOND PAGE"))
+
+
+@pytest.mark.parametrize("target", ["TXT"])
+def test_pdf_text_export_needs_no_office(tmp_path, target):
+    from app.core.models import FileItem
+    from tests.test_conversion_mixin import _DummyConversionWorker
+
+    source = tmp_path / "pages.pdf"
+    create_pdf(source, ["FIRST PAGE", "SECOND PAGE"])
+    worker = _DummyConversionWorker()
+    output = worker._convert_document_auto(FileItem(str(source)), target)
+    result = Path(output).read_text(encoding="utf-8")
+    assert "FIRST PAGE" in result
+    assert "SECOND PAGE" in result
+    assert result.index("FIRST PAGE") < result.index("SECOND PAGE")
+    assert not list(tmp_path.rglob("*.docx"))

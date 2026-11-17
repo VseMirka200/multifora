@@ -46,46 +46,37 @@ class _DummyConversionWorker(ConversionMixin):
 
 
 class ConversionMixinTests(unittest.TestCase):
-    def test_ebook_to_pdf_uses_layout_and_pdf_engine(self):
-        from core.workers.conversion.pdf_layout import PdfLayout
-
-        worker = _DummyConversionWorker()
-        for source_format, builder in (("EPUB", "epub_layout"), ("FB2", "fb2_layout")):
-            item = FileItem("book." + source_format.lower())
-            layout = PdfLayout(markup="<p>book</p>")
-            with (
-                patch("core.workers.conversion.pdf_layout." + builder, return_value=layout) as parse,
-                patch.object(worker, "_write_layout_pdf", return_value="book.pdf") as write,
-            ):
-                self.assertEqual(worker._convert_document_to_pdf(item, source_format), "book.pdf")
-            parse.assert_called_once_with(item.path)
-            write.assert_called_once_with(item, layout, output_reference=None)
-
-    def test_document_pdf_passes_layout_to_tectonic_and_reports_warnings(self):
-        from core.workers.conversion.pdf_layout import PdfLayout
+    def test_document_pdf_uses_installed_office(self):
+        from pathlib import Path
 
         worker = _DummyConversionWorker()
         worker._record_warning = Mock()
-        layout = PdfLayout(markup="<p>Привет</p>", warnings={"некоторые стили не поддерживаются"})
-        source = FileItem(r"C:\temp\source.docx")
-        with (
-            patch.object(worker, "_conversion_output_path", return_value="result.pdf"),
-            patch("core.workers.conversion.tectonic_pdf.render_pdf") as render,
-        ):
-            self.assertEqual(worker._write_layout_pdf(source, layout), "result.pdf")
-        render.assert_called_once()
-        self.assertEqual(render.call_args.args, (layout, "result.pdf", worker._should_cancel, None))
-        render.call_args.kwargs["status"]("Подготовка движка")
-        self.assertIn("Подготовка движка", worker.status.emitted[-1])
-        worker._record_warning.assert_called_once()
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source.docx"
+            source.write_bytes(b"docx")
+
+            def convert(_source, destination, target, *_args, **kwargs):
+                self.assertEqual(target, "PDF")
+                Path(destination).write_bytes(b"%PDF-1.4")
+                kwargs["status"]("Microsoft Word")
+                return "LibreOffice fallback"
+
+            with (
+                patch.object(conv_module, "run_office", side_effect=convert),
+            ):
+                result = worker._convert_document_auto(FileItem(str(source)), "PDF")
+            self.assertTrue(Path(result).exists())
+            self.assertFalse(worker._conversion_reserved_paths)
+            self.assertTrue(any("Microsoft Word" in message for message in worker.status.emitted))
+            worker._record_warning.assert_called_once()
 
     def test_common_engine_failure_does_not_retry_every_file(self):
         from types import SimpleNamespace
 
-        from core.workers.conversion.tectonic_pdf import TectonicUnavailableError
         from core.workers.ghostscript_engine import GhostscriptUnavailableError
+        from core.workers.office_engine import OfficeUnavailableError
 
-        for error_type in (TectonicUnavailableError, GhostscriptUnavailableError):
+        for error_type in (OfficeUnavailableError, GhostscriptUnavailableError):
             with self.subTest(engine=error_type.__name__):
                 worker = _DummyConversionWorker()
                 files = [SimpleNamespace(name=f"{i}.docx", path=f"{i}.docx", is_file=True) for i in range(3)]
@@ -171,35 +162,27 @@ class ConversionMixinTests(unittest.TestCase):
                 worker._convert_pdf_to_docx(FileItem("source.pdf"))
         release.assert_called_once_with("result.docx")
 
-    def test_document_pdf_releases_output_name_on_tectonic_failure(self):
-        from core.workers.conversion.pdf_layout import PdfLayout
-
-        worker = _DummyConversionWorker()
-        with (
-            patch.object(worker, "_conversion_output_path", return_value="result.pdf"),
-            patch.object(worker, "_release_conversion_output_path") as release,
-            patch("core.workers.conversion.tectonic_pdf.render_pdf", side_effect=RuntimeError("ошибка")),
-        ):
-            with self.assertRaises(RuntimeError):
-                worker._write_layout_pdf(FileItem("source.docx"), PdfLayout())
-        release.assert_called_once_with("result.pdf")
-
-    def test_docx_to_odt_uses_builtin_converter(self):
-        import subprocess
-
-        import docx
-        from odf import teletype, text
-        from odf.opendocument import load
+    def test_document_pdf_releases_output_name_on_office_failure(self):
+        from pathlib import Path
 
         worker = _DummyConversionWorker()
         with tempfile.TemporaryDirectory() as directory:
-            source = os.path.join(directory, "source.docx")
-            document = docx.Document()
-            document.add_paragraph("Example document")
-            document.save(source)
-            with patch.object(subprocess, "Popen", side_effect=AssertionError("external process")):
-                output = worker._convert_docx_to_odt(FileItem(source))
-            self.assertIn("Example document", teletype.extractText(load(output).getElementsByType(text.P)[0]))
+            source = Path(directory) / "source.docx"
+            source.write_text("text")
+            with (
+                patch.object(conv_module, "run_office", side_effect=RuntimeError("ошибка")),
+            ):
+                with self.assertRaises(RuntimeError):
+                    worker._convert_document_auto(FileItem(str(source)), "PDF")
+            self.assertFalse(worker._conversion_reserved_paths)
+            self.assertFalse(list(Path(directory).rglob("*.pdf")))
+
+    def test_docx_to_odt_uses_document_router(self):
+        worker = _DummyConversionWorker()
+        source = FileItem("source.docx")
+        with patch.object(worker, "_convert_document_auto", return_value="result.odt") as convert:
+            self.assertEqual(worker._convert_docx_to_odt(source), "result.odt")
+        convert.assert_called_once_with(source, "ODT", output_reference=None)
 
     def test_convert_files_accepts_pdf_to_images_alias(self):
         worker = _DummyConversionWorker()
@@ -496,56 +479,6 @@ class ConversionMixinTests(unittest.TestCase):
             with open(source_path, "w", encoding="utf-8") as stream:
                 stream.write("ok")
             self.assertIsNone(worker._convert_document_auto(FileItem(source_path), "TXT"))
-
-    def test_text_output_preserves_file_created_during_conversion(self):
-        worker = _DummyConversionWorker()
-        with tempfile.TemporaryDirectory() as directory:
-            source = os.path.join(directory, "source.txt")
-            with open(source, "w", encoding="utf-8") as stream:
-                stream.write("исходный текст")
-            worker.conversion_output_mode = "alongside"
-            destination = os.path.join(directory, "source.html")
-
-            def write_while_destination_appears(temporary, content):
-                with open(destination, "w", encoding="utf-8") as stream:
-                    stream.write("чужой файл")
-                with open(temporary, "w", encoding="utf-8") as stream:
-                    stream.write(content)
-
-            with patch.object(worker, "_write_html_file", write_while_destination_appears):
-                with self.assertRaises(FileExistsError):
-                    worker._write_text_output(FileItem(source), "HTML", "результат")
-
-            with open(destination, encoding="utf-8") as stream:
-                self.assertEqual(stream.read(), "чужой файл")
-            self.assertFalse(any(name.startswith(".__multifora_") for name in os.listdir(directory)))
-            self.assertNotIn(os.path.normcase(destination), worker._conversion_reserved_paths)
-
-    def test_text_to_pdf_reserves_output_name_only_once(self):
-        worker = _DummyConversionWorker()
-        with (
-            tempfile.TemporaryDirectory() as source_dir,
-            tempfile.TemporaryDirectory() as output_dir,
-        ):
-            worker.conversion_output_mode = "custom"
-            worker.conversion_output_dir = output_dir
-            source_path = os.path.join(source_dir, "note.txt")
-            with open(source_path, "w", encoding="utf-8") as stream:
-                stream.write("Тест")
-
-            def render(_layout, destination, *_args, **_kwargs):
-                with open(destination, "wb") as output:
-                    output.write(b"%PDF-1.4")
-
-            with patch("core.workers.conversion.tectonic_pdf.render_pdf", side_effect=render):
-                output_path = worker._write_text_output(
-                    FileItem(source_path),
-                    "PDF",
-                    "Тест",
-                )
-
-            self.assertEqual(output_path, os.path.join(output_dir, "note.pdf"))
-            self.assertNotIn("note_1.pdf", output_path)
 
 
 if __name__ == "__main__":

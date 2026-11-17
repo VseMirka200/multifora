@@ -17,7 +17,6 @@ except ImportError:
     winreg = None
 
 
-HAS_ODF_PYTHON = importlib.util.find_spec("odf") is not None
 HAS_PIL = importlib.util.find_spec("PIL") is not None
 HAS_HEIF = HAS_PIL and importlib.util.find_spec("pillow_heif") is not None
 HAS_GHOSTSCRIPT = False
@@ -65,9 +64,7 @@ def _load_pillow():
                     import pillow_heif
 
                     pillow_heif.register_heif_opener()
-                    register_avif = getattr(
-                        pillow_heif, "register_avif_opener", None
-                    )
+                    register_avif = getattr(pillow_heif, "register_avif_opener", None)
                     if callable(register_avif):
                         register_avif()
                 except (ImportError, OSError) as error:
@@ -79,45 +76,6 @@ def _load_pillow():
 
 Image = _LazyModule(lambda: _load_pillow()[0])
 ImageOps = _LazyModule(lambda: _load_pillow()[1])
-
-_odf_modules = None
-_odf_import_lock = threading.Lock()
-
-
-def _load_odf():
-    """Загружает odfpy только при конвертации ODT."""
-    global HAS_ODF_PYTHON, _odf_modules
-    if _odf_modules is not None:
-        return _odf_modules
-    with _odf_import_lock:
-        if _odf_modules is None:
-            try:
-                from odf import teletype as teletype_module
-                from odf import text as text_module
-                from odf.opendocument import OpenDocumentText as document_type
-                from odf.opendocument import load as load_document
-            except ImportError:
-                HAS_ODF_PYTHON = False
-                raise
-            _odf_modules = (
-                teletype_module,
-                text_module,
-                document_type,
-                load_document,
-            )
-    return _odf_modules
-
-
-teletype = _LazyModule(lambda: _load_odf()[0])
-text = _LazyModule(lambda: _load_odf()[1])
-
-
-def OpenDocumentText(*args, **kwargs):
-    return _load_odf()[2](*args, **kwargs)
-
-
-def load(*args, **kwargs):
-    return _load_odf()[3](*args, **kwargs)
 
 
 def _registry_value(key, name: str) -> str | None:
@@ -136,11 +94,7 @@ def _ghostscript_executable_from_registry_key(key) -> str | None:
 
     library_path = _registry_value(key, "GS_LIB")
     if library_path and os.path.exists(library_path):
-        executable = os.path.normpath(
-            os.path.join(
-                os.path.dirname(library_path), "..", "bin", "gswin64c.exe"
-            )
-        )
+        executable = os.path.normpath(os.path.join(os.path.dirname(library_path), "..", "bin", "gswin64c.exe"))
         if os.path.exists(executable):
             return executable
     return None
@@ -168,11 +122,7 @@ def _find_ghostscript_in_registry() -> str | None:
                     for version in sorted(versions, reverse=True):
                         try:
                             with winreg.OpenKey(key, version) as version_key:
-                                executable = (
-                                    _ghostscript_executable_from_registry_key(
-                                        version_key
-                                    )
-                                )
+                                executable = _ghostscript_executable_from_registry_key(version_key)
                                 if executable:
                                     return executable
                         except OSError:
@@ -187,21 +137,15 @@ def _ghostscript_candidates(custom_path: str | None = None) -> list[str]:
     if custom_path:
         candidates.append(custom_path)
 
-    environment_path = os.environ.get(
-        "MULTIFORA_GHOSTSCRIPT_PATH"
-    ) or os.environ.get("GHOSTSCRIPT_PATH")
+    environment_path = os.environ.get("MULTIFORA_GHOSTSCRIPT_PATH") or os.environ.get("GHOSTSCRIPT_PATH")
     if environment_path:
         candidates.append(environment_path)
 
     executable = sys.argv[0] if sys.argv else ""
-    base_dir = (
-        os.path.dirname(os.path.abspath(executable)) if executable else None
-    )
+    base_dir = os.path.dirname(os.path.abspath(executable)) if executable else None
 
     if base_dir:
-        candidates.append(
-            os.path.join(base_dir, "bin", "gswin64", "gswin64c.exe")
-        )
+        candidates.append(os.path.join(base_dir, "bin", "gswin64", "gswin64c.exe"))
 
         # Версия из сборки имеет приоритет перед системной установкой.
         # Явный путь пользователя или переменная окружения по-прежнему важнее.
@@ -242,9 +186,7 @@ def _detect_ghostscript(custom_path: str | None = None) -> None:
         try:
             resolved_path = _resolve_executable_candidate(candidate)
         except OSError as error:
-            _debug_log(
-                f"Ошибка проверки пути Ghostscript {candidate!r}: {error}"
-            )
+            _debug_log(f"Ошибка проверки пути Ghostscript {candidate!r}: {error}")
             continue
         if not resolved_path:
             continue
@@ -264,5 +206,3 @@ def ensure_ghostscript_detected(
     if custom_path or not HAS_GHOSTSCRIPT or not GHOSTSCRIPT_PATH or not os.path.isfile(GHOSTSCRIPT_PATH):
         _detect_ghostscript(custom_path)
     return HAS_GHOSTSCRIPT, GHOSTSCRIPT_PATH
-
-

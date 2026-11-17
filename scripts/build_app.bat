@@ -31,9 +31,6 @@ if errorlevel 1 goto :error
 if exist "build" rmdir /s /q "build"
 if exist "dist\%APP_BUILD_NAME%" rmdir /s /q "dist\%APP_BUILD_NAME%"
 
-if not exist "bin\pandoc\pandoc.exe" powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\install_pandoc.ps1"
-if errorlevel 1 goto :error
-
 %BUILD_PYTHON% -m PyInstaller --noconfirm --clean "Multifora.spec"
 if errorlevel 1 goto :error
 
@@ -43,7 +40,6 @@ if exist "bin" (
     robocopy "bin" "dist\%APP_BUILD_NAME%\bin" /E /NFL /NDL /NJH /NJS /NP >nul
     if errorlevel 8 goto :error
 )
-
 %BUILD_PYTHON% "scripts\verify_windows_bundle.py" --bundle "dist\%APP_BUILD_NAME%"
 if errorlevel 1 goto :error
 %BUILD_PYTHON% "scripts\measure_bundle.py" --bundle "dist\%APP_BUILD_NAME%" --output "dist\bundle-metrics.json" --max-mib 675 --max-files 1500

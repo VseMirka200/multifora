@@ -19,9 +19,7 @@ def test_bundle_validator_accepts_complete_layout(tmp_path: Path):
         "Multifora.exe",
         "bin/gswin64/gswin64c.exe",
         "bin/gswin64/gsdll64.dll",
-        "bin/tectonic/tectonic.exe",
-        "bin/tectonic/cache/.multifora-cache-id",
-        "bin/tectonic/cache/bundles/data/resource",
+        "_internal/core/workers/office_word.ps1",
         "_internal/assets/icon.ico",
         "_internal/docxcompose/templates/custom.xml",
         "_internal/PySide6/plugins/platforms/qwindows.dll",
@@ -75,7 +73,7 @@ def test_bundle_metrics_are_deterministic_and_group_large_components(
         "Multifora.exe": b"exe",
         "_internal/cv2/cv2.pyd": b"opencv",
         "_internal/cv2/data.xml": b"data",
-        "bin/pandoc/pandoc.exe": b"pandoc",
+        "bin/gswin64/gswin64c.exe": b"ghostscript",
     }
     for relative, contents in files.items():
         target = bundle / relative
@@ -90,8 +88,8 @@ def test_bundle_metrics_are_deterministic_and_group_large_components(
         "bytes": len(b"opencvdata"),
         "files": 2,
     }
-    assert metrics["groups"]["bin/pandoc"] == {
-        "bytes": len(b"pandoc"),
+    assert metrics["groups"]["bin/gswin64"] == {
+        "bytes": len(b"ghostscript"),
         "files": 1,
     }
 

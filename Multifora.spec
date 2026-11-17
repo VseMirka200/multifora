@@ -19,7 +19,7 @@ a = Analysis(
     ['multifora_start.py'],
     pathex=[],
     binaries=[],
-    datas=[('assets', 'assets')]
+    datas=[('assets', 'assets'), ('core/workers/office_word.ps1', 'core/workers')]
     + collect_data_files('docxcompose'),
     # With the smaller Essentials distribution, the PySide6 metapackage is
     # absent and PyInstaller cannot detect this compatibility module by version.

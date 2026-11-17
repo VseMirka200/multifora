@@ -15,7 +15,7 @@ from app.core.file_types import build_file_dialog_filter as build_file_dialog_fi
 
 DOCUMENT_CATEGORY = "Документы"
 IMAGE_CATEGORY = "Изображения"
-CONVERSION_CATEGORIES = (DOCUMENT_CATEGORY,)
+CONVERSION_CATEGORIES = (DOCUMENT_CATEGORY, IMAGE_CATEGORY)
 
 CATEGORY_FILE_TYPES: dict[str, str] = {
     DOCUMENT_CATEGORY: "document",
@@ -31,12 +31,11 @@ MIXED_SOURCE_LABELS: dict[str, str] = {
 CATEGORY_SOURCE_FORMATS: dict[str, tuple[str, ...]] = {
     DOCUMENT_CATEGORY: (
         "DOCX",
+        "PDF",
         "ODT",
         "RTF",
+        "TXT",
         "HTML",
-        "MD",
-        "EPUB",
-        "FB2",
     ),
     IMAGE_CATEGORY: (
         "JPG",
@@ -71,12 +70,11 @@ CATEGORY_SOURCE_FORMATS: dict[str, tuple[str, ...]] = {
 CATEGORY_TARGET_FORMATS: dict[str, tuple[str, ...]] = {
     DOCUMENT_CATEGORY: (
         "DOCX",
+        "PDF",
         "ODT",
         "RTF",
         "TXT",
         "HTML",
-        "MD",
-        "EPUB",
     ),
     IMAGE_CATEGORY: (
         "JPG",
@@ -115,11 +113,6 @@ FORMAT_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "RTF": (".rtf",),
     "TXT": (".txt",),
     "HTML": (".html", ".htm"),
-    "MD": (".md", ".markdown"),
-    "EPUB": (".epub",),
-    "FB2": (".fb2",),
-    "XPS": (".xps", ".oxps"),
-    "MOBI": (".mobi",),
     "JPG": (".jpg", ".jpe"),
     "JPEG": (".jpeg", ".jfif"),
     "PNG": (".png",),
@@ -148,6 +141,7 @@ FORMAT_EXTENSIONS: dict[str, tuple[str, ...]] = {
 }
 
 PDF_IMAGE_TARGETS = ("JPG", "JPEG", "PNG", "WEBP", "TIFF", "BMP")
+CATEGORY_TARGET_FORMATS[DOCUMENT_CATEGORY] += PDF_IMAGE_TARGETS
 
 
 _CANONICAL_SUFFIXES: dict[str, str] = {
@@ -155,10 +149,8 @@ _CANONICAL_SUFFIXES: dict[str, str] = {
     "JPEG": ".jpeg",
     "TIFF": ".tiff",
     "HTML": ".html",
-    "MD": ".md",
     "HEIC": ".heic",
     "HEIF": ".heif",
-    "XPS": ".xps",
     "JP2": ".jp2",
 }
 

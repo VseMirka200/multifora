@@ -6,7 +6,7 @@ import unittest
 
 class WorkerPackageImportTests(unittest.TestCase):
     def test_file_worker_defers_heavy_backends(self):
-        script = textwrap.dedent('''
+        script = textwrap.dedent("""
             import sys
 
             from core.workers.file_worker import FileWorker
@@ -18,7 +18,7 @@ class WorkerPackageImportTests(unittest.TestCase):
             assert "pillow_heif" not in sys.modules
             assert "odf" not in sys.modules
             print("OK")
-        ''')
+        """)
         output = subprocess.check_output(
             [sys.executable, "-c", script],
             text=True,
@@ -27,15 +27,14 @@ class WorkerPackageImportTests(unittest.TestCase):
         ).strip()
         self.assertEqual(output, "OK")
 
-    def test_optional_image_and_odf_backends_load_on_first_use(self):
-        script = textwrap.dedent('''
+    def test_optional_image_backends_load_on_first_use(self):
+        script = textwrap.dedent("""
             import sys
 
             import app.core.deps as deps
 
             assert deps.HAS_PIL
             assert deps.HAS_HEIF
-            assert deps.HAS_ODF_PYTHON
             assert "PIL.Image" not in sys.modules
             assert "pillow_heif" not in sys.modules
             assert "odf" not in sys.modules
@@ -46,11 +45,8 @@ class WorkerPackageImportTests(unittest.TestCase):
             assert "pillow_heif" in sys.modules
             assert "odf" not in sys.modules
 
-            document = deps.OpenDocumentText()
-            document.text.addElement(deps.text.P(text="lazy ODF"))
-            assert "odf" in sys.modules
             print("OK")
-        ''')
+        """)
         output = subprocess.check_output(
             [sys.executable, "-c", script],
             text=True,
@@ -60,7 +56,7 @@ class WorkerPackageImportTests(unittest.TestCase):
         self.assertEqual(output, "OK")
 
     def test_rename_starts_and_completes_without_conversion_dependencies(self):
-        script = textwrap.dedent('''
+        script = textwrap.dedent("""
             import sys
             import tempfile
             from pathlib import Path
@@ -110,26 +106,21 @@ class WorkerPackageImportTests(unittest.TestCase):
                     assert Path(directory, name).read_text() == str(index)
                     assert not Path(sources[index].path).exists()
             print("OK")
-        ''')
+        """)
         output = subprocess.check_output(
             [sys.executable, "-c", script], text=True, encoding="utf-8", timeout=30
         ).strip()
         self.assertEqual(output, "OK")
 
     def test_core_workers_package_import_is_qt_lazy(self):
-        script = (
-            "import sys; import core.workers; "
-            "print('core.workers.file_worker' in sys.modules)"
-        )
+        script = "import sys; import core.workers; print('core.workers.file_worker' in sys.modules)"
 
-        output = subprocess.check_output(
-            [sys.executable, "-c", script], text=True, encoding="utf-8"
-        ).strip()
+        output = subprocess.check_output([sys.executable, "-c", script], text=True, encoding="utf-8").strip()
 
         self.assertEqual(output, "False")
 
     def test_conversion_worker_does_not_import_compression_backend(self):
-        script = textwrap.dedent('''
+        script = textwrap.dedent("""
             import sys
             from core.workers.factory import create_operation_worker
             from core.workers.conversion_worker import ConversionWorker
@@ -139,7 +130,7 @@ class WorkerPackageImportTests(unittest.TestCase):
             assert "core.workers.compression_worker" not in sys.modules
             assert "core.workers.compression" not in sys.modules
             print("OK")
-        ''')
+        """)
         output = subprocess.check_output(
             [sys.executable, "-c", script],
             text=True,
@@ -149,7 +140,7 @@ class WorkerPackageImportTests(unittest.TestCase):
         self.assertEqual(output, "OK")
 
     def test_compression_worker_does_not_import_conversion_backend(self):
-        script = textwrap.dedent('''
+        script = textwrap.dedent("""
             import sys
             from core.workers.factory import create_operation_worker
             from core.workers.compression_worker import CompressionWorker
@@ -159,7 +150,7 @@ class WorkerPackageImportTests(unittest.TestCase):
             assert "core.workers.conversion_worker" not in sys.modules
             assert "core.workers.conversion" not in sys.modules
             print("OK")
-        ''')
+        """)
         output = subprocess.check_output(
             [sys.executable, "-c", script],
             text=True,
@@ -173,12 +164,8 @@ class WorkerPackageImportTests(unittest.TestCase):
         from core.workers.factory import create_operation_worker
         from core.workers.image_worker import ImageWorker
 
-        self.assertIsInstance(
-            create_operation_worker("convert_image"), ImageWorker
-        )
-        self.assertIsInstance(
-            create_operation_worker("convert_document"), DocumentWorker
-        )
+        self.assertIsInstance(create_operation_worker("convert_image"), ImageWorker)
+        self.assertIsInstance(create_operation_worker("convert_document"), DocumentWorker)
 
 
 if __name__ == "__main__":

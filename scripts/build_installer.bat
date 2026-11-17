@@ -17,8 +17,11 @@ if not exist "dist\Multifora\Multifora.exe" (
     echo Run this script without --skip-app-build to build the application first.
     goto error
 )
-if not exist "dist\Multifora\bin\pandoc\pandoc.exe" (
-    echo ERROR: Pandoc is missing. Rebuild the application before creating the installer.
+
+
+
+if not exist "dist\Multifora\_internal\core\workers\office_word.ps1" (
+    echo ERROR: Word conversion helper is missing. Rebuild the application.
     goto error
 )
 

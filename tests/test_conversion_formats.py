@@ -27,7 +27,7 @@ class ConversionFormatsTests(unittest.TestCase):
         self.assertEqual(format_for_path("report.doc"), "DOC")
         self.assertEqual(format_for_path("report.docx"), "DOCX")
         self.assertEqual(format_for_path("photo.jpeg"), "JPEG")
-        self.assertEqual(format_for_path("book.epub"), "EPUB")
+        self.assertIsNone(format_for_path("book.epub"))
         self.assertEqual(format_for_path("design.psd"), "PSD")
         self.assertEqual(format_for_path("vector.svg"), "SVG")
 
@@ -44,27 +44,22 @@ class ConversionFormatsTests(unittest.TestCase):
 
     def test_mixed_mode_offers_one_common_target(self):
         mixed_images = mixed_source_label_for_category(IMAGE_CATEGORY)
-        image_targets = compatible_targets_for_source(
-            IMAGE_CATEGORY, mixed_images
-        )
+        image_targets = compatible_targets_for_source(IMAGE_CATEGORY, mixed_images)
         self.assertIn("WEBP", image_targets)
         self.assertIn("PNG", image_targets)
         self.assertIn("PDF", image_targets)
 
         mixed_docs = mixed_source_label_for_category(DOCUMENT_CATEGORY)
-        doc_targets = compatible_targets_for_source(
-            DOCUMENT_CATEGORY, mixed_docs
-        )
+        doc_targets = compatible_targets_for_source(DOCUMENT_CATEGORY, mixed_docs)
         self.assertIn("PDF", doc_targets)
         self.assertIn("DOCX", doc_targets)
 
     def test_source_only_formats_are_not_offered_as_targets(self):
         self.assertIn("PSD", source_formats_for_category(IMAGE_CATEGORY))
         self.assertNotIn("PSD", target_formats_for_category(IMAGE_CATEGORY))
-        self.assertIn("EPUB", source_formats_for_category(DOCUMENT_CATEGORY))
-        self.assertNotIn(
-            "EPUB", target_formats_for_category(DOCUMENT_CATEGORY)
-        )
+        for unsupported in ("MD", "EPUB", "FB2", "XPS", "MOBI"):
+            self.assertNotIn(unsupported, source_formats_for_category(DOCUMENT_CATEGORY))
+            self.assertNotIn(unsupported, target_formats_for_category(DOCUMENT_CATEGORY))
 
     def test_file_dialog_lists_only_supported_extensions(self):
         dialog_filter = build_file_dialog_filter()

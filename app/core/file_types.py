@@ -8,13 +8,6 @@ DOCUMENT_EXTENSIONS = (
     ".txt",
     ".html",
     ".htm",
-    ".md",
-    ".markdown",
-    ".epub",
-    ".fb2",
-    ".xps",
-    ".oxps",
-    ".mobi",
 )
 
 IMAGE_EXTENSIONS = (

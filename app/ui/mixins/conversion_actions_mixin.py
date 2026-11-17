@@ -21,7 +21,12 @@ from app.ui.ui_components import operation_file_items
 _CATEGORY_PLACEHOLDER = "Выберите тип файла:"
 _TARGET_PLACEHOLDER = "Выберите целевой формат:"
 
-_OPTIMIZED_DOCUMENT_ROUTES: dict[tuple[str, str], str] = {}
+_OPTIMIZED_DOCUMENT_ROUTES: dict[tuple[str, str], str] = {
+    ("DOCX", "PDF"): "docx_to_pdf",
+    ("PDF", "DOCX"): "pdf_to_docx",
+    ("ODT", "PDF"): "odt_to_pdf",
+    ("PDF", "ODT"): "pdf_to_odt",
+}
 
 
 class ConversionActionsMixin:
