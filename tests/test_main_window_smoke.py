@@ -628,6 +628,16 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window.progress_status_label.minimumHeight(),
                     required_height,
                 )
+                window._show_progress_dialog("Длинная строка о конвертации " * 100)
+                self.app.processEvents()
+                self.assertGreater(
+                    window.progress_status_label.minimumHeight(),
+                    window.progress_status_scroll.maximumHeight(),
+                )
+                self.assertLessEqual(
+                    window.progress_status_scroll.maximumHeight(),
+                    max(80, window.progress_dialog.screen().availableGeometry().height() // 3),
+                )
             finally:
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()

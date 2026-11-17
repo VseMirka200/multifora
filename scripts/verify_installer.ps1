@@ -24,7 +24,7 @@ try {
     $arguments = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/NOICONS', "/DIR=`"$installDirectory`"")
     $setup = Start-Process -FilePath $installers[0].FullName -ArgumentList $arguments -WindowStyle Hidden -Wait -PassThru
     if ($setup.ExitCode -ne 0) { throw "Installer failed: $($setup.ExitCode)" }
-    foreach ($relative in @('Multifora.exe', 'bin\gswin64\gswin64c.exe', 'bin\tectonic\tectonic.exe', 'bin\tectonic\cache\.multifora-cache-id')) {
+    foreach ($relative in @('Multifora.exe', 'bin\gswin64\gswin64c.exe', 'bin\pandoc\pandoc.exe', 'bin\pandoc\COPYING.rtf', 'bin\pandoc\COPYRIGHT.txt')) {
         if (-not (Test-Path -LiteralPath (Join-Path $installDirectory $relative))) {
             throw "Installer did not copy $relative"
         }

@@ -15,13 +15,13 @@ def test_bundle_validator_reports_missing_files(tmp_path: Path):
 
 
 def test_bundle_validator_accepts_complete_layout(tmp_path: Path):
-    # Current PyMuPDF releases do not ship the old version-specific layout YAML.
     contents = (
         "Multifora.exe",
         "bin/gswin64/gswin64c.exe",
         "bin/gswin64/gsdll64.dll",
-        "bin/pandoc/pandoc.exe",
         "bin/tectonic/tectonic.exe",
+        "bin/tectonic/cache/.multifora-cache-id",
+        "bin/tectonic/cache/bundles/data/resource",
         "_internal/assets/icon.ico",
         "_internal/docxcompose/templates/custom.xml",
         "_internal/PySide6/plugins/platforms/qwindows.dll",
@@ -61,8 +61,8 @@ def test_release_build_uses_spec_with_docxcompose_resources():
     assert "dist/runtime-metrics.json" in workflow
     assert "verify_windows_runtime.ps1" in workflow
     assert "collect_data_files('docxcompose')" in spec
-    assert "excludes=['mupdf-devel/**']" in spec
-    assert "'pdf2docx.gui', 'tkinter', '_tkinter'" in spec
+    assert "PySide6.support.deprecated" in spec
+    assert "'tkinter', '_tkinter'" in spec
     assert "excluded_qt_runtime_binaries" in spec
     assert '-r "requirements-runtime.txt" -r "requirements-build.txt"' in build
 

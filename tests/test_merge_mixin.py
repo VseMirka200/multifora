@@ -110,7 +110,7 @@ class MergeMixinTests(unittest.TestCase):
             self.assertLess(text.index("First"), text.index("Second"))
 
     def test_merge_pdf_preserves_queue_order(self):
-        import pymupdf
+        from tests.pdf_engine_fixtures import create_pdf, read_pdf_text
 
         worker = _DummyMergeWorker()
         worker.merge_output_format = "pdf"
@@ -118,16 +118,13 @@ class MergeMixinTests(unittest.TestCase):
             files = []
             for index in (2, 1):
                 path = os.path.join(tmpdir, f"{index}.pdf")
-                with pymupdf.open() as document:
-                    document.new_page().insert_text((72, 72), f"Document {index}")
-                    document.save(path)
+                create_pdf(path, [f"Document {index}"])
                 files.append(FileItem(path))
             worker.files = files
             output = worker._merge_files_to_target()
-            with pymupdf.open(output) as document:
-                self.assertEqual(len(document), 2)
-                self.assertIn("Document 2", document[0].get_text())
-                self.assertIn("Document 1", document[1].get_text())
+            from pathlib import Path
+            text = read_pdf_text(output, Path(tmpdir) / "result.txt")
+            self.assertLess(text.index("Document 2"), text.index("Document 1"))
 
     def test_merge_uses_requested_output_path(self):
         from docx import Document

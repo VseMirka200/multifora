@@ -20,19 +20,12 @@ from core.workers.rename_transaction import rename_batch
 class RenameSafetyTests(unittest.TestCase):
     def test_swap_names_preserves_both_files(self):
         with tempfile.TemporaryDirectory() as directory:
-            first, second = [
-                Path(directory, name) for name in ("a.txt", "b.txt")
-            ]
+            first, second = [Path(directory, name) for name in ("a.txt", "b.txt")]
             first.write_text("FIRST", encoding="utf8")
             second.write_text("SECOND", encoding="utf8")
-            items = [
-                SimpleNamespace(path=str(path), folder=directory)
-                for path in (first, second)
-            ]
+            items = [SimpleNamespace(path=str(path), folder=directory) for path in (first, second)]
             targets = resolve_rename_targets(items, ["b.txt", "a.txt"])
-            successes, errors = rename_batch(
-                [item.path for item in items], targets
-            )
+            successes, errors = rename_batch([item.path for item in items], targets)
             self.assertEqual(errors, [])
             self.assertEqual(len(successes), 2)
             self.assertEqual(first.read_text(), "SECOND")
@@ -40,9 +33,7 @@ class RenameSafetyTests(unittest.TestCase):
 
     def test_external_target_is_not_overwritten(self):
         with tempfile.TemporaryDirectory() as directory:
-            first, existing = [
-                Path(directory, name) for name in ("a.txt", "b.txt")
-            ]
+            first, existing = [Path(directory, name) for name in ("a.txt", "b.txt")]
             first.write_text("FIRST")
             existing.write_text("EXISTING")
             item = SimpleNamespace(path=str(first), folder=directory)
@@ -55,12 +46,7 @@ class RenameSafetyTests(unittest.TestCase):
 
     def test_duplicate_targets_get_distinct_names(self):
         with tempfile.TemporaryDirectory() as directory:
-            items = [
-                SimpleNamespace(
-                    path=str(Path(directory, name)), folder=directory
-                )
-                for name in ("a.txt", "b.txt")
-            ]
+            items = [SimpleNamespace(path=str(Path(directory, name)), folder=directory) for name in ("a.txt", "b.txt")]
             result = resolve_rename_targets(items, ["x.txt", "X.txt"])
             self.assertEqual(len({path.casefold() for path in result}), 2)
 
@@ -95,9 +81,7 @@ class RenameSafetyTests(unittest.TestCase):
 
     def test_invalid_windows_names_are_blocked(self):
         with tempfile.TemporaryDirectory() as directory:
-            item = SimpleNamespace(
-                path=str(Path(directory, "a.txt")), folder=directory
-            )
+            item = SimpleNamespace(path=str(Path(directory, "a.txt")), folder=directory)
             for invalid in ("CON.txt", "../outside.txt", "bad?.txt", "end. "):
                 with self.subTest(name=invalid), self.assertRaises(ValueError):
                     resolve_rename_targets([item], [invalid])
@@ -128,9 +112,7 @@ class ImageSafetyTests(unittest.TestCase):
             with Image.open(output) as result:
                 self.assertEqual(result.info["transparency"], 0)
                 self.assertEqual(result.convert("RGBA").getpixel((0, 0))[3], 0)
-                self.assertEqual(
-                    result.convert("RGBA").getpixel((5, 5))[3], 255
-                )
+                self.assertEqual(result.convert("RGBA").getpixel((5, 5))[3], 255)
 
 
 class AtomicSaveTests(unittest.TestCase):
@@ -180,9 +162,7 @@ class ConversionOutputSafetyTests(unittest.TestCase):
     def test_failed_pdf_to_docx_removes_partial_document_and_closes_converter(
         self,
     ):
-        from unittest.mock import Mock
 
-        import core.workers.conversion.conversion_mixin as module
         from app.core.models import FileItem
         from core.workers.conversion.conversion_mixin import ConversionMixin
 
@@ -198,29 +178,22 @@ class ConversionOutputSafetyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             pdf = Path(directory, "document.pdf")
             pdf.write_bytes(b"placeholder")
-            converter = Mock()
 
-            def partial_then_fail(destination):
+            def partial_then_fail(arguments, _cancel):
+                destination = next(arg.split("=", 1)[1] for arg in arguments if arg.startswith("-sOutputFile="))
                 Path(destination).write_bytes(b"invalid half document")
                 raise ValueError("simulated failure")
 
-            converter.convert.side_effect = partial_then_fail
-            factory = SimpleNamespace(Converter=Mock(return_value=converter))
-            with (
-                patch.object(module, "HAS_PDF_TO_DOCX", True),
-                patch.object(module, "pdf2docx", factory),
-            ):
+            with patch("core.workers.ghostscript_engine.run_ghostscript", side_effect=partial_then_fail):
                 with self.assertRaisesRegex(Exception, "simulated failure"):
                     Worker()._convert_pdf_to_docx(FileItem(str(pdf)))
             self.assertFalse(Path(directory, "document.docx").exists())
             self.assertFalse(list(Path(directory).glob(".__multifora_*")))
-            converter.close.assert_called_once()
 
     def test_pdf_merge_produces_readable_pdf(self):
-        import pymupdf
-
         from app.core.models import FileItem
         from core.workers.merge.merge_mixin import MergeMixin
+        from tests.pdf_engine_fixtures import create_pdf, read_pdf_text
 
         class Worker(MergeMixin):
             def __init__(self, files):
@@ -239,14 +212,10 @@ class ConversionOutputSafetyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             paths = [Path(directory, name) for name in ("a.pdf", "b.pdf")]
             for path in paths:
-                with pymupdf.open() as pdf:
-                    pdf.new_page()
-                    pdf.save(str(path))
-            output = Worker(
-                [FileItem(str(path)) for path in paths]
-            )._merge_files_to_target()
-            with pymupdf.open(output) as merged:
-                self.assertEqual(merged.page_count, 2)
+                create_pdf(path, [path.stem])
+            output = Worker([FileItem(str(path)) for path in paths])._merge_files_to_target()
+            text = read_pdf_text(output, Path(directory) / "merged.txt")
+            self.assertLess(text.index("a"), text.index("b"))
 
 
 if __name__ == "__main__":

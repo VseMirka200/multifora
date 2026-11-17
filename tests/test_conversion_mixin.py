@@ -39,20 +39,155 @@ class _DummyConversionWorker(ConversionMixin):
         self.errors.append({"file": file_item, "message": message})
 
     def _emit_finished(self, new_files=None, updated_files=None):
-        self.finished.emit(
-            OperationResult(
-                new_files or [], updated_files or [], list(self.errors)
-            )
-        )
+        self.finished.emit(OperationResult(new_files or [], updated_files or [], list(self.errors)))
 
     def _get_unique_path(self, path):
         return path
 
 
 class ConversionMixinTests(unittest.TestCase):
-    def test_document_conversion_does_not_start_external_process(self):
-        import docx
+    def test_ebook_to_pdf_uses_layout_and_pdf_engine(self):
+        from core.workers.conversion.pdf_layout import PdfLayout
+
+        worker = _DummyConversionWorker()
+        for source_format, builder in (("EPUB", "epub_layout"), ("FB2", "fb2_layout")):
+            item = FileItem("book." + source_format.lower())
+            layout = PdfLayout(markup="<p>book</p>")
+            with (
+                patch("core.workers.conversion.pdf_layout." + builder, return_value=layout) as parse,
+                patch.object(worker, "_write_layout_pdf", return_value="book.pdf") as write,
+            ):
+                self.assertEqual(worker._convert_document_to_pdf(item, source_format), "book.pdf")
+            parse.assert_called_once_with(item.path)
+            write.assert_called_once_with(item, layout, output_reference=None)
+
+    def test_document_pdf_passes_layout_to_tectonic_and_reports_warnings(self):
+        from core.workers.conversion.pdf_layout import PdfLayout
+
+        worker = _DummyConversionWorker()
+        worker._record_warning = Mock()
+        layout = PdfLayout(markup="<p>Привет</p>", warnings={"некоторые стили не поддерживаются"})
+        source = FileItem(r"C:\temp\source.docx")
+        with (
+            patch.object(worker, "_conversion_output_path", return_value="result.pdf"),
+            patch("core.workers.conversion.tectonic_pdf.render_pdf") as render,
+        ):
+            self.assertEqual(worker._write_layout_pdf(source, layout), "result.pdf")
+        render.assert_called_once()
+        self.assertEqual(render.call_args.args, (layout, "result.pdf", worker._should_cancel, None))
+        render.call_args.kwargs["status"]("Подготовка движка")
+        self.assertIn("Подготовка движка", worker.status.emitted[-1])
+        worker._record_warning.assert_called_once()
+
+    def test_common_engine_failure_does_not_retry_every_file(self):
+        from types import SimpleNamespace
+
+        from core.workers.conversion.tectonic_pdf import TectonicUnavailableError
+        from core.workers.ghostscript_engine import GhostscriptUnavailableError
+
+        for error_type in (TectonicUnavailableError, GhostscriptUnavailableError):
+            with self.subTest(engine=error_type.__name__):
+                worker = _DummyConversionWorker()
+                files = [SimpleNamespace(name=f"{i}.docx", path=f"{i}.docx", is_file=True) for i in range(3)]
+                converter = Mock(side_effect=error_type("движок недоступен"))
+                self.assertEqual(worker._convert_sequential_batch(files, converter), [])
+                self.assertEqual(converter.call_count, 1)
+                self.assertEqual(len(worker.errors), 3)
+                self.assertIn("1 из 3", worker.status.emitted[0])
+
+    def test_pdf_to_docx_worker_count_decreases_for_large_documents(self):
+        from types import SimpleNamespace
+
+        files = [SimpleNamespace(path="file.pdf")]
+        with patch.object(conv_module.os, "cpu_count", return_value=8):
+            for size, expected in ((1024, 4), (12 * 1024 * 1024, 2), (30 * 1024 * 1024, 1)):
+                with self.subTest(size=size), patch.object(conv_module.os.path, "getsize", return_value=size):
+                    self.assertEqual(_DummyConversionWorker._pdf_docx_worker_count(files), expected)
+
+    def test_parallel_pdf_to_docx_preserves_file_order(self):
+        import threading
+        from types import SimpleNamespace
+
+        worker = _DummyConversionWorker()
+        worker.files = [SimpleNamespace(name=f"{i}.pdf", path=f"{i}.pdf", is_file=True) for i in range(3)]
+        second_started = threading.Event()
+
+        def convert(file):
+            if file.name == "0.pdf":
+                self.assertTrue(second_started.wait(timeout=5))
+            else:
+                second_started.set()
+            return file.name
+
+        with (
+            patch.object(worker, "_pdf_docx_worker_count", return_value=2),
+            patch.object(worker, "_convert_pdf_to_docx", side_effect=convert),
+            patch.object(worker, "_converted_file_item", side_effect=lambda path: path),
+        ):
+            self.assertEqual(worker._convert_pdf_to_docx_batch(), ["0.pdf", "1.pdf", "2.pdf"])
+
+    def test_parallel_pdf_to_docx_stops_scheduling_when_engine_is_missing(self):
+        from types import SimpleNamespace
+
+        from core.workers.ghostscript_engine import GhostscriptUnavailableError
+
+        worker = _DummyConversionWorker()
+        worker.files = [SimpleNamespace(name=f"{i}.pdf", path=f"{i}.pdf", is_file=True) for i in range(20)]
+        with (
+            patch.object(worker, "_pdf_docx_worker_count", return_value=2),
+            patch.object(
+                worker, "_convert_pdf_to_docx", side_effect=GhostscriptUnavailableError("нет движка")
+            ) as convert,
+        ):
+            self.assertEqual(worker._convert_pdf_to_docx_batch(), [])
+        self.assertLessEqual(convert.call_count, 2)
+        self.assertEqual(len(worker.errors), 20)
+
+    def test_cancelled_engine_does_not_report_file_error(self):
+        from types import SimpleNamespace
+
+        worker = _DummyConversionWorker()
+        file = SimpleNamespace(name="document.docx", path="document.docx", is_file=True)
+
+        def cancel(_file):
+            worker._cancel_requested = True
+            raise InterruptedError("cancelled")
+
+        self.assertEqual(worker._convert_sequential_batch([file], cancel), [])
+        self.assertEqual(worker.errors, [])
+        self.assertIn("Операция отменена пользователем", worker.status.emitted)
+
+    def test_pdf_to_docx_preserves_engine_cancellation(self):
+        from contextlib import nullcontext
+
+        worker = _DummyConversionWorker()
+        with (
+            patch.object(worker, "_conversion_output_path", return_value="result.docx"),
+            patch.object(worker, "_release_conversion_output_path") as release,
+            patch.object(conv_module, "atomic_output_path", return_value=nullcontext("temporary.docx")),
+            patch("core.workers.ghostscript_engine.run_ghostscript", side_effect=InterruptedError("cancelled")),
+        ):
+            with self.assertRaises(InterruptedError):
+                worker._convert_pdf_to_docx(FileItem("source.pdf"))
+        release.assert_called_once_with("result.docx")
+
+    def test_document_pdf_releases_output_name_on_tectonic_failure(self):
+        from core.workers.conversion.pdf_layout import PdfLayout
+
+        worker = _DummyConversionWorker()
+        with (
+            patch.object(worker, "_conversion_output_path", return_value="result.pdf"),
+            patch.object(worker, "_release_conversion_output_path") as release,
+            patch("core.workers.conversion.tectonic_pdf.render_pdf", side_effect=RuntimeError("ошибка")),
+        ):
+            with self.assertRaises(RuntimeError):
+                worker._write_layout_pdf(FileItem("source.docx"), PdfLayout())
+        release.assert_called_once_with("result.pdf")
+
+    def test_docx_to_odt_uses_builtin_converter(self):
         import subprocess
+
+        import docx
         from odf import teletype, text
         from odf.opendocument import load
 
@@ -64,9 +199,7 @@ class ConversionMixinTests(unittest.TestCase):
             document.save(source)
             with patch.object(subprocess, "Popen", side_effect=AssertionError("external process")):
                 output = worker._convert_docx_to_odt(FileItem(source))
-                pdf = worker._convert_docx_to_pdf(FileItem(source))
             self.assertIn("Example document", teletype.extractText(load(output).getElementsByType(text.P)[0]))
-            self.assertTrue(os.path.getsize(pdf) > 0)
 
     def test_convert_files_accepts_pdf_to_images_alias(self):
         worker = _DummyConversionWorker()
@@ -115,23 +248,19 @@ class ConversionMixinTests(unittest.TestCase):
         self.assertEqual(len(worker.finished.emitted), 1)
         self.assertEqual(worker.finished.emitted[0].get("new_files"), [])
 
-    def test_docx_to_pdf_uses_pandoc(self):
+    def test_docx_to_pdf_uses_document_converter(self):
         worker = _DummyConversionWorker()
         source_item = FileItem(r"C:\temp\source.docx")
         reference_item = FileItem(r"C:\temp\original.odt")
         with patch.object(
             worker,
-            "_convert_with_pandoc",
+            "_convert_text_document",
             return_value=r"C:\temp\source.pdf",
-        ) as pandoc_mock:
-            result = worker._convert_docx_to_pdf(
-                source_item, output_reference=reference_item
-            )
+        ) as converter_mock:
+            result = worker._convert_docx_to_pdf(source_item, output_reference=reference_item)
 
         self.assertEqual(result, r"C:\temp\source.pdf")
-        pandoc_mock.assert_called_once_with(
-            source_item, "PDF", output_reference=reference_item
-        )
+        converter_mock.assert_called_once_with(source_item, "PDF", output_reference=reference_item)
 
     def test_default_conversion_output_goes_to_sibling_converted_folder(self):
         worker = _DummyConversionWorker()
@@ -147,9 +276,7 @@ class ConversionMixinTests(unittest.TestCase):
                 output_path,
                 os.path.join(tmpdir, "Конвертированные", "clip.webp"),
             )
-            self.assertTrue(
-                os.path.isdir(os.path.join(tmpdir, "Конвертированные"))
-            )
+            self.assertTrue(os.path.isdir(os.path.join(tmpdir, "Конвертированные")))
 
     def test_custom_conversion_output_uses_selected_folder(self):
         worker = _DummyConversionWorker()
@@ -166,9 +293,7 @@ class ConversionMixinTests(unittest.TestCase):
 
             output_path = worker._conversion_output_path(source_item, ".jpg")
 
-            self.assertEqual(
-                output_path, os.path.join(output_dir, "photo.jpg")
-            )
+            self.assertEqual(output_path, os.path.join(output_dir, "photo.jpg"))
 
     def test_alongside_conversion_output_uses_source_folder(self):
         worker = _DummyConversionWorker()
@@ -178,16 +303,10 @@ class ConversionMixinTests(unittest.TestCase):
             with open(source_path, "wb") as stream:
                 stream.write(b"x")
 
-            output_path = worker._conversion_output_path(
-                FileItem(source_path), ".jpg"
-            )
+            output_path = worker._conversion_output_path(FileItem(source_path), ".jpg")
 
-            self.assertEqual(
-                output_path, os.path.join(source_dir, "photo.jpg")
-            )
-            self.assertFalse(
-                os.path.isdir(os.path.join(source_dir, "Конвертированные"))
-            )
+            self.assertEqual(output_path, os.path.join(source_dir, "photo.jpg"))
+            self.assertFalse(os.path.isdir(os.path.join(source_dir, "Конвертированные")))
 
     def test_conversion_output_reserves_unique_names_before_files_exist(self):
         worker = _DummyConversionWorker()
@@ -205,12 +324,8 @@ class ConversionMixinTests(unittest.TestCase):
                 with open(source_path, "wb") as stream:
                     stream.write(b"x")
 
-            first = worker._conversion_output_path(
-                FileItem(first_source), ".webp"
-            )
-            second = worker._conversion_output_path(
-                FileItem(second_source), ".webp"
-            )
+            first = worker._conversion_output_path(FileItem(first_source), ".webp")
+            second = worker._conversion_output_path(FileItem(second_source), ".webp")
 
             self.assertEqual(first, os.path.join(output_dir, "same.webp"))
             self.assertEqual(second, os.path.join(output_dir, "same_1.webp"))
@@ -236,9 +351,7 @@ class ConversionMixinTests(unittest.TestCase):
                 reference_file=source_item,
             )
 
-            self.assertEqual(
-                output_path, os.path.join(intermediate_dir, "source.pdf")
-            )
+            self.assertEqual(output_path, os.path.join(intermediate_dir, "source.pdf"))
             self.assertNotIn(
                 os.path.join("Конвертированные", "Конвертированные"),
                 output_path,
@@ -286,18 +399,14 @@ class ConversionMixinTests(unittest.TestCase):
                     source_path = os.path.join(directory, "photo." + extension)
                     with Image.new(mode, (13, 7), color) as source:
                         source.save(source_path)
-                    output = worker._convert_image_auto(
-                        FileItem(source_path), "SVG"
-                    )
+                    output = worker._convert_image_auto(FileItem(source_path), "SVG")
                     self.assertTrue(output.endswith(".svg"))
                     root = ElementTree.parse(output).getroot()
                     self.assertEqual(root.attrib["viewBox"], "0 0 13 7")
                     embedded = root.find("{http://www.w3.org/2000/svg}image")
                     uri = embedded.attrib["{http://www.w3.org/1999/xlink}href"]
                     self.assertTrue(uri.startswith("data:image/png;base64,"))
-                    with Image.open(
-                        BytesIO(base64.b64decode(uri.split(",", 1)[1]))
-                    ) as result:
+                    with Image.open(BytesIO(base64.b64decode(uri.split(",", 1)[1]))) as result:
                         with Image.open(source_path) as original:
                             self.assertEqual(result.size, original.size)
                             self.assertEqual(
@@ -313,9 +422,7 @@ class ConversionMixinTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as output_dir:
             with Image.new("RGBA", (16, 16), (255, 0, 0, 0)) as source:
                 for target in ("PNG", "JPG"):
-                    output_path = os.path.join(
-                        output_dir, f"image.{target.lower()}"
-                    )
+                    output_path = os.path.join(output_dir, f"image.{target.lower()}")
                     worker._save_pillow_image(source, output_path, target)
                     with Image.open(output_path) as result:
                         if target == "PNG":
@@ -354,9 +461,7 @@ class ConversionMixinTests(unittest.TestCase):
                 for index, color in enumerate(((255, 0, 0), (0, 0, 255))):
                     result.seek(index)
                     self.assertEqual(result.info["duration"], 120)
-                    self.assertEqual(
-                        result.convert("RGB").getpixel((0, 0)), color
-                    )
+                    self.assertEqual(result.convert("RGB").getpixel((0, 0)), color)
 
     def test_auto_document_converts_txt_to_docx(self):
         worker = _DummyConversionWorker()
@@ -371,11 +476,9 @@ class ConversionMixinTests(unittest.TestCase):
                 stream.write("Пример документа\nВторая строка")
 
             with patch.object(
-                worker, "_convert_with_pandoc", side_effect=AssertionError("Pandoc")
-            ) as pandoc_mock:
-                output_path = worker._convert_document_auto(
-                    FileItem(source_path), "DOCX"
-                )
+                worker, "_convert_text_document", side_effect=AssertionError("unexpected converter")
+            ) as converter_mock:
+                output_path = worker._convert_document_auto(FileItem(source_path), "DOCX")
 
             self.assertTrue(output_path.endswith(".docx"))
             from docx import Document
@@ -384,7 +487,7 @@ class ConversionMixinTests(unittest.TestCase):
                 [paragraph.text for paragraph in Document(output_path).paragraphs],
                 ["Пример документа", "Вторая строка"],
             )
-            pandoc_mock.assert_not_called()
+            converter_mock.assert_not_called()
 
     def test_auto_conversion_skips_file_already_in_target_format(self):
         worker = _DummyConversionWorker()
@@ -392,9 +495,7 @@ class ConversionMixinTests(unittest.TestCase):
             source_path = os.path.join(source_dir, "already.txt")
             with open(source_path, "w", encoding="utf-8") as stream:
                 stream.write("ok")
-            self.assertIsNone(
-                worker._convert_document_auto(FileItem(source_path), "TXT")
-            )
+            self.assertIsNone(worker._convert_document_auto(FileItem(source_path), "TXT"))
 
     def test_text_output_preserves_file_created_during_conversion(self):
         worker = _DummyConversionWorker()
@@ -420,7 +521,6 @@ class ConversionMixinTests(unittest.TestCase):
             self.assertFalse(any(name.startswith(".__multifora_") for name in os.listdir(directory)))
             self.assertNotIn(os.path.normcase(destination), worker._conversion_reserved_paths)
 
-    @unittest.skipUnless(conv_module.HAS_PYMUPDF, "PyMuPDF is required")
     def test_text_to_pdf_reserves_output_name_only_once(self):
         worker = _DummyConversionWorker()
         with (
@@ -433,11 +533,16 @@ class ConversionMixinTests(unittest.TestCase):
             with open(source_path, "w", encoding="utf-8") as stream:
                 stream.write("Тест")
 
-            output_path = worker._write_text_output(
-                FileItem(source_path),
-                "PDF",
-                "Тест",
-            )
+            def render(_layout, destination, *_args, **_kwargs):
+                with open(destination, "wb") as output:
+                    output.write(b"%PDF-1.4")
+
+            with patch("core.workers.conversion.tectonic_pdf.render_pdf", side_effect=render):
+                output_path = worker._write_text_output(
+                    FileItem(source_path),
+                    "PDF",
+                    "Тест",
+                )
 
             self.assertEqual(output_path, os.path.join(output_dir, "note.pdf"))
             self.assertNotIn("note_1.pdf", output_path)

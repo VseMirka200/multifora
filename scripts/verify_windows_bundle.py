@@ -7,8 +7,9 @@ REQUIRED = (
     "Multifora.exe",
     "bin/gswin64/gswin64c.exe",
     "bin/gswin64/gsdll64.dll",
-    "bin/tectonic/tectonic.exe",
-    "bin/tectonic/cache/.multifora-cache-id",
+    "bin/pandoc/pandoc.exe",
+    "bin/pandoc/COPYING.rtf",
+    "bin/pandoc/COPYRIGHT.txt",
     "_internal/assets/icon.ico",
     "_internal/docxcompose/templates/custom.xml",
     "_internal/PySide6/plugins/platforms/qwindows.dll",
@@ -32,9 +33,6 @@ def check_bundle(bundle):
     errors = [name for name in REQUIRED if not (bundle / name).is_file() or (bundle / name).stat().st_size == 0]
     if not (bundle / "_internal").is_dir():
         errors.append("_internal/")
-    resources = bundle / "bin" / "tectonic" / "cache" / "bundles"
-    if not resources.is_dir() or not any(path.is_file() for path in resources.rglob("*")):
-        errors.append("bin/tectonic/cache/bundles/")
     errors.extend(
         "unexpected Qt runtime binary: " + str(path.relative_to(bundle)).replace("/", "\\")
         for path in (bundle / "_internal" / "PySide6").rglob("*")

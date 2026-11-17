@@ -40,6 +40,15 @@ class _DummyCompressionWorker(CompressionMixin):
 
 
 class GhostscriptDetectionTests(unittest.TestCase):
+    def test_missing_cached_engine_is_detected_again(self):
+        with (
+            patch.object(deps, "HAS_GHOSTSCRIPT", True),
+            patch.object(deps, "GHOSTSCRIPT_PATH", "missing-ghostscript.exe"),
+            patch.object(deps.os.path, "isfile", return_value=False),
+            patch.object(deps, "_detect_ghostscript") as detect,
+        ):
+            deps.ensure_ghostscript_detected()
+        detect.assert_called_once_with(None)
     def test_executable_resolver_supports_explicit_paths_and_path_lookup(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             executable = os.path.join(tmpdir, "tool.exe")

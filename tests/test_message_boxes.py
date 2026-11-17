@@ -1,19 +1,22 @@
 import os
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QFontMetrics, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
+    QBoxLayout,
     QCheckBox,
     QDialog,
     QHBoxLayout,
     QLabel,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QWidget,
 )
@@ -40,6 +43,48 @@ class MessageBoxTests(unittest.TestCase):
 
     def tearDown(self):
         self.parent.deleteLater()
+
+    def test_long_engine_message_uses_scrollable_content(self):
+        captured = {}
+
+        def close_dialog(dialog):
+            captured["dialog"] = dialog
+            return int(QDialog.DialogCode.Rejected)
+
+        with patch.object(QDialog, "exec", new=close_dialog):
+            show_app_choice(
+                self.parent,
+                "Ошибка конвертации",
+                "Длинное описание ошибки\n" * 50,
+                (("ok", "Понятно", "secondary"),),
+                cancel_key="ok",
+            )
+        dialog = captured["dialog"]
+        scroll = dialog.findChild(QScrollArea, "appMessageTextScroll")
+        self.assertIsNotNone(scroll)
+        self.assertLessEqual(scroll.maximumHeight(), dialog.screen().availableGeometry().height() // 2)
+        self.assertTrue(scroll.widget().wordWrap())
+        self.assertEqual(scroll.widget().textFormat(), Qt.TextFormat.PlainText)
+
+    def test_buttons_stack_on_narrow_screens(self):
+        captured = {}
+        screen = SimpleNamespace(availableGeometry=lambda: QRect(0, 0, 300, 500))
+
+        def close_dialog(dialog):
+            captured["dialog"] = dialog
+            return int(QDialog.DialogCode.Rejected)
+
+        with patch.object(QDialog, "screen", return_value=screen), patch.object(QDialog, "exec", new=close_dialog):
+            show_app_choice(
+                self.parent,
+                "Операция",
+                "Выберите действие",
+                (("first", "Добавить содержимое", "secondary"), ("second", "Выбрать другую папку", "secondary")),
+            )
+        dialog = captured["dialog"]
+        button_layout = dialog.layout().itemAt(dialog.layout().count() - 1).layout()
+        self.assertEqual(button_layout.direction(), QBoxLayout.Direction.TopToBottom)
+        self.assertLessEqual(dialog.width(), 268)
 
     def test_choice_dialog_uses_shared_layout_and_button_style(self):
         captured = {}

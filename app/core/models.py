@@ -4,7 +4,7 @@ import os
 import re
 import stat
 
-from app.core.conversion_formats import FILE_TYPE_EXTENSIONS
+from app.core.file_types import FILE_TYPE_EXTENSIONS
 
 
 def natural_sort_key(value: object) -> tuple:

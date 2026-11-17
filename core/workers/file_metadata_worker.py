@@ -4,7 +4,7 @@ import os
 
 from PySide6.QtCore import QThread, Signal
 
-from app.core.conversion_formats import KNOWN_FILE_EXTENSIONS
+from app.core.file_types import KNOWN_FILE_EXTENSIONS
 from app.core.models import FileItem, normalized_path_key
 
 

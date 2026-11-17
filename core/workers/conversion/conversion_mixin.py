@@ -9,7 +9,6 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from app.core.app_utils import _debug_log
 from app.core.conversion_formats import (
     DOCUMENT_CATEGORY,
-    PDF_IMAGE_TARGETS,
     format_for_path,
     source_formats_for_category,
     suffix_for_format,
@@ -28,6 +27,7 @@ from app.core.models import FileItem
 from core.workers.atomic_output import atomic_output_path
 from core.workers.common import record_file_error
 from core.workers.ghostscript_engine import GhostscriptUnavailableError
+from core.workers.pandoc_engine import PandocUnavailableError, run_pandoc
 
 from .image_conversion_mixin import ImageConversionMixin
 from .image_encoding_mixin import ImageEncodingMixin
@@ -125,15 +125,6 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         self,
     ) -> Callable[[FileItem], str | list[str] | None] | None:
         handlers: dict[str, Callable[[FileItem], str | list[str] | None]] = {
-            "docx_to_odt": self._convert_docx_to_odt,
-            "odt_to_docx": self._convert_odt_to_docx,
-            "odt_to_pdf": self._convert_odt_to_pdf,
-            "pdf_to_odt": self._convert_pdf_to_odt,
-            "pdf_to_image": self._convert_pdf_to_image,
-            "pdf_to_images": self._convert_pdf_to_image,
-            "image_to_pdf": self._convert_image_to_pdf,
-            "image_to_image": lambda file: self._convert_image_to_image(file, self.conversion_format),
-            "auto_image": lambda file: self._convert_image_auto(file, self.conversion_format),
             "auto_document": lambda file: self._convert_document_auto(file, self.conversion_format),
         }
         return handlers.get(self.conversion_type)
@@ -488,37 +479,30 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
             self.status.emit(f"Пропущен {file.name}: уже {normalized_target}")
             return None
 
-        if source_format == "PDF" and normalized_target in PDF_IMAGE_TARGETS:
-            return self._convert_pdf_to_image(file, normalized_target)
-
-        # Для PDF сохраняем специализированные конвертеры, потому что они лучше
-        # восстанавливают структуру документа, чем текстовый резервный маршрут.
-        if source_format == "PDF" and normalized_target == "DOCX":
-            return self._convert_pdf_to_docx(file)
-        if source_format == "PDF" and normalized_target == "ODT":
-            return self._convert_pdf_to_odt(file)
-        if normalized_target == "PDF":
-            return self._convert_document_to_pdf(file, source_format)
-
-        # Обычный текст не содержит разметки.
-        # Встроенные писатели сохраняют каждую строку отдельным абзацем.
-        if source_format == "TXT" and normalized_target in {"DOCX", "ODT"}:
-            return self._write_text_output(file, normalized_target, self._extract_document_text(file))
-
-        content = self._extract_document_text(file)
-        self._warn_text_only_conversion(file)
-        return self._write_text_output(file, normalized_target, content)
+        readers = {
+            "DOCX": "docx", "ODT": "odt", "HTML": "html", "MD": "markdown", "EPUB": "epub", "FB2": "fb2", "RTF": "rtf",
+        }
+        writers = {
+            "DOCX": "docx", "ODT": "odt", "HTML": "html", "MD": "markdown", "EPUB": "epub",
+            "RTF": "rtf", "TXT": "plain",
+        }
+        if source_format not in readers or normalized_target not in writers:
+            raise ValueError("Неподдерживаемое направление конвертации Pandoc")
+        output_path = self._conversion_output_path(file, suffix_for_format(normalized_target))
+        try:
+            with atomic_output_path(output_path) as temporary:
+                warning = run_pandoc(
+                    file.path, temporary, readers[source_format], writers[normalized_target], self._should_cancel
+                )
+            if warning:
+                self._record_warning(file, f"Pandoc: {warning}")
+            return output_path
+        finally:
+            self._release_conversion_output_path(output_path)
 
     def _convert_files(self) -> None:
         total = len(self.files)
         results: list[FileItem] = []
-
-        if self.conversion_type == "docx_to_pdf":
-            self._emit_finished(self._convert_docx_to_pdf_batch(), [])
-            return
-        if self.conversion_type == "pdf_to_docx":
-            self._emit_finished(self._convert_pdf_to_docx_batch(), [])
-            return
 
         handler = self._get_conversion_handler()
         for index, file in enumerate(self.files):
@@ -546,7 +530,7 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
                 self._report_file_conversion_error(file, error)
             except Exception as error:
                 self._report_file_conversion_error(file, error)
-                if isinstance(error, (TectonicUnavailableError, GhostscriptUnavailableError)):
+                if isinstance(error, (TectonicUnavailableError, GhostscriptUnavailableError, PandocUnavailableError)):
                     self._report_unprocessed_engine_errors(self.files[index + 1 :], error)
                     self.progress.emit(100)
                     break

@@ -3,7 +3,6 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-import pymupdf
 from PIL import Image
 
 from app.core.conversion_formats import (
@@ -12,6 +11,7 @@ from app.core.conversion_formats import (
     mixed_source_label_for_category,
 )
 from app.core.models import FileItem
+from tests.pdf_engine_fixtures import create_pdf, run
 from tests.test_conversion_mixin import _DummyConversionWorker
 
 
@@ -21,7 +21,7 @@ class ImageConversionIntegrationTests(unittest.TestCase):
             source = Path(folder) / "source.eps"
             source.write_bytes(b"%!PS-Adobe-3.0\n")
             worker = _DummyConversionWorker()
-            with self.assertRaises(Exception):
+            with self.assertRaisesRegex(Exception, "поддерживаемым изображением"):
                 worker._convert_image_auto(FileItem(str(source)), "PNG")
 
     def test_grayscale_images_can_be_saved_as_qoi(self):
@@ -51,8 +51,10 @@ class ImageConversionIntegrationTests(unittest.TestCase):
                     self.assertEqual(image.size, (20, 40))
                     self.assertNotIn(image.getexif().get(274), (3, 6, 8))
             output = worker._convert_image_to_pdf(FileItem(str(source)))
-            with pymupdf.open(output) as document:
-                self.assertLess(document[0].rect.width, document[0].rect.height)
+            preview = Path(folder) / "preview.png"
+            run("-sDEVICE=png16m", "-r72", f"-sOutputFile={preview}", output)
+            with Image.open(preview) as image:
+                self.assertLess(image.width, image.height)
 
     def test_rgb_transparent_color_is_respected(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -86,10 +88,7 @@ class ImageConversionIntegrationTests(unittest.TestCase):
     def test_pdf_export_removes_partial_results_after_failure(self):
         with tempfile.TemporaryDirectory() as folder:
             source = Path(folder) / "pages.pdf"
-            with pymupdf.open() as document:
-                document.new_page(width=72, height=72)
-                document.new_page(width=72, height=72)
-                document.save(str(source))
+            create_pdf(source, ["first", "second"])
             worker = _DummyConversionWorker()
             save = worker._save_pillow_image
             calls = 0
@@ -115,11 +114,7 @@ class ImageConversionIntegrationTests(unittest.TestCase):
     def test_pdf_exports_every_page_and_registers_results(self):
         with tempfile.TemporaryDirectory() as folder:
             source = Path(folder) / "pages.pdf"
-            with pymupdf.open() as document:
-                for color in ((1, 0, 0), (0, 1, 0)):
-                    page = document.new_page(width=72, height=72)
-                    page.draw_rect(page.rect, color=color, fill=color)
-                document.save(str(source))
+            create_pdf(source, ["first", "second"])
             for target in ("JPG", "PNG", "WEBP", "TIFF", "BMP"):
                 worker = _DummyConversionWorker()
                 worker.files = [FileItem(str(source))]

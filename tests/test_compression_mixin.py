@@ -1,8 +1,7 @@
-import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from app.core.models import FileItem
 from core.workers.compression.compression_mixin import CompressionMixin
@@ -24,6 +23,23 @@ class _DummyCompressionWorker(CompressionMixin):
 
 
 class CompressionMixinTests(unittest.TestCase):
+    def test_missing_pdf_engine_is_reported_as_file_error(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder, "source.pdf")
+            source.write_bytes(b"pdf")
+            worker = _DummyCompressionWorker(files=[FileItem(str(source))])
+            worker.status = Mock()
+            worker.progress = Mock()
+            worker._record_error = Mock()
+            worker._emit_finished = Mock()
+            with patch(
+                "core.workers.compression.compression_mixin.deps.ensure_ghostscript_detected",
+                return_value=(False, None),
+            ):
+                worker._compress_pdf_files()
+            self.assertIn("Ghostscript", worker._record_error.call_args.args[1])
+            worker._emit_finished.assert_called_once_with([], [])
+
     def test_image_output_path_uses_selected_destination(self):
         worker = _DummyCompressionWorker()
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -35,12 +51,8 @@ class CompressionMixinTests(unittest.TestCase):
             file_item = FileItem(str(source))
 
             worker.image_output_mode = "alongside"
-            alongside = worker._image_compression_target_path(
-                file_item, ".jpg"
-            )
-            self.assertEqual(
-                alongside, str(source_dir / "photo_compressed.jpg")
-            )
+            alongside = worker._image_compression_target_path(file_item, ".jpg")
+            self.assertEqual(alongside, str(source_dir / "photo_compressed.jpg"))
 
             worker.image_output_mode = "custom"
             worker.image_output_dir = str(output_dir)
@@ -62,9 +74,7 @@ class CompressionMixinTests(unittest.TestCase):
             name,
         ) in expected.items():
             with self.subTest(method=method):
-                settings = _DummyCompressionWorker(
-                    method
-                )._get_ghostscript_settings()
+                settings = _DummyCompressionWorker(method)._get_ghostscript_settings()
                 self.assertEqual(settings["pdf_settings"], pdf_settings)
                 self.assertEqual(settings["color_resolution"], resolution)
                 self.assertEqual(settings["jpeg_quality"], quality)
@@ -81,50 +91,13 @@ class CompressionMixinTests(unittest.TestCase):
             with large_path.open("wb") as stream:
                 stream.truncate(11 * 1024 * 1024)
 
-            standard = _DummyCompressionWorker(
-                "auto", [FileItem(str(standard_path))]
-            )._get_ghostscript_settings()
-            large = _DummyCompressionWorker(
-                "auto", [FileItem(str(large_path))]
-            )._get_ghostscript_settings()
+            standard = _DummyCompressionWorker("auto", [FileItem(str(standard_path))])._get_ghostscript_settings()
+            large = _DummyCompressionWorker("auto", [FileItem(str(large_path))])._get_ghostscript_settings()
 
         self.assertEqual(standard["method_name"], "Авто (стандарт)")
         self.assertEqual(standard["color_resolution"], 300)
         self.assertEqual(large["method_name"], "Авто (для больших файлов)")
         self.assertEqual(large["color_resolution"], 150)
-
-    def test_pymupdf_document_closes_when_save_fails(self):
-        class _Document:
-            def __init__(self):
-                self.closed = False
-
-            def save(self, *_args, **_kwargs):
-                raise OSError("save failed")
-
-            def close(self):
-                self.closed = True
-
-        document = _Document()
-
-        class _Fitz:
-            @staticmethod
-            def open(_path):
-                return document
-
-        worker = _DummyCompressionWorker("max")
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            source = Path(tmp_dir, "source.pdf")
-            source.write_bytes(b"original")
-            output = Path(tmp_dir, "output.pdf")
-            with patch.dict(sys.modules, {"pymupdf": _Fitz}):
-                result = worker._compress_pdf_with_pymupdf(
-                    str(source),
-                    str(output),
-                )
-
-        self.assertEqual(result, (False, "", 0.0))
-        self.assertTrue(document.closed)
-        self.assertEqual(worker._last_pdf_error, "PyMuPDF: save failed")
 
 
 if __name__ == "__main__":

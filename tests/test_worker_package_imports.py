@@ -5,43 +5,13 @@ import unittest
 
 
 class WorkerPackageImportTests(unittest.TestCase):
-    def test_pdf2docx_uses_pymupdf_without_deprecated_fitz_shim(self):
-        script = textwrap.dedent('''
-            import sys
-
-            import app.core.deps as deps
-
-            assert deps.HAS_PDF_TO_DOCX
-            assert deps.fitz is None
-            assert "pdf2docx" not in sys.modules
-            assert "cv2" not in sys.modules
-            assert "numpy" not in sys.modules
-            assert deps.pdf2docx.Converter
-            import pymupdf
-            assert deps.fitz is pymupdf
-            assert sys.modules["fitz"] is pymupdf
-            assert "pdf2docx" in sys.modules
-            assert "cv2" in sys.modules
-            assert "numpy" in sys.modules
-            print("OK")
-        ''')
-        output = subprocess.check_output(
-            [sys.executable, "-c", script],
-            text=True,
-            encoding="utf-8",
-            timeout=30,
-        ).strip()
-        self.assertEqual(output, "OK")
-
-    def test_file_worker_defers_pdf2docx_backend(self):
+    def test_file_worker_defers_heavy_backends(self):
         script = textwrap.dedent('''
             import sys
 
             from core.workers.file_worker import FileWorker
 
             assert FileWorker
-            assert "pdf2docx" not in sys.modules
-            assert "pymupdf" not in sys.modules
             assert "cv2" not in sys.modules
             assert "numpy" not in sys.modules
             assert "PIL.Image" not in sys.modules

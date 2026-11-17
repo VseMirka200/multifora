@@ -38,12 +38,12 @@ from app.core.app_ipc import (
 from app.core.app_utils import _debug_log, _log_ignored_error
 from app.core.conversion_formats import (
     CONVERSION_CATEGORIES,
-    build_file_dialog_filter,
     category_for_file_type,
     format_for_path,
     mixed_source_label_for_category,
     source_formats_for_category,
 )
+from app.core.file_types import build_file_dialog_filter
 from app.core.message_boxes import install_warning_suppression_hook
 from app.core.models import FileItem
 from app.core.qt_utils import signals_blocked

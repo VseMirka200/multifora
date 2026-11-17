@@ -9,7 +9,6 @@ from docx import Document
 from odf import teletype, text
 from odf.opendocument import load
 
-from app.core.deps import ensure_pandoc_detected
 from app.core.models import FileItem
 from core.workers.conversion.conversion_mixin import ConversionMixin
 
@@ -43,14 +42,14 @@ def test_application_does_not_use_word_automation():
 
 
 class DocumentIntegrationTests(unittest.TestCase):
-    def test_plain_text_to_odt_does_not_use_pandoc(self):
+    def test_plain_text_to_odt_uses_builtin_writer(self):
         from unittest.mock import patch
 
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "source.txt"
             source.write_text("Первая строка\n\nВторая строка", encoding="utf-8")
             worker = ConversionWorker()
-            with patch.object(worker, "_convert_with_pandoc", side_effect=AssertionError):
+            with patch.object(worker, "_convert_text_document", side_effect=AssertionError):
                 result = worker._convert_document_auto(FileItem(str(source)), "ODT")
             converted = load(result)
             paragraphs = [
@@ -59,8 +58,6 @@ class DocumentIntegrationTests(unittest.TestCase):
             self.assertEqual(paragraphs, ["Первая строка", "", "Вторая строка"])
 
     def test_real_docx_to_odt_without_word(self):
-        if not ensure_pandoc_detected()[0]:
-            self.skipTest("Pandoc is not installed")
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "source.docx"
             document = Document()

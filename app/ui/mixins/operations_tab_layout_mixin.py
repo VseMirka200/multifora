@@ -513,6 +513,10 @@ class OperationsTabLayoutMixin:
         convert_card, convert_layout = self._create_operation_card()
         convert_layout.setContentsMargins(*OPERATIONS_PAGE_MARGINS)
 
+        notice = QLabel("Оформление и изображения могут измениться или пропасть. Проверьте результат.")
+        notice.setWordWrap(True)
+        convert_layout.addWidget(notice)
+
         self.convert_file_type_combo = MenuLikeComboBox()
         self.convert_file_type_combo.addItems(
             ["Выберите тип файла:", *CONVERSION_CATEGORIES]

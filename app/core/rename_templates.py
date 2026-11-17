@@ -2,7 +2,7 @@ import os
 import re
 from datetime import datetime
 
-from app.core.conversion_formats import FILE_TYPE_EXTENSIONS
+from app.core.file_types import FILE_TYPE_EXTENSIONS
 
 _DATE_FORMAT_PATTERNS = (
     ("2024-01-15_", "%Y-%m-%d_"),

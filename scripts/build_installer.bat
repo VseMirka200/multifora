@@ -17,12 +17,8 @@ if not exist "dist\Multifora\Multifora.exe" (
     echo Run this script without --skip-app-build to build the application first.
     goto error
 )
-if not exist "dist\Multifora\bin\tectonic\cache\.multifora-cache-id" (
-    echo ERROR: Offline Tectonic resources are missing. Rebuild the application before creating the installer.
-    goto error
-)
-if not exist "dist\Multifora\bin\tectonic\cache\bundles\" (
-    echo ERROR: Offline Tectonic resource files are missing. Rebuild the application.
+if not exist "dist\Multifora\bin\pandoc\pandoc.exe" (
+    echo ERROR: Pandoc is missing. Rebuild the application before creating the installer.
     goto error
 )
 
