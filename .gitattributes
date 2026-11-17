@@ -21,6 +21,7 @@
 *.ico binary
 *.svg binary
 *.exe binary
+bin/pandoc/pandoc.exe filter=lfs diff=lfs merge=lfs -text
 *.dll binary
 *.so binary
 *.dylib binary
