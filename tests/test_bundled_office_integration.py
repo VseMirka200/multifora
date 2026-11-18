@@ -4,6 +4,7 @@ import zipfile
 
 import pytest
 from docx import Document
+from pypdf import PdfReader
 
 from core.workers.office_engine import run_office
 
@@ -44,6 +45,6 @@ def test_bundled_office_conversion_matrix(tmp_path, office_sources, source_forma
             xml = archive.read("word/document.xml" if target == "DOCX" else "content.xml")
         assert MARKER.encode() in xml
     elif target == "PDF":
-        assert output.read_bytes().startswith(b"%PDF-")
+        assert MARKER in "".join(page.extract_text() for page in PdfReader(output).pages)
     else:
         assert MARKER in output.read_text(encoding="utf-8")

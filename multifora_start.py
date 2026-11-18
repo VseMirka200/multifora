@@ -53,6 +53,8 @@ def _run_build_smoke_test() -> int:
         from io import BytesIO
 
         from docx import Document
+        from docx.enum.section import WD_ORIENT
+        from docx.shared import Inches
         from docxcompose.composer import Composer
 
         from app.core import deps
@@ -74,8 +76,10 @@ def _run_build_smoke_test() -> int:
         report["image_roundtrip"] = True
         report["imports"].extend(("PIL.Image", "pillow_heif"))
 
+        from pypdf import PdfReader
+
         from core.workers.office_engine import run_office
-        from core.workers.pdfcraft_engine import export_pdf, render_pdf_pages
+        from core.workers.pdfcraft_engine import export_pdf, optimize_pdf, render_pdf_pages
 
         report["office_backends"] = {"python_office": True, "python_pdf": True}
 
@@ -85,8 +89,32 @@ def _run_build_smoke_test() -> int:
             output_docx = Path(directory, "result.docx")
             document = Document()
             document.add_paragraph("Multifora PDF check")
+            landscape = document.add_section()
+            landscape.orientation = WD_ORIENT.LANDSCAPE
+            landscape.page_width, landscape.page_height = Inches(11), Inches(8.5)
+            image_buffer.seek(0)
+            document.add_picture(image_buffer, width=Inches(8))
+            portrait = document.add_section()
+            portrait.orientation = WD_ORIENT.PORTRAIT
+            portrait.page_width, portrait.page_height = Inches(8.5), Inches(11)
+            document.add_paragraph("Multifora portrait check")
             document.save(source_docx)
             run_office(source_docx, source_pdf, "PDF", lambda: False)
+            optimized_pdf = Path(directory, "optimized.pdf")
+            optimize_pdf(source_pdf, optimized_pdf, {"lossless": True}, lambda: False)
+            with PdfReader(source_pdf) as original, PdfReader(optimized_pdf) as optimized:
+                orientation = [page.mediabox.width > page.mediabox.height for page in original.pages]
+                if orientation != [False, True, False]:
+                    raise RuntimeError("Mixed PDF page orientation was lost")
+                report["mixed_page_orientation"] = True
+                if (
+                    [page.extract_text() for page in original.pages] !=
+                    [page.extract_text() for page in optimized.pages]
+                    or original.pages[1].images[0].image.tobytes() != optimized.pages[1].images[0].image.tobytes()
+                    or optimized_pdf.stat().st_size > source_pdf.stat().st_size
+                ):
+                    raise RuntimeError("Lossless PDF optimization changed content")
+                report["lossless_pdf"] = True
             pages = render_pdf_pages(source_pdf, directory, lambda: False)
             with deps.Image.open(pages[0]) as image:
                 image.load()

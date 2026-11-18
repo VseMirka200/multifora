@@ -10,13 +10,13 @@ from zipfile import ZIP_DEFLATED, ZipFile
 from lxml import etree, html
 from PIL import Image
 
+from core.document_engine.formatting import font_family, image_size, inline_style, points
 from core.document_engine.odt_html import ODT_NAMES
 from core.workers.atomic_output import atomic_output_path
 
 _MIME = "application/vnd.oasis.opendocument.text"
 _MANIFEST = "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"
-_SVG = "urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0"
-_NAMES = {**ODT_NAMES, "manifest": _MANIFEST, "svg": _SVG}
+_NAMES = {**ODT_NAMES, "manifest": _MANIFEST}
 _BLOCK = {
     "p": "text:p", "pre": "text:p", "li": "text:list-item", "ul": "text:list", "ol": "text:list",
     "table": "table:table", "tr": "table:table-row", "td": "table:table-cell", "th": "table:table-cell",
@@ -65,19 +65,18 @@ def _image(node, parent, source_root, images):
         data = path
     with Image.open(data) as picture, BytesIO() as png:
         picture.convert("RGBA").save(png, "PNG")
-        width = min(6.0, picture.width / 96)
-        height = width * picture.height / picture.width
+        width, height = image_size(node, picture.width, picture.height, width_limit=432, height_limit=690)
         name = f"Pictures/image-{len(images) + 1}.png"
         images[name] = png.getvalue()
     if parent.tag in {_q("office:text"), _q("table:table-cell")}:
         parent = _element(parent, "text:p")
     frame = _element(parent, "draw:frame", {
-        "text:anchor-type": "as-char", "svg:width": f"{width:.3f}in", "svg:height": f"{height:.3f}in",
+        "text:anchor-type": "as-char", "svg:width": f"{width:.4f}pt", "svg:height": f"{height:.4f}pt",
     })
     _element(frame, "draw:image", {"xlink:href": name, "xlink:type": "simple"})
 
 
-def _translate(node, parent, source_root, images, should_cancel):
+def _translate(node, parent, source_root, images, typography, should_cancel):
     if should_cancel():
         raise InterruptedError("Конвертация отменена")
     tag = node.tag
@@ -98,11 +97,24 @@ def _translate(node, parent, source_root, images, should_cancel):
     elif tag == "img":
         _image(node, parent, source_root, images)
         return
+    elif tag == "a" and (href := node.get("href", "")) and (
+        href.startswith("#") or urlsplit(href).scheme in {"http", "https", "mailto"}
+    ):
+        if parent.tag == _q("office:text"):
+            parent = _element(parent, "text:p")
+        parent = _element(parent, "text:a", {"xlink:href": href, "xlink:type": "simple"})
     elif tag not in _TRANSPARENT and parent.tag == _q("office:text"):
         parent = _element(parent, "text:p")
+    css = inline_style(node)
+    family = font_family(css.get("font-family"))
+    size = points(css.get("font-size"))
+    if (family or size) and parent.tag in {_q("text:p"), _q("text:h"), _q("text:span"), _q("text:a")}:
+        key = (family, size)
+        name = typography.setdefault(key, f"Typography{len(typography) + 1}")
+        parent = _element(parent, "text:span", {"text:style-name": name})
     _append(parent, node.text)
     for child in node:
-        _translate(child, parent, source_root, images, should_cancel)
+        _translate(child, parent, source_root, images, typography, should_cancel)
         _append(parent, child.tail)
 
 
@@ -117,10 +129,19 @@ def _document(body, source_root, images, should_cancel):
         style = _element(styles, "style:style", {"style:name": name, "style:family": "text"})
         _element(style, "style:text-properties", {key: value})
     text = _element(_element(root, "office:body"), "office:text")
+    typography = {}
     _append(text, body.text)
     for child in body:
-        _translate(child, text, source_root, images, should_cancel)
+        _translate(child, text, source_root, images, typography, should_cancel)
         _append(text, child.tail)
+    for (family, size), name in typography.items():
+        properties = {}
+        if family:
+            properties["fo:font-family"] = family
+        if size:
+            properties["fo:font-size"] = f"{size:g}pt"
+        style = _element(styles, "style:style", {"style:name": name, "style:family": "text"})
+        _element(style, "style:text-properties", properties)
     return root
 
 

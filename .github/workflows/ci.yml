@@ -39,3 +39,9 @@ jobs:
 
       - name: Запустить тесты
         run: python -m pytest -q
+
+      - name: Проверить движок PDF с системными шрифтами Windows
+        env:
+          QT_QPA_PLATFORM: windows
+          MULTIFORA_REQUIRE_NATIVE_QT: "1"
+        run: python -m pytest -q tests/test_office_engine.py -k "qt_pdf or landscape_section or merged_table"

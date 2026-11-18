@@ -30,9 +30,11 @@ def check_bundle(bundle):
     errors = [name for name in REQUIRED if not (bundle / name).is_file() or (bundle / name).stat().st_size == 0]
     if not (bundle / "_internal").is_dir():
         errors.append("_internal/")
-    for engine in ("pdfcraft", "wordcraft"):
-        if (bundle / "bin" / engine / f"{engine}-cli.exe").exists():
-            errors.append(f"unexpected legacy engine: {engine}")
+    errors.extend(
+        f"unexpected legacy engine: {engine}"
+        for engine in ("pdfcraft", "wordcraft")
+        if (bundle / "bin" / engine / f"{engine}-cli.exe").exists()
+    )
     errors.extend(
         "unexpected Qt runtime binary: " + str(path.relative_to(bundle)).replace("/", "\\")
         for path in (bundle / "_internal" / "PySide6").rglob("*")

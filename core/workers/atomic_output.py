@@ -3,9 +3,19 @@
 from __future__ import annotations
 
 import os
+import sys
 import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
+
+
+def publish_new_file(source, destination):
+    """Publish a complete file on the same filesystem without replacing a competitor."""
+    if sys.platform == "win32":
+        os.rename(source, destination)
+    else:
+        os.link(source, destination)
+        os.unlink(source)
 
 
 @contextmanager
@@ -25,11 +35,7 @@ def atomic_output_path(destination: str, *, allow_empty: bool = False) -> Iterat
         yield temporary
         if not os.path.isfile(temporary) or (not allow_empty and os.path.getsize(temporary) == 0):
             raise OSError("Операция не создала корректный выходной файл")
-        if os.path.exists(destination):
-            raise FileExistsError(
-                f"Выходной файл уже существует: {destination}"
-            )
-        os.replace(temporary, destination)
+        publish_new_file(temporary, destination)
     finally:
         if os.path.exists(temporary):
             os.remove(temporary)

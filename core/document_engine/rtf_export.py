@@ -9,6 +9,7 @@ from urllib.parse import unquote, urlsplit
 from lxml import html
 from PIL import Image
 
+from core.document_engine.formatting import font_family, image_size, inline_style, points
 from core.document_engine.plain_text import _rtf_escape
 from core.workers.atomic_output import atomic_output_path
 
@@ -47,15 +48,14 @@ def _picture(node, root):
         return _text(node.get("alt"))
     with Image.open(data) as picture, BytesIO() as png:
         picture.convert("RGBA").save(png, "PNG")
-        width = min(picture.width * 15, 8640)
-        height = round(width * picture.height / picture.width)
+        width, height = image_size(node, picture.width, picture.height, width_limit=432, height_limit=690)
         return (
             rf"{{\pict\pngblip\picw{picture.width}\pich{picture.height}"
-            rf"\picwgoal{width}\pichgoal{height} " + png.getvalue().hex() + "}"
+            rf"\picwgoal{round(width * 20)}\pichgoal{round(height * 20)} " + png.getvalue().hex() + "}"
         )
 
 
-def _table(node, root, should_cancel):
+def _table(node, root, fonts, should_cancel):
     for row in node.xpath("./tr|./thead/tr|./tbody/tr|./tfoot/tr"):
         cells = row.xpath("./td|./th")
         if not cells:
@@ -65,12 +65,12 @@ def _table(node, root, should_cancel):
             yield rf"\cellx{index * 8640 // len(cells)} "
         for cell in cells:
             yield r"\pard\intbl "
-            yield from _translate(cell, root, should_cancel, table_cell=True)
+            yield from _translate(cell, root, fonts, should_cancel, table_cell=True)
             yield r"\cell "
         yield "\\row\\pard\n"
 
 
-def _translate(node, root, should_cancel, *, table_cell=False, preformatted=False):
+def _translate(node, root, fonts, should_cancel, *, table_cell=False, preformatted=False):
     if should_cancel():
         raise InterruptedError("Конвертация отменена")
     tag = node.tag
@@ -80,19 +80,25 @@ def _translate(node, root, should_cancel, *, table_cell=False, preformatted=Fals
         yield _picture(node, root)
         return
     if tag == "br":
-        yield r"\line "
+        yield r"\page " if node.get("data-page-break") == "true" else r"\line "
         return
     if tag == "table":
-        yield from _table(node, root, should_cancel)
+        yield from _table(node, root, fonts, should_cancel)
         return
-    if tag in _INLINE:
-        yield "{" + _INLINE[tag]
-    preformatted = preformatted or tag == "pre" or "white-space: pre-wrap" in node.get("style", "")
+    css = inline_style(node)
+    controls = _INLINE.get(tag, "")
+    if (family := font_family(css.get("font-family"))) in fonts:
+        controls += rf"\f{fonts[family]} "
+    if size := points(css.get("font-size")):
+        controls += rf"\fs{round(size * 2)} "
+    if controls:
+        yield "{" + controls
+    preformatted = preformatted or tag == "pre" or css.get("white-space") == "pre-wrap"
     yield _text(node.text, preformatted)
     for child in node:
-        yield from _translate(child, root, should_cancel, table_cell=table_cell, preformatted=preformatted)
+        yield from _translate(child, root, fonts, should_cancel, table_cell=table_cell, preformatted=preformatted)
         yield _text(child.tail, preformatted)
-    if tag in _INLINE:
+    if controls:
         yield "}"
     if tag in _BLOCK:
         yield r"\line " if table_cell else "\\par\n"
@@ -112,9 +118,16 @@ def export_rtf(source, destination, source_format, should_cancel):
 
         body = read_body(source, should_cancel)
     root = Path(source).parent.resolve()
+    fonts = {"Arial": 0}
+    for node in body.iter():
+        if family := font_family(inline_style(node).get("font-family")):
+            fonts.setdefault(family.replace(";", ""), len(fonts))
     with atomic_output_path(destination) as temporary, Path(temporary).open("w", encoding="ascii") as stream:
-        stream.write(r"{\rtf1\ansi\ansicpg1252\uc1 ")
-        stream.writelines(_translate(body, root, should_cancel))
+        stream.write(r"{\rtf1\ansi\ansicpg1252\uc1\deff0{\fonttbl")
+        for family, index in fonts.items():
+            stream.write(rf"{{\f{index}\fnil " + _text(family) + ";}")
+        stream.write("}")
+        stream.writelines(_translate(body, root, fonts, should_cancel))
         stream.write("}")
         if should_cancel():
             raise InterruptedError("Конвертация отменена")

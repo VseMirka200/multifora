@@ -13,6 +13,7 @@ _TOKEN = re.compile(
     r"\\([a-zA-Z]+)(-?\d+)? ?|\\'([0-9a-fA-F]{2})|\\([^a-zA-Z])|([{}])|([^{}\\]+)",
 )
 _SKIPPED = set(destinations) | {"fonttbl", "colortbl", "stylesheet"}
+_FONT = re.compile(r"{\\f(\d+)(?:\\[a-zA-Z]+-?\d* ?)*\s*([^{};\\]+);")
 
 
 @dataclass
@@ -24,16 +25,23 @@ class _State:
     unicode_skip: int = 1
     picture: list | None = None
     picture_type: str | None = None
+    picture_width: int = 0
+    picture_height: int = 0
+    picture_scale_x: int = 100
+    picture_scale_y: int = 100
     in_table: bool = False
+    font: int | None = None
+    font_size: int | None = None
 
 
 class _Document:
-    def __init__(self):
+    def __init__(self, fonts):
         self.body = etree.Element("body")
         self.paragraph = None
         self.table = None
         self.row = None
         self.cell = None
+        self.fonts = fonts
 
     def current_paragraph(self, state):
         if state.in_table and self.row is not None:
@@ -51,6 +59,14 @@ class _Document:
         if not value:
             return
         target = self.current_paragraph(state)
+        family = self.fonts.get(state.font)
+        css = []
+        if family:
+            css.append(f"font-family:{family}")
+        if state.font_size:
+            css.append(f"font-size:{state.font_size / 2:g}pt")
+        if css:
+            target = etree.SubElement(target, "span", style=";".join(css))
         for active, tag in ((state.bold, "strong"), (state.italic, "em"), (state.underline, "u")):
             if active:
                 target = etree.SubElement(target, tag)
@@ -64,7 +80,14 @@ class _Document:
             picture = bytes.fromhex("".join(state.picture))
             data = base64.b64encode(picture).decode("ascii")
             paragraph = self.current_paragraph(parent_state)
-            etree.SubElement(paragraph, "img", src=f"data:image/{state.picture_type};base64,{data}")
+            image = etree.SubElement(paragraph, "img", src=f"data:image/{state.picture_type};base64,{data}")
+            sizes = (
+                ("width", state.picture_width, state.picture_scale_x),
+                ("height", state.picture_height, state.picture_scale_y),
+            )
+            css = [f"{axis}:{goal * scale / 2000:g}pt" for axis, goal, scale in sizes if goal > 0 and scale > 0]
+            if css:
+                image.set("style", ";".join(css))
 
     def start_row(self):
         if self.table is None:
@@ -79,7 +102,8 @@ def read_body(source, should_cancel):
     rtf = Path(source).read_bytes().decode("latin-1").lstrip()
     if not rtf.startswith(r"{\rtf"):
         raise ValueError("Некорректный документ RTF")
-    document = _Document()
+    fonts = {int(index): family.strip() for index, family in _FONT.findall(rtf)}
+    document = _Document(fonts)
     encoding = "cp1252"
     stack = []
     state = _State()
@@ -110,7 +134,8 @@ def read_body(source, should_cancel):
         position = match.end()
         word, argument, hex_byte, symbol, brace, literal = match.groups()
         if pending_hex and hex_byte is None:
-            document.text(pending_hex.decode(encoding, errors="replace"), state)
+            if not state.skip:
+                document.text(pending_hex.decode(encoding, errors="replace"), state)
             pending_hex.clear()
         if brace == "{":
             if len(stack) >= 256:
@@ -136,6 +161,12 @@ def read_body(source, should_cancel):
         elif state.picture is not None:
             if word in {"pngblip", "jpegblip"}:
                 state.picture_type = "png" if word == "pngblip" else "jpeg"
+            elif word in {"picwgoal", "pichgoal", "picscalex", "picscaley"} and argument:
+                attribute = {
+                    "picwgoal": "picture_width", "pichgoal": "picture_height",
+                    "picscalex": "picture_scale_x", "picscaley": "picture_scale_y",
+                }[word]
+                setattr(state, attribute, int(argument))
             elif literal:
                 state.picture.append(literal)
         elif state.skip:
@@ -159,6 +190,11 @@ def read_body(source, should_cancel):
             else:
                 emit(chr(number) if high_surrogate is not None or not 0xDC00 <= number <= 0xDFFF else "\ufffd")
             skip = state.unicode_skip
+        elif word in {"f", "fs", "deff"} and argument:
+            if word == "fs":
+                state.font_size = int(argument)
+            else:
+                state.font = int(argument)
         elif word in {"b", "i", "ul", "ulnone", "plain"}:
             flag = argument != "0"
             if word in {"b", "plain"}:
@@ -167,6 +203,8 @@ def read_body(source, should_cancel):
                 state.italic = flag and word != "plain"
             if word in {"ul", "ulnone", "plain"}:
                 state.underline = flag and word == "ul"
+            if word == "plain":
+                state.font = state.font_size = None
         elif word == "par":
             document.current_paragraph(state)
             document.paragraph = None
@@ -181,7 +219,9 @@ def read_body(source, should_cancel):
         elif word == "row":
             document.row = document.cell = document.paragraph = None
             state.in_table = False
-        elif word in {"pard", "page", "sect"}:
+        elif word in {"page", "sect"}:
+            etree.SubElement(document.current_paragraph(state), "br", {"data-page-break": "true"})
+        elif word == "pard":
             state.in_table = False
             document.paragraph = None
         elif word in {"line", "tab", "emdash", "endash", "bullet"}:

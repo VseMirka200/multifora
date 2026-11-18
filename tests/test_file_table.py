@@ -204,6 +204,7 @@ class FileTableTests(unittest.TestCase):
             preview_name="new_name_" * 40 + f"{index}.pdf", is_file=True,
         ) for index in range(40)]
         widget.set_files(files)
+        widget.horizontalHeader().resizeSection(widget.model().COLUMN_OLD_NAME, widget.width() * 2)
         self.app.processEvents()
         self.assertGreater(widget.horizontalScrollBar().maximum(), 0)
         widget.horizontalScrollBar().setValue(100)

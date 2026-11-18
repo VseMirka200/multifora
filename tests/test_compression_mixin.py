@@ -11,7 +11,6 @@ class _DummyCompressionWorker(CompressionMixin):
     def __init__(self, method="auto", files=None):
         self.pdf_method = method
         self.files = files or []
-        self._last_pdf_error = ""
         self.cancelled = False
 
     def _should_cancel(self):
@@ -44,6 +43,39 @@ class CompressionMixinTests(unittest.TestCase):
             self.assertIn("Ошибка сжатия PDF", worker._record_error.call_args.args[1])
             worker._emit_finished.assert_called_once_with([], [])
 
+    def test_pdf_batch_keeps_completed_output_and_competing_destination(self):
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder)
+            sources = [directory / f"{name}.pdf" for name in ("first", "conflict", "broken")]
+            for source in sources:
+                source.write_bytes(b"source bytes")
+            competitor = directory / "conflict_compressed.pdf"
+            worker = _DummyCompressionWorker(files=[FileItem(str(path)) for path in sources])
+            worker.status = Mock()
+            worker.progress = Mock()
+            worker._record_error = Mock()
+            worker._emit_finished = Mock()
+
+            def compress(source, stage, _settings, _cancel):
+                if Path(source).stem == "broken":
+                    raise ValueError("bad input")
+                if Path(source).stem == "conflict":
+                    competitor.write_bytes(b"external")
+                Path(stage).write_bytes(b"small")
+
+            with patch("core.workers.pdfcraft_engine.optimize_pdf", side_effect=compress):
+                worker._compress_pdf_files()
+
+            results, updated = worker._emit_finished.call_args.args
+            first = directory / "first_compressed.pdf"
+            self.assertEqual([Path(item.path) for item in results], [first])
+            self.assertEqual(first.read_bytes(), b"small")
+            self.assertEqual(competitor.read_bytes(), b"external")
+            self.assertEqual(worker._record_error.call_count, 2)
+            self.assertFalse(updated)
+            self.assertTrue(all(source.read_bytes() == b"source bytes" for source in sources))
+            self.assertEqual(set(directory.iterdir()), {*sources, first, competitor})
+
     def test_image_output_path_uses_selected_destination(self):
         worker = _DummyCompressionWorker()
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -68,7 +100,6 @@ class CompressionMixinTests(unittest.TestCase):
         expected = {
             "max": (72, 40, "Максимальное сжатие"),
             "quality": (300, 92, "Сохранить качество"),
-            "optimize": (300, 90, "Только оптимизация"),
         }
 
         for method, (
@@ -77,10 +108,13 @@ class CompressionMixinTests(unittest.TestCase):
             name,
         ) in expected.items():
             with self.subTest(method=method):
-                settings = _DummyCompressionWorker(method)._get_pdf_settings()
+                settings = _DummyCompressionWorker(method)._get_pdf_settings(0)
                 self.assertEqual(settings["color_resolution"], resolution)
                 self.assertEqual(settings["jpeg_quality"], quality)
                 self.assertEqual(settings["method_name"], name)
+        self.assertEqual(_DummyCompressionWorker("optimize")._get_pdf_settings(0), {
+            "lossless": True, "method_name": "Только оптимизация",
+        })
 
     def test_auto_profile_depends_on_original_file_size(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -90,8 +124,13 @@ class CompressionMixinTests(unittest.TestCase):
             with large_path.open("wb") as stream:
                 stream.truncate(11 * 1024 * 1024)
 
-            standard = _DummyCompressionWorker("auto", [FileItem(str(standard_path))])._get_pdf_settings()
-            large = _DummyCompressionWorker("auto", [FileItem(str(large_path))])._get_pdf_settings()
+            worker = _DummyCompressionWorker("auto", [FileItem(str(standard_path)), FileItem(str(large_path))])
+            with patch("core.workers.pdfcraft_engine.optimize_pdf") as optimize:
+                for source in (standard_path, large_path):
+                    output = source.with_stem("out-" + source.stem)
+                    output.write_bytes(b"ok")
+                    worker._compress_pdf_with_pdfcraft(str(source), str(output))
+                standard, large = [call.args[2] for call in optimize.call_args_list]
 
         self.assertEqual(standard["method_name"], "Авто (стандарт)")
         self.assertEqual(standard["color_resolution"], 300)

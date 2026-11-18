@@ -2,6 +2,7 @@
 
 from base64 import b64encode
 from pathlib import Path
+from urllib.parse import urlsplit
 from zipfile import ZipFile
 
 from lxml import etree
@@ -16,11 +17,13 @@ ODT_NAMES = {
     "fo": "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0",
     "draw": "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0",
     "xlink": "http://www.w3.org/1999/xlink",
+    "svg": "urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0",
 }
 
 _ELEMENTS = {
     "text:p": "p", "text:h": "h1", "text:span": "span", "text:list": "ul", "text:list-item": "li",
     "text:line-break": "br", "table:table": "table", "table:table-row": "tr",
+    "text:a": "a",
     "table:table-cell": "td", "table:table-header-rows": "thead",
 }
 _IMAGE_MIME = {".png": "png", ".jpg": "jpeg", ".jpeg": "jpeg", ".gif": "gif", ".bmp": "bmp"}
@@ -49,6 +52,10 @@ def _styles(content, archive):
     if "styles.xml" in archive.namelist():
         trees.insert(0, _read_xml(archive, "styles.xml"))
     result = {}
+    font_faces = {}
+    for tree in trees:
+        for font in tree.xpath("//style:font-face", namespaces=ODT_NAMES):
+            font_faces[font.get(_q("style:name"))] = font.get(_q("svg:font-family"))
     for tree in trees:
         for style in tree.xpath("//style:style", namespaces=ODT_NAMES):
             props = style.find(_q("style:text-properties"))
@@ -60,7 +67,14 @@ def _styles(content, archive):
                 ):
                     if props.get(_q(name)) == value:
                         tags.append(tag)
-                result[style.get(_q("style:name"))] = tags
+                if props.get(_q("style:text-underline-style")) not in {None, "none"}:
+                    tags.append("u")
+                family = props.get(_q("fo:font-family")) or font_faces.get(props.get(_q("style:font-name")))
+                size = props.get(_q("fo:font-size"))
+                css = ";".join(value for value in (
+                    f"font-family:{family}" if family else "", f"font-size:{size}" if size else "",
+                ) if value)
+                result[style.get(_q("style:name"))] = tags, css
     return result
 
 
@@ -77,7 +91,13 @@ def _append_image(node, target, archive):
     mime = _IMAGE_MIME.get(Path(name).suffix.lower())
     if mime and name.startswith("Pictures/") and name in archive.namelist():
         data = b64encode(archive.read(name)).decode("ascii")
-        etree.SubElement(target, "img", src=f"data:image/{mime};base64,{data}")
+        element = etree.SubElement(target, "img", src=f"data:image/{mime};base64,{data}")
+        frame = node.getparent()
+        if frame is not None and frame.tag == _q("draw:frame"):
+            dimensions = ";".join(f"{axis}:{value}" for axis in ("width", "height")
+                                  if (value := frame.get(_q(f"svg:{axis}"))))
+            if dimensions:
+                element.set("style", dimensions)
 
 
 def _translate(node, target, archive, styles, should_cancel):
@@ -101,8 +121,15 @@ def _translate(node, target, archive, styles, should_cancel):
         target = etree.SubElement(target, tag)
         if tag == "p" or (tag.startswith("h") and tag[1:].isdigit()):
             target.set("style", "white-space: pre-wrap")
+        if tag == "a":
+            href = node.get(_q("xlink:href"), "")
+            if href.startswith("#") or urlsplit(href).scheme in {"http", "https", "mailto"}:
+                target.set("href", href)
     style_name = node.get(_q("text:style-name"))
-    for tag in styles.get(style_name, ()):
+    tags, css = styles.get(style_name, ((), ""))
+    if css:
+        target = etree.SubElement(target, "span", style=css)
+    for tag in tags:
         target = etree.SubElement(target, tag)
     _append_text(target, node.text)
     for child in node:
