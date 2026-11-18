@@ -115,8 +115,8 @@ class ThemeStyleAuditTests(unittest.TestCase):
 
     def test_menu_items_have_an_explicit_theme_background(self):
         for style, background, hover in (
-            (LIGHT_APPLICATION_STYLE, "#ffffff", "#ecf1f7"),
-            (DARK_APPLICATION_STYLE, "#383838", "#464646"),
+            (LIGHT_APPLICATION_STYLE, "#ffffff", "#dce6f1"),
+            (DARK_APPLICATION_STYLE, "#383838", "#505050"),
         ):
             shared_selector = "QMenu::item,\nQMenu QListWidget#scrollable_filter_list::item {"
             self.assertIn(shared_selector, style)
@@ -203,33 +203,22 @@ class ThemeStyleAuditTests(unittest.TestCase):
             self.assertIn("height: 14px", scoped_lines)
             self.assertNotIn("height: 0px", scoped_lines)
 
-    def test_operations_tabs_keep_selected_underline_without_hover_override(
-        self,
-    ):
-        light = build_operations_tab_bar_style("light")
-        dark = build_operations_tab_bar_style("dark")
-        for style, weight, background, active in (
-            (light, 600, "#e8ecf1", "#3d74b3"),
-            (dark, 700, "#303030", "#79b5f5"),
+    def test_operations_tabs_share_full_width_bar(self):
+        for theme, background, active in (
+            ("light", "#e8ecf1", "#3d74b3"),
+            ("dark", "#303030", "#79b5f5"),
         ):
-            self.assertIn("border-bottom: 1px solid #3d74b3", style)
-            tab = style.split("QTabBar#operations_tab_bar::tab {", 1)[1].split(
-                "}", 1
-            )[0]
+            style = build_operations_tab_bar_style(theme)
+            bar = style.split("QTabBar#operations_tab_bar {", 1)[1].split("}", 1)[0]
+            self.assertIn(f"background-color: {background}", bar)
+            self.assertIn("border-top:", bar)
+            self.assertIn("border-bottom:", bar)
+            tab = style.split("QTabBar#operations_tab_bar::tab {", 1)[1].split("}", 1)[0]
             self.assertIn("padding: 0px 8px", tab)
-            self.assertIn("font-size: 13px", tab)
-            self.assertIn(f"font-weight: {weight}", tab)
-            self.assertIn("min-height: 32px", style)
-            self.assertIn("max-height: 32px", style)
-            selected = style.split(
-                "QTabBar#operations_tab_bar::tab:selected {", 1
-            )[1].split("}", 1)[0]
+            self.assertIn("border-right:", tab)
+            selected = style.split("QTabBar#operations_tab_bar::tab:selected {", 1)[1].split("}", 1)[0]
             self.assertIn(f"color: {active}", selected)
-            inactive = style.split(
-                "QTabBar#operations_tab_bar::tab:!selected {", 1
-            )[1].split("}", 1)[0]
-            self.assertIn(f"background-color: {background}", inactive)
-            self.assertNotIn("QTabBar#operations_tab_bar::tab:hover", style)
+            self.assertIn("border-bottom: 2px solid #3d74b3", selected)
 
     def test_settings_navigation_uses_vertical_tab_selection_style(self):
         for theme, foreground, background, active in (

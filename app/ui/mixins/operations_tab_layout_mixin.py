@@ -258,7 +258,7 @@ class OperationsTabLayoutMixin:
             QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed
         )
         self.operations_tab_bar.setContentsMargins(*MARGINS_NONE)
-        self.operations_tab_bar.setExpanding(False)
+        self.operations_tab_bar.setExpanding(True)
         self.operations_tab_bar.setDrawBase(False)
         self.operations_tab_bar.setElideMode(Qt.TextElideMode.ElideNone)
         self.operations_tab_bar.setUsesScrollButtons(False)
@@ -291,7 +291,7 @@ class OperationsTabLayoutMixin:
             self.operations_header_actions_widget
         )
         operations_header_actions_layout.setContentsMargins(
-            *OPERATIONS_PAGE_MARGINS
+            SPACE_SM, 0, SPACE_SM, 0
         )
         operations_header_actions_layout.setSpacing(SPACE_SM)
         operations_header_actions_layout.setAlignment(

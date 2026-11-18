@@ -103,12 +103,13 @@ class MainWindowSmokeTests(unittest.TestCase):
             try:
                 app_margins = window.centralWidget().layout().contentsMargins()
                 self.assertEqual(app_margins.left(), app_margins.right())
-                self.assertEqual(app_margins.left(), 4)
+                self.assertEqual(app_margins.left(), 0)
                 self.assertEqual(window.windowTitle(), "Мультифора")
                 self.assertFalse(hasattr(window, "tabs"))
                 self.assertIsNotNone(window.operations_stack)
                 self.assertEqual(window.operations_stack.count(), 4)
                 self.assertEqual(window.operations_tab_bar.count(), 5)
+                self.assertTrue(window.operations_tab_bar.expanding())
                 self.assertEqual(
                     window.main_splitter.widget(0).minimumWidth(), 240
                 )
@@ -394,7 +395,13 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(
                     window.settings_scroll.objectName(), "settings_page_scroll"
                 )
-                self.assertEqual(len(window.settings_sections), 4)
+                self.assertFalse(hasattr(window, "settings_nav"))
+                self.assertEqual(
+                    [label.text() for label in window.settings_scroll.widget().findChildren(
+                        QLabel, "settings_section_heading"
+                    )],
+                    ["Интерфейс", "Поведение", "Автоочистка", "Ярлыки"],
+                )
                 for button in (
                     window.desktop_shortcut_button,
                     window.start_menu_shortcut_button,
@@ -404,29 +411,6 @@ class MainWindowSmokeTests(unittest.TestCase):
                     self.assertEqual(
                         button.cursor().shape(), Qt.CursorShape.PointingHandCursor
                     )
-                self.assertEqual(
-                    [button.text() for button in window.settings_nav_buttons],
-                    ["ИНТЕРФЕЙС", "ПОВЕДЕНИЕ", "АВТООЧИСТКА", "ЯРЛЫКИ"],
-                )
-                self.assertTrue(window.settings_nav_buttons[0].isChecked())
-                self.assertEqual(
-                    window.settings_nav_buttons[0].font().pixelSize(), 13
-                )
-                self.assertEqual(
-                    window.settings_nav.minimumWidth(),
-                    window.settings_nav.maximumWidth(),
-                )
-                self.assertEqual(
-                    window.settings_nav.sizePolicy().horizontalPolicy(),
-                    QSizePolicy.Policy.Fixed,
-                )
-                settings_nav_style = window.settings_nav.styleSheet()
-                self.assertIn("border: none", settings_nav_style)
-                checked_nav_style = settings_nav_style.split(
-                    "QPushButton#settings_nav_item:checked {", 1
-                )[1].split("}", 1)[0]
-                self.assertNotIn("border-bottom", checked_nav_style)
-                self.assertTrue(window.settings_nav_buttons[0].isChecked())
                 self.assertEqual(window.help_stack.count(), 1)
                 self.assertEqual(
                     [action.text() for action in window.help_menu_actions],
@@ -459,7 +443,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     open_url.call_args.args[0].toString(),
                     "https://vsemirka200.github.io/multifora/reference/troubleshooting.html",
                 )
-                behavior_page = window.settings_sections[1]
+                behavior_page = window.settings_scroll.widget()
                 behavior_labels = [
                     label.text()
                     for label in behavior_page.findChildren(QLabel)
@@ -475,20 +459,19 @@ class MainWindowSmokeTests(unittest.TestCase):
                     "Очищать весь список после:",
                     [
                         label.text()
-                        for label in window.settings_sections[2].findChildren(QLabel)
+                        for label in window.settings_scroll.widget().findChildren(QLabel)
                     ],
                 )
                 self.assertIn(
                     "Добавить ярлык на рабочий стол",
                     [
                         label.text()
-                        for label in window.settings_sections[3].findChildren(QLabel)
+                        for label in window.settings_scroll.widget().findChildren(QLabel)
                     ],
                 )
                 settings_hints = [
                     label
-                    for section in window.settings_sections
-                    for label in section.findChildren(QLabel)
+                    for label in window.settings_scroll.widget().findChildren(QLabel)
                     if label.property("settingsHint")
                 ]
                 self.assertEqual(len(settings_hints), 11)
@@ -532,14 +515,6 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.show()
                 window.resize(900, 550)
                 QApplication.processEvents()
-                window.settings_nav_buttons[-1].click()
-                self.assertTrue(window.settings_nav_buttons[-1].isChecked())
-                self.assertEqual(
-                    window.settings_scroll.verticalScrollBar().value(),
-                    window.settings_scroll.verticalScrollBar().maximum(),
-                )
-                window.settings_scroll.verticalScrollBar().setValue(0)
-                self.assertTrue(window.settings_nav_buttons[0].isChecked())
                 self.assertFalse(window.btn_help.isChecked())
                 self.assertEqual(
                     window.operations_tab_bar.currentIndex(),

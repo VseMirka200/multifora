@@ -26,7 +26,14 @@ def paint_checkbox(painter, option):
     painter.save()
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
     painter.setPen(QPen(accent if checked or partial or hovered else border, 1.2))
-    painter.setBrush(accent if checked or partial else QColor(0, 0, 0, 0))
+    if checked or partial:
+        fill = accent.lighter(115) if hovered else accent
+    elif hovered:
+        is_light = option.palette.color(QPalette.ColorRole.Window).lightness() > 128
+        fill = QColor("#dce6f1" if is_light else "#505050")
+    else:
+        fill = QColor(0, 0, 0, 0)
+    painter.setBrush(fill)
     painter.drawRoundedRect(box, 4, 4)
     if checked or partial:
         tick = QPainterPath()

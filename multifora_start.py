@@ -18,6 +18,12 @@ from app.core.runtime_logging import install_runtime_logging
 from app.ui.ui_main import MultiforaMainWindow
 
 
+def _configure_application_font(application: QApplication) -> None:
+    font = application.font()
+    font.setFamily("Segoe UI")
+    application.setFont(font)
+
+
 def _run_build_smoke_test() -> int:
     """Check the *frozen* bundle using temporary files and an isolated window.
 
@@ -153,6 +159,7 @@ def _run_build_smoke_test() -> int:
         application.setApplicationName(APP_DISPLAY_NAME)
         application.setApplicationDisplayName(APP_DISPLAY_NAME)
         application.setStyle("Fusion")
+        _configure_application_font(application)
         from app.ui.ui_main import MultiforaMainWindow
 
         # Smoke-проверка не должна менять ярлыки, реестр, IPC-файлы и настройки
@@ -224,6 +231,7 @@ def main():
     app.setApplicationName(APP_DISPLAY_NAME)
     app.setApplicationDisplayName(APP_DISPLAY_NAME)
     app.setStyle("Fusion")
+    _configure_application_font(app)
     try:
         icon_path = _get_app_icon_qt_path()
         if icon_path:

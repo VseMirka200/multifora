@@ -536,7 +536,9 @@ class MultiforaMainWindow(
         splitter.setStyleSheet(build_splitter_style())
         return splitter
 
-    def _create_left_panel(self, main_layout: QVBoxLayout) -> QWidget:
+    def _create_left_panel(
+        self, main_layout: QVBoxLayout, content_layout: QVBoxLayout
+    ) -> QWidget:
         """Создаёт левую панель операций и подключает панель настроек."""
         left_widget = QFrame()
         left_widget.setObjectName("operations_panel")
@@ -572,7 +574,7 @@ class MultiforaMainWindow(
             self.settings_panel_host_layout.addWidget(self.help_panel_widget)
         self.help_panel_widget.setVisible(False)
 
-        main_layout.addWidget(self.settings_panel_host)
+        content_layout.addWidget(self.settings_panel_host)
         left_layout.addWidget(operations_tab)
         return left_widget
 
@@ -1030,15 +1032,20 @@ class MultiforaMainWindow(
         central = QWidget()
         self.setCentralWidget(central)
         main_layout = QVBoxLayout(central)
-        main_layout.setContentsMargins(*APP_MARGINS)
+        main_layout.setContentsMargins(0, APP_MARGINS[1], 0, APP_MARGINS[3])
         main_layout.setSpacing(SPACE_SM)
 
         self._create_settings_panel_host()
         splitter = self._create_main_splitter()
-        left_widget = self._create_left_panel(main_layout)
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(APP_MARGINS[0], 0, APP_MARGINS[2], 0)
+        content_layout.setSpacing(SPACE_SM)
+        left_widget = self._create_left_panel(main_layout, content_layout)
         right_widget = self._create_right_panel()
         self._configure_main_splitter(splitter, left_widget, right_widget)
-        main_layout.addWidget(splitter, 1)
+        content_layout.addWidget(splitter, 1)
+        main_layout.addWidget(content_widget, 1)
         self._create_hidden_status_bar()
 
         self.setMinimumSize(900, 550)
@@ -1185,15 +1192,6 @@ class MultiforaMainWindow(
                 getattr(self, "_apply_operations_tab_bar_theme", None)
             ):
                 self._apply_operations_tab_bar_theme(mode)
-        except Exception as error:
-            _log_ignored_error(
-                "MultiforaMainWindow._apply_theme_runtime_widgets", error
-            )
-        try:
-            if callable(
-                getattr(self, "_apply_settings_navigation_theme", None)
-            ):
-                self._apply_settings_navigation_theme(mode)
         except Exception as error:
             _log_ignored_error(
                 "MultiforaMainWindow._apply_theme_runtime_widgets", error

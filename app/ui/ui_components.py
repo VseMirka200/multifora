@@ -455,6 +455,7 @@ def setup_clickable_checkbox_label(
         Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
     )
     label.setCursor(Qt.CursorShape.PointingHandCursor)
+    label.setProperty("clickableCheckboxLabel", True)
     if tooltip:
         label.setToolTip(tooltip)
 
@@ -936,8 +937,6 @@ class LeftAlignedToolButton(QToolButton):
     def paintEvent(self, event):
         option = QStyleOptionToolButton()
         self.initStyleOption(option)
-        if self.objectName() in {"header_cell_tl", "header_cell_tr"}:
-            option.state &= ~QStyle.StateFlag.State_MouseOver
         text = option.text
         option.text = ""
 

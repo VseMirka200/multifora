@@ -1,7 +1,7 @@
-import concurrent.futures
+﻿import concurrent.futures
 
 from PySide6.QtCore import Qt, QTimer, QUrl
-from PySide6.QtGui import QDesktopServices, QFont, QFontMetrics, QIcon
+from PySide6.QtGui import QDesktopServices, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -32,7 +32,6 @@ from app.core.update_checker import (
 )
 from app.ui.ui_components import (
     MenuLikeComboBox,
-    resolve_widget_theme_mode,
     setup_clickable_checkbox_label,
     setup_standard_dialog,
     setup_standard_dropdown,
@@ -42,26 +41,14 @@ from app.ui.ui_spacing import (
     CHECKBOX_SIZE,
     DIALOG_MARGINS,
     MARGINS_NONE,
-    SETTINGS_PANEL_COLUMN_GAP,
     SETTINGS_PANEL_MARGINS,
     SPACE_LG,
     SPACE_NONE,
     SPACE_SM,
 )
-from app.ui.ui_styles import build_settings_navigation_style
 
 
 class SettingsPanelMixin:
-    def _apply_settings_navigation_theme(
-        self, theme: str | None = None
-    ) -> None:
-        navigation = getattr(self, "settings_nav", None)
-        if navigation is None:
-            return
-        effective = resolve_widget_theme_mode(self, theme)
-        navigation.setStyleSheet(build_settings_navigation_style(effective))
-
-    # Создаёт страницы настроек по мере открытия и связывает поля с состоянием окна.
     @staticmethod
     def _create_settings_hint_label(text: str) -> QLabel:
         hint = QLabel(text)
@@ -74,6 +61,7 @@ class SettingsPanelMixin:
 
     def _create_settings_checkbox_row(self, text: str, tooltip: str = ""):
         row = QWidget()
+        row.setObjectName("settings_row")
         layout = QHBoxLayout(row)
         layout.setContentsMargins(*MARGINS_NONE)
         layout.setSpacing(SPACE_SM)
@@ -90,6 +78,7 @@ class SettingsPanelMixin:
         )
 
         text_column = QWidget(row)
+        text_column.setObjectName("settings_row")
         text_layout = QVBoxLayout(text_column)
         text_layout.setContentsMargins(*MARGINS_NONE)
         text_layout.setSpacing(SPACE_NONE)
@@ -110,11 +99,13 @@ class SettingsPanelMixin:
         hint: str = "",
     ):
         row = QWidget()
+        row.setObjectName("settings_row")
         layout = QVBoxLayout(row)
         layout.setContentsMargins(*MARGINS_NONE)
         layout.setSpacing(SPACE_NONE)
 
         controls = QWidget(row)
+        controls.setObjectName("settings_row")
         controls_layout = QHBoxLayout(controls)
         controls_layout.setContentsMargins(*MARGINS_NONE)
         controls_layout.setSpacing(SPACE_NONE)
@@ -134,6 +125,7 @@ class SettingsPanelMixin:
 
     def _create_shortcut_action_row(self, title: str, hint: str, action):
         row = QWidget()
+        row.setObjectName("settings_row")
         layout = QHBoxLayout(row)
         layout.setContentsMargins(*MARGINS_NONE)
         layout.setSpacing(SPACE_SM)
@@ -142,6 +134,7 @@ class SettingsPanelMixin:
         button.clicked.connect(action)
         layout.addWidget(button, 0, Qt.AlignmentFlag.AlignTop)
         text_column = QWidget(row)
+        text_column.setObjectName("settings_row")
         text_layout = QVBoxLayout(text_column)
         text_layout.setContentsMargins(*MARGINS_NONE)
         text_layout.setSpacing(SPACE_NONE)
@@ -201,22 +194,6 @@ class SettingsPanelMixin:
         content_layout.addWidget(card, 1)
         scroll.setWidget(content)
         return page, card_layout
-
-    def _add_settings_section(self, title: str) -> QVBoxLayout:
-        section = QFrame()
-        section.setObjectName("settings_card")
-        layout = QVBoxLayout(section)
-        layout.setContentsMargins(*MARGINS_NONE)
-        layout.setSpacing(SPACE_SM)
-        heading = QLabel(title)
-        heading_font = heading.font()
-        heading_font.setBold(True)
-        heading_font.setPointSize(15)
-        heading.setFont(heading_font)
-        layout.addWidget(heading)
-        self.settings_sections.append(section)
-        self.settings_content_layout.addWidget(section)
-        return layout
 
     def _add_help_page(self, *, compact: bool = False) -> QVBoxLayout:
         if compact:
@@ -473,67 +450,29 @@ class SettingsPanelMixin:
         links.addStretch()
         layout.addLayout(links)
 
+    def _add_settings_section(self, title: str) -> QVBoxLayout:
+        section = QFrame()
+        section.setObjectName("settings_section")
+        layout = QVBoxLayout(section)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(SPACE_SM)
+        heading = QLabel(title)
+        heading.setObjectName("settings_section_heading")
+        heading.setStyleSheet("font-size: 14px; font-weight: 700;")
+        layout.addWidget(heading)
+        layout.addSpacing(SPACE_SM)
+        self.settings_content_layout.addWidget(section)
+        return layout
+
     def create_settings_tab(self):
         """Создает панель основных настроек на всю доступную ширину."""
         tab = QWidget()
         tab.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        settings_font = QFont()
+        settings_font = tab.font()
         settings_font.setPointSize(13)
         tab.setFont(settings_font)
         root_layout = QHBoxLayout(tab)
         root_layout.setContentsMargins(*MARGINS_NONE)
-        root_layout.setSpacing(SETTINGS_PANEL_COLUMN_GAP)
-
-        self.settings_nav = QWidget()
-        self.settings_nav.setObjectName("settings_nav")
-        self._apply_settings_navigation_theme()
-        navigation_layout = QVBoxLayout(self.settings_nav)
-        navigation_layout.setContentsMargins(*MARGINS_NONE)
-        navigation_layout.setSpacing(0)
-        nav_font = QFont()
-        nav_font.setPixelSize(13)
-        nav_font.setBold(True)
-        section_titles = ("Интерфейс", "Поведение", "Автоочистка", "Ярлыки")
-        display_titles = tuple(title.upper() for title in section_titles)
-        # Резервируем место для значка 16 px и отступа: фиксированные кнопки
-        # иначе обрезают текст сразу после назначения значка.
-        nav_button_width = max(
-            QFontMetrics(nav_font).horizontalAdvance(title)
-            for title in display_titles
-        )
-        first_tab_width = self.operations_tab_bar.tabRect(0).width()
-        self._settings_nav_width = max(nav_button_width + SPACE_LG, first_tab_width)
-        self.settings_nav.setFixedWidth(self._settings_nav_width)
-        self.settings_nav.setSizePolicy(
-            QSizePolicy.Policy.Fixed,
-            QSizePolicy.Policy.Preferred,
-        )
-        self.settings_nav_buttons = []
-        for index, title in enumerate(display_titles):
-            button = QPushButton(title)
-            button.setObjectName("settings_nav_item")
-            if index == 0:
-                button.setProperty("navPosition", "first")
-            elif index == len(display_titles) - 1:
-                button.setProperty("navPosition", "last")
-            button.setCheckable(True)
-            button.setCursor(Qt.CursorShape.PointingHandCursor)
-            button.setFont(nav_font)
-            button.setFixedSize(self._settings_nav_width, 34)
-            button.clicked.connect(
-                lambda _checked=False, row=index: (
-                    self._select_settings_navigation_row(row)
-                )
-            )
-            navigation_layout.addWidget(
-                button,
-                0,
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-            )
-            self.settings_nav_buttons.append(button)
-        navigation_layout.addStretch()
-        root_layout.addWidget(self.settings_nav, 0)
-
         self.settings_scroll = QScrollArea()
         self.settings_scroll.setObjectName("settings_page_scroll")
         self.settings_scroll.setWidgetResizable(True)
@@ -541,24 +480,15 @@ class SettingsPanelMixin:
         settings_content = QWidget()
         settings_content.setObjectName("settings_page_content")
         self.settings_content_layout = QVBoxLayout(settings_content)
-        self.settings_content_layout.setContentsMargins(*MARGINS_NONE)
-        self.settings_content_layout.setSpacing(SPACE_LG * 3)
+        self.settings_content_layout.setContentsMargins(16, 16, 16, 16)
+        self.settings_content_layout.setSpacing(12)
         self.settings_content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.settings_scroll.setWidget(settings_content)
         root_layout.addWidget(self.settings_scroll, 1)
-        self.settings_sections = []
-
-        appearance_layout = self._add_settings_section(section_titles[0])
-        behavior_layout = self._add_settings_section(section_titles[1])
-        auto_clear_layout = self._add_settings_section(section_titles[2])
-        shortcuts_layout = self._add_settings_section(section_titles[3])
-        for page_layout in (
-            appearance_layout,
-            behavior_layout,
-            auto_clear_layout,
-            shortcuts_layout,
-        ):
-            page_layout.setSpacing(SPACE_SM)
+        appearance_layout = self._add_settings_section("Интерфейс")
+        behavior_layout = self._add_settings_section("Поведение")
+        auto_clear_layout = self._add_settings_section("Автоочистка")
+        shortcuts_layout = self._add_settings_section("Ярлыки")
 
         self.theme_mode_combo = MenuLikeComboBox()
         setup_standard_dropdown(self.theme_mode_combo, fixed_width=200)
@@ -685,41 +615,13 @@ class SettingsPanelMixin:
         )
         shortcuts_layout.addWidget(context_row)
         self.settings_content_layout.addStretch()
-        self.settings_scroll.verticalScrollBar().valueChanged.connect(
-            self._sync_settings_navigation_from_scroll
-        )
-        self._sync_settings_navigation_buttons(0)
-
         return tab
-
-    def _sync_settings_navigation_buttons(self, row: int) -> None:
-        for index, button in enumerate(
-            getattr(self, "settings_nav_buttons", ())
-        ):
-            button.setChecked(index == row)
-
-    def _select_settings_navigation_row(self, row: int) -> None:
-        if not 0 <= row < len(self.settings_sections):
-            return
-        section = self.settings_sections[row]
-        self.settings_scroll.verticalScrollBar().setValue(section.y())
-        self._sync_settings_navigation_buttons(row)
-
-    def _sync_settings_navigation_from_scroll(self, value: int) -> None:
-        scrollbar = self.settings_scroll.verticalScrollBar()
-        row = 0
-        for index, section in enumerate(self.settings_sections):
-            if section.y() <= value + SPACE_LG:
-                row = index
-        if scrollbar.maximum() > 0 and value == scrollbar.maximum():
-            row = len(self.settings_sections) - 1
-        self._sync_settings_navigation_buttons(row)
 
     def create_help_tab(self):
         """Создает отдельную панель справки со сведениями о программе."""
         tab = QWidget()
         tab.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        help_font = QFont()
+        help_font = tab.font()
         help_font.setPointSize(10)
         tab.setFont(help_font)
         root_layout = QHBoxLayout(tab)

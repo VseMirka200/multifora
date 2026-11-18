@@ -48,6 +48,22 @@ QFrame#card {
 QFrame#card QWidget {
     background-color: transparent;
 }
+QFrame#settings_section {
+    background-color: #333333;
+    border: 1px solid #4f4f4f;
+    border-radius: 6px;
+}
+QLabel[clickableCheckboxLabel="true"]:hover:enabled,
+QFrame#settings_section QLabel[clickableCheckboxLabel="true"]:hover:enabled {
+    background-color: #505050;
+    border-radius: 4px;
+}
+QFrame#settings_section QWidget#settings_row,
+QFrame#settings_section QLabel,
+QFrame#settings_section QCheckBox {
+    background-color: transparent;
+    border: none;
+}
 QFrame#settings_card {
     background-color: transparent;
     border: none;
@@ -488,6 +504,22 @@ QFrame#card {
 }
 QFrame#card QWidget {
     background-color: transparent;
+}
+QFrame#settings_section {
+    background-color: #ffffff;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+}
+QLabel[clickableCheckboxLabel="true"]:hover:enabled,
+QFrame#settings_section QLabel[clickableCheckboxLabel="true"]:hover:enabled {
+    background-color: #dce6f1;
+    border-radius: 4px;
+}
+QFrame#settings_section QWidget#settings_row,
+QFrame#settings_section QLabel,
+QFrame#settings_section QCheckBox {
+    background-color: transparent;
+    border: none;
 }
 QFrame#settings_card {
     background-color: transparent;
@@ -949,7 +981,7 @@ DARK_APPLICATION_STYLE += _build_global_dropdown_style(
     background="#383838",
     foreground="#f0f0f0",
     border="#4f4f4f",
-    hover="#464646",
+    hover="#505050",
     separator="rgba(255, 255, 255, 0.18)",
     disabled="#a8a8a8",
     scroll_track="#2f2f2f",
@@ -960,7 +992,7 @@ LIGHT_APPLICATION_STYLE += _build_global_dropdown_style(
     background="#ffffff",
     foreground="#1f2328",
     border="#c7cfda",
-    hover="#ecf1f7",
+    hover="#dce6f1",
     separator="rgba(0, 0, 0, 0.2)",
     disabled="#6f7785",
     scroll_track="#eef1f5",

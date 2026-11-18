@@ -141,7 +141,7 @@ def build_drop_action_tile_text_style(theme: str) -> str:
 _BUTTON_PALETTES = {
     "dark": (
         "#303030",
-        "#3a3a3a",
+        "#505050",
         "#2a2a2a",
         "#474747",
         "#f1f1f1",
@@ -151,7 +151,7 @@ _BUTTON_PALETTES = {
     ),
     "light": (
         "#ffffff",
-        "#edf2f7",
+        "#dce6f1",
         "#e2eaf3",
         "#d6dee8",
         "#243244",
@@ -238,7 +238,7 @@ def standard_palette(theme: str) -> dict[str, str]:
             "fg": "#1f2328",
             "border": "#c7cfda",
             "hover_border": "#aab5c3",
-            "hover_bg": "#f8fafc",
+            "hover_bg": "#dce6f1",
             "disabled_bg": "#f2f4f7",
             "disabled_fg": "#6f7785",
             "disabled_border": "#d6dbe2",
@@ -251,7 +251,7 @@ def standard_palette(theme: str) -> dict[str, str]:
         "fg": "#f0f0f0",
         "border": "#4f4f4f",
         "hover_border": "#4f4f4f",
-        "hover_bg": "#383838",
+        "hover_bg": "#505050",
         "disabled_bg": "#3d3d3d",
         "disabled_fg": "#a8a8a8",
         "disabled_border": "#5a5a5a",
@@ -269,6 +269,10 @@ def build_standard_field_style(theme: str, kind: str) -> str:
                 color: {p["fg"]};
                 border: 1px solid {p["border"]};
                 border-radius: {STANDARD_RADIUS}px;
+            }}
+            QLineEdit:hover:enabled {{
+                background-color: {p["hover_bg"]};
+                border-color: {p["hover_border"]};
             }}
             QLineEdit::placeholder {{
                 color: {p["placeholder"]};
@@ -288,6 +292,10 @@ def build_standard_field_style(theme: str, kind: str) -> str:
                 color: {p["fg"]};
                 border: 1px solid {p["border"]};
                 border-radius: {STANDARD_RADIUS}px;
+            }}
+            QTextEdit:hover:enabled {{
+                background-color: {p["hover_bg"]};
+                border-color: {p["hover_border"]};
             }}
             QTextEdit::placeholder {{
                 color: {p["placeholder"]};
@@ -311,6 +319,15 @@ def build_standard_field_style(theme: str, kind: str) -> str:
                 color: {p["fg"]};
                 border: 1px solid {p["border"]};
                 border-radius: {STANDARD_RADIUS}px;
+            }}
+            QSpinBox:hover:enabled,
+            QDoubleSpinBox:hover:enabled,
+            QAbstractSpinBox:hover:enabled,
+            QDateEdit:hover:enabled,
+            QTimeEdit:hover:enabled,
+            QDateTimeEdit:hover:enabled {{
+                background-color: {p["hover_bg"]};
+                border-color: {p["hover_border"]};
             }}
             QSpinBox QLineEdit,
             QDoubleSpinBox QLineEdit,
@@ -364,8 +381,12 @@ def build_standard_field_style(theme: str, kind: str) -> str:
             QComboBox:on::drop-down {{
                 border-bottom-right-radius: 0px;
             }}
-            QComboBox:hover {{
+            QComboBox:hover:enabled {{
+                background-color: {p["hover_bg"]};
                 border: 1px solid {p["hover_border"]};
+            }}
+            QComboBox:hover:enabled::drop-down {{
+                background-color: {p["hover_bg"]};
             }}
             QComboBox:disabled {{
                 background-color: {p["disabled_bg"]};
@@ -398,7 +419,7 @@ def build_standard_field_style(theme: str, kind: str) -> str:
                 subcontrol-position: right center;
                 right: 6px;
             }}
-            QToolButton#menu_like_combo:hover {{
+            QToolButton#menu_like_combo:hover:enabled {{
                 border: 1px solid {p["hover_border"]};
                 background-color: {p["hover_bg"]};
             }}
@@ -531,17 +552,18 @@ def build_standard_field_style(theme: str, kind: str) -> str:
 def build_operations_tab_bar_style(theme: str) -> str:
     is_light = str(theme).lower() == "light"
     foreground = "#202833" if is_light else "#e3e6ea"
-    base_bg = "transparent"
     inactive_bg = "#e8ecf1" if is_light else "#303030"
     separator = "#c7cfda" if is_light else "#4f4f4f"
+    hover_bg = _BUTTON_PALETTES["light" if is_light else "dark"][1]
     underline = "#3d74b3"
     active_text = underline if is_light else "#79b5f5"
     return f"""
         QTabBar#operations_tab_bar {{
-            background-color: transparent;
+            background-color: {inactive_bg};
             margin: 0px;
             padding: 0px;
-            border: none;
+            border-top: 1px solid {separator};
+            border-bottom: 1px solid {separator};
         }}
         QTabBar#operations_tab_bar::tab {{
             margin: 0px;
@@ -552,29 +574,20 @@ def build_operations_tab_bar_style(theme: str) -> str:
             font-size: 13px;
             font-weight: {600 if is_light else 700};
             color: {foreground};
-            background-color: {base_bg};
+            background-color: {inactive_bg};
             border: none;
-            border-top: 1px solid {separator};
             border-right: 1px solid {separator};
-            border-bottom: 1px solid {separator};
-        }}
-        QTabBar#operations_tab_bar::tab:first {{
-            border-left: 1px solid {separator};
-            border-top-left-radius: {STANDARD_RADIUS}px;
-            border-bottom-left-radius: {STANDARD_RADIUS}px;
         }}
         QTabBar#operations_tab_bar::tab:last {{
-            border-top-right-radius: {STANDARD_RADIUS}px;
-            border-bottom-right-radius: {STANDARD_RADIUS}px;
+            border-right: none;
+        }}
+        QTabBar#operations_tab_bar::tab:!selected:hover {{
+            background-color: {hover_bg};
         }}
         QTabBar#operations_tab_bar::tab:selected {{
             color: {active_text};
-            border-bottom: 1px solid {underline};
-        }}
-        QTabBar#operations_tab_bar::tab:!selected {{
-            color: {foreground};
-            background-color: {inactive_bg};
-            border-bottom: 1px solid {separator};
+            background-color: transparent;
+            border-bottom: 2px solid {underline};
         }}
     """
 
