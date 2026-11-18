@@ -36,10 +36,6 @@ if errorlevel 1 goto :error
 
 if not exist "dist\%APP_BUILD_NAME%\%APP_BUILD_NAME%.exe" goto :error
 
-if exist "bin" (
-    robocopy "bin" "dist\%APP_BUILD_NAME%\bin" /E /NFL /NDL /NJH /NJS /NP >nul
-    if errorlevel 8 goto :error
-)
 %BUILD_PYTHON% "scripts\verify_windows_bundle.py" --bundle "dist\%APP_BUILD_NAME%"
 if errorlevel 1 goto :error
 %BUILD_PYTHON% "scripts\measure_bundle.py" --bundle "dist\%APP_BUILD_NAME%" --output "dist\bundle-metrics.json" --max-mib 2500 --max-files 25000

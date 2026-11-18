@@ -5,8 +5,8 @@ from pathlib import Path
 
 REQUIRED = (
     "Multifora.exe",
-    "bin/wordcraft/wordcraft-cli.exe",
-    "bin/pdfcraft/pdfcraft-cli.exe",
+    "_internal/pypdfium2_raw/pdfium.dll",
+    "_internal/pypdfium2_raw/version.json",
     "_internal/assets/icon.ico",
     "_internal/docxcompose/templates/custom.xml",
     "_internal/PySide6/plugins/platforms/qwindows.dll",
@@ -30,6 +30,9 @@ def check_bundle(bundle):
     errors = [name for name in REQUIRED if not (bundle / name).is_file() or (bundle / name).stat().st_size == 0]
     if not (bundle / "_internal").is_dir():
         errors.append("_internal/")
+    for engine in ("pdfcraft", "wordcraft"):
+        if (bundle / "bin" / engine / f"{engine}-cli.exe").exists():
+            errors.append(f"unexpected legacy engine: {engine}")
     errors.extend(
         "unexpected Qt runtime binary: " + str(path.relative_to(bundle)).replace("/", "\\")
         for path in (bundle / "_internal" / "PySide6").rglob("*")

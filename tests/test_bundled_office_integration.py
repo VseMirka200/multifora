@@ -1,11 +1,11 @@
-"""Exercise the real bundled Writer against each supported office format."""
+"""Exercise the Python office engine against each supported format."""
 
 import zipfile
 
 import pytest
 from docx import Document
 
-from core.workers.office_engine import find_wordcraft, run_office
+from core.workers.office_engine import run_office
 
 FORMATS = ("DOCX", "ODT", "RTF", "TXT", "HTML")
 MARKER = "MultiforaConversionMarker"
@@ -13,8 +13,6 @@ MARKER = "MultiforaConversionMarker"
 
 @pytest.fixture(scope="module")
 def office_sources(tmp_path_factory):
-    if not find_wordcraft():
-        pytest.skip("Bundled WordCraft is not available")
     directory = tmp_path_factory.mktemp("office-sources")
     source = directory / "source.docx"
     document = Document()

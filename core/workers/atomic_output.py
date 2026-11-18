@@ -9,7 +9,7 @@ from contextlib import contextmanager
 
 
 @contextmanager
-def atomic_output_path(destination: str) -> Iterator[str]:
+def atomic_output_path(destination: str, *, allow_empty: bool = False) -> Iterator[str]:
     """Пишет во временный файл и публикует результат только при полном успехе.
 
     Вызывающий код должен проверить корректность созданного файла перед выходом
@@ -23,7 +23,7 @@ def atomic_output_path(destination: str) -> Iterator[str]:
     os.close(handle)
     try:
         yield temporary
-        if not os.path.isfile(temporary) or os.path.getsize(temporary) == 0:
+        if not os.path.isfile(temporary) or (not allow_empty and os.path.getsize(temporary) == 0):
             raise OSError("Операция не создала корректный выходной файл")
         if os.path.exists(destination):
             raise FileExistsError(

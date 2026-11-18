@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, copy_metadata
 
 excluded_qt_runtime_binaries = {
     'qpdf.dll',
@@ -18,9 +18,15 @@ excluded_qt_runtime_binaries = {
 a = Analysis(
     ['multifora_start.py'],
     pathex=[],
-    binaries=[],
+    binaries=collect_dynamic_libs('pypdfium2_raw'),
     datas=[('assets', 'assets')]
-    + collect_data_files('docxcompose'),
+    + collect_data_files('docxcompose')
+    + collect_data_files('pypdfium2_raw')
+    + copy_metadata('pypdf')
+    + copy_metadata('pypdfium2')
+    + copy_metadata('reportlab')
+    + copy_metadata('charset-normalizer')
+    + copy_metadata('striprtf'),
     # With the smaller Essentials distribution, the PySide6 metapackage is
     # absent and PyInstaller cannot detect this compatibility module by version.
     hiddenimports=['docxcompose.composer', 'PySide6.support.deprecated'],

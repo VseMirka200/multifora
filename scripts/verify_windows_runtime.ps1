@@ -9,17 +9,6 @@ $savedReport = $env:MULTIFORA_SMOKE_REPORT
 
 try {
     New-Item -ItemType Directory -Path $expectedWork | Out-Null
-    $office = Join-Path $bundle 'bin\wordcraft\wordcraft-cli.exe'
-    $source = Join-Path $expectedWork 'sample.txt'
-    [IO.File]::WriteAllText($source, 'Multifora conversion check', [Text.UTF8Encoding]::new($false))
-    & $office convert $source (Join-Path $expectedWork 'sample.pdf')
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath (Join-Path $expectedWork 'sample.pdf'))) {
-        throw 'Bundled WordCraft conversion failed.'
-    }
-    $pdfcraft = Join-Path $bundle 'bin\pdfcraft\pdfcraft-cli.exe'
-    & $pdfcraft info (Join-Path $expectedWork 'sample.pdf') | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw 'Bundled PDFCraft failed to read a PDF.' }
-
     $env:USERPROFILE = $expectedWork
     $env:QT_QPA_PLATFORM = 'offscreen'
     $env:MULTIFORA_SMOKE_REPORT = Join-Path $expectedWork 'smoke-report.json'
@@ -36,7 +25,7 @@ try {
     }
     $report = Get-Content -LiteralPath $env:MULTIFORA_SMOKE_REPORT -Raw | ConvertFrom-Json
     if ($report.status -ne 'ok') { throw "Application smoke test failed: $($report | ConvertTo-Json -Compress -Depth 10)" }
-    @{ started = $true; observation_ms = $timer.ElapsedMilliseconds; office_helper = 'WordCraft' } |
+    @{ started = $true; observation_ms = $timer.ElapsedMilliseconds; office_backend = 'Python' } |
         ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'dist\runtime-metrics.json') -Encoding UTF8
 } finally {
     $env:USERPROFILE = $savedProfile

@@ -21,12 +21,24 @@ $installDirectory = Join-Path $expectedWork 'app'
 $uninstaller = Join-Path $installDirectory 'unins000.exe'
 try {
     New-Item -ItemType Directory -Path $expectedWork | Out-Null
-    $arguments = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/NOICONS', "/DIR=`"$installDirectory`"")
+    $log = Join-Path $expectedWork 'setup.log'
+    $arguments = @(
+        '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/NOICONS',
+        "/DIR=`"$installDirectory`"", "/LOG=`"$log`""
+    )
     $setup = Start-Process -FilePath $installers[0].FullName -ArgumentList $arguments -WindowStyle Hidden -Wait -PassThru
-    if ($setup.ExitCode -ne 0) { throw "Installer failed: $($setup.ExitCode)" }
-    foreach ($relative in @('Multifora.exe', 'bin\wordcraft\wordcraft-cli.exe', 'bin\pdfcraft\pdfcraft-cli.exe')) {
+    if ($setup.ExitCode -ne 0) {
+        if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Tail 25 }
+        throw "Installer failed: $($setup.ExitCode)"
+    }
+    foreach ($relative in @('Multifora.exe', '_internal\pypdfium2_raw\pdfium.dll')) {
         if (-not (Test-Path -LiteralPath (Join-Path $installDirectory $relative))) {
             throw "Installer did not copy $relative"
+        }
+    }
+    foreach ($relative in @('bin\wordcraft\wordcraft-cli.exe', 'bin\pdfcraft\pdfcraft-cli.exe')) {
+        if (Test-Path -LiteralPath (Join-Path $installDirectory $relative)) {
+            throw "Installer included legacy engine: $relative"
         }
     }
 } finally {

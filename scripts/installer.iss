@@ -39,6 +39,10 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "{#MyAppSource}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
+[InstallDelete]
+Type: files; Name: "{app}\bin\pdfcraft\pdfcraft-cli.exe"
+Type: files; Name: "{app}\bin\wordcraft\wordcraft-cli.exe"
+
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\Multifora.exe"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\Multifora.exe"; Tasks: desktopicon

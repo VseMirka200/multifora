@@ -1,18 +1,15 @@
-"""Exercise PDFCraft against a real PDF and verify its output."""
+"""Exercise the production PDF entry points and verify their output."""
 
-import json
 import random
-import subprocess
 
-import pytest
 from docx import Document
 from PIL import Image
+from pypdf import PdfReader, PdfWriter
 
-from core.workers.office_engine import find_wordcraft, run_office
-from core.workers.pdfcraft_engine import combine_pdfs, export_pdf, find_pdfcraft, optimize_pdf, render_pdf_pages
+from core.workers.office_engine import run_office
+from core.workers.pdfcraft_engine import combine_pdfs, export_pdf, optimize_pdf, render_pdf_pages
 
 
-@pytest.mark.skipif(not find_pdfcraft() or not find_wordcraft(), reason="Bundled engines unavailable")
 def test_pdfcraft_export_and_combine(tmp_path):
     source = tmp_path / "input.docx"
     document = Document()
@@ -28,8 +25,7 @@ def test_pdfcraft_export_and_combine(tmp_path):
     assert "Multifora test document" in "\n".join(p.text for p in Document(output).paragraphs)
     merged = tmp_path / "merged.pdf"
     combine_pdfs([pdf, pdf], merged, lambda: False)
-    result = subprocess.run([find_pdfcraft(), "info", str(merged)], capture_output=True, check=True)
-    assert json.loads(result.stdout)["pages"] == 2
+    assert len(PdfReader(merged).pages) == 2
     images = tmp_path / "images"
     images.mkdir()
     pages = render_pdf_pages(merged, images, lambda: False)
@@ -37,11 +33,9 @@ def test_pdfcraft_export_and_combine(tmp_path):
     assert all(page.read_bytes().startswith(b"\x89PNG\r\n\x1a\n") for page in pages)
     optimized = tmp_path / "optimized.pdf"
     optimize_pdf(pdf, optimized, {"color_resolution": 150, "gray_resolution": 150, "jpeg_quality": 75}, lambda: False)
-    result = subprocess.run([find_pdfcraft(), "info", str(optimized)], capture_output=True, check=True)
-    assert json.loads(result.stdout)["pages"] == 1
+    assert len(PdfReader(optimized).pages) == 1
 
 
-@pytest.mark.skipif(not find_pdfcraft(), reason="Bundled PDFCraft unavailable")
 def test_pdfcraft_compresses_image_pdf(tmp_path):
     rng = random.Random(42)
     source = tmp_path / "scan.pdf"
@@ -49,5 +43,29 @@ def test_pdfcraft_compresses_image_pdf(tmp_path):
     result = tmp_path / "compressed.pdf"
     optimize_pdf(source, result, {"color_resolution": 72, "gray_resolution": 72, "jpeg_quality": 40}, lambda: False)
     assert result.stat().st_size < source.stat().st_size
-    info = subprocess.run([find_pdfcraft(), "info", str(result)], capture_output=True, check=True)
-    assert json.loads(info.stdout)["pages"] == 1
+    assert len(PdfReader(result).pages) == 1
+
+
+def test_export_scan_through_production_entry_point(tmp_path):
+    source = tmp_path / "scan.pdf"
+    Image.new("RGB", (200, 300), "blue").save(source, "PDF")
+    docx = tmp_path / "out.docx"
+    export_pdf(source, docx, "DOCX", lambda: False)
+    assert len(Document(docx).inline_shapes) == 1
+    text = tmp_path / "out.txt"
+    export_pdf(source, text, "TXT", lambda: False)
+    assert text.read_bytes() == b""
+
+
+def test_merge_preserves_outlines(tmp_path):
+    source = tmp_path / "links.pdf"
+    with PdfWriter() as writer:
+        writer.add_blank_page(width=72, height=72)
+        writer.add_outline_item(title="Раздел", page_number=0)
+        writer.write(source)
+    output = tmp_path / "merged.pdf"
+    combine_pdfs([source, source], output, lambda: False)
+    reader = PdfReader(output)
+    assert [(item.title, reader.get_destination_page_number(item)) for item in reader.outline] == [
+        ("Раздел", 0), ("Раздел", 1),
+    ]

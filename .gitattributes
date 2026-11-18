@@ -34,6 +34,3 @@
 *.bat text eol=crlf
 *.ps1 text eol=crlf
 
-bin/pdfcraft/pdfcraft-cli.exe filter=lfs diff=lfs merge=lfs -text
-
-

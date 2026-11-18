@@ -74,12 +74,10 @@ def _run_build_smoke_test() -> int:
         report["image_roundtrip"] = True
         report["imports"].extend(("PIL.Image", "pillow_heif"))
 
-        from core.workers.office_engine import find_wordcraft, run_office
-        from core.workers.pdfcraft_engine import export_pdf, find_pdfcraft, render_pdf_pages
+        from core.workers.office_engine import run_office
+        from core.workers.pdfcraft_engine import export_pdf, render_pdf_pages
 
-        if not find_wordcraft() or not find_pdfcraft():
-            raise RuntimeError("Bundled document engines are missing")
-        report["office_backends"] = {"wordcraft": True, "pdfcraft": True}
+        report["office_backends"] = {"python_office": True, "python_pdf": True}
 
         with TemporaryDirectory(prefix="multifora-pdf-") as directory:
             source_docx = Path(directory, "source.docx")
@@ -100,6 +98,15 @@ def _run_build_smoke_test() -> int:
             if "Multifora PDF check" not in converted_text:
                 raise RuntimeError("PDF to DOCX conversion failed")
             report["pdf_to_docx"] = True
+            source_txt = Path(directory, "unicode.txt")
+            source_txt.write_text("Проверка PDF", encoding="utf-8")
+            text_pdf = Path(directory, "unicode.pdf")
+            output_txt = Path(directory, "result.txt")
+            run_office(source_txt, text_pdf, "PDF", lambda: False)
+            export_pdf(text_pdf, output_txt, "TXT", lambda: False)
+            if "Проверка PDF" not in output_txt.read_text(encoding="utf-8"):
+                raise RuntimeError("TXT to PDF conversion failed")
+            report["text_pdf_roundtrip"] = True
 
         first = Document()
         first.add_paragraph("First document")

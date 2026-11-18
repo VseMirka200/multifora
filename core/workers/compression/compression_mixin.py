@@ -252,13 +252,13 @@ class CompressionMixin:
             new_size = os.path.getsize(output_path)
             if new_size < original_size:
                 ratio = (1 - new_size / original_size) * 100
-                return True, f"PDFCraft ({self._get_compression_method_name(settings)})", ratio
+                return True, self._get_compression_method_name(settings), ratio
             return False, "", 0.0
         except InterruptedError:
             self._last_pdf_error = "отменено"
             return False, "", 0.0
         except Exception as error:
-            self._last_pdf_error = f"PDFCraft: {error}"
+            self._last_pdf_error = f"Ошибка сжатия PDF: {error}"
             return False, "", 0.0
 
     def _get_pdf_settings(self):

@@ -1,10 +1,10 @@
-import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from PIL import Image
+from pypdf import PdfReader
 
 from app.core.conversion_formats import (
     DOCUMENT_CATEGORY,
@@ -76,14 +76,8 @@ class ImageConversionIntegrationTests(unittest.TestCase):
                     self.assertEqual(image.size, (20, 40))
                     self.assertNotIn(image.getexif().get(274), (3, 6, 8))
             output = worker._convert_image_to_pdf(FileItem(str(source)))
-            preview = Path(folder) / "preview.png"
-            from core.workers.pdfcraft_engine import find_pdfcraft
-
-            subprocess.run(
-                [find_pdfcraft(), "render", output, "--page", "1", "--dpi", "72", "--out", str(preview)], check=True
-            )
-            with Image.open(preview) as image:
-                self.assertLess(image.width, image.height)
+            page = PdfReader(output).pages[0]
+            self.assertLess(page.mediabox.width, page.mediabox.height)
 
     def test_rgb_transparent_color_is_respected(self):
         with tempfile.TemporaryDirectory() as folder:

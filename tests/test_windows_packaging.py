@@ -17,8 +17,8 @@ def test_bundle_validator_reports_missing_files(tmp_path: Path):
 def test_bundle_validator_accepts_complete_layout(tmp_path: Path):
     contents = (
         "Multifora.exe",
-        "bin/wordcraft/wordcraft-cli.exe",
-        "bin/pdfcraft/pdfcraft-cli.exe",
+        "_internal/pypdfium2_raw/pdfium.dll",
+        "_internal/pypdfium2_raw/version.json",
         "_internal/assets/icon.ico",
         "_internal/docxcompose/templates/custom.xml",
         "_internal/PySide6/plugins/platforms/qwindows.dll",
@@ -29,8 +29,8 @@ def test_bundle_validator_accepts_complete_layout(tmp_path: Path):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(b"not empty")
     assert check_bundle(tmp_path) == []
-    (tmp_path / "bin/pdfcraft/pdfcraft-cli.exe").unlink()
-    assert check_bundle(tmp_path) == ["bin/pdfcraft/pdfcraft-cli.exe"]
+    (tmp_path / "_internal/pypdfium2_raw/pdfium.dll").unlink()
+    assert check_bundle(tmp_path) == ["_internal/pypdfium2_raw/pdfium.dll"]
 
 
 def test_bundle_validator_requires_docx_merge_template(tmp_path: Path):

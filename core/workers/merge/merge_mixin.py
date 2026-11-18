@@ -145,7 +145,7 @@ class MergeMixin:
         from core.workers.pdfcraft_engine import combine_pdfs
 
         output_path = self._get_merge_output_path(files, "pdf")
-        self.status.emit("Объединение PDF с помощью PDFCraft")
+        self.status.emit("Объединение PDF")
         combine_pdfs([file.path for file in files], output_path, self._should_cancel)
         self.progress.emit(100)
         return output_path

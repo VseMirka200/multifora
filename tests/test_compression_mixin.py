@@ -31,7 +31,7 @@ class CompressionMixinTests(unittest.TestCase):
         worker._compress_pdf_files()
         worker._emit_finished.assert_called_once_with([], [])
 
-    def test_missing_pdf_engine_is_reported_as_file_error(self):
+    def test_invalid_pdf_is_reported_as_file_error(self):
         with tempfile.TemporaryDirectory() as folder:
             source = Path(folder, "source.pdf")
             source.write_bytes(b"pdf")
@@ -40,12 +40,8 @@ class CompressionMixinTests(unittest.TestCase):
             worker.progress = Mock()
             worker._record_error = Mock()
             worker._emit_finished = Mock()
-            with patch(
-                "core.workers.pdfcraft_engine.find_pdfcraft",
-                return_value=None,
-            ):
-                worker._compress_pdf_files()
-            self.assertIn("PDFCraft", worker._record_error.call_args.args[1])
+            worker._compress_pdf_files()
+            self.assertIn("Ошибка сжатия PDF", worker._record_error.call_args.args[1])
             worker._emit_finished.assert_called_once_with([], [])
 
     def test_image_output_path_uses_selected_destination(self):

@@ -1,125 +1,19 @@
-"""Conversion through the bundled WordCraft document engine."""
+"""Document conversion through the built-in Python engines."""
 
-from __future__ import annotations
-
-import base64
-import mimetypes
-import os
-import re
-import shutil
-import subprocess
-import sys
-import tempfile
-import time
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from shutil import copyfile
 
 from core.workers.atomic_output import atomic_output_path
-from core.workers.engine_policy import adaptive_timeout
 
-OFFICE_INPUTS = frozenset({"DOC", "DOCX", "ODT", "RTF", "HTML", "TXT"})
-OFFICE_OUTPUTS = frozenset({"PDF", "DOCX", "ODT", "RTF", "TXT", "HTML"})
+OFFICE_INPUTS = frozenset({"DOCX", "ODT", "RTF", "HTML", "TXT"})
+OFFICE_OUTPUTS = OFFICE_INPUTS | {"PDF"}
+
+
 class OfficeUnavailableError(RuntimeError):
-    """No installed office backend is available for the queue."""
-
-
-def _stop_process(process):
-    if process.poll() is None:
-        if os.name == "nt":
-            subprocess.run(
-                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
-                capture_output=True,
-                timeout=15,
-                check=False,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
-        else:
-            process.terminate()
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait()
-
-
-def _run(arguments, directory, should_cancel, timeout, status):
-    log_path = directory / "office.log"
-    with log_path.open("wb") as log:
-        process = subprocess.Popen(
-            arguments,
-            cwd=directory,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-        start = time.monotonic()
-        next_notice = 5
-        try:
-            while process.poll() is None:
-                if should_cancel():
-                    raise InterruptedError("Конвертация отменена пользователем")
-                elapsed = time.monotonic() - start
-                if elapsed > timeout:
-                    raise TimeoutError(f"Офисная конвертация превысила {timeout} секунд")
-                if callable(status) and elapsed >= next_notice:
-                    status(f"Офисная конвертация: прошло {int(elapsed)} с.")
-                    next_notice += 15
-                time.sleep(0.1)
-        finally:
-            _stop_process(process)
-    if should_cancel():
-        raise InterruptedError("Конвертация отменена пользователем")
-    if process.returncode:
-        detail = log_path.read_text(encoding="utf-8", errors="replace")[-2000:].strip()
-        raise RuntimeError(detail or f"Офисное приложение завершилось с кодом {process.returncode}")
-
-
-def _normalize_export(output, target):
-    """Keep TXT in UTF-8 and embed HTML images before temporary files disappear."""
-    if target not in {"TXT", "HTML"}:
-        return
-    data = output.read_bytes()
-    charset = re.search(rb"charset\s*=\s*[\"']?([a-zA-Z0-9_-]+)", data[:4096], re.I)
-    encoding = (
-        "utf-16"
-        if data.startswith((b"\xff\xfe", b"\xfe\xff"))
-        else (charset.group(1).decode("ascii") if charset else "utf-8-sig")
-    )
-    content = data.decode(encoding).replace("\r\n", "\n").replace("\r", "\n")
-    if target == "HTML":
-        base = output.parent.resolve()
-
-        def embed(match):
-            src = match.group(2)
-            parsed = urlsplit(src)
-            if parsed.scheme or parsed.netloc:
-                return match.group(0)
-            image = (base / unquote(parsed.path)).resolve()
-            if not image.is_relative_to(base) or not image.is_file():
-                raise RuntimeError("Не найдено изображение HTML: " + src)
-            mime = mimetypes.guess_type(image.name)[0]
-            if not mime or not mime.startswith("image/"):
-                raise RuntimeError("Неподдерживаемый ресурс HTML: " + src)
-            uri = "data:" + mime + ";base64," + base64.b64encode(image.read_bytes()).decode("ascii")
-            return 'src="' + uri + '"'
-
-        content = re.sub(r"\bsrc\s*=\s*([\"'])(.*?)\1", embed, content, flags=re.I | re.S)
-        content = re.sub(r"(charset\s*=\s*[\"']?)[a-zA-Z0-9_-]+", r"\g<1>utf-8", content, flags=re.I)
-    output.write_text(content, encoding="utf-8", newline="\n")
-
-
-def find_wordcraft() -> str | None:
-    root = (
-        Path(sys.executable).resolve().parent
-        if getattr(sys, "frozen", False)
-        else Path(__file__).resolve().parents[2]
-    )
-    executable = root / "bin" / "wordcraft" / "wordcraft-cli.exe"
-    return str(executable) if executable.is_file() else None
+    """A document backend required by the application is unavailable."""
 
 
 def run_office(source, destination, target_format, should_cancel, *, status=None) -> str:
-    """Convert with the bundled WordCraft CLI and publish only complete output."""
     target = target_format.upper()
     if target not in OFFICE_OUTPUTS:
         raise ValueError(f"Неподдерживаемый формат документа: {target}")
@@ -128,27 +22,73 @@ def run_office(source, destination, target_format, should_cancel, *, status=None
     source = Path(source).resolve()
     if not source.is_file():
         raise FileNotFoundError(source)
-    executable = find_wordcraft()
-    if not executable:
-        raise OfficeUnavailableError("Встроенный движок WordCraft не найден. Переустановите Мультифору.")
+    source_format = source.suffix.upper()
+    same_format = "HTML" if source_format == ".HTM" else source_format[1:]
+    if same_format not in OFFICE_INPUTS:
+        raise ValueError(f"Неподдерживаемый входной формат: {same_format}")
     if callable(status):
-        status("WordCraft...")
-    with tempfile.TemporaryDirectory(prefix="multifora_document_") as folder:
-        directory = Path(folder)
-        output = directory / ("result." + target.lower())
-        _run([executable, "convert", str(source), str(output)], directory, should_cancel,
-             adaptive_timeout(source.stat().st_size), status)
-        if not output.is_file() or output.stat().st_size == 0:
-            raise RuntimeError("WordCraft не создал выходной файл")
-        _normalize_export(output, target)
-        if target == "PDF":
-            with output.open("rb") as stream:
-                if stream.read(5) != b"%PDF-":
-                    raise RuntimeError("WordCraft создал некорректный PDF")
-        if should_cancel():
-            raise InterruptedError("Конвертация отменена")
-        with atomic_output_path(destination) as temporary:
-            shutil.copyfile(output, temporary)
+        status(f"Преобразование {same_format} → {target}")
+    if same_format == target:
+        with atomic_output_path(destination, allow_empty=target == "TXT") as temporary:
+            copyfile(source, temporary)
             if should_cancel():
                 raise InterruptedError("Конвертация отменена")
-    return ""
+        return ""
+    if source_format == ".DOCX" and target == "TXT":
+        from core.document_engine.docx_text import export_text
+
+        export_text(source, destination, should_cancel)
+        return ""
+    if source_format == ".DOCX" and target == "HTML":
+        from core.document_engine.docx_html import export_html
+
+        export_html(source, destination, should_cancel)
+        return ""
+    if source_format in {".HTML", ".HTM"} and target == "DOCX":
+        from core.document_engine.html_docx import import_docx
+
+        import_docx(source, destination, should_cancel)
+        return ""
+    if source_format == ".ODT" and target in {"DOCX", "HTML"}:
+        from core.document_engine.odt_html import convert_odt
+
+        convert_odt(source, destination, target, should_cancel)
+        return ""
+    if source_format == ".RTF" and target in {"DOCX", "HTML"}:
+        from core.document_engine.odt_html import save_body
+        from core.document_engine.rtf_import import read_body
+
+        save_body(read_body(source, should_cancel), source, destination, target, should_cancel)
+        return ""
+    if source_format in {".DOCX", ".HTML", ".HTM", ".RTF"} and target == "ODT":
+        from core.document_engine.odt_export import export_odt
+
+        export_odt(source, destination, source_format[1:], should_cancel)
+        return ""
+    if source_format in {".DOCX", ".HTML", ".HTM", ".ODT"} and target == "RTF":
+        from core.document_engine.rtf_export import export_rtf
+
+        export_rtf(source, destination, source_format[1:], should_cancel)
+        return ""
+    if source_format in {".DOCX", ".HTML", ".HTM", ".ODT", ".RTF"} and target == "PDF":
+        from core.document_engine.rich_pdf import export_pdf
+
+        export_pdf(source, destination, source_format[1:], should_cancel)
+        return ""
+    if source_format in {".HTML", ".HTM", ".ODT", ".RTF"} and target == "TXT":
+        from core.document_engine.structured_text import export_text as export_structured_text
+
+        export_structured_text(source, destination, source_format[1:], should_cancel)
+        return ""
+    if source_format == ".TXT":
+        from core.document_engine.plain_text import EDITABLE_EXPORTS, convert_text
+
+        if target in EDITABLE_EXPORTS:
+            convert_text(source, destination, target, should_cancel)
+            return ""
+        if target == "PDF":
+            from core.document_engine.text_pdf import export_pdf
+
+            export_pdf(source, destination, should_cancel)
+            return ""
+    raise ValueError(f"Неподдерживаемое преобразование: {same_format} → {target}")
