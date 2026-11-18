@@ -28,6 +28,7 @@ class LifecycleMixin:
     def load_settings(self):
         """Загрузка настроек из файла без уведомлений."""
         app_settings.load_settings(self)
+        self.apply_shortcut_settings(silent=True)
 
     def save_settings(self):
         """Сохранение настроек в файл."""
@@ -145,10 +146,11 @@ class LifecycleMixin:
         self._force_settings_save = True
         self.save_settings()
         self._force_settings_save = False
-        if hasattr(self, "ipc_server") and self.ipc_server:
+        ipc_server = getattr(self, "_ipc_file_server", None)
+        if ipc_server is not None:
             try:
-                self.ipc_server.close()
-                self.ipc_server = None
+                ipc_server.close()
+                self._ipc_file_server = None
             except Exception as exc:
                 self.log_event(f"Ошибка закрытия IPC: {exc}", "WARN")
         update_timer = getattr(self, "_update_poll_timer", None)

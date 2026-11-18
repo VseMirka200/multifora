@@ -9,7 +9,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication
 
-from app.core.models import FileItem
+from app.core.models import FileItem, OperationFile
 from app.ui.ui_components import operation_file_items
 from app.ui.ui_main import MultiforaMainWindow
 
@@ -84,9 +84,9 @@ class CheckedOperationsTests(unittest.TestCase):
         window.list_files.select_paths([self.items[1].path, self.items[3].path])
         window.on_template_selected("Нумерация")
         window.template_num_start.setValue(1)
-        self.assertEqual(self.items[0].preview_name, self.items[0].name)
-        self.assertTrue(self.items[1].preview_name.startswith("001"))
-        self.assertTrue(self.items[3].preview_name.startswith("002"))
+        self.assertEqual(self.window.list_files.model().preview_for(self.items[0]).preview_name, self.items[0].name)
+        self.assertTrue(self.window.list_files.model().preview_for(self.items[1]).preview_name.startswith("001"))
+        self.assertTrue(self.window.list_files.model().preview_for(self.items[3]).preview_name.startswith("002"))
         window.file_worker = Mock()
         with (
             patch.object(window, "_ensure_operation_can_start", return_value=True),
@@ -96,7 +96,20 @@ class CheckedOperationsTests(unittest.TestCase):
             patch.object(window, "_show_progress_dialog"),
         ):
             window.apply_rename()
-        self.assertEqual(window.file_worker.set_rename.call_args.args[0], [self.items[1], self.items[3]])
+        sources = window.file_worker.set_rename.call_args.args[0]
+        self.assertEqual(sources, [OperationFile.from_item(self.items[index]) for index in (1, 3)])
+        self.assertTrue(all(not hasattr(source, "preview_name") for source in sources))
+
+    def test_path_swap_updates_original_rows_and_preserves_marks(self):
+        first, second = self.items[:2]
+        self.window.list_files.model().set_checked(first, True)
+        first_source, second_source = OperationFile.from_item(first), OperationFile.from_item(second)
+
+        self.window._apply_operation_updates([(first_source, second_source.path), (second_source, first_source.path)])
+
+        self.assertEqual((first.path, second.path), (second_source.path, first_source.path))
+        self.assertTrue(self.window.list_files.model().is_checked(first))
+        self.assertFalse(self.window.list_files.model().is_checked(second))
 
     def test_filters_update_merge_buttons_and_previews_without_fallback(self):
         window = self.window
@@ -112,10 +125,11 @@ class CheckedOperationsTests(unittest.TestCase):
         self.tab("rename")
         window.on_template_selected("Добавить текст в начало")
         window.template_prefix.setText("prefix_")
-        self.assertTrue(all(item.preview_name == item.name for item in self.items))
+        preview_for = self.window.list_files.model().preview_for
+        self.assertTrue(all(preview_for(item).preview_name == item.name for item in self.items))
         self.assertFalse(window.btn_apply_rename.isEnabled())
         window.input_search.clear()
-        self.assertEqual(self.items[0].preview_name, "prefix_first.pdf")
+        self.assertEqual(self.window.list_files.model().preview_for(self.items[0]).preview_name, "prefix_first.pdf")
 
     def test_merge_reordering_preserves_files_hidden_by_the_tab(self):
         window = self.window
@@ -147,7 +161,8 @@ class CheckedOperationsTests(unittest.TestCase):
         self.assertLessEqual(window.files[0].size, window.files[-1].size)
         self.tab("rename")
         self.assertEqual(model.headerData(column, Qt.Orientation.Horizontal), "Тип файла")
-        self.assertTrue(all(item.estimated_compressed_size is None for item in self.items))
+        preview_for = self.window.list_files.model().preview_for
+        self.assertTrue(all(preview_for(item).estimated_compressed_size is None for item in self.items))
 
     def test_image_size_estimate_changes_with_quality_and_clears_pdf_estimates(self):
         window = self.window
@@ -155,13 +170,13 @@ class CheckedOperationsTests(unittest.TestCase):
         self.tab("compress")
         window.combo_compress_type.setCurrentText("PDF документы")
         window.refresh_compression_preview()
-        self.assertIsNotNone(self.items[0].estimated_compressed_size)
+        self.assertIsNotNone(self.window.list_files.model().preview_for(self.items[0]).estimated_compressed_size)
         window.list_files.select_paths([self.items[4].path])
         window.combo_compress_type.setCurrentText("Изображения")
         window.combo_compression_level.setCurrentIndex(window.combo_compression_level.findData(40))
         model = window.list_files.model()
         self.assertEqual(model.index(4, model.COLUMN_TYPE).data(), "8,0 МБ → ≈5,2 МБ")
-        self.assertIsNone(self.items[0].estimated_compressed_size)
+        self.assertIsNone(self.window.list_files.model().preview_for(self.items[0]).estimated_compressed_size)
         window.combo_compression_level.setCurrentIndex(window.combo_compression_level.findData(85))
         self.assertEqual(model.index(4, model.COLUMN_TYPE).data(), "8,0 МБ → ≈7,0 МБ")
 

@@ -1,14 +1,14 @@
-"""PDF page merging for the Python backend."""
+"""Объединение страниц PDF средствами движка Python."""
 
 from pathlib import Path
 
 from pypdf import PdfReader, PdfWriter
 
-from core.workers.atomic_output import atomic_output_path
+from core.filesystem import atomic_output_path
 
 
 def combine_pdfs(sources, destination, should_cancel):
-    """Merge pages in source order, publishing the result atomically."""
+    """Объединяет страницы в исходном порядке и атомарно публикует результат."""
     sources = [Path(source) for source in sources]
     if not sources:
         raise ValueError("Не выбраны файлы PDF для объединения")

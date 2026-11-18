@@ -1,10 +1,10 @@
-"""Extract text from PDF with the Python backend."""
+"""Извлечение текста из PDF средствами движка Python."""
 
 from pathlib import Path
 
 from pypdf import PdfReader
 
-from core.workers.atomic_output import atomic_output_path
+from core.filesystem import atomic_output_path
 
 
 def open_pdf(source, should_cancel):
@@ -18,7 +18,7 @@ def open_pdf(source, should_cancel):
 
 
 def export_text(source, destination, should_cancel):
-    """Extract text in page order and atomically publish UTF-8 output."""
+    """Извлекает текст в порядке страниц и атомарно публикует результат в UTF-8."""
     with open_pdf(source, should_cancel) as reader, atomic_output_path(destination, allow_empty=True) as temporary:
         with Path(temporary).open("w", encoding="utf-8", newline="\n") as output:
             for index, page in enumerate(reader.pages):

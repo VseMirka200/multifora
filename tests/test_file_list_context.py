@@ -10,6 +10,7 @@ from app.ui.mixins.file_list_actions_mixin import FileListActionsMixin
 from app.ui.mixins.file_list_context_mixin import FileListContextMixin
 from app.ui.mixins.file_list_preview_mixin import FileListPreviewMixin
 from app.ui.mixins.worker_ops_mixin import WorkerOpsMixin
+from core.operation_requests import ConversionRequest, RenameRequest
 
 
 class _Host(FileListContextMixin):
@@ -221,7 +222,7 @@ class FileMetadataTests(unittest.TestCase):
 class AutoClearBehaviorTests(unittest.TestCase):
     def test_auto_clear_requires_master_switch_and_matching_operation(self):
         host = SimpleNamespace(
-            _last_operation={"op": "convert"},
+            _last_operation_request=ConversionRequest("auto_document", "PDF", "alongside", ""),
             auto_clear_enabled_checkbox=Mock(),
             auto_clear_convert_checkbox=Mock(),
         )
@@ -237,7 +238,7 @@ class AutoClearBehaviorTests(unittest.TestCase):
             WorkerOpsMixin._should_auto_clear_after_operation(host)
         )
 
-        host._last_operation = {"op": "rename"}
+        host._last_operation_request = RenameRequest(())
         self.assertFalse(
             WorkerOpsMixin._should_auto_clear_after_operation(host)
         )

@@ -1,4 +1,4 @@
-"""Tokenize PDF syntax; stream contents must be handled separately by the parser."""
+"""Разбор синтаксиса PDF на токены; содержимое потоков обрабатывается отдельно."""
 
 from dataclasses import dataclass
 
@@ -15,7 +15,7 @@ _DELIMITERS = b"()<>[]{}/%"
 
 
 def tokenize(data: bytes):
-    """Yield lexical tokens from PDF object syntax, preserving byte values."""
+    """Выдаёт токены синтаксиса объектов PDF, сохраняя значения байтов."""
     i = 0
     while i < len(data):
         c = data[i]

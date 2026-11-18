@@ -1,41 +1,4 @@
-"""Безопасное создание выходного файла рядом с конечным расположением."""
+"""Совместимые импорты функций публикации файлов."""
 
-from __future__ import annotations
-
-import os
-import sys
-import tempfile
-from collections.abc import Iterator
-from contextlib import contextmanager
-
-
-def publish_new_file(source, destination):
-    """Publish a complete file on the same filesystem without replacing a competitor."""
-    if sys.platform == "win32":
-        os.rename(source, destination)
-    else:
-        os.link(source, destination)
-        os.unlink(source)
-
-
-@contextmanager
-def atomic_output_path(destination: str, *, allow_empty: bool = False) -> Iterator[str]:
-    """Пишет во временный файл и публикует результат только при полном успехе.
-
-    Вызывающий код должен проверить корректность созданного файла перед выходом
-    из блока. При ошибке временный файл удаляется, старый результат не меняется.
-    """
-    folder = os.path.dirname(os.path.abspath(destination))
-    suffix = os.path.splitext(destination)[1]
-    handle, temporary = tempfile.mkstemp(
-        prefix=".__multifora_", suffix=suffix, dir=folder
-    )
-    os.close(handle)
-    try:
-        yield temporary
-        if not os.path.isfile(temporary) or (not allow_empty and os.path.getsize(temporary) == 0):
-            raise OSError("Операция не создала корректный выходной файл")
-        publish_new_file(temporary, destination)
-    finally:
-        if os.path.exists(temporary):
-            os.remove(temporary)
+from core.filesystem import atomic_output_path as atomic_output_path
+from core.filesystem import publish_new_file as publish_new_file

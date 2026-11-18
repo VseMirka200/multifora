@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
-from app.core.models import FileItem
+from app.core.models import OperationSource
 
 from .conversion import ConversionMixin
-from .rename_worker import RenameWorker
+from .operation_worker import OperationWorker
 
 
-class ConversionWorker(ConversionMixin, RenameWorker):
+class ConversionWorker(ConversionMixin, OperationWorker):
     """Обработчик конвертации с общей инфраструктурой операций."""
 
     def __init__(self) -> None:
@@ -21,7 +21,7 @@ class ConversionWorker(ConversionMixin, RenameWorker):
 
     def set_conversion(
         self,
-        files: list[FileItem],
+        files: Sequence[OperationSource],
         conversion_type: str,
         conversion_format: str = "",
         output_dir: str = "",

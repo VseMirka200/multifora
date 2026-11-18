@@ -1,4 +1,4 @@
-"""Render documents requiring Qt's system font selection and text shaping."""
+"""Отрисовка документов с подбором системных шрифтов и формированием текста средствами Qt."""
 
 from pathlib import Path
 
@@ -23,7 +23,7 @@ from reportlab.lib.pagesizes import A4
 from core.document_engine.formatting import image_size
 from core.document_engine.rtf_export import image_data
 from core.document_engine.table_layout import table_layout
-from core.workers.atomic_output import atomic_output_path
+from core.filesystem import atomic_output_path
 
 
 class _LocalDocument(QTextDocument):
@@ -52,7 +52,7 @@ def write_pdf(body, source, destination, should_cancel, *, layout=None):
         raise ValueError("Некорректные размеры страницы документа")
     document = _LocalDocument()
     font = document.defaultFont()
-    # QPdfWriter can encode optional ligatures as control characters in the text layer.
+    # QPdfWriter может записать необязательные лигатуры как управляющие символы текстового слоя.
     for tag in ("liga", "clig", "dlig", "hlig"):
         font.setFeature(QFont.Tag.fromString(tag), 0)
     document.setDefaultFont(font)

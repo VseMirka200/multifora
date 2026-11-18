@@ -1,7 +1,7 @@
-"""PDF operations exposed to Multifora workers."""
+"""Операции с PDF для обработчиков Мультифоры."""
 
 class PdfCraftUnavailableError(RuntimeError):
-    """A required PDF library is unavailable."""
+    """Необходимая библиотека PDF недоступна."""
 
 
 def export_pdf(source, destination, target, should_cancel):

@@ -1,4 +1,4 @@
-"""Lay out document paragraphs, pictures and tables in searchable PDF."""
+"""Размещение абзацев, изображений и таблиц в PDF с возможностью поиска."""
 
 from copy import deepcopy
 from dataclasses import dataclass
@@ -30,7 +30,7 @@ from core.document_engine.pdf_fonts import pdf_font_family
 from core.document_engine.rtf_export import image_data
 from core.document_engine.table_layout import table_layout
 from core.document_engine.text_pdf import _FONT_NAME, _text_font, register_font_family
-from core.workers.atomic_output import atomic_output_path
+from core.filesystem import atomic_output_path
 
 _BLOCKS = {"div", "section", "article", "main", "header", "footer", "blockquote", "ul", "ol"}
 _CELL_BLOCKS = _BLOCKS | {"p", "table", "pre", "li", *(f"h{i}" for i in range(1, 7))}

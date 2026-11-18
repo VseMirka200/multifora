@@ -1,4 +1,4 @@
-"""Write editable OpenDocument Text from supported HTML and DOCX content."""
+"""Запись редактируемого ODT из поддерживаемого содержимого HTML и DOCX."""
 
 import base64
 import re
@@ -12,7 +12,7 @@ from PIL import Image
 
 from core.document_engine.formatting import font_family, image_size, inline_style, points
 from core.document_engine.odt_html import ODT_NAMES
-from core.workers.atomic_output import atomic_output_path
+from core.filesystem import atomic_output_path
 
 _MIME = "application/vnd.oasis.opendocument.text"
 _MANIFEST = "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"

@@ -1,4 +1,4 @@
-"""File types shared by the file list and operations."""
+"""Типы файлов, общие для списка файлов и операций."""
 
 DOCUMENT_EXTENSIONS = (
     ".docx",

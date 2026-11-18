@@ -1,4 +1,4 @@
-"""Export PDF pages as editable text or images for scanned pages."""
+"""Экспорт страниц PDF в редактируемый текст или изображения отсканированных страниц."""
 
 import re
 from contextlib import ExitStack, closing
@@ -10,10 +10,10 @@ from docx.enum.section import WD_ORIENT
 from docx.shared import Pt
 from docx.text.paragraph import Paragraph
 
+from core.filesystem import atomic_output_path
 from core.pdf_engine.image_placements import measure_page_images
 from core.pdf_engine.render import open_pdf_renderer, render_page_image
 from core.pdf_engine.text import open_pdf
-from core.workers.atomic_output import atomic_output_path
 
 _PDF_FAMILY_ALIASES = {
     "arial": "Arial", "helvetica": "Arial", "times": "Times New Roman", "timesnewroman": "Times New Roman",
@@ -107,7 +107,7 @@ def _add_page_images(document, page, width, height, should_cancel):
                 continue
             scale = min(1, width / image_width, height / image_height)
             dimensions = Pt(image_width * scale), Pt(image_height * scale)
-            # pypdf supplies standalone JPEG/PNG bytes, including any composed transparency.
+            # pypdf возвращает самостоятельные изображения JPEG/PNG с учётом прозрачности.
             if embedded.data.startswith((b"\xff\xd8\xff", b"\x89PNG\r\n\x1a\n")):
                 with BytesIO(embedded.data) as stream:
                     document.add_picture(stream, width=dimensions[0], height=dimensions[1])

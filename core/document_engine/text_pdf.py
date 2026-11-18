@@ -1,4 +1,4 @@
-"""Render plain UTF text into a searchable PDF."""
+"""Отрисовка обычного текста UTF в PDF с возможностью поиска."""
 
 import os
 from pathlib import Path
@@ -11,7 +11,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen.canvas import Canvas
 
 from core.document_engine.plain_text import read_text
-from core.workers.atomic_output import atomic_output_path
+from core.filesystem import atomic_output_path
 
 _FONT_NAME = "MultiforaText"
 _FONT_LOCK = Lock()

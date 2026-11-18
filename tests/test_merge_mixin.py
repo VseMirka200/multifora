@@ -78,7 +78,7 @@ class MergeMixinTests(unittest.TestCase):
         ]
 
         with (
-            patch("core.workers.merge.merge_mixin.os.path.isfile", return_value=False),
+            patch("core.merge_documents.os.path.isfile", return_value=False),
             self.assertRaisesRegex(FileNotFoundError, "Не найдены или недоступны"),
         ):
             worker._merge_files_to_target()

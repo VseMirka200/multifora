@@ -1,4 +1,4 @@
-"""Compare local engine trees with identical synthetic inputs on Windows."""
+"""Сравнение локальных версий движков на одинаковых синтетических данных в Windows."""
 
 import argparse
 import ctypes

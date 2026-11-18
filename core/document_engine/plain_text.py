@@ -1,4 +1,4 @@
-"""Read UTF text and export it to editable document formats."""
+"""Чтение текста UTF и экспорт в редактируемые форматы документов."""
 
 import re
 from codecs import BOM_UTF16_BE, BOM_UTF16_LE, BOM_UTF32_BE, BOM_UTF32_LE
@@ -9,7 +9,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 from docx import Document
 
-from core.workers.atomic_output import atomic_output_path
+from core.filesystem import atomic_output_path
 
 _ODT_MIME = "application/vnd.oasis.opendocument.text"
 _OFFICE = "urn:oasis:names:tc:opendocument:xmlns:office:1.0"

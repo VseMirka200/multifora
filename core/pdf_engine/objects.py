@@ -1,6 +1,6 @@
-"""Parse PDF primitive objects from an object-syntax token sequence.
+"""Разбор примитивных объектов PDF из последовательности токенов.
 
-Indirect objects, streams and cross-reference tables are handled separately.
+Косвенные объекты, потоки и таблицы перекрёстных ссылок обрабатываются отдельно.
 """
 
 import math
@@ -26,7 +26,7 @@ _REAL = re.compile(rb"[+-]?(?:\d+\.\d*|\.\d+)\Z")
 
 
 def parse_object(data: bytes):
-    """Parse exactly one PDF object, rejecting trailing tokens and invalid syntax."""
+    """Разбирает один объект PDF и отклоняет лишние токены и неверный синтаксис."""
     tokens = list(tokenize(data))
     index = 0
 
@@ -92,7 +92,7 @@ def parse_object(data: bytes):
 
 
 def serialize_object(value, *, _depth=0):
-    """Serialize a primitive PDF object without writing a complete PDF file."""
+    """Сериализует примитивный объект PDF без записи полного файла."""
     if _depth > 100:
         raise ValueError("PDF object nesting limit exceeded")
     if value is None:
@@ -104,7 +104,7 @@ def serialize_object(value, *, _depth=0):
     if isinstance(value, float):
         if not math.isfinite(value):
             raise ValueError("PDF numbers must be finite")
-        # PDF numbers do not support exponent notation.
+        # Числа PDF не поддерживают запись с показателем степени.
         from decimal import Decimal
 
         return format(Decimal(str(value)), "f").encode("ascii")

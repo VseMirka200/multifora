@@ -1,4 +1,4 @@
-"""Read the dimensions and typography shared by the document converters."""
+"""Чтение размеров и параметров шрифта для конвертеров документов."""
 
 import re
 from math import isfinite

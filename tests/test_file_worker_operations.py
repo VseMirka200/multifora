@@ -32,8 +32,8 @@ class FileWorkerOperationTests(unittest.TestCase):
             {"convert", "rename", "compress"},
         )
 
-    @patch("core.workers.rename_worker.os.rename")
-    @patch("core.workers.rename_worker.os.path.exists", return_value=False)
+    @patch("core.rename_transaction.os.rename")
+    @patch("core.rename_transaction.os.path.exists", return_value=False)
     def test_rename_operation_moves_file_and_emits_result(
         self, _exists, rename
     ):

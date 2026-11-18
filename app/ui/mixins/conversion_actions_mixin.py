@@ -6,9 +6,9 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from app.core.conversion_formats import (
     CONVERSION_CATEGORIES,
-    DOCUMENT_CATEGORY,
     category_for_file_type,
     compatible_targets_for_source,
+    conversion_type_for_formats,
     is_mixed_source_label,
     matches_format,
     target_formats_for_category,
@@ -17,17 +17,10 @@ from app.core.message_boxes import show_app_choice
 from app.core.models import FileItem
 from app.core.qt_utils import signals_blocked
 from app.ui.ui_components import operation_file_items
+from core.operation_requests import ConversionRequest
 
 _CATEGORY_PLACEHOLDER = "Выберите тип файла:"
 _TARGET_PLACEHOLDER = "Выберите целевой формат:"
-
-_OPTIMIZED_DOCUMENT_ROUTES: dict[tuple[str, str], str] = {
-    ("DOCX", "PDF"): "docx_to_pdf",
-    ("PDF", "DOCX"): "pdf_to_docx",
-    ("ODT", "PDF"): "odt_to_pdf",
-    ("PDF", "ODT"): "pdf_to_odt",
-}
-
 
 class ConversionActionsMixin:
     """Содержит UI-логику запуска конвертации файлов."""
@@ -369,21 +362,6 @@ class ConversionActionsMixin:
             f"Среди файлов для обработки нет совместимых с режимом «{source_label}».",
         )
 
-    @staticmethod
-    def _resolve_conversion_type(
-        category_label: str,
-        source_label: str,
-        target_label: str,
-    ) -> str:
-        if category_label != DOCUMENT_CATEGORY:
-            return "auto_image"
-        if is_mixed_source_label(category_label, source_label):
-            return "auto_document"
-        return _OPTIMIZED_DOCUMENT_ROUTES.get(
-            (source_label, target_label),
-            "auto_document",
-        )
-
     def convert_files_dual_combo(self) -> None:
         """Конвертирует один или несколько исходных форматов в общий целевой."""
         if not self._ensure_operation_can_start():
@@ -436,39 +414,19 @@ class ConversionActionsMixin:
         show_starting = getattr(self, "_show_operation_starting", None)
         if callable(show_starting):
             show_starting(f"Подготовка конвертации {len(files)} файлов...")
-        conversion_type = self._resolve_conversion_type(
+        conversion_type = conversion_type_for_formats(
             category_label,
             source_label,
             target_label,
         )
-        worker_operation = (
-            "convert_image"
-            if conversion_type == "auto_image"
-            else "convert_document"
-        )
-        if not self.create_file_worker(operation=worker_operation):
-            hide_progress = getattr(self, "_hide_progress_dialog", None)
-            if callable(hide_progress):
-                hide_progress()
-            return
-
-        self.file_worker.set_conversion(
-            files,
+        request = ConversionRequest(
             conversion_type,
             target_label,
             output_mode=output_mode,
             output_dir=output_dir,
         )
-        self._last_operation = {
-            "op": "convert",
-            "file_category": category_label,
-            "conversion_type": conversion_type,
-            "conversion_format": target_label,
-            "conversion_output_mode": output_mode,
-            "conversion_output_dir": output_dir,
-            "file_paths": [file_item.path for file_item in files],
-        }
-        self.file_worker.start()
+        if not self._start_operation(request, files):
+            return
 
         show_progress = getattr(self, "_show_progress_dialog", None)
         if callable(show_progress):

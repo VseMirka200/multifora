@@ -1,4 +1,4 @@
-"""Resolve HTML table spans and column widths for PDF rendering."""
+"""Расчёт объединённых ячеек и ширины столбцов HTML-таблиц для PDF."""
 
 from core.document_engine.formatting import inline_style, points
 

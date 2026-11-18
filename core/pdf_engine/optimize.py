@@ -1,4 +1,4 @@
-"""Compress PDF image streams without rasterizing pages."""
+"""Сжатие потоков изображений PDF без растеризации страниц."""
 
 from contextlib import closing
 from io import BytesIO
@@ -11,8 +11,8 @@ from pypdf.errors import PdfReadError
 from pypdf.generic import NameObject, NumberObject, StreamObject
 from pypdf.generic._image_xobject import _xobj_to_image
 
+from core.filesystem import atomic_output_path
 from core.pdf_engine.image_placements import measure_page_images
-from core.workers.atomic_output import atomic_output_path
 
 
 def _shrink(writer, object_id, dimensions, settings):
@@ -63,7 +63,7 @@ def _replace_with_smaller_jpeg(writer, stream, picture, dimensions, settings):
             resized.close()
     if len(jpeg) >= len(stream._data):
         return
-    # Swap the stream in the writer while preserving its indirect identity and image dictionary.
+    # Заменяем поток в записываемом документе, сохраняя его ссылку и словарь изображения.
     properties = {key: value for key, value in stream.items() if key not in {"/Filter", "/DecodeParms", "/Length"}}
     properties.update({
         NameObject("/Filter"): NameObject("/DCTDecode"),

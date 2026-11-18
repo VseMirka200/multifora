@@ -1,4 +1,4 @@
-"""Import local HTML documents into editable DOCX."""
+"""Импорт локальных HTML-документов в редактируемый DOCX."""
 
 import re
 from io import BytesIO
@@ -16,7 +16,7 @@ from PIL import Image
 
 from core.document_engine.formatting import font_family, image_size, inline_style, points
 from core.document_engine.rtf_export import image_data
-from core.workers.atomic_output import atomic_output_path
+from core.filesystem import atomic_output_path
 
 _BLOCKS = {"div", "section", "article", "main", "header", "footer", "blockquote"}
 _HEADINGS = {f"h{level}": f"Heading {level}" for level in range(1, 7)}

@@ -11,10 +11,10 @@ from docx import Document
 from PIL import Image
 
 from app.core.rename_plan import resolve_rename_targets
+from core.rename_transaction import rename_batch
 from core.workers.atomic_output import atomic_output_path
 from core.workers.compression.image_optimizer import save_optimized_image
 from core.workers.merge.merge_mixin import _requires_docx_composer
-from core.workers.rename_transaction import rename_batch
 
 
 class RenameSafetyTests(unittest.TestCase):
@@ -44,6 +44,11 @@ class RenameSafetyTests(unittest.TestCase):
             self.assertEqual(existing.read_text(), "EXISTING")
             self.assertEqual(Path(successes[0][1]).read_text(), "FIRST")
 
+    def test_strict_rename_rejects_an_occupied_target(self):
+        item = SimpleNamespace(path="a.txt", folder="")
+        with self.assertRaisesRegex(ValueError, "исходные имена заняты"):
+            resolve_rename_targets([item], ["b.txt"], strict=True, exists=lambda path: path == "b.txt")
+
     def test_duplicate_targets_get_distinct_names(self):
         with tempfile.TemporaryDirectory() as directory:
             items = [SimpleNamespace(path=str(Path(directory, name)), folder=directory) for name in ("a.txt", "b.txt")]
@@ -66,7 +71,7 @@ class RenameSafetyTests(unittest.TestCase):
                 return true_rename(source, target)
 
             with patch(
-                "core.workers.rename_transaction.os.rename",
+                "core.rename_transaction.os.rename",
                 side_effect=fail_second_move,
             ):
                 successes, errors = rename_batch(

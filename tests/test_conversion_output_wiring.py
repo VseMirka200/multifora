@@ -1,6 +1,12 @@
-import re
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
+
+from app.core.models import FileItem, OperationFile
+from app.ui.operation_controller import OperationController
+from app.ui.ui_main import MultiforaMainWindow
+from core.operation_requests import ConversionRequest
 
 
 class ConversionOutputWiringTests(unittest.TestCase):
@@ -32,18 +38,27 @@ class ConversionOutputWiringTests(unittest.TestCase):
         self.assertIn('"В папку «Конвертированные»"', source)
         self.assertIn('"Выбрать папку…"', source)
         self.assertIn("output_dir=output_dir", source)
-        self.assertIn('"conversion_output_dir": output_dir', source)
 
     def test_retry_preserves_conversion_output_dir(self):
-        source = Path("app/ui/ui_main.py").read_text(encoding="utf-8")
-        self.assertRegex(
-            source,
-            re.compile(
-                r'output_dir\s*=\s*self\._last_operation\.get\('
-                r'\s*"conversion_output_dir",\s*""\s*\)'
-            ),
+        request = ConversionRequest("auto_document", "PDF", "custom", "chosen-folder")
+        file = FileItem("failed.docx")
+        controller = OperationController()
+        window = SimpleNamespace(
+            _last_operation_request=request,
+            _collect_file_items_by_paths=Mock(return_value=[file]),
+            _show_operation_starting=Mock(),
+            _show_progress_dialog=Mock(),
+            create_file_worker=Mock(return_value=True),
+            file_worker=Mock(),
         )
-        self.assertIn('"conversion_output_mode", "source_subfolder"', source)
+        window._start_operation = lambda request, files: controller.start(window, request, files)
+        MultiforaMainWindow._retry_failed_operation(window, [{"path": file.path}, {"message": "Other error"}])
+        window._collect_file_items_by_paths.assert_called_once_with([file.path])
+        window.create_file_worker.assert_called_once_with(operation="convert_document")
+        window.file_worker.set_conversion.assert_called_once_with(
+            [OperationFile.from_item(file)], "auto_document", "PDF", output_mode="custom", output_dir="chosen-folder"
+        )
+        window.file_worker.start.assert_called_once_with()
 
     def test_last_custom_conversion_folder_is_persisted(self):
         source = Path("app/core/settings.py").read_text(encoding="utf-8")

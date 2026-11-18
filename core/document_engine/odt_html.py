@@ -1,4 +1,4 @@
-"""Convert the contents of an ODT package to standalone HTML."""
+"""Конвертация содержимого ODT в самостоятельный HTML-документ."""
 
 from base64 import b64encode
 from pathlib import Path
@@ -7,7 +7,7 @@ from zipfile import ZipFile
 
 from lxml import etree
 
-from core.workers.atomic_output import atomic_output_path
+from core.filesystem import atomic_output_path
 
 ODT_NAMES = {
     "office": "urn:oasis:names:tc:opendocument:xmlns:office:1.0",

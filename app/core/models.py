@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import stat
+from dataclasses import dataclass
 
 from app.core.file_types import FILE_TYPE_EXTENSIONS
 
@@ -45,14 +46,6 @@ class FileItem:
 
     def __init__(self, path: str):
         self.path = path
-        self.checked = False
-        self.preview_name = os.path.basename(path)
-        self.estimated_compressed_size = None
-        self.conversion_target_format = ""
-        # Заполняется экраном предпросмотра для операций, создающих копию
-        # файла в другой папке. По умолчанию это исходная папка.
-        self.preview_folder = ""
-
         self.is_file = False
         self.name = ""
         self.folder = ""
@@ -68,7 +61,6 @@ class FileItem:
         self.is_file = bool(path_stat and stat.S_ISREG(path_stat.st_mode))
         self.name = os.path.basename(self.path)
         self.folder = os.path.dirname(self.path)
-        self.preview_folder = self.folder
         self.size = path_stat.st_size if self.is_file else 0
         self.file_type = self._detect_file_type()
 
@@ -89,3 +81,21 @@ class FileItem:
             return False
         self._refresh_path_metadata()
         return True
+
+
+@dataclass(frozen=True, slots=True)
+class OperationFile:
+    """Метаданные исходного пути на момент запуска файловой операции."""
+
+    path: str
+    name: str
+    folder: str
+    is_file: bool
+    file_type: str
+
+    @classmethod
+    def from_item(cls, item: FileItem) -> OperationFile:
+        return cls(item.path, item.name, item.folder, item.is_file, item.file_type)
+
+
+OperationSource = FileItem | OperationFile

@@ -1,1 +1,1 @@
-"""Python document conversion components."""
+"""Компоненты конвертации документов на Python."""

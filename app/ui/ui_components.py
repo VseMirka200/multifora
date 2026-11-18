@@ -1,4 +1,6 @@
 import os
+from dataclasses import dataclass
+from weakref import WeakKeyDictionary
 
 from PySide6.QtCore import (
     QAbstractAnimation,
@@ -56,7 +58,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.core.app_utils import _log_ignored_error
-from app.core.models import file_item_source_folder, file_item_type_label
+from app.core.models import FileItem, file_item_source_folder, file_item_type_label
 from app.ui.checkbox_style import paint_checkbox
 from app.ui.ui_spacing import (
     ACTION_BUTTON_HEIGHT,
@@ -977,16 +979,26 @@ def selected_file_items(list_widget, *, files_only: bool = False) -> list:
     return result
 
 
-def operation_file_items(files, *, files_only=False, visible_files=None):
+def operation_file_items(files, *, files_only=False, visible_files=None, is_checked=None):
     """Отметки задают область операции, фильтры ограничивают видимую очередь."""
     files = list(files)
-    marked = any(getattr(item, "checked", False) for item in files)
+    is_checked = is_checked or (lambda item: getattr(item, "checked", False))
+    marked = any(is_checked(item) for item in files)
     candidates = files if visible_files is None else visible_files
     return [
         item
         for item in candidates
-        if (not marked or getattr(item, "checked", False)) and (not files_only or getattr(item, "is_file", False))
+        if (not marked or is_checked(item)) and (not files_only or getattr(item, "is_file", False))
     ]
+
+
+@dataclass(slots=True)
+class FilePreview:
+    preview_name: str
+    preview_folder: str
+    conversion_target_format: str = ""
+    estimated_compressed_size: int | None = None
+    checked: bool = False
 
 
 class FileListModel(QAbstractTableModel):
@@ -1002,10 +1014,31 @@ class FileListModel(QAbstractTableModel):
     # Хранит общий порядок файлов, чтобы выделение и перетаскивание не расходились с UI.
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._previews: WeakKeyDictionary[FileItem, FilePreview] = WeakKeyDictionary()
         self._files = []
         self._folder_header = self.HEADERS[self.COLUMN_PATH]
         self.compression_sizes_visible = False
         self.conversion_formats_visible = False
+
+    def preview_for(self, item):
+        if not isinstance(item, FileItem):
+            # Существующие адаптеры таблицы могут предоставлять атрибуты предпросмотра напрямую.
+            return item
+        preview = self._previews.get(item)
+        if preview is None:
+            preview = FilePreview(item.name, item.folder)
+            self._previews[item] = preview
+        return preview
+
+    def is_checked(self, item):
+        return bool(getattr(self.preview_for(item), "checked", False))
+
+    def set_checked(self, item, checked):
+        state = self.preview_for(item)
+        if getattr(state, "checked", False) == checked:
+            return False
+        state.checked = checked
+        return True
 
     def set_conversion_formats_visible(self, visible: bool) -> None:
         if self.conversion_formats_visible == visible:
@@ -1014,12 +1047,11 @@ class FileListModel(QAbstractTableModel):
         self.headerDataChanged.emit(Qt.Orientation.Horizontal, self.COLUMN_TYPE, self.COLUMN_TYPE)
         self.refresh()
 
-    @staticmethod
-    def _conversion_type_label(file_item) -> str:
+    def _conversion_type_label(self, file_item) -> str:
         source = file_item_type_label(file_item)
         if not getattr(file_item, "is_file", False):
             return source
-        target = getattr(file_item, "conversion_target_format", "") or "—"
+        target = getattr(self.preview_for(file_item), "conversion_target_format", "") or "—"
         return f"{source} → {target}"
 
     def set_compression_sizes_visible(self, visible: bool) -> None:
@@ -1044,7 +1076,7 @@ class FileListModel(QAbstractTableModel):
         if not getattr(file_item, "is_file", False):
             return "—"
         current = self._format_file_size(getattr(file_item, "size", 0))
-        estimated = getattr(file_item, "estimated_compressed_size", None)
+        estimated = getattr(self.preview_for(file_item), "estimated_compressed_size", None)
         after = f"≈{self._format_file_size(estimated)}" if estimated is not None else "—"
         return f"{current} → {after}"
 
@@ -1114,7 +1146,7 @@ class FileListModel(QAbstractTableModel):
         file_item = self._files[index.row()]
         if index.column() == self.COLUMN_CHECK:
             if role == Qt.ItemDataRole.CheckStateRole:
-                return Qt.CheckState.Checked if getattr(file_item, "checked", False) else Qt.CheckState.Unchecked
+                return Qt.CheckState.Checked if self.is_checked(file_item) else Qt.CheckState.Unchecked
             if role == Qt.ItemDataRole.ToolTipRole:
                 return (
                     "Зажмите ЛКМ и проведите вверх или вниз, чтобы поставить или снять галочки.\n"
@@ -1125,7 +1157,7 @@ class FileListModel(QAbstractTableModel):
                 return self._original_display_name(file_item)
             if index.column() == self.COLUMN_NEW_NAME:
                 return getattr(
-                    file_item, "preview_name", None
+                    self.preview_for(file_item), "preview_name", None
                 ) or self._original_display_name(file_item)
             if index.column() == self.COLUMN_TYPE:
                 if self.compression_sizes_visible:
@@ -1134,7 +1166,7 @@ class FileListModel(QAbstractTableModel):
                     return self._conversion_type_label(file_item)
                 return file_item_type_label(file_item)
             if index.column() == self.COLUMN_PATH:
-                preview_folder = getattr(file_item, "preview_folder", "")
+                preview_folder = getattr(self.preview_for(file_item), "preview_folder", "")
                 return str(preview_folder or file_item_source_folder(file_item))
         if role == Qt.ItemDataRole.ToolTipRole:
             if index.column() == self.COLUMN_TYPE and self.conversion_formats_visible:
@@ -1153,10 +1185,10 @@ class FileListModel(QAbstractTableModel):
                 return self._original_display_name(file_item)
             if index.column() == self.COLUMN_NEW_NAME:
                 return getattr(
-                    file_item, "preview_name", None
+                    self.preview_for(file_item), "preview_name", None
                 ) or self._original_display_name(file_item)
             if index.column() == self.COLUMN_PATH:
-                preview_folder = getattr(file_item, "preview_folder", "")
+                preview_folder = getattr(self.preview_for(file_item), "preview_folder", "")
                 return str(preview_folder or getattr(file_item, "path", ""))
         if role == Qt.ItemDataRole.SizeHintRole:
             metrics = QFontMetrics(QApplication.font())
@@ -1177,9 +1209,8 @@ class FileListModel(QAbstractTableModel):
             return False
         checked = value in (Qt.CheckState.Checked, Qt.CheckState.Checked.value)
         item = self._files[index.row()]
-        if getattr(item, "checked", False) == checked:
+        if not self.set_checked(item, checked):
             return False
-        item.checked = checked
         self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
         return True
 
@@ -1398,7 +1429,7 @@ class FileListWidget(QTableView):
     def _sync_header_checkbox(self):
         files = self.model().files()
         self.check_all_checkbox.setEnabled(bool(files))
-        self.check_all_checkbox.setChecked(bool(files) and all(getattr(item, "checked", False) for item in files))
+        self.check_all_checkbox.setChecked(bool(files) and all(self.model().is_checked(item) for item in files))
 
     def _on_double_clicked(self, index: QModelIndex):
         if not index.isValid() or index.column() == self.model().COLUMN_CHECK:
@@ -1416,7 +1447,7 @@ class FileListWidget(QTableView):
         return [
             FileListItemAdapter(self, self.model().index(row, self.model().COLUMN_NAME))
             for row, item in enumerate(self.model().files())
-            if getattr(item, "checked", False)
+            if self.model().is_checked(item)
         ]
 
     def selected_file_items(self, *, files_only: bool = False) -> list:
@@ -1431,8 +1462,7 @@ class FileListWidget(QTableView):
     def _set_checks(self, checked):
         changed = False
         for item in self.model().files():
-            if getattr(item, "checked", False) != checked:
-                item.checked = checked
+            if self.model().set_checked(item, checked):
                 changed = True
         if changed:
             self.viewport().update()
@@ -1495,8 +1525,7 @@ class FileListWidget(QTableView):
         changed = False
         files = self.model().files()
         for item in files[first:last + 1]:
-            if getattr(item, "checked", False) != self._check_drag_value:
-                item.checked = self._check_drag_value
+            if self.model().set_checked(item, self._check_drag_value):
                 changed = True
         self._check_drag_last_row = row
         if changed:
@@ -1603,7 +1632,7 @@ class FileListWidget(QTableView):
             self.model().setData(
                 index,
                 Qt.CheckState.Unchecked
-                if getattr(index.data(Qt.ItemDataRole.UserRole), "checked", False)
+                if self.model().is_checked(index.data(Qt.ItemDataRole.UserRole))
                 else Qt.CheckState.Checked,
                 Qt.ItemDataRole.CheckStateRole,
             )
@@ -1618,8 +1647,7 @@ class FileListWidget(QTableView):
         path_set = set(paths)
         changed = False
         for item in self.model().files():
-            if item.path in path_set and not getattr(item, "checked", False):
-                item.checked = True
+            if item.path in path_set and self.model().set_checked(item, True):
                 changed = True
         if changed:
             self.viewport().update()

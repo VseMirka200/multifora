@@ -154,6 +154,45 @@ class ConversionMixinTests(unittest.TestCase):
         self.assertLessEqual(convert.call_count, 2)
         self.assertEqual(len(worker.errors), 20)
 
+    def test_parallel_pdf_cancel_discards_late_output_and_keeps_reported_file(self):
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            worker = _DummyConversionWorker()
+            for index in range(3):
+                source = Path(directory, f"{index}.pdf")
+                source.touch()
+                worker.files.append(FileItem(str(source)))
+            second_started = threading.Event()
+            release_second = threading.Event()
+
+            def convert(file):
+                if file.name == "0.pdf":
+                    self.assertTrue(second_started.wait(5))
+                elif file.name == "1.pdf":
+                    second_started.set()
+                    self.assertTrue(release_second.wait(5))
+                else:
+                    self.fail("Scheduled another file after cancellation")
+                output = Path(file.path).with_suffix(".docx")
+                output.write_bytes(b"result")
+                return str(output)
+
+            def on_status(message):
+                if worker._should_cancel():
+                    release_second.set()
+
+            worker.status.emit = on_status
+            worker.progress.emit = lambda _: setattr(worker, "_cancel_requested", True)
+            with (
+                patch.object(worker, "_pdf_docx_worker_count", return_value=2),
+                patch.object(worker, "_convert_pdf_to_docx", side_effect=convert),
+            ):
+                result = worker._convert_pdf_to_docx_batch()
+            self.assertEqual([item.name for item in result], ["0.docx"])
+            self.assertEqual([path.name for path in Path(directory).glob("*.docx")], ["0.docx"])
+            self.assertEqual(worker.errors, [])
+
     def test_cancelled_engine_does_not_report_file_error(self):
         from types import SimpleNamespace
 

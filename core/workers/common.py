@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import os
 from collections.abc import Iterable
 from typing import Protocol
+
+from core.filesystem import get_unique_path as get_unique_path
 
 CANCELLED_STATUS = "Операция отменена пользователем"
 
@@ -28,20 +29,6 @@ class WorkerLike(Protocol):
     def _record_error(
         self, file_item: object | None, message: str
     ) -> None: ...
-
-
-def get_unique_path(path: str) -> str:
-    """Возвращает незанятый путь, добавляя числовой суффикс при необходимости."""
-    if not os.path.exists(path):
-        return path
-
-    base, extension = os.path.splitext(path)
-    counter = 1
-    candidate = path
-    while os.path.exists(candidate):
-        candidate = f"{base}_{counter}{extension}"
-        counter += 1
-    return candidate
 
 
 def emit_progress(worker: WorkerLike, index: int, total: int) -> None:

@@ -1,7 +1,8 @@
 from .compression_worker import CompressionWorker
 from .conversion_worker import ConversionWorker
+from .rename_worker import RenameWorker
 from .rename_worker import _format_rename_error as _format_rename_error
 
 
-class FileWorker(ConversionWorker, CompressionWorker):
+class FileWorker(ConversionWorker, CompressionWorker, RenameWorker):
     """Совместимый обработчик; интерфейс использует отдельные обработчики."""

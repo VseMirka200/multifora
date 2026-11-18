@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import threading
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 
 from PySide6.QtCore import QThread, Signal
 
-from app.core.models import FileItem
-
-from .common import get_unique_path
-from .result import OperationResult
+from app.core.models import FileItem, OperationSource
+from core.filesystem import get_unique_path
+from core.operation_result import OperationIssue, OperationResult
 
 
 class OperationWorker(QThread):
@@ -25,11 +24,37 @@ class OperationWorker(QThread):
 
     def __init__(self) -> None:
         super().__init__()
-        self.errors: list[dict[str, object]] = []
-        self.warnings: list[dict[str, object]] = []
+        self.errors: list[OperationIssue] = []
+        self.warnings: list[OperationIssue] = []
         self._cancel_requested = False
         self._cancel_lock = threading.Lock()
         self._active_cancel_action: Callable[[], None] | None = None
+        self.operation: str | None = None
+        self.files: list[OperationSource] = []
+
+    def _prepare_operation(self, operation: str, files: Sequence[OperationSource]) -> None:
+        with self._cancel_lock:
+            self._cancel_requested = False
+            self._active_cancel_action = None
+        self.operation = operation
+        self.files = list(files)
+        self.errors = []
+        self.warnings = []
+
+    def _operation_handlers(self) -> dict[str, Callable[[], None]]:
+        return {}
+
+    def run(self) -> None:
+        """Выполняет операцию и отправляет результат при аварийной ошибке."""
+        try:
+            handler = self._operation_handlers().get(self.operation or "")
+            if handler is not None:
+                handler()
+        except Exception as error:
+            message = str(error)
+            self._record_error(None, message)
+            self.error.emit(message)
+            self._emit_finished([], [])
 
     def request_cancel(self) -> None:
         with self._cancel_lock:
@@ -63,15 +88,15 @@ class OperationWorker(QThread):
             if self._active_cancel_action is action:
                 self._active_cancel_action = None
 
-    def _record_error(self, file_item: FileItem | None, message: str) -> None:
-        entry: dict[str, object] = {"message": message}
+    def _record_error(self, file_item: OperationSource | None, message: str) -> None:
+        entry: OperationIssue = {"message": message}
         if file_item is not None:
             entry["path"] = file_item.path
             entry["name"] = file_item.name
         self.errors.append(entry)
 
     def _record_warning(
-        self, file_item: FileItem | None, message: str
+        self, file_item: OperationSource | None, message: str
     ) -> None:
         self.warnings.append(
             {"path": getattr(file_item, "path", None), "message": message}
@@ -79,8 +104,8 @@ class OperationWorker(QThread):
 
     def _emit_finished(
         self,
-        new_files: Iterable[object] | None = None,
-        updated_files: Iterable[object] | None = None,
+        new_files: Iterable[FileItem] | None = None,
+        updated_files: Iterable[tuple[OperationSource, str]] | None = None,
     ) -> None:
         self.finished.emit(
             OperationResult(

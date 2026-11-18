@@ -1,4 +1,4 @@
-"""Measure placements of embedded raster images in PDF points."""
+"""Определение положения встроенных растровых изображений в пунктах PDF."""
 
 from math import hypot
 

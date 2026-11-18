@@ -1,4 +1,4 @@
-"""Write new PDF files with a classic cross-reference table."""
+"""Запись новых PDF-файлов с классической таблицей перекрёстных ссылок."""
 
 from dataclasses import dataclass
 
@@ -12,10 +12,10 @@ class Stream:
 
 
 def write_pdf(objects, root):
-    """Serialize numbered objects and a catalog reference into a new PDF.
+    """Записывает нумерованные объекты и ссылку на каталог в новый PDF.
 
-    This writer creates new files only. It does not preserve incremental updates,
-    encryption, signatures, or compressed object streams from an existing PDF.
+    Создаёт только новые файлы: инкрементальные обновления, шифрование,
+    подписи и сжатые потоки объектов существующего PDF не сохраняются.
     """
     if not isinstance(root, Reference) or root.generation != 0 or root.object_number not in objects:
         raise ValueError("Root must reference an object in the document")

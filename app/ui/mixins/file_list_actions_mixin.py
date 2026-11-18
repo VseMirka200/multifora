@@ -446,7 +446,7 @@ class FileListActionsMixin:
             def key_func(file_item):
                 return (
                     natural_sort_key(
-                        getattr(file_item, "preview_name", None)
+                        getattr(model.preview_for(file_item), "preview_name", None)
                         or getattr(file_item, "name", "")
                     ),
                     str(file_item.path).casefold(),
@@ -467,7 +467,7 @@ class FileListActionsMixin:
             def key_func(file_item):
                 return (
                     natural_sort_key(
-                        getattr(file_item, "preview_folder", "")
+                        getattr(model.preview_for(file_item), "preview_folder", "")
                         or file_item_source_folder(file_item)
                     ),
                     natural_sort_key(getattr(file_item, "name", "")),

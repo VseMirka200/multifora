@@ -1,4 +1,4 @@
-"""Write RTF from the shared representation of formatted documents."""
+"""Запись RTF из общего представления форматированных документов."""
 
 import base64
 import re
@@ -11,7 +11,7 @@ from PIL import Image
 
 from core.document_engine.formatting import font_family, image_size, inline_style, points
 from core.document_engine.plain_text import _rtf_escape
-from core.workers.atomic_output import atomic_output_path
+from core.filesystem import atomic_output_path
 
 _INLINE = {"strong": r"\b ", "b": r"\b ", "em": r"\i ", "i": r"\i ", "u": r"\ul "}
 _BLOCK = {"p", "pre", "div", "li", "blockquote", *(f"h{i}" for i in range(1, 7))}

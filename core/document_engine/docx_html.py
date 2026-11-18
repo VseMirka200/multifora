@@ -1,4 +1,4 @@
-"""Export the body of a DOCX as standalone HTML."""
+"""Экспорт содержимого DOCX в самостоятельный HTML-документ."""
 
 from base64 import b64encode
 from html import escape
@@ -13,7 +13,7 @@ from docx.table import Table, _Cell
 from docx.text.hyperlink import Hyperlink
 from lxml import etree
 
-from core.workers.atomic_output import atomic_output_path
+from core.filesystem import atomic_output_path
 
 _IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp"}
 _PAGE_BREAK = '<br data-page-break="true">'

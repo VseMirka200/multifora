@@ -15,15 +15,15 @@ from app.core.conversion_formats import (
     suffix_for_format,
 )
 from app.core.deps import HAS_PIL, Image
-from app.core.models import FileItem
-from core.workers.atomic_output import atomic_output_path
+from app.core.models import FileItem, OperationSource
+from core.filesystem import atomic_output_path
 
 
 class ImageConversionMixin:
     """Конвертация графики, изолированная от документных форматов."""
 
     def _convert_image_to_image(
-        self, file: FileItem, target_format: str
+        self, file: OperationSource, target_format: str
     ) -> str:
         if not HAS_PIL:
             raise Exception("Установите Pillow для конвертации изображений")
@@ -70,7 +70,7 @@ class ImageConversionMixin:
                         f"Не удалось закрыть изображение {file.path}: {close_error}"
                     )
 
-    def _convert_image_auto(self, file: FileItem, target_format: str) -> str:
+    def _convert_image_auto(self, file: OperationSource, target_format: str) -> str:
         source_format = format_for_path(file.path)
         if source_format not in source_formats_for_category(IMAGE_CATEGORY):
             raise Exception("Файл не является поддерживаемым изображением")
@@ -80,7 +80,7 @@ class ImageConversionMixin:
         return self._convert_image_to_image(file, target_format)
 
     def _convert_pdf_to_image(
-        self, file: FileItem, target_format: str = "JPG"
+        self, file: OperationSource, target_format: str = "JPG"
     ) -> str | list[str] | None:
         if not file.path.lower().endswith(".pdf"):
             return None
@@ -131,7 +131,7 @@ class ImageConversionMixin:
                 self._discard_conversion_output(path)
             raise Exception(f"Ошибка конвертации PDF в изображения: {error}") from error
 
-    def _convert_image_to_pdf(self, file: FileItem) -> str:
+    def _convert_image_to_pdf(self, file: OperationSource) -> str:
         source_format = format_for_path(file.path)
         if source_format not in source_formats_for_category(IMAGE_CATEGORY):
             return None

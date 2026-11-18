@@ -28,15 +28,35 @@ MIXED_SOURCE_LABELS: dict[str, str] = {
     IMAGE_CATEGORY: "Любое поддерживаемое изображение",
 }
 
+DOCUMENT_FORMATS = ("DOCX", "PDF", "ODT", "RTF", "TXT", "HTML")
+OFFICE_OUTPUTS = frozenset(DOCUMENT_FORMATS)
+OFFICE_INPUTS = OFFICE_OUTPUTS - {"PDF"}
+
+# Идентификаторы движков разрешаются адаптером документов при обращении.
+OFFICE_ROUTES = {
+    "DOCX": {"PDF": "rich_pdf", "ODT": "odt", "RTF": "rtf", "TXT": "docx_text", "HTML": "docx_html"},
+    "ODT": {"DOCX": "odt_body", "PDF": "rich_pdf", "RTF": "rtf", "TXT": "text", "HTML": "odt_body"},
+    "RTF": {"DOCX": "rtf_body", "PDF": "rich_pdf", "ODT": "odt", "TXT": "text", "HTML": "rtf_body"},
+    "TXT": {"DOCX": "plain", "PDF": "text_pdf", "ODT": "plain", "RTF": "plain", "HTML": "plain"},
+    "HTML": {"DOCX": "html_docx", "PDF": "rich_pdf", "ODT": "odt", "RTF": "rtf", "TXT": "text"},
+}
+
+_OPTIMIZED_DOCUMENT_ROUTES: dict[tuple[str, str], str] = {
+    ("DOCX", "PDF"): "docx_to_pdf",
+    ("PDF", "DOCX"): "pdf_to_docx",
+    ("ODT", "PDF"): "odt_to_pdf",
+    ("PDF", "ODT"): "pdf_to_odt",
+}
+
+
+def conversion_type_for_formats(category: str, source: str, target: str) -> str:
+    if category != DOCUMENT_CATEGORY:
+        return "auto_image"
+    return _OPTIMIZED_DOCUMENT_ROUTES.get((source, target), "auto_document")
+
+
 CATEGORY_SOURCE_FORMATS: dict[str, tuple[str, ...]] = {
-    DOCUMENT_CATEGORY: (
-        "DOCX",
-        "PDF",
-        "ODT",
-        "RTF",
-        "TXT",
-        "HTML",
-    ),
+    DOCUMENT_CATEGORY: DOCUMENT_FORMATS,
     IMAGE_CATEGORY: (
         "JPG",
         "JPEG",
@@ -68,14 +88,7 @@ CATEGORY_SOURCE_FORMATS: dict[str, tuple[str, ...]] = {
 # PDF доступен как цель для изображений, потому что каждое изображение можно
 # сохранить в отдельный PDF, в том числе при обработке смешанного набора.
 CATEGORY_TARGET_FORMATS: dict[str, tuple[str, ...]] = {
-    DOCUMENT_CATEGORY: (
-        "DOCX",
-        "PDF",
-        "ODT",
-        "RTF",
-        "TXT",
-        "HTML",
-    ),
+    DOCUMENT_CATEGORY: DOCUMENT_FORMATS,
     IMAGE_CATEGORY: (
         "JPG",
         "JPEG",
@@ -193,6 +206,8 @@ def compatible_targets_for_source(category: str, source_label: str) -> list[str]
     normalized_category = _normalize_label(category)
     normalized_source = _normalize_label(source_label)
     targets = target_formats_for_category(normalized_category)
+    if normalized_category == DOCUMENT_CATEGORY and normalized_source in OFFICE_ROUTES:
+        return [target for target in targets if target in OFFICE_ROUTES[normalized_source]]
     if normalized_category == DOCUMENT_CATEGORY and normalized_source != "PDF":
         targets = [target for target in targets if target not in PDF_IMAGE_TARGETS]
     if is_mixed_source_label(normalized_category, normalized_source):

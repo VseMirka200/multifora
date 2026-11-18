@@ -153,7 +153,9 @@ class FileListContextMixin:
             os.rename(file_item.path, new_path)
             file_item.path = new_path
             file_item.update_info()
-            file_item.preview_name = file_item.name
+            preview = self.list_files.model().preview_for(file_item)
+            preview.preview_name = file_item.name
+            preview.preview_folder = file_item.folder
             self.list_files.refresh()
             self.update_file_info()
             self.status_bar.showMessage("Переименовано")

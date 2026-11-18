@@ -6,7 +6,9 @@
 
 from __future__ import annotations
 
-from app.core.models import FileItem
+from collections.abc import Sequence
+
+from app.core.models import OperationSource
 from core.workers.operation_worker import OperationWorker
 
 from .merge_mixin import MergeMixin
@@ -17,12 +19,12 @@ class MergeWorker(MergeMixin, OperationWorker):
 
     def __init__(
         self,
-        files: list[FileItem],
+        files: Sequence[OperationSource],
         output_format: str,
         output_path: str,
     ) -> None:
         super().__init__()
-        self.files = files
+        self.files = list(files)
         self.merge_output_format = output_format
         self.merge_output_path = output_path
 

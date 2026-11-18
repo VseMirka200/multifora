@@ -1,4 +1,4 @@
-"""Extract paragraphs and tables from DOCX in document order."""
+"""Извлечение абзацев и таблиц DOCX в порядке документа."""
 
 from pathlib import Path
 
@@ -6,7 +6,7 @@ from docx import Document
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 
-from core.workers.atomic_output import atomic_output_path
+from core.filesystem import atomic_output_path
 
 
 def export_text(source, destination, should_cancel):

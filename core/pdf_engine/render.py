@@ -1,4 +1,4 @@
-"""Render PDF pages using PDFium."""
+"""Отрисовка страниц PDF с помощью PDFium."""
 
 from contextlib import closing, contextmanager
 from pathlib import Path
@@ -6,7 +6,7 @@ from threading import Lock
 
 import pypdfium2 as pdfium
 
-from core.workers.atomic_output import atomic_output_path
+from core.filesystem import atomic_output_path
 
 _PDFIUM_LOCK = Lock()
 _SHARED_BITMAP_MODES = {"RGBA", "RGBX", "L"}
@@ -30,7 +30,7 @@ def render_page_image(document, index):
             bitmap = page.render(scale=200 / 72)
             try:
                 image = bitmap.to_pil()
-                # Pillow may be sharing the native bitmap for these modes.
+                # В этих режимах Pillow может использовать тот же нативный буфер изображения.
                 return image.copy() if image.mode == bitmap.mode and image.mode in _SHARED_BITMAP_MODES else image
             finally:
                 bitmap.close()
@@ -39,7 +39,7 @@ def render_page_image(document, index):
 
 
 def render_pdf_pages(source, output_dir, should_cancel):
-    """Render pages at 200 DPI; remove partial results if rendering fails."""
+    """Отрисовывает страницы с разрешением 200 DPI и удаляет частичный результат при ошибке."""
     return list(render_selected_pages(source, output_dir, should_cancel).values())
 
 

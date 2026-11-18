@@ -1,4 +1,4 @@
-"""Read the main text, inline styling, tables, and pictures of RTF."""
+"""Чтение основного текста, форматирования, таблиц и изображений RTF."""
 
 import base64
 import codecs

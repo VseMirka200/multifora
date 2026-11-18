@@ -18,6 +18,7 @@ def resolve_rename_targets(
     new_names: Sequence[str],
     *,
     exists: Callable[[str], bool] = os.path.exists,
+    strict: bool = False,
 ) -> list[str]:
     """Возвращает полные конечные пути, учитывая всю пачку, а не только первый файл."""
     if len(files) != len(new_names):
@@ -55,6 +56,10 @@ def resolve_rename_targets(
             )
             if not unavailable:
                 break
+            if strict:
+                raise ValueError(
+                    "Откат невозможен: исходные имена заняты другими файлами"
+                )
             number += 1
             if number > 10000:
                 raise ValueError(

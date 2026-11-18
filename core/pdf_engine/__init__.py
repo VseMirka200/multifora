@@ -1,1 +1,1 @@
-"""Building blocks for Multifora's Python PDF engine."""
+"""Компоненты PDF-движка Мультифоры на Python."""

@@ -1,11 +1,13 @@
 import os
+import sys
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
+from uuid import uuid4
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEventLoop, QProcess, Qt, QTimer
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import (
     QApplication,
@@ -19,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.core.app_identity import APP_VERSION
+from app.core.ipc_server import LocalFileServer
 from app.core.models import FileItem
 from app.ui.ui_components import ScrollableFilterMenu
 from app.ui.ui_main import MultiforaMainWindow
@@ -38,6 +41,40 @@ class MainWindowSmokeTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.update_check_patcher.stop()
+
+    def test_local_file_server_receives_paths_from_existing_client(self):
+        token = uuid4().hex
+        with (
+            tempfile.TemporaryDirectory() as folder,
+            patch("app.core.ipc_server._load_ipc_token", return_value=token),
+        ):
+            path = os.path.join(folder, "sample file.pdf")
+            with open(path, "wb") as stream:
+                stream.write(b"sample")
+            log = Mock()
+            server = LocalFileServer(log)
+            received = []
+            loop = QEventLoop()
+            server.files_received.connect(received.append)
+            server.files_received.connect(loop.quit)
+            server.start()
+            client = QProcess()
+            client.start(sys.executable, ["-c", (
+                "import sys; from app.core import app_ipc; "
+                "app_ipc._load_ipc_token = lambda: sys.argv[1]; "
+                "sys.exit(not app_ipc.send_files_to_running_instance([sys.argv[2]], retries=1))"
+            ), token, path])
+            try:
+                QTimer.singleShot(3000, loop, loop.quit)
+                loop.exec()
+                self.assertEqual(received, [[path]], log.call_args_list)
+                self.assertTrue(client.state() == QProcess.ProcessState.NotRunning or client.waitForFinished(2000))
+                self.assertEqual(client.exitCode(), 0, bytes(client.readAllStandardError()))
+            finally:
+                if client.state() != QProcess.ProcessState.NotRunning:
+                    client.kill()
+                    client.waitForFinished(2000)
+                server.close()
 
     def test_main_window_builds_core_ui(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -1326,14 +1363,15 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.template_custom.setText(f"{repeated} {repeated}")
                 window.refresh_rename_preview()
                 for index, item in enumerate(window.files, 1):
-                    first, second = item.preview_name.removesuffix(".docx").split(" ")
+                    name = window.list_files.model().preview_for(item).preview_name
+                    first, second = name.removesuffix(".docx").split(" ")
                     self.assertEqual(first, second)
                     self.assertTrue(first.startswith(f"{index:03d}_"))
                 window.template_custom.setText("ПР {num:1d,start=1,step=1}")
                 window.refresh_rename_preview()
 
                 self.assertEqual(
-                    [item.preview_name for item in window.files],
+                    [window.list_files.model().preview_for(item).preview_name for item in window.files],
                     ["ПР 1.docx", "ПР 2.docx", "ПР 3.docx", "ПР 4.docx"],
                 )
             finally:
@@ -1381,7 +1419,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.template_regex_replace.setText(r"Фото_\1")
                 window.template_regex_ignore_case.setChecked(True)
                 window.refresh_rename_preview()
-                self.assertEqual(window.files[0].preview_name, "Фото_0042.JPG")
+                self.assertEqual(window.list_files.model().preview_for(window.files[0]).preview_name, "Фото_0042.JPG")
 
                 window.template_regex_pattern.setText("[")
                 window.refresh_rename_preview()
@@ -1396,7 +1434,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window.template_case_mode.findData("lower")
                 )
                 window.refresh_rename_preview()
-                self.assertEqual(window.files[0].preview_name, "img_0042.JPG")
+                self.assertEqual(window.list_files.model().preview_for(window.files[0]).preview_name, "img_0042.JPG")
 
                 self.assertFalse(hasattr(window, "rename_conflict_policy"))
                 self.assertFalse(hasattr(window, "rename_folder_mode_combo"))
@@ -1541,18 +1579,21 @@ class MainWindowSmokeTests(unittest.TestCase):
                         window, "_bring_main_window_to_front"
                     ) as bring_to_front,
                 ):
+                    window._ipc_file_server = LocalFileServer(window.log_event, window)
+                    window._ipc_file_server.files_queued.connect(window._bring_main_window_to_front)
+                    window._ipc_file_server.files_received.connect(window._receive_ipc_batch)
                     window.add_files_from_ipc([r"C:\first"])
                     window.add_files_from_ipc([r"C:\second"])
 
                     add_files.assert_not_called()
-                    window._flush_ipc_file_batch()
+                    window._ipc_file_server.flush()
 
                 add_files.assert_called_once_with(
                     [r"C:\first", r"C:\second"], "через контекстное меню"
                 )
                 self.assertEqual(bring_to_front.call_count, 2)
             finally:
-                window._ipc_file_batch_timer.stop()
+                window._ipc_file_server.close()
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()
                 if hasattr(window, "_settings_save_timer"):

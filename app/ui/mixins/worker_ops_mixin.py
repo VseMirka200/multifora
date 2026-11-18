@@ -4,15 +4,19 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from app.core.app_utils import _debug_log
-from app.core.models import FileItem
+from app.core.models import FileItem, OperationFile, OperationSource, normalized_path_key
 from app.ui.ui_components import operation_file_items
+from core.operation_requests import CompressionRequest, MergeRequest, RenameRequest
+from core.operation_result import OperationResult
 
 
 class WorkerOpsMixin:
     # Передаёт выбранные файлы рабочему потоку и обновляет UI по результатам операций.
     def _get_operation_file_items(self, *, files_only=False) -> list[FileItem]:
         visible = self._get_filtered_files() if hasattr(self, "_get_filtered_files") else self.files
-        return operation_file_items(self.files, files_only=files_only, visible_files=visible)
+        return operation_file_items(
+            self.files, files_only=files_only, visible_files=visible, is_checked=self.list_files.model().is_checked
+        )
 
     def _get_selected_or_all_file_items(self) -> list[FileItem]:
         return self._get_operation_file_items(files_only=True)
@@ -21,7 +25,8 @@ class WorkerOpsMixin:
         enabled_checkbox = getattr(self, "auto_clear_enabled_checkbox", None)
         if enabled_checkbox is None or not enabled_checkbox.isChecked():
             return False
-        operation = str((self._last_operation or {}).get("op", ""))
+        request = self._last_operation_request
+        operation = request.kind if request is not None else ""
         checkbox_names = {
             "rename": "auto_clear_rename_checkbox",
             "convert": "auto_clear_convert_checkbox",
@@ -192,14 +197,7 @@ class WorkerOpsMixin:
         show_starting = getattr(self, "_show_operation_starting", None)
         if callable(show_starting):
             show_starting(f"Подготовка сжатия {len(files)} файлов...")
-        if not self.create_file_worker(operation="compress"):
-            hide_progress = getattr(self, "_hide_progress_dialog", None)
-            if callable(hide_progress):
-                hide_progress()
-            return
-
-        self.file_worker.set_compression(
-            files,
+        request = CompressionRequest(
             compression_level,
             compression_type,
             pdf_method,
@@ -207,17 +205,8 @@ class WorkerOpsMixin:
             image_output_mode,
             image_output_dir,
         )
-        self._last_operation = {
-            "op": "compress",
-            "compression_level": compression_level,
-            "compression_type": compression_type,
-            "pdf_method": pdf_method,
-            "replace_pdf": replace_pdf,
-            "image_output_mode": image_output_mode,
-            "image_output_dir": image_output_dir,
-            "file_paths": [f.path for f in files],
-        }
-        self.file_worker.start()
+        if not self._start_operation(request, files):
+            return
         if compress_type == "PDF документы":
             self.log_event(
                 f"Сжатие: {len(files)} файлов ({file_type}{method_info})"
@@ -307,23 +296,8 @@ class WorkerOpsMixin:
         show_starting = getattr(self, "_show_operation_starting", None)
         if callable(show_starting):
             show_starting(f"Подготовка объединения {len(files)} документов...")
-        # У объединения свой лёгкий воркер. Не создаём здесь FileWorker:
-        # его стек конвертации и сжатия импортирует необязательные backend'ы,
-        # из-за чего окно подготовки может выглядеть зависшим до старта потока.
-        from core.workers.merge.merge_worker import MergeWorker
-
-        self.file_worker = MergeWorker(files, output_format, output_path)
-        self.file_worker.progress.connect(self.progress_bar.setValue)
-        self.file_worker.status.connect(self.on_worker_status)
-        self.file_worker.finished.connect(self.on_operation_finished)
-        self.file_worker.error.connect(self.on_operation_error)
-        self._last_operation = {
-            "op": "merge",
-            "output_format": output_format,
-            "output_path": output_path,
-            "file_paths": [f.path for f in files],
-        }
-        self.file_worker.start()
+        if not self._start_operation(MergeRequest(output_format, output_path), files):
+            return
         self.log_event(
             f"Объединение: {len(files)} документов в {format_label}"
         )
@@ -337,7 +311,12 @@ class WorkerOpsMixin:
         """Завершение операции."""
         errors = []
         warnings = []
-        if hasattr(result, "get"):
+        if isinstance(result, OperationResult):
+            new_files = result.new_files
+            updated_files = result.updated_files
+            errors = result.errors
+            warnings = result.warnings
+        elif hasattr(result, "get"):
             new_files = result.get("new_files", [])
             updated_files = result.get("updated_files", [])
             errors = result.get("errors", [])
@@ -356,8 +335,7 @@ class WorkerOpsMixin:
             self._pending_undo_entry = None
         else:
             if (
-                self._last_operation
-                and self._last_operation.get("op") == "rename"
+                isinstance(self._last_operation_request, RenameRequest)
                 and updated_files
             ):
                 undo_pairs = []
@@ -410,12 +388,7 @@ class WorkerOpsMixin:
 
         changed = False
         if updated_files:
-            for file_item, new_path in updated_files:
-                try:
-                    file_item.path = new_path
-                    file_item.update_info()
-                except Exception as exc:
-                    _debug_log(f"update_info error for {new_path}: {exc}")
+            self._apply_operation_updates(updated_files)
             changed = True
 
         if new_files:
@@ -467,6 +440,19 @@ class WorkerOpsMixin:
             self._pending_close = False
             QTimer.singleShot(0, self.close)
 
+    def _apply_operation_updates(self, updates: list[tuple[OperationSource, str]]) -> None:
+        # Пакет может обменять пути двух строк. Сопоставляем их до первого изменения.
+        rows = {normalized_path_key(item.path): item for item in self.files}
+        for source, new_path in updates:
+            item = rows.get(normalized_path_key(source.path)) if isinstance(source, OperationFile) else source
+            if item is None:
+                continue
+            try:
+                item.path = new_path
+                item.update_info()
+            except Exception as exc:
+                _debug_log(f"update_info error for {new_path}: {exc}")
+
     def on_operation_error(self, error_msg):
         """Аварийная ошибка: сообщаем при окончательном сигнале finished."""
         self._operation_errors.append({"message": str(error_msg)})
@@ -498,12 +484,8 @@ class WorkerOpsMixin:
                 for marker in non_retryable_markers
             )
         ]
-        can_retry = bool(
-            self._last_operation
-            and self._last_operation.get("op")
-            in {"rename", "convert", "compress"}
-            and retryable_errors
-        )
+        request = self._last_operation_request
+        can_retry = bool(request is not None and not isinstance(request, MergeRequest) and retryable_errors)
         message = (
             f"Не удалось обработать {self._ru_files_label(len(errors))}.\n\n"
             "Причина:\n"

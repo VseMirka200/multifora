@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import os
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
-from app.core.models import FileItem
+from app.core.models import OperationSource
 from app.core.rename_plan import resolve_rename_targets
+from core.rename_transaction import rename_batch
 
 from .common import emit_progress, record_file_error
 from .operation_worker import OperationWorker
-from .rename_transaction import rename_batch
 
 
 def _format_rename_error(error: Exception) -> str:
@@ -29,25 +28,12 @@ def _format_rename_error(error: Exception) -> str:
 class RenameWorker(OperationWorker):
     def __init__(self) -> None:
         super().__init__()
-        self.operation: str | None = None
-        self.files: list[FileItem] = []
         self.new_names: list[str] = []
         self.strict_rename = False
 
-    def _prepare_operation(
-        self, operation: str, files: list[FileItem]
-    ) -> None:
-        with self._cancel_lock:
-            self._cancel_requested = False
-            self._active_cancel_action = None
-        self.operation = operation
-        self.files = files
-        self.errors = []
-        self.warnings = []
-
     def set_rename(
         self,
-        files: list[FileItem],
+        files: Sequence[OperationSource],
         new_names: list[str],
         *,
         strict: bool = False,
@@ -59,22 +45,7 @@ class RenameWorker(OperationWorker):
     def _rename_files(self) -> None:
         """Сначала рассчитывает всю пачку, затем безопасно меняет имена."""
         try:
-            targets = resolve_rename_targets(self.files, self.new_names)
-            if self.strict_rename:
-                requested = [
-                    os.path.join(file.folder, name)
-                    for file, name in zip(
-                        self.files, self.new_names, strict=True
-                    )
-                ]
-                if any(
-                    os.path.normcase(actual).casefold()
-                    != os.path.normcase(desired).casefold()
-                    for actual, desired in zip(targets, requested, strict=True)
-                ):
-                    raise ValueError(
-                        "Откат невозможен: исходные имена заняты другими файлами"
-                    )
+            targets = resolve_rename_targets(self.files, self.new_names, strict=self.strict_rename)
         except ValueError as error:
             record_file_error(
                 self, None, f"Ошибка плана переименования: {error}"
@@ -105,19 +76,4 @@ class RenameWorker(OperationWorker):
         )
 
     def _operation_handlers(self) -> dict[str, Callable[[], None]]:
-        return {"rename": self._rename_files}
-
-    def run(self) -> None:
-        """Запускает выбранную операцию и завершает её даже при аварийной ошибке."""
-        try:
-            handler = self._operation_handlers().get(self.operation or "")
-            if handler is None:
-                return
-            handler()
-        except Exception as error:
-            message = str(error)
-            self._record_error(None, message)
-            self.error.emit(message)
-            # Верхнеуровневая ошибка не должна оставлять UI в состоянии
-            # бесконечной операции без итогового результата.
-            self._emit_finished([], [])
+        return {**super()._operation_handlers(), "rename": self._rename_files}

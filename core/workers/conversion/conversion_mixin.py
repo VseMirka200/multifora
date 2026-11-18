@@ -15,7 +15,9 @@ from app.core.conversion_formats import (
 from app.core.deps import (
     HAS_PIL as HAS_PIL,
 )
-from app.core.models import FileItem
+from app.core.models import FileItem, OperationSource
+from core.output_paths import conversion_directory, converted_name
+from core.pdf_docx_batch import pdf_docx_worker_count, run_parallel_batch
 from core.workers.common import record_file_error
 from core.workers.office_engine import OFFICE_INPUTS, OFFICE_OUTPUTS, OfficeUnavailableError, run_office
 from core.workers.pdfcraft_engine import PdfCraftUnavailableError
@@ -27,34 +29,31 @@ _CONVERSION_OUTPUT_PATH_LOCK = threading.Lock()
 
 
 class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
-    CONVERTED_FOLDER_NAME = "Конвертированные"
-
-    def _conversion_output_directory(self, file: FileItem) -> str:
+    def _conversion_output_directory(self, file: OperationSource) -> str:
         mode = str(getattr(self, "conversion_output_mode", "source_subfolder") or "source_subfolder").strip()
         custom_dir = str(getattr(self, "conversion_output_dir", "") or "").strip()
+        source_dir = os.path.dirname(os.path.abspath(file.path))
         if mode == "custom" and custom_dir:
-            output_dir = os.path.abspath(os.path.expanduser(custom_dir))
-        else:
-            source_dir = os.path.dirname(os.path.abspath(file.path))
-            output_dir = source_dir if mode == "alongside" else os.path.join(source_dir, self.CONVERTED_FOLDER_NAME)
+            custom_dir = os.path.abspath(os.path.expanduser(custom_dir))
+        output_dir = conversion_directory(source_dir, mode, custom_dir)
         os.makedirs(output_dir, exist_ok=True)
         return output_dir
 
     def _conversion_output_path(
         self,
-        file: FileItem,
+        file: OperationSource,
         target_ext: str,
         *,
-        reference_file: FileItem | None = None,
+        reference_file: OperationSource | None = None,
     ) -> str:
         target_ext = str(target_ext or "").strip()
         if target_ext and not target_ext.startswith("."):
             target_ext = f".{target_ext}"
         reference = reference_file or file
-        stem = os.path.splitext(os.path.basename(reference.path))[0]
+        name = os.path.basename(reference.path)
         base_path = os.path.join(
             self._conversion_output_directory(reference),
-            f"{stem}{target_ext}",
+            converted_name(name, target_ext),
         )
 
         with _CONVERSION_OUTPUT_PATH_LOCK:
@@ -91,7 +90,7 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
 
     def _report_file_conversion_error(
         self,
-        file: FileItem,
+        file: OperationSource,
         error: Exception,
     ) -> None:
         """Сохраняет и публикует ошибку конвертации одного файла."""
@@ -106,8 +105,8 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
 
     def _get_conversion_handler(
         self,
-    ) -> Callable[[FileItem], str | list[str] | None] | None:
-        handlers: dict[str, Callable[[FileItem], str | list[str] | None]] = {
+    ) -> Callable[[OperationSource], str | list[str] | None] | None:
+        handlers: dict[str, Callable[[OperationSource], str | list[str] | None]] = {
             "docx_to_odt": self._convert_docx_to_odt,
             "odt_to_docx": self._convert_odt_to_docx,
             "odt_to_pdf": self._convert_odt_to_pdf,
@@ -122,12 +121,12 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         return handlers.get(self.conversion_type)
 
     def _convert_text_document(
-        self, file: FileItem, target_format: str, *, output_reference: FileItem | None = None
+        self, file: OperationSource, target_format: str, *, output_reference: OperationSource | None = None
     ) -> str:
         return self._convert_document_auto(file, target_format, output_reference=output_reference)
 
     def _convert_document_auto(
-        self, file: FileItem, target_format: str, *, output_reference: FileItem | None = None
+        self, file: OperationSource, target_format: str, *, output_reference: OperationSource | None = None
     ) -> str | list[str] | None:
         source_format = format_for_path(file.path)
         target = str(target_format or "").upper()
@@ -262,8 +261,8 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
 
     def _convert_sequential_batch(
         self,
-        files: list[FileItem],
-        converter: Callable[[FileItem], str | None],
+        files: list[OperationSource],
+        converter: Callable[[OperationSource], str | None],
     ) -> list[FileItem]:
         """Выполняет однотипную конвертацию последовательно с общим UI-циклом."""
         total = len(files)
@@ -307,26 +306,11 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
             self._convert_docx_to_pdf,
         )
 
-    @staticmethod
-    def _pdf_docx_worker_count(files: list[FileItem]) -> int:
-        """Ограничивает число движков, чтобы большие PDF не перегружали память."""
-        maximum = min(4, max(1, (os.cpu_count() or 2) // 2))
-        sizes = []
-        for file in files:
-            try:
-                sizes.append(os.path.getsize(file.path))
-            except OSError:
-                continue
-        if sizes and max(sizes) >= 25 * 1024 * 1024:
-            return 1
-        if sizes and max(sizes) >= 10 * 1024 * 1024:
-            return min(2, maximum)
-        return maximum
+    _pdf_docx_worker_count = staticmethod(pdf_docx_worker_count)
 
     def _convert_pdf_to_docx_batch(self) -> list[FileItem]:
         files = [f for f in self.files if getattr(f, "is_file", False)]
         total = len(files)
-        results_by_index: dict[int, FileItem] = {}
         if total == 0:
             return []
 
@@ -334,84 +318,23 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         if total <= 1 or max_workers == 1:
             return self._convert_sequential_batch(files, self._convert_pdf_to_docx)
 
-        valid = [(index, file) for index, file in enumerate(files) if file.path.lower().endswith(".pdf")]
-        processed = total - len(valid)
-        if processed:
-            self.progress.emit(int(processed / total * 100))
-        if valid:
-            self.status.emit(f"Конвертация PDF: одновременно до {max_workers} файлов")
-        next_file = 0
-        common_error = None
-        with ThreadPoolExecutor(
-            max_workers=max_workers,
-            thread_name_prefix="pdf-to-docx",
-        ) as executor:
-            pending = {}
-            while next_file < len(valid) and len(pending) < max_workers and not self._should_cancel():
-                index, file = valid[next_file]
-                pending[executor.submit(self._convert_pdf_to_docx, file)] = (index, file)
-                next_file += 1
-            while pending:
-                if self._should_cancel():
-                    for future in pending:
-                        future.cancel()
-                    self.status.emit("Отмена: ожидаем завершения уже запущенных конвертаций…")
-                    break
-                # wait с таймаутом позволяет проверить запрос отмены, даже если
-                # долго обрабатывает одну страницу документа.
-                done, _ = wait(pending, timeout=0.2, return_when=FIRST_COMPLETED)
-                for future in sorted(done, key=lambda item: pending[item][0]):
-                    index, file = pending.pop(future)
-                    self.status.emit(f"Конвертация: {file.name}")
-                    try:
-                        converted_item = self._converted_file_item(future.result())
-                        if converted_item is None:
-                            raise Exception("Движок не создал выходной DOCX-файл")
-                        results_by_index[index] = converted_item
-                    except InterruptedError as error:
-                        if not self._should_cancel():
-                            self._report_file_conversion_error(file, error)
-                    except Exception as error:
-                        self._report_file_conversion_error(file, error)
-                        if isinstance(error, PdfCraftUnavailableError):
-                            common_error = error
-                    finally:
-                        processed += 1
-                        self.progress.emit(int(processed / total * 100))
-                while (
-                    common_error is None
-                    and next_file < len(valid)
-                    and len(pending) < max_workers
-                    and not self._should_cancel()
-                ):
-                    index, file = valid[next_file]
-                    pending[executor.submit(self._convert_pdf_to_docx, file)] = (index, file)
-                    next_file += 1
-
-            # ThreadPoolExecutor ожидает активные задачи перед выходом из with.
-            # Результаты, успевшие закончиться после запроса отмены, убираем,
-            # чтобы не оставить на диске файлы, не показанные пользователю.
-            if self._should_cancel():
-                published = {item.path for item in results_by_index.values()}
-                for future in pending:
-                    if future.cancelled():
-                        continue
-                    try:
-                        path = future.result()
-                    except Exception:
-                        continue
-                    if path and path not in published:
-                        self._discard_conversion_output(path)
-        if common_error is not None and not self._should_cancel():
-            self._report_unprocessed_engine_errors([file for _, file in valid[next_file:]], common_error)
-            self.progress.emit(100)
-        return [results_by_index[index] for index in sorted(results_by_index)]
+        return run_parallel_batch(
+            files,
+            max_workers,
+            convert=self._convert_pdf_to_docx,
+            result_item=self._converted_file_item,
+            should_cancel=self._should_cancel,
+            report_error=self._report_file_conversion_error,
+            discard=self._discard_conversion_output,
+            progress=self.progress.emit,
+            status=self.status.emit,
+        )
 
     def _convert_docx_to_pdf(
         self,
-        file: FileItem,
+        file: OperationSource,
         *,
-        output_reference: FileItem | None = None,
+        output_reference: OperationSource | None = None,
     ) -> str:
         if not file.path.lower().endswith(".docx"):
             return None
@@ -421,7 +344,7 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
             output_reference=output_reference,
         )
 
-    def _convert_pdf_to_docx(self, file: FileItem) -> str:
+    def _convert_pdf_to_docx(self, file: OperationSource) -> str:
         if not file.path.lower().endswith(".pdf"):
             return None
         from core.workers.pdfcraft_engine import PdfCraftUnavailableError, export_pdf
@@ -439,25 +362,25 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
 
     def _convert_docx_to_odt(
         self,
-        file: FileItem,
+        file: OperationSource,
         *,
-        output_reference: FileItem | None = None,
+        output_reference: OperationSource | None = None,
     ) -> str:
         if not file.path.lower().endswith(".docx"):
             return None
         return self._convert_text_document(file, "ODT", output_reference=output_reference)
 
-    def _convert_odt_to_docx(self, file: FileItem) -> str:
+    def _convert_odt_to_docx(self, file: OperationSource) -> str:
         if not file.path.lower().endswith(".odt"):
             return None
         return self._convert_text_document(file, "DOCX")
 
-    def _convert_odt_to_pdf(self, file: FileItem) -> str:
+    def _convert_odt_to_pdf(self, file: OperationSource) -> str:
         if not file.path.lower().endswith(".odt"):
             return None
         return self._convert_text_document(file, "PDF")
 
-    def _convert_pdf_to_odt(self, file: FileItem) -> str:
+    def _convert_pdf_to_odt(self, file: OperationSource) -> str:
         if file.path.lower().endswith(".pdf"):
             return self._convert_document_auto(file, "ODT")
         return None

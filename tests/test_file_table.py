@@ -9,6 +9,7 @@ from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QAbstractItemView, QApplication, QHeaderView
 
+from app.core.models import FileItem
 from app.ui.ui_components import FileListModel, FileListWidget
 from app.ui.ui_styles import build_standard_field_style
 
@@ -17,6 +18,17 @@ class FileTableTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication([])
+
+    def test_preview_survives_filtering_and_is_local_to_table(self):
+        item = FileItem("report.docx")
+        first, second = FileListModel(), FileListModel()
+        first.set_files([item])
+        second.set_files([item])
+        first.preview_for(item).preview_name = "report.pdf"
+        first.set_files([])
+        first.set_files([item])
+        self.assertEqual(first.data(first.index(0, first.COLUMN_NEW_NAME)), "report.pdf")
+        self.assertEqual(second.data(second.index(0, second.COLUMN_NEW_NAME)), "report.docx")
 
     def test_model_exposes_names_type_and_source_folder_without_icons(self):
         item = SimpleNamespace(
@@ -343,20 +355,20 @@ class FileTableTests(unittest.TestCase):
         self.assertTrue(checkbox.isEnabled())
         self.assertFalse(checkbox.isChecked())
         QTest.mouseClick(checkbox, Qt.MouseButton.LeftButton)
-        self.assertTrue(all(item.checked for item in files))
+        self.assertTrue(all(widget.model().is_checked(item) for item in files))
         self.assertTrue(checkbox.isChecked())
         index = widget.model().index(0, widget.model().COLUMN_CHECK)
         widget.model().setData(index, Qt.CheckState.Unchecked, Qt.ItemDataRole.CheckStateRole)
         self.assertFalse(checkbox.isChecked())
         QTest.mouseClick(checkbox, Qt.MouseButton.LeftButton)
-        self.assertTrue(all(item.checked for item in files))
+        self.assertTrue(all(widget.model().is_checked(item) for item in files))
         QTest.mouseClick(checkbox, Qt.MouseButton.LeftButton)
-        self.assertFalse(any(item.checked for item in files))
+        self.assertFalse(any(widget.model().is_checked(item) for item in files))
 
         widget.set_files(files[:2])
         QTest.mouseClick(checkbox, Qt.MouseButton.LeftButton)
-        self.assertTrue(all(item.checked for item in files[:2]))
-        self.assertFalse(files[2].checked)
+        self.assertTrue(all(widget.model().is_checked(item) for item in files[:2]))
+        self.assertFalse(widget.model().is_checked(files[2]))
         widget.set_files(files)
         self.assertFalse(checkbox.isChecked())
         widget.selectAll()

@@ -20,6 +20,7 @@ from app.ui.ui_components import (
     setup_standard_secondary_button,
 )
 from app.ui.ui_spacing import DIALOG_MARGINS, MARGINS_NONE, SPACE_SM
+from core.operation_requests import RenameRequest
 
 
 class RenameHistoryMixin:
@@ -142,21 +143,13 @@ class RenameHistoryMixin:
         show_starting = getattr(self, "_show_operation_starting", None)
         if callable(show_starting):
             show_starting(f"Подготовка переименования {len(pairs)} файлов...")
-        if not self.create_file_worker(operation="rename"):
-            hide_progress = getattr(self, "_hide_progress_dialog", None)
-            if callable(hide_progress):
-                hide_progress()
+        request = RenameRequest(
+            tuple((new_path, os.path.basename(old_path)) for new_path, old_path in pairs),
+            strict=True,
+        )
+        files = self._collect_file_items_by_paths([path for path, _ in request.pairs])
+        if not self._start_operation(request, files):
             return False
-        paths = [new_path for new_path, _ in pairs]
-        new_names = [os.path.basename(old_path) for _, old_path in pairs]
-
-        files = self._collect_file_items_by_paths(paths)
-        self._last_operation = {
-            "op": "rename",
-            "new_names_by_path": dict(zip(paths, new_names, strict=True)),
-        }
-        self.file_worker.set_rename(files, new_names, strict=True)
-        self.file_worker.start()
         if callable(getattr(self, "_show_progress_dialog", None)):
             self._show_progress_dialog(
                 f"Переименование {len(pairs)} файлов..."

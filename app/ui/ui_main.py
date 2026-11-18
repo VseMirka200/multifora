@@ -1,11 +1,9 @@
-import hmac
 import json
 import os
 import threading
 
 from PySide6.QtCore import QEvent, QEventLoop, Qt, QTimer
 from PySide6.QtGui import QAction, QColor, QIcon, QPalette
-from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -29,12 +27,7 @@ from PySide6.QtWidgets import (
 
 from app.core.app_icons import _find_bundled_icon, _get_app_icon_qt_path
 from app.core.app_identity import APP_WINDOW_TITLE
-from app.core.app_ipc import (
-    _drain_queued_files,
-    _get_ipc_server_name,
-    _load_ipc_token,
-    _normalize_path_candidate,
-)
+from app.core.app_ipc import _drain_queued_files
 from app.core.app_utils import _debug_log, _log_ignored_error
 from app.core.conversion_formats import (
     CONVERSION_CATEGORIES,
@@ -44,6 +37,7 @@ from app.core.conversion_formats import (
     source_formats_for_category,
 )
 from app.core.file_types import build_file_dialog_filter
+from app.core.ipc_server import LocalFileServer
 from app.core.message_boxes import install_warning_suppression_hook
 from app.core.models import FileItem
 from app.core.qt_utils import signals_blocked
@@ -67,6 +61,7 @@ from app.ui.mixins import (
     WindowsIntegrationMixin,
     WorkerOpsMixin,
 )
+from app.ui.operation_controller import OperationController, bind_operation_worker
 from app.ui.ui_components import (
     DropActionTile,
     FileListWidget,
@@ -104,6 +99,7 @@ from app.ui.ui_styles import (
     build_file_info_separator_style,
     build_splitter_style,
 )
+from core.operation_requests import MergeRequest, OperationRequest, RenameRequest
 
 
 class MultiforaMainWindow(
@@ -138,7 +134,7 @@ class MultiforaMainWindow(
         except Exception as e:
             _debug_log(f"Ошибка установки иконки окна: {e}")
         self.files = []
-        self.file_worker = None
+        self._operations = OperationController()
         self.current_template = ""
         self.custom_templates = {}
         self.windows_context_menu_enabled = False
@@ -146,16 +142,12 @@ class MultiforaMainWindow(
         self.start_menu_shortcut_enabled = False
         self.disable_warning_dialogs = False
         self.theme_mode = "system"
-        self.ipc_server = None
-        self._ipc_buffers = {}
-        self._pending_ipc_file_paths = []
-        self._ipc_file_batch_timer = None
+        self._ipc_file_server: LocalFileServer | None = None
         self._log_lines = []
         self.max_log_lines = 1000
         self._log_file_path = None
         self._pending_close = False
         self._operation_errors = []
-        self._last_operation = None
         self._rename_history = []
         self._max_rename_history = 20
         self._is_undo_operation = False
@@ -234,113 +226,10 @@ class MultiforaMainWindow(
         self._file_worker_preload_thread.start()
 
     def create_ipc_server(self):
-        """Создает IPC-сервер для приема файлов от других экземпляров."""
-        self.ipc_server = QLocalServer(self)
-        token = _load_ipc_token()
-        if not token:
-            self.log_event("IPC сервер не запущен: токен недоступен", "ERROR")
-            self.ipc_server = None
-            return
-        server_name = _get_ipc_server_name(token)
-        try:
-            QLocalServer.removeServer(server_name)
-        except Exception as e:
-            self.log_event(f"Ошибка IPC при removeServer: {e}", "WARN")
-
-        if not self.ipc_server.listen(server_name):
-            self.log_event(
-                f"IPC сервер не запущен: {self.ipc_server.errorString()}",
-                "ERROR",
-            )
-            self.ipc_server = None
-            return
-
-        self.ipc_server.newConnection.connect(self._on_ipc_connection)
-        self.log_event(f"IPC сервер запущен: {server_name}")
-
-    def _on_ipc_connection(self):
-        """Обрабатывает IPC по событиям Qt, не блокируя интерфейс на чтении."""
-        if not self.ipc_server:
-            return
-        while self.ipc_server.hasPendingConnections():
-            connection = self.ipc_server.nextPendingConnection()
-            if connection is None:
-                continue
-            self._ipc_buffers[connection] = bytearray()
-            connection.readyRead.connect(
-                lambda socket=connection: self._read_ipc_socket(socket)
-            )
-            connection.disconnected.connect(
-                lambda socket=connection: self._finish_ipc_socket(socket)
-            )
-            QTimer.singleShot(
-                5000, lambda socket=connection: self._expire_ipc_socket(socket)
-            )
-            self._read_ipc_socket(connection)
-
-    def _read_ipc_socket(self, socket_conn):
-        """Считывает только доступные байты, без waitForReadyRead в GUI-потоке."""
-        buffer = self._ipc_buffers.get(socket_conn)
-        if buffer is None:
-            return
-        buffer.extend(bytes(socket_conn.readAll()))
-        if len(buffer) > 1024 * 1024:
-            self.log_event("IPC: превышен лимит данных", "WARN")
-            self._ipc_buffers.pop(socket_conn, None)
-            socket_conn.disconnectFromServer()
-            socket_conn.deleteLater()
-            return
-        if (
-            socket_conn.state()
-            == QLocalSocket.LocalSocketState.UnconnectedState
-        ):
-            self._finish_ipc_socket(socket_conn)
-
-    def _expire_ipc_socket(self, socket_conn):
-        if socket_conn not in self._ipc_buffers:
-            return
-        self.log_event("IPC: соединение не завершено за 5 секунд", "WARN")
-        self._ipc_buffers.pop(socket_conn, None)
-        socket_conn.disconnectFromServer()
-        socket_conn.deleteLater()
-
-    def _finish_ipc_socket(self, socket_conn):
-        buffer = self._ipc_buffers.pop(socket_conn, None)
-        if buffer is None:
-            return
-        try:
-            buffer.extend(bytes(socket_conn.readAll()))
-        finally:
-            socket_conn.deleteLater()
-        if len(buffer) > 1024 * 1024:
-            self.log_event("IPC: превышен лимит данных", "WARN")
-            return
-        self._process_ipc_payload(bytes(buffer))
-
-    def _process_ipc_payload(self, data: bytes):
-        if not data:
-            return
-        lines = data.decode("utf-8", errors="replace").splitlines()
-        if not lines:
-            return
-        token = _load_ipc_token()
-        if (
-            not token
-            or not lines[0].startswith("TOKEN:")
-            or not hmac.compare_digest(lines[0][6:], token)
-        ):
-            self.log_event("IPC: неверный токен", "WARN")
-            return
-        file_paths = []
-        for line in lines[1:]:
-            if line.startswith("ADD_FILE:"):
-                file_path = _normalize_path_candidate(line[9:].strip())
-                if file_path and os.path.exists(file_path):
-                    file_paths.append(file_path)
-        if file_paths:
-            self.add_files_from_ipc(file_paths)
-        else:
-            self.log_event("IPC: нет допустимых файлов", "WARN")
+        self._ipc_file_server = LocalFileServer(self.log_event, self)
+        self._ipc_file_server.files_queued.connect(self._bring_main_window_to_front)
+        self._ipc_file_server.files_received.connect(self._receive_ipc_batch)
+        self._ipc_file_server.start()
 
     def _add_files_with_source_message(
         self, file_paths: list[str], source_suffix: str
@@ -365,34 +254,11 @@ class MultiforaMainWindow(
         )
 
     def add_files_from_ipc(self, file_paths):
-        """Группирует файлы от контекстного меню перед добавлением.
+        if self._ipc_file_server is not None:
+            self._ipc_file_server.enqueue(file_paths)
 
-        Проводник Windows иногда запускает отдельный процесс для каждой
-        выделенной папки. Небольшая задержка собирает такие IPC-сообщения в
-        один вызов ``add_files``, поэтому выбор способа добавления папки
-        показывается только один раз.
-        """
-        if not file_paths:
-            return
-
-        self._pending_ipc_file_paths.extend(file_paths)
-        if self._ipc_file_batch_timer is None:
-            self._ipc_file_batch_timer = QTimer(self)
-            self._ipc_file_batch_timer.setSingleShot(True)
-            self._ipc_file_batch_timer.setInterval(350)
-            self._ipc_file_batch_timer.timeout.connect(
-                self._flush_ipc_file_batch
-            )
-        self._ipc_file_batch_timer.start()
-        self._bring_main_window_to_front()
-
-    def _flush_ipc_file_batch(self):
-        """Добавляет одну накопленную группу путей от контекстного меню."""
-        file_paths = self._pending_ipc_file_paths
-        self._pending_ipc_file_paths = []
-        self._add_files_with_source_message(
-            file_paths, "через контекстное меню"
-        )
+    def _receive_ipc_batch(self, file_paths):
+        self._add_files_with_source_message(file_paths, "через контекстное меню")
 
     def process_startup_queue(self):
         """Забирает файлы из очереди и добавляет в список."""
@@ -413,28 +279,32 @@ class MultiforaMainWindow(
             word = "файлов"
         return f"{count} {word}"
 
+    @property
+    def file_worker(self):
+        return self._operations.worker
+
+    @file_worker.setter
+    def file_worker(self, worker):
+        self._operations.worker = worker
+
+    @property
+    def _last_operation_request(self) -> OperationRequest | None:
+        return self._operations.last_request
+
     def create_file_worker(self, operation=None):
         """Создаёт обработчик операции и подключает сигналы."""
         if not self._ensure_operation_can_start():
             return False
-        if self.file_worker:
-            try:
-                self.file_worker.progress.disconnect()
-                self.file_worker.status.disconnect()
-                self.file_worker.finished.disconnect()
-                self.file_worker.error.disconnect()
-            except Exception as e:
-                _debug_log(f"Ошибка отключения старых сигналов: {e}")
-
         from core.workers.factory import create_operation_worker
 
-        self.file_worker = create_operation_worker(operation)
-
-        self.file_worker.progress.connect(self.progress_bar.setValue)
-        self.file_worker.status.connect(self.on_worker_status)
-        self.file_worker.finished.connect(self.on_operation_finished)
-        self.file_worker.error.connect(self.on_operation_error)
+        bind_operation_worker(self, create_operation_worker(operation))
         return True
+
+    def _start_operation(self, request: OperationRequest, files: list[FileItem]) -> bool:
+        started = self._operations.start(self, request, files)
+        if not started:
+            self._hide_progress_dialog()
+        return started
 
     def _operation_is_running(self) -> bool:
         worker = getattr(self, "file_worker", None)
@@ -602,68 +472,20 @@ class MultiforaMainWindow(
                     _debug_log(f"Не удалось создать FileItem для {path}: {e}")
         return items
 
-    def _retry_failed_operation(self, errors: list[dict]):
-        if not self._last_operation:
+    def _retry_failed_operation(self, errors: list[dict]) -> None:
+        request = self._last_operation_request
+        if request is None or isinstance(request, MergeRequest):
             return
-        failed_paths = [e.get("path") for e in errors if e.get("path")]
+        failed_paths = [path for error in errors if (path := error.get("path"))]
+        if isinstance(request, RenameRequest):
+            request = request.for_retry(failed_paths)
+            failed_paths = [path for path, _ in request.pairs]
         if not failed_paths:
             return
-        op = self._last_operation.get("op")
-        if op not in {"rename", "convert", "compress"}:
-            return
-        self._show_operation_starting("Подготовка повторного выполнения операции...")
-        worker_operation = op
-        if op == "convert":
-            worker_operation = (
-                "convert_image"
-                if self._last_operation.get("conversion_type") == "auto_image"
-                else "convert_document"
-            )
-        if not self.create_file_worker(operation=worker_operation):
-            self._hide_progress_dialog()
-            return
         files = self._collect_file_items_by_paths(failed_paths)
-        if op == "rename":
-            name_map = self._last_operation.get("new_names_by_path", {})
-            new_names = []
-            valid_files = []
-            for f in files:
-                new_name = name_map.get(f.path)
-                if new_name:
-                    valid_files.append(f)
-                    new_names.append(new_name)
-            if not valid_files:
-                return
-            self.file_worker.set_rename(
-                valid_files,
-                new_names,
-            )
-        elif op == "convert":
-            self.file_worker.set_conversion(
-                files,
-                self._last_operation.get("conversion_type", ""),
-                self._last_operation.get("conversion_format", ""),
-                output_mode=self._last_operation.get(
-                    "conversion_output_mode", "source_subfolder"
-                ),
-                output_dir=self._last_operation.get(
-                    "conversion_output_dir", ""
-                ),
-            )
-        elif op == "compress":
-            self.file_worker.set_compression(
-                files,
-                self._last_operation.get("compression_level", 85),
-                self._last_operation.get("compression_type", "image"),
-                self._last_operation.get("pdf_method", "auto"),
-                self._last_operation.get("replace_pdf", False),
-                self._last_operation.get("image_output_mode", "alongside"),
-                self._last_operation.get("image_output_dir", ""),
-            )
-        else:
-            return
-        self.file_worker.start()
-        self._show_progress_dialog("Повторное выполнение операции...")
+        self._show_operation_starting("Подготовка повторного выполнения операции...")
+        if self._start_operation(request, files):
+            self._show_progress_dialog("Повторное выполнение операции...")
 
     def refresh_preview_panel(self):
         if not hasattr(self, "list_files") or self.list_files is None:

@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
-from app.core.models import FileItem
+from app.core.models import OperationSource
 
 from .compression import CompressionMixin
-from .rename_worker import RenameWorker
+from .operation_worker import OperationWorker
 
 
-class CompressionWorker(CompressionMixin, RenameWorker):
+class CompressionWorker(CompressionMixin, OperationWorker):
     """Обработчик сжатия с общей инфраструктурой операций."""
 
     def __init__(self) -> None:
@@ -23,7 +23,7 @@ class CompressionWorker(CompressionMixin, RenameWorker):
 
     def set_compression(
         self,
-        files: list[FileItem],
+        files: Sequence[OperationSource],
         compression_level: int,
         compression_type: str = "image",
         pdf_method: str = "auto",

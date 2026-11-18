@@ -35,8 +35,8 @@ class SettingsResilienceTests(unittest.TestCase):
     def test_settings_are_stored_in_the_current_user_profile(self):
         profile_dir = r"C:\\Users\\Test\\AppData\\Roaming\\Multifora"
         with (
-            patch("app.core.settings._get_app_data_dir", return_value=profile_dir),
-            patch("app.core.settings._migrate_legacy_settings") as migrate,
+            patch("app.core.settings_storage._get_app_data_dir", return_value=profile_dir),
+            patch("app.core.settings_storage._migrate_legacy_settings") as migrate,
         ):
             settings_path = settings.get_settings_file_path()
 
@@ -62,7 +62,7 @@ class SettingsResilienceTests(unittest.TestCase):
         self.assertEqual(window.theme_mode, "system")
         self.assertFalse(window.windows_context_menu_enabled)
         self.assertFalse(hasattr(window, "auto_update_check_enabled"))
-        self.assertTrue(window.shortcut_settings_silent)
+        self.assertFalse(hasattr(window, 'shortcut_settings_silent'))
 
     def test_load_settings_ignores_persisted_rename_history(self):
         with tempfile.TemporaryDirectory() as tmpdir:

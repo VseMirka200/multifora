@@ -142,7 +142,7 @@ class TemplateApplyMixin:
             num_digits = int(custom_settings.get("digits", 3))
 
         for file_item in self.files:
-            file_item.preview_name = file_item.name
+            self.list_files.model().preview_for(file_item).preview_name = file_item.name
         resolver = getattr(self, "_preview_operation_items", None)
         files = resolver() if callable(resolver) else self.files
         for file_item in files:
@@ -288,7 +288,7 @@ class TemplateApplyMixin:
                         file_path=file_item.path,
                     )
 
-            file_item.preview_name = new_name
+            self.list_files.model().preview_for(file_item).preview_name = new_name
 
         self.status_bar.showMessage(
             f"Применен шаблон: {self.current_template}"

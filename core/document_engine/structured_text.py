@@ -1,11 +1,11 @@
-"""Plain-text export for HTML and OpenDocument Text."""
+"""Экспорт HTML и OpenDocument Text в обычный текст."""
 
 from pathlib import Path
 from zipfile import ZipFile
 
 from lxml import etree, html
 
-from core.workers.atomic_output import atomic_output_path
+from core.filesystem import atomic_output_path
 
 _ODT_NAMES = {
     "office": "urn:oasis:names:tc:opendocument:xmlns:office:1.0",

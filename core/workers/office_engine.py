@@ -1,16 +1,14 @@
-"""Document conversion through the built-in Python engines."""
+"""Конвертация документов встроенными движками Python."""
 
 from pathlib import Path
 from shutil import copyfile
 
-from core.workers.atomic_output import atomic_output_path
-
-OFFICE_INPUTS = frozenset({"DOCX", "ODT", "RTF", "HTML", "TXT"})
-OFFICE_OUTPUTS = OFFICE_INPUTS | {"PDF"}
+from app.core.conversion_formats import OFFICE_INPUTS, OFFICE_OUTPUTS, OFFICE_ROUTES, format_for_path
+from core.filesystem import atomic_output_path
 
 
 class OfficeUnavailableError(RuntimeError):
-    """A document backend required by the application is unavailable."""
+    """Необходимый приложению движок обработки документов недоступен."""
 
 
 def run_office(source, destination, target_format, should_cancel, *, status=None) -> str:
@@ -23,7 +21,7 @@ def run_office(source, destination, target_format, should_cancel, *, status=None
     if not source.is_file():
         raise FileNotFoundError(source)
     source_format = source.suffix.upper()
-    same_format = "HTML" if source_format == ".HTM" else source_format[1:]
+    same_format = format_for_path(source) or source_format[1:]
     if same_format not in OFFICE_INPUTS:
         raise ValueError(f"Неподдерживаемый входной формат: {same_format}")
     if callable(status):
@@ -34,61 +32,61 @@ def run_office(source, destination, target_format, should_cancel, *, status=None
             if should_cancel():
                 raise InterruptedError("Конвертация отменена")
         return ""
-    if source_format == ".DOCX" and target == "TXT":
+    route = OFFICE_ROUTES[same_format].get(target)
+    if route == "docx_text":
         from core.document_engine.docx_text import export_text
 
         export_text(source, destination, should_cancel)
         return ""
-    if source_format == ".DOCX" and target == "HTML":
+    if route == "docx_html":
         from core.document_engine.docx_html import export_html
 
         export_html(source, destination, should_cancel)
         return ""
-    if source_format in {".HTML", ".HTM"} and target == "DOCX":
+    if route == "html_docx":
         from core.document_engine.html_docx import import_docx
 
         import_docx(source, destination, should_cancel)
         return ""
-    if source_format == ".ODT" and target in {"DOCX", "HTML"}:
+    if route == "odt_body":
         from core.document_engine.odt_html import convert_odt
 
         convert_odt(source, destination, target, should_cancel)
         return ""
-    if source_format == ".RTF" and target in {"DOCX", "HTML"}:
+    if route == "rtf_body":
         from core.document_engine.odt_html import save_body
         from core.document_engine.rtf_import import read_body
 
         save_body(read_body(source, should_cancel), source, destination, target, should_cancel)
         return ""
-    if source_format in {".DOCX", ".HTML", ".HTM", ".RTF"} and target == "ODT":
+    if route == "odt":
         from core.document_engine.odt_export import export_odt
 
         export_odt(source, destination, source_format[1:], should_cancel)
         return ""
-    if source_format in {".DOCX", ".HTML", ".HTM", ".ODT"} and target == "RTF":
+    if route == "rtf":
         from core.document_engine.rtf_export import export_rtf
 
         export_rtf(source, destination, source_format[1:], should_cancel)
         return ""
-    if source_format in {".DOCX", ".HTML", ".HTM", ".ODT", ".RTF"} and target == "PDF":
+    if route == "rich_pdf":
         from core.document_engine.rich_pdf import export_pdf
 
         export_pdf(source, destination, source_format[1:], should_cancel)
         return ""
-    if source_format in {".HTML", ".HTM", ".ODT", ".RTF"} and target == "TXT":
+    if route == "text":
         from core.document_engine.structured_text import export_text as export_structured_text
 
         export_structured_text(source, destination, source_format[1:], should_cancel)
         return ""
-    if source_format == ".TXT":
-        from core.document_engine.plain_text import EDITABLE_EXPORTS, convert_text
+    if route == "plain":
+        from core.document_engine.plain_text import convert_text
 
-        if target in EDITABLE_EXPORTS:
-            convert_text(source, destination, target, should_cancel)
-            return ""
-        if target == "PDF":
-            from core.document_engine.text_pdf import export_pdf
+        convert_text(source, destination, target, should_cancel)
+        return ""
+    if route == "text_pdf":
+        from core.document_engine.text_pdf import export_pdf
 
-            export_pdf(source, destination, should_cancel)
-            return ""
+        export_pdf(source, destination, should_cancel)
+        return ""
     raise ValueError(f"Неподдерживаемое преобразование: {same_format} → {target}")

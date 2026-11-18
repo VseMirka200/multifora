@@ -1,4 +1,4 @@
-"""Resolve installed Windows TrueType families for searchable PDF output."""
+"""Поиск установленных семейств шрифтов TrueType в Windows для PDF с поиском."""
 
 import os
 from functools import cache
