@@ -1,5 +1,6 @@
 """Compress PDF image streams without rasterizing pages."""
 
+from contextlib import closing
 from io import BytesIO
 from pathlib import Path
 from shutil import copyfile
@@ -7,16 +8,15 @@ from shutil import copyfile
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
 from pypdf.errors import PdfReadError
+from pypdf.generic import NameObject, NumberObject, StreamObject
+from pypdf.generic._image_xobject import _xobj_to_image
 
 from core.pdf_engine.image_placements import measure_page_images
 from core.workers.atomic_output import atomic_output_path
 
 
-def _shrink(image, sizes, settings):
-    reference = image.indirect_reference
-    if reference is None or reference.idnum not in sizes:
-        return
-    stream = reference.get_object()
+def _shrink(writer, object_id, dimensions, settings):
+    stream = writer.get_object(object_id)
     color = stream.get("/ColorSpace")
     if color not in ("/DeviceRGB", "/DeviceGray") or stream.get("/BitsPerComponent") != 8:
         return
@@ -32,24 +32,48 @@ def _shrink(image, sizes, settings):
     try:
         if "/DCTDecode" in filters and b"ICC_PROFILE\0" in stream.get_data():
             return
+        _, _, picture = _xobj_to_image(stream)
     except (NotImplementedError, OSError, PdfReadError):
         return
-    picture = image.image
-    if picture is None or picture.mode not in ("L", "RGB") or picture.info.get("icc_profile"):
+    if picture is None:
         return
-    width, height = sizes[reference.idnum]
+    with closing(picture):
+        if picture.mode != ("L" if color == "/DeviceGray" else "RGB") or picture.info.get("icc_profile"):
+            return
+        _replace_with_smaller_jpeg(writer, stream, picture, dimensions, settings)
+
+
+def _replace_with_smaller_jpeg(writer, stream, picture, dimensions, settings):
+    width, height = dimensions
+    color = stream.get("/ColorSpace")
     ppi = settings["gray_resolution" if color == "/DeviceGray" else "color_resolution"]
     target = (max(1, round(width * ppi / 72)), max(1, round(height * ppi / 72)))
-    # Skip minor resizes and preserve the original aspect ratio.
     ratio = max(target[0] / picture.width, target[1] / picture.height)
-    if 0 < ratio < 2 / 3:
-        dimensions = (max(1, round(picture.width * ratio)), max(1, round(picture.height * ratio)))
-        picture = picture.resize(dimensions, Image.Resampling.LANCZOS)
-    encoded = BytesIO()
-    picture.save(encoded, format="JPEG", quality=settings["jpeg_quality"], optimize=True)
-    if len(encoded.getbuffer()) >= len(image.data):
+    resized = picture
+    try:
+        if 0 < ratio < 2 / 3:
+            size = (max(1, round(picture.width * ratio)), max(1, round(picture.height * ratio)))
+            resized = picture.resize(size, Image.Resampling.LANCZOS)
+        with BytesIO() as encoded:
+            resized.save(encoded, format="JPEG", quality=settings["jpeg_quality"], optimize=True)
+            jpeg = encoded.getvalue()
+        pixel_width, pixel_height = resized.size
+    finally:
+        if resized is not picture:
+            resized.close()
+    if len(jpeg) >= len(stream._data):
         return
-    image.replace(picture, quality=settings["jpeg_quality"], optimize=True)
+    # Swap the stream in the writer while preserving its indirect identity and image dictionary.
+    properties = {key: value for key, value in stream.items() if key not in {"/Filter", "/DecodeParms", "/Length"}}
+    properties.update({
+        NameObject("/Filter"): NameObject("/DCTDecode"),
+        NameObject("/Width"): NumberObject(pixel_width),
+        NameObject("/Height"): NumberObject(pixel_height),
+        "__streamdata__": jpeg,
+    })
+    replacement = StreamObject.initialize_from_dictionary(properties)
+    replacement.indirect_reference = stream.indirect_reference
+    writer._objects[stream.indirect_reference.idnum - 1] = replacement
 
 
 def _optimize_images(writer, settings, should_cancel):
@@ -58,17 +82,10 @@ def _optimize_images(writer, settings, should_cancel):
         if should_cancel():
             raise InterruptedError("Сжатие отменено")
         measure_page_images(page, sizes, should_cancel)
-    seen = set()
-    for page in writer.pages:
+    for object_id, dimensions in sizes.items():
         if should_cancel():
             raise InterruptedError("Сжатие отменено")
-        for image in page.images:
-            if should_cancel():
-                raise InterruptedError("Сжатие отменено")
-            ref = image.indirect_reference
-            if ref is not None and ref.idnum not in seen:
-                seen.add(ref.idnum)
-                _shrink(image, sizes, settings)
+        _shrink(writer, object_id, dimensions, settings)
 
 
 def optimize_pdf(source, destination, settings, should_cancel):

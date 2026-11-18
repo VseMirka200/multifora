@@ -1,19 +1,17 @@
 """Export PDF pages as editable text or images for scanned pages."""
 
 import re
-from contextlib import closing
+from contextlib import ExitStack, closing
 from io import BytesIO
 from math import isfinite
-from tempfile import TemporaryDirectory
 
 from docx import Document
 from docx.enum.section import WD_ORIENT
 from docx.shared import Pt
 from docx.text.paragraph import Paragraph
-from PIL import Image
 
 from core.pdf_engine.image_placements import measure_page_images
-from core.pdf_engine.render import render_selected_pages
+from core.pdf_engine.render import open_pdf_renderer, render_page_image
 from core.pdf_engine.text import open_pdf
 from core.workers.atomic_output import atomic_output_path
 
@@ -109,9 +107,14 @@ def _add_page_images(document, page, width, height, should_cancel):
                 continue
             scale = min(1, width / image_width, height / image_height)
             dimensions = Pt(image_width * scale), Pt(image_height * scale)
-            with closing(picture.convert("RGBA")) as rgba, BytesIO() as stream:
-                rgba.save(stream, "PNG")
-                document.add_picture(stream, width=dimensions[0], height=dimensions[1])
+            # pypdf supplies standalone JPEG/PNG bytes, including any composed transparency.
+            if embedded.data.startswith((b"\xff\xd8\xff", b"\x89PNG\r\n\x1a\n")):
+                with BytesIO(embedded.data) as stream:
+                    document.add_picture(stream, width=dimensions[0], height=dimensions[1])
+            else:
+                with closing(picture.convert("RGBA")) as rgba, BytesIO() as stream:
+                    rgba.save(stream, "PNG")
+                    document.add_picture(stream, width=dimensions[0], height=dimensions[1])
 
 
 def export_docx(source, destination, should_cancel):
@@ -119,17 +122,10 @@ def export_docx(source, destination, should_cancel):
     section = document.sections[0]
     margins = {name: getattr(section, name).pt for name in
                ("left_margin", "right_margin", "top_margin", "bottom_margin")}
-    with open_pdf(source, should_cancel) as reader, TemporaryDirectory(prefix="multifora_pdf_docx_") as folder:
+    with open_pdf(source, should_cancel) as reader, ExitStack() as resources:
         if not reader.pages:
             raise ValueError("PDF не содержит страниц")
-        pages = []
-        for page in reader.pages:
-            if should_cancel():
-                raise InterruptedError("Конвертация отменена")
-            pages.append(_page_text(page))
-        selected = {index for index, (text, _) in enumerate(pages) if not text.strip()}
-        scans = render_selected_pages(source, folder, should_cancel, only_pages=selected) if selected else {}
-        previous = None
+        renderer = previous = None
         for index, page in enumerate(reader.pages):
             if should_cancel():
                 raise InterruptedError("Конвертация отменена")
@@ -140,14 +136,17 @@ def export_docx(source, destination, should_cancel):
                 width, height = _set_section_size(section, size, margins)
             body = document._body
             first_paragraph = len(body._element) - 1
-            text, segments = pages[index]
+            text, segments = _page_text(page)
             if text.strip():
                 _add_text(document, text, segments, should_cancel)
                 _add_page_images(document, page, width, height, should_cancel)
             else:
-                with Image.open(scans[index]) as picture:
+                if renderer is None:
+                    renderer = resources.enter_context(open_pdf_renderer(source))
+                with closing(render_page_image(renderer, index)) as picture, BytesIO() as stream:
+                    picture.save(stream, "PNG")
                     image_width = min(width, height * picture.width / picture.height)
-                document.add_picture(str(scans[index]), width=Pt(image_width))
+                    document.add_picture(stream, width=Pt(image_width))
             if index and size == previous:
                 Paragraph(body._element[first_paragraph], body).paragraph_format.page_break_before = True
             previous = size
