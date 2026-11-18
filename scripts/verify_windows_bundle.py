@@ -5,9 +5,8 @@ from pathlib import Path
 
 REQUIRED = (
     "Multifora.exe",
-    "bin/gswin64/gswin64c.exe",
-    "bin/gswin64/gsdll64.dll",
-    "_internal/core/workers/office_word.ps1",
+    "bin/wordcraft/wordcraft-cli.exe",
+    "bin/pdfcraft/pdfcraft-cli.exe",
     "_internal/assets/icon.ico",
     "_internal/docxcompose/templates/custom.xml",
     "_internal/PySide6/plugins/platforms/qwindows.dll",

@@ -17,9 +17,8 @@ def test_bundle_validator_reports_missing_files(tmp_path: Path):
 def test_bundle_validator_accepts_complete_layout(tmp_path: Path):
     contents = (
         "Multifora.exe",
-        "bin/gswin64/gswin64c.exe",
-        "bin/gswin64/gsdll64.dll",
-        "_internal/core/workers/office_word.ps1",
+        "bin/wordcraft/wordcraft-cli.exe",
+        "bin/pdfcraft/pdfcraft-cli.exe",
         "_internal/assets/icon.ico",
         "_internal/docxcompose/templates/custom.xml",
         "_internal/PySide6/plugins/platforms/qwindows.dll",
@@ -30,8 +29,8 @@ def test_bundle_validator_accepts_complete_layout(tmp_path: Path):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(b"not empty")
     assert check_bundle(tmp_path) == []
-    (tmp_path / "bin/gswin64/gsdll64.dll").unlink()
-    assert check_bundle(tmp_path) == ["bin/gswin64/gsdll64.dll"]
+    (tmp_path / "bin/pdfcraft/pdfcraft-cli.exe").unlink()
+    assert check_bundle(tmp_path) == ["bin/pdfcraft/pdfcraft-cli.exe"]
 
 
 def test_bundle_validator_requires_docx_merge_template(tmp_path: Path):
@@ -73,7 +72,7 @@ def test_bundle_metrics_are_deterministic_and_group_large_components(
         "Multifora.exe": b"exe",
         "_internal/cv2/cv2.pyd": b"opencv",
         "_internal/cv2/data.xml": b"data",
-        "bin/gswin64/gswin64c.exe": b"ghostscript",
+        "bin/pdfcraft/pdfcraft-cli.exe": b"pdfcraft",
     }
     for relative, contents in files.items():
         target = bundle / relative
@@ -88,8 +87,8 @@ def test_bundle_metrics_are_deterministic_and_group_large_components(
         "bytes": len(b"opencvdata"),
         "files": 2,
     }
-    assert metrics["groups"]["bin/gswin64"] == {
-        "bytes": len(b"ghostscript"),
+    assert metrics["groups"]["bin/pdfcraft"] == {
+        "bytes": len(b"pdfcraft"),
         "files": 1,
     }
 

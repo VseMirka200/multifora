@@ -1,5 +1,6 @@
 import os
 import tempfile
+import threading
 import unittest
 from unittest.mock import Mock, patch
 
@@ -46,6 +47,25 @@ class _DummyConversionWorker(ConversionMixin):
 
 
 class ConversionMixinTests(unittest.TestCase):
+    def test_image_batch_runs_concurrently_and_returns_input_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            worker = _DummyConversionWorker()
+            worker.files = []
+            for name in ("first.png", "second.png"):
+                path = os.path.join(directory, name)
+                with open(path, "wb") as stream:
+                    stream.write(b"input")
+                worker.files.append(FileItem(path))
+            barrier = threading.Barrier(2, timeout=5)
+
+            def convert(file):
+                barrier.wait()
+                return file.path
+
+            results = worker._convert_image_batch(convert)
+            self.assertEqual([item.path for item in results], [item.path for item in worker.files])
+            self.assertEqual(worker.errors, [])
+
     def test_document_pdf_uses_installed_office(self):
         from pathlib import Path
 
@@ -58,8 +78,8 @@ class ConversionMixinTests(unittest.TestCase):
             def convert(_source, destination, target, *_args, **kwargs):
                 self.assertEqual(target, "PDF")
                 Path(destination).write_bytes(b"%PDF-1.4")
-                kwargs["status"]("Microsoft Word")
-                return "LibreOffice fallback"
+                kwargs["status"]("WordCraft")
+                return "WordCraft warning"
 
             with (
                 patch.object(conv_module, "run_office", side_effect=convert),
@@ -67,16 +87,16 @@ class ConversionMixinTests(unittest.TestCase):
                 result = worker._convert_document_auto(FileItem(str(source)), "PDF")
             self.assertTrue(Path(result).exists())
             self.assertFalse(worker._conversion_reserved_paths)
-            self.assertTrue(any("Microsoft Word" in message for message in worker.status.emitted))
+            self.assertTrue(any("WordCraft" in message for message in worker.status.emitted))
             worker._record_warning.assert_called_once()
 
     def test_common_engine_failure_does_not_retry_every_file(self):
         from types import SimpleNamespace
 
-        from core.workers.ghostscript_engine import GhostscriptUnavailableError
         from core.workers.office_engine import OfficeUnavailableError
+        from core.workers.pdfcraft_engine import PdfCraftUnavailableError
 
-        for error_type in (OfficeUnavailableError, GhostscriptUnavailableError):
+        for error_type in (OfficeUnavailableError, PdfCraftUnavailableError):
             with self.subTest(engine=error_type.__name__):
                 worker = _DummyConversionWorker()
                 files = [SimpleNamespace(name=f"{i}.docx", path=f"{i}.docx", is_file=True) for i in range(3)]
@@ -120,14 +140,14 @@ class ConversionMixinTests(unittest.TestCase):
     def test_parallel_pdf_to_docx_stops_scheduling_when_engine_is_missing(self):
         from types import SimpleNamespace
 
-        from core.workers.ghostscript_engine import GhostscriptUnavailableError
+        from core.workers.pdfcraft_engine import PdfCraftUnavailableError
 
         worker = _DummyConversionWorker()
         worker.files = [SimpleNamespace(name=f"{i}.pdf", path=f"{i}.pdf", is_file=True) for i in range(20)]
         with (
             patch.object(worker, "_pdf_docx_worker_count", return_value=2),
             patch.object(
-                worker, "_convert_pdf_to_docx", side_effect=GhostscriptUnavailableError("нет движка")
+                worker, "_convert_pdf_to_docx", side_effect=PdfCraftUnavailableError("нет движка")
             ) as convert,
         ):
             self.assertEqual(worker._convert_pdf_to_docx_batch(), [])
@@ -149,14 +169,11 @@ class ConversionMixinTests(unittest.TestCase):
         self.assertIn("Операция отменена пользователем", worker.status.emitted)
 
     def test_pdf_to_docx_preserves_engine_cancellation(self):
-        from contextlib import nullcontext
-
         worker = _DummyConversionWorker()
         with (
             patch.object(worker, "_conversion_output_path", return_value="result.docx"),
             patch.object(worker, "_release_conversion_output_path") as release,
-            patch.object(conv_module, "atomic_output_path", return_value=nullcontext("temporary.docx")),
-            patch("core.workers.ghostscript_engine.run_ghostscript", side_effect=InterruptedError("cancelled")),
+            patch("core.workers.pdfcraft_engine.export_pdf", side_effect=InterruptedError("cancelled")),
         ):
             with self.assertRaises(InterruptedError):
                 worker._convert_pdf_to_docx(FileItem("source.pdf"))

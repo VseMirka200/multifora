@@ -146,8 +146,12 @@ class RepositoryHygieneTests(unittest.TestCase):
                 continue
 
             if data.startswith(b"\xef\xbb\xbf"):
-                offenders.append(f"{file_name} (BOM)")
-                continue
+                if path.suffix.lower() == ".iss":
+                    # Inno Setup uses the UTF-8 BOM to recognize Unicode scripts.
+                    data = data[3:]
+                else:
+                    offenders.append(f"{file_name} (BOM)")
+                    continue
 
             try:
                 data.decode("utf-8")

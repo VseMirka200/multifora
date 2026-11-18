@@ -1,3 +1,4 @@
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -7,15 +8,39 @@ from PIL import Image
 
 from app.core.conversion_formats import (
     DOCUMENT_CATEGORY,
+    IMAGE_CATEGORY,
     compatible_targets_for_source,
     mixed_source_label_for_category,
+    target_formats_for_category,
 )
 from app.core.models import FileItem
-from tests.pdf_engine_fixtures import create_pdf, run
+from tests.pdf_engine_fixtures import create_pdf
 from tests.test_conversion_mixin import _DummyConversionWorker
 
 
 class ImageConversionIntegrationTests(unittest.TestCase):
+    def test_png_can_be_exported_to_every_offered_image_target(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "source.png"
+            with Image.new("RGB", (64, 64), "red") as image:
+                image.save(source)
+            for target in target_formats_for_category(IMAGE_CATEGORY):
+                if target == "PNG":
+                    continue
+                with self.subTest(target=target):
+                    worker = _DummyConversionWorker()
+                    output = Path(worker._convert_image_auto(FileItem(str(source)), target))
+                    self.assertGreater(output.stat().st_size, 0)
+                    if target == "PDF":
+                        self.assertTrue(output.read_bytes().startswith(b"%PDF-"))
+                    elif target == "SVG":
+                        with worker._load_svg_as_pillow_image(str(output)) as image:
+                            self.assertGreater(image.width, 0)
+                    elif target != "EPS":
+                        with Image.open(output) as image:
+                            image.load()
+                            self.assertGreater(image.width, 0)
+
     def test_eps_input_is_not_supported(self):
         with tempfile.TemporaryDirectory() as folder:
             source = Path(folder) / "source.eps"
@@ -52,7 +77,11 @@ class ImageConversionIntegrationTests(unittest.TestCase):
                     self.assertNotIn(image.getexif().get(274), (3, 6, 8))
             output = worker._convert_image_to_pdf(FileItem(str(source)))
             preview = Path(folder) / "preview.png"
-            run("-sDEVICE=png16m", "-r72", f"-sOutputFile={preview}", output)
+            from core.workers.pdfcraft_engine import find_pdfcraft
+
+            subprocess.run(
+                [find_pdfcraft(), "render", output, "--page", "1", "--dpi", "72", "--out", str(preview)], check=True
+            )
             with Image.open(preview) as image:
                 self.assertLess(image.width, image.height)
 
@@ -102,8 +131,29 @@ class ImageConversionIntegrationTests(unittest.TestCase):
 
             with patch.object(worker, "_save_pillow_image", side_effect=fail_second_page):
                 with self.assertRaisesRegex(Exception, "disk error"):
-                    worker._convert_pdf_to_image(FileItem(str(source)), "PNG")
-            self.assertEqual(list(Path(folder).rglob("*.png")), [])
+                    worker._convert_pdf_to_image(FileItem(str(source)), "WEBP")
+            self.assertEqual(list(Path(folder).rglob("*.webp")), [])
+            self.assertEqual(worker._conversion_reserved_paths, set())
+
+    def test_pdf_export_removes_partial_results_on_cancellation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "pages.pdf"
+            create_pdf(source, ["first", "second"])
+            worker = _DummyConversionWorker()
+            save = worker._save_pillow_image
+            cancelled = False
+
+            def save_and_cancel(*args):
+                nonlocal cancelled
+                save(*args)
+                cancelled = True
+
+            with patch.object(worker, "_should_cancel", side_effect=lambda: cancelled), patch.object(
+                worker, "_save_pillow_image", side_effect=save_and_cancel
+            ):
+                with self.assertRaises(InterruptedError):
+                    worker._convert_pdf_to_image(FileItem(str(source)), "WEBP")
+            self.assertEqual(list(Path(folder).rglob("*.webp")), [])
             self.assertEqual(worker._conversion_reserved_paths, set())
 
     def test_pdf_image_targets_are_only_offered_for_pdf(self):

@@ -94,7 +94,7 @@ class MergeMixin:
             from docx import Document
         except ImportError as error:
             raise Exception(
-                "Установите python-docx для объединения Word-файлов."
+                "Установите python-docx для объединения файлов DOCX."
             ) from error
 
         output_path = self._get_merge_output_path(files, "docx")
@@ -142,15 +142,11 @@ class MergeMixin:
         if not all(file.path.lower().endswith(".pdf") for file in files):
             raise Exception("Объединение в PDF поддерживает только файлы PDF.")
 
-        from core.workers.ghostscript_engine import run_ghostscript
+        from core.workers.pdfcraft_engine import combine_pdfs
 
         output_path = self._get_merge_output_path(files, "pdf")
-        self.status.emit("Объединение PDF с помощью Ghostscript")
-        with atomic_output_path(output_path) as temporary:
-            run_ghostscript(
-                ["-sDEVICE=pdfwrite", f"-sOutputFile={temporary}", *[os.path.abspath(file.path) for file in files]],
-                self._should_cancel,
-            )
+        self.status.emit("Объединение PDF с помощью PDFCraft")
+        combine_pdfs([file.path for file in files], output_path, self._should_cancel)
         self.progress.emit(100)
         return output_path
 

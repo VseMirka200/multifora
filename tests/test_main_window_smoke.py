@@ -611,7 +611,7 @@ class MainWindowSmokeTests(unittest.TestCase):
 
             try:
                 window._show_progress_dialog(
-                    "PDF сжат и заменен (Ghostscript (Авто (стандарт))): ВСР 15.pdf (-38.7%)"
+                    "PDF сжат и заменен (PDFCraft (Авто (стандарт))): ВСР 15.pdf (-38.7%)"
                 )
                 self.app.processEvents()
 

@@ -16,10 +16,9 @@ from app.core.deps import (
     HAS_PIL as HAS_PIL,
 )
 from app.core.models import FileItem
-from core.workers.atomic_output import atomic_output_path
 from core.workers.common import record_file_error
-from core.workers.ghostscript_engine import GhostscriptUnavailableError
 from core.workers.office_engine import OFFICE_INPUTS, OFFICE_OUTPUTS, OfficeUnavailableError, run_office
+from core.workers.pdfcraft_engine import PdfCraftUnavailableError
 
 from .image_conversion_mixin import ImageConversionMixin
 from .image_encoding_mixin import ImageEncodingMixin
@@ -151,22 +150,13 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
             with tempfile.TemporaryDirectory(prefix="multifora_document_") as directory:
                 source = os.path.abspath(file.path)
                 if source_format == "PDF":
-                    from core.workers.ghostscript_engine import run_ghostscript
+                    from core.workers.pdfcraft_engine import export_pdf
 
                     if target == "TXT":
-                        with atomic_output_path(output) as temporary:
-                            run_ghostscript(
-                                ["-sDEVICE=txtwrite", "-dTextFormat=3", f"-sOutputFile={temporary}", source],
-                                self._should_cancel,
-                            )
-                            if self._should_cancel():
-                                raise InterruptedError("Конвертация отменена пользователем")
+                        export_pdf(source, output, "TXT", self._should_cancel)
                         return output
                     intermediate = os.path.join(directory, "source.docx")
-                    run_ghostscript(
-                        ["-sDEVICE=docxwrite", f"-sOutputFile={intermediate}", source],
-                        self._should_cancel,
-                    )
+                    export_pdf(source, intermediate, "DOCX", self._should_cancel)
                     source = intermediate
                 elif source_format not in OFFICE_INPUTS:
                     raise ValueError(f"Неподдерживаемый входной формат: {source_format}")
@@ -191,11 +181,19 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
         if self.conversion_type == "docx_to_pdf":
             self._emit_finished(self._convert_docx_to_pdf_batch(), [])
             return
-        if self.conversion_type == "pdf_to_docx":
+        if self.conversion_type == "pdf_to_docx" or (
+            self.conversion_type == "auto_document"
+            and str(self.conversion_format).upper() == "DOCX"
+            and self.files
+            and all(not file.is_file or format_for_path(file.path) == "PDF" for file in self.files)
+        ):
             self._emit_finished(self._convert_pdf_to_docx_batch(), [])
             return
 
         handler = self._get_conversion_handler()
+        if self.conversion_type in {"auto_image", "image_to_image", "image_to_pdf"} and len(self.files) > 1:
+            self._emit_finished(self._convert_image_batch(handler), [])
+            return
         for index, file in enumerate(self.files):
             if self._should_cancel():
                 self.status.emit("Операция отменена пользователем")
@@ -221,7 +219,7 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
                 self._report_file_conversion_error(file, error)
             except Exception as error:
                 self._report_file_conversion_error(file, error)
-                if isinstance(error, (OfficeUnavailableError, GhostscriptUnavailableError)):
+                if isinstance(error, (OfficeUnavailableError, PdfCraftUnavailableError)):
                     self._report_unprocessed_engine_errors(self.files[index + 1 :], error)
                     self.progress.emit(100)
                     break
@@ -229,6 +227,38 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
             self.progress.emit(int((index + 1) / total * 100))
 
         self._emit_finished(results, [])
+
+    def _convert_image_batch(self, handler) -> list[FileItem]:
+        """Обрабатывает не более двух изображений одновременно, ограничивая расход памяти."""
+        files = [file for file in self.files if file.is_file]
+        results = {}
+        next_index = 0
+        completed = 0
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="image-convert") as executor:
+            pending = {}
+            while pending or (next_index < len(files) and not self._should_cancel()):
+                while len(pending) < 2 and next_index < len(files) and not self._should_cancel():
+                    file = files[next_index]
+                    pending[executor.submit(handler, file)] = (next_index, file)
+                    next_index += 1
+                if not pending:
+                    break
+                done, _ = wait(pending, timeout=0.2, return_when=FIRST_COMPLETED)
+                for future in done:
+                    index, file = pending.pop(future)
+                    try:
+                        output = future.result()
+                        item = self._converted_file_item(output)
+                        if item is not None:
+                            results[index] = item
+                    except Exception as error:
+                        self._report_file_conversion_error(file, error)
+                    completed += 1
+                    self.status.emit(f"Конвертация: {file.name}")
+                    self.progress.emit(int(completed / len(files) * 100))
+        if self._should_cancel():
+            self.status.emit("Операция отменена пользователем")
+        return [results[index] for index in sorted(results)]
 
     def _convert_sequential_batch(
         self,
@@ -257,7 +287,7 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
                 self._report_file_conversion_error(file, error)
             except Exception as error:
                 self._report_file_conversion_error(file, error)
-                if isinstance(error, (OfficeUnavailableError, GhostscriptUnavailableError)):
+                if isinstance(error, (OfficeUnavailableError, PdfCraftUnavailableError)):
                     self._report_unprocessed_engine_errors(files[index + 1 :], error)
                     self.progress.emit(100)
                     break
@@ -343,7 +373,7 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
                             self._report_file_conversion_error(file, error)
                     except Exception as error:
                         self._report_file_conversion_error(file, error)
-                        if isinstance(error, GhostscriptUnavailableError):
+                        if isinstance(error, PdfCraftUnavailableError):
                             common_error = error
                     finally:
                         processed += 1
@@ -394,19 +424,13 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
     def _convert_pdf_to_docx(self, file: FileItem) -> str:
         if not file.path.lower().endswith(".pdf"):
             return None
-        from core.workers.ghostscript_engine import run_ghostscript
+        from core.workers.pdfcraft_engine import PdfCraftUnavailableError, export_pdf
 
         docx_path = self._conversion_output_path(file, ".docx")
         try:
-            with atomic_output_path(docx_path) as temporary:
-                run_ghostscript(
-                    ["-sDEVICE=docxwrite", f"-sOutputFile={temporary}", os.path.abspath(file.path)],
-                    self._should_cancel,
-                )
-                if self._should_cancel():
-                    raise InterruptedError("Конвертация отменена пользователем")
+            export_pdf(file.path, docx_path, "DOCX", self._should_cancel)
             return docx_path
-        except (InterruptedError, GhostscriptUnavailableError):
+        except (InterruptedError, PdfCraftUnavailableError):
             self._release_conversion_output_path(docx_path)
             raise
         except Exception as error:

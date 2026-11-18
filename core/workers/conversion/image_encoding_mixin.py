@@ -78,10 +78,11 @@ class ImageEncodingMixin:
         # Принимает кадр Pillow и формат, возвращает отдельный кадр для сохранения.
         # Исходное изображение остаётся доступным для обработки следующих кадров.
         target_format = str(target_format or "").upper()
-        img = frame.copy()
-
         if target_format in _IMAGE_RGB_TARGETS:
-            return self._flatten_transparency(img)
+            # flatten всегда создаёт отдельное изображение; промежуточная копия
+            # особенно дорога для больших страниц при экспорте в PDF/JPEG.
+            return self._flatten_transparency(frame)
+        img = frame.copy()
         if target_format == "PGM":
             return img.convert("L")
         if target_format in {"PBM", "XBM"}:
@@ -143,8 +144,7 @@ class ImageEncodingMixin:
         except Exception as error:
             raise Exception(f"Ошибка чтения SVG: {error}") from error
 
-    @staticmethod
-    def _image_save_options(target_format: str) -> dict[str, object]:
+    def _image_save_options(self, target_format: str) -> dict[str, object]:
         """Возвращает параметры Pillow для выбранного формата."""
         options: dict[str, object] = {}
         if target_format in {"JPG", "JPEG"}:

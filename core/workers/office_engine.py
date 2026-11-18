@@ -1,4 +1,4 @@
-"""Conversion through office applications installed on the user's computer."""
+"""Conversion through the bundled WordCraft document engine."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -18,103 +19,13 @@ from core.workers.engine_policy import adaptive_timeout
 
 OFFICE_INPUTS = frozenset({"DOC", "DOCX", "ODT", "RTF", "HTML", "TXT"})
 OFFICE_OUTPUTS = frozenset({"PDF", "DOCX", "ODT", "RTF", "TXT", "HTML"})
-LIBREOFFICE_FILTERS = {
-    "TXT": "txt:Text (encoded):UTF8",
-    "HTML": "html:HTML (StarWriter)",
-    "PDF": "pdf:writer_pdf_Export",
-    "DOCX": "docx:Office Open XML Text",
-    "ODT": "odt:writer8",
-    "RTF": "rtf:Rich Text Format",
-}
-
-
 class OfficeUnavailableError(RuntimeError):
     """No installed office backend is available for the queue."""
 
 
-def _registry_paths(executable):
-    if os.name != "nt":
-        return []
-    import winreg
-
-    result = []
-    for hive in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
-        for view in (winreg.KEY_WOW64_64KEY, winreg.KEY_WOW64_32KEY):
-            try:
-                with winreg.OpenKey(
-                    hive,
-                    "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\" + executable,
-                    0,
-                    winreg.KEY_READ | view,
-                ) as key:
-                    result.append(winreg.QueryValueEx(key, None)[0].strip('"'))
-            except OSError:
-                pass
-    return result
-
-
-def find_word() -> str | None:
-    if os.name != "nt":
-        return None
-    candidates = _registry_paths("WINWORD.EXE")
-    candidates.append(shutil.which("winword.exe"))
-    for variable in ("ProgramFiles", "ProgramFiles(x86)"):
-        base = Path(os.environ.get(variable, "C:/Program Files")) / "Microsoft Office"
-        for version in ("Office16", "Office15", "Office14"):
-            candidates.extend([str(base / "root" / version / "WINWORD.EXE"), str(base / version / "WINWORD.EXE")])
-    return next((str(Path(p).resolve()) for p in candidates if p and Path(p).is_file()), None)
-
-
-def find_libreoffice() -> str | None:
-    candidates = []
-    for name in ("soffice.com", "soffice.exe", "soffice", "libreoffice"):
-        candidates.append(shutil.which(name))
-        candidates.extend(_registry_paths(name))
-    for variable in ("ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA"):
-        base = Path(os.environ.get(variable, "C:/Program Files"))
-        for folder in (base / "LibreOffice", base / "Programs" / "LibreOffice"):
-            candidates.extend(str(folder / "program" / name) for name in ("soffice.com", "soffice.exe"))
-    candidates.append("/Applications/LibreOffice.app/Contents/MacOS/soffice")
-    return next((str(Path(p).resolve()) for p in candidates if p and Path(p).is_file()), None)
-
-
-def _powershell():
-    return shutil.which("powershell.exe") or str(
-        Path(os.environ.get("WINDIR", "C:/Windows")) / "System32/WindowsPowerShell/v1.0/powershell.exe"
-    )
-
-
-def _word_script():
-    return Path(__file__).with_name("office_word.ps1")
-
-
-def _stop_owned_word(pid_file):
-    if not pid_file.is_file():
-        return
-    subprocess.run(
-        [
-            _powershell(),
-            "-NoProfile",
-            "-NonInteractive",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-            str(_word_script()),
-            "-PidFile",
-            str(pid_file),
-            "-Cleanup",
-        ],
-        capture_output=True,
-        timeout=15,
-        check=False,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-    )
-
-
-def _stop_process(process, pid_file=None):
+def _stop_process(process):
     if process.poll() is None:
         if os.name == "nt":
-            # This process owns an isolated LibreOffice profile / PowerShell instance.
             subprocess.run(
                 ["taskkill", "/PID", str(process.pid), "/T", "/F"],
                 capture_output=True,
@@ -129,11 +40,9 @@ def _stop_process(process, pid_file=None):
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait()
-    if pid_file is not None:
-        _stop_owned_word(pid_file)
 
 
-def _run(arguments, directory, should_cancel, timeout, status, pid_file=None):
+def _run(arguments, directory, should_cancel, timeout, status):
     log_path = directory / "office.log"
     with log_path.open("wb") as log:
         process = subprocess.Popen(
@@ -157,7 +66,7 @@ def _run(arguments, directory, should_cancel, timeout, status, pid_file=None):
                     next_notice += 15
                 time.sleep(0.1)
         finally:
-            _stop_process(process, pid_file)
+            _stop_process(process)
     if should_cancel():
         raise InterruptedError("Конвертация отменена пользователем")
     if process.returncode:
@@ -199,93 +108,47 @@ def _normalize_export(output, target):
     output.write_text(content, encoding="utf-8", newline="\n")
 
 
+def find_wordcraft() -> str | None:
+    root = (
+        Path(sys.executable).resolve().parent
+        if getattr(sys, "frozen", False)
+        else Path(__file__).resolve().parents[2]
+    )
+    executable = root / "bin" / "wordcraft" / "wordcraft-cli.exe"
+    return str(executable) if executable.is_file() else None
+
+
 def run_office(source, destination, target_format, should_cancel, *, status=None) -> str:
-    """Prefer Word, fall back to LibreOffice; never publish incomplete output."""
+    """Convert with the bundled WordCraft CLI and publish only complete output."""
     target = target_format.upper()
     if target not in OFFICE_OUTPUTS:
-        raise ValueError(f"Офисный экспорт не поддерживает {target}")
+        raise ValueError(f"Неподдерживаемый формат документа: {target}")
     if should_cancel():
-        raise InterruptedError("Конвертация отменена пользователем")
+        raise InterruptedError("Конвертация отменена")
     source = Path(source).resolve()
     if not source.is_file():
         raise FileNotFoundError(source)
-    word, libreoffice = find_word(), find_libreoffice()
-    backends = [("Microsoft Word", word), ("LibreOffice", libreoffice)]
-    if source.suffix.lower() == ".odt":
-        backends.reverse()
-    backends = [(name, exe) for name, exe in backends if exe]
-    if not backends:
-        raise OfficeUnavailableError(
-            "Для конвертации установите Microsoft Word или LibreOffice. Приложения не найдены."
-        )
-    failures = []
-    timeout = adaptive_timeout(source.stat().st_size)
-    for name, executable in backends:
+    executable = find_wordcraft()
+    if not executable:
+        raise OfficeUnavailableError("Встроенный движок WordCraft не найден. Переустановите Мультифору.")
+    if callable(status):
+        status("WordCraft...")
+    with tempfile.TemporaryDirectory(prefix="multifora_document_") as folder:
+        directory = Path(folder)
+        output = directory / ("result." + target.lower())
+        _run([executable, "convert", str(source), str(output)], directory, should_cancel,
+             adaptive_timeout(source.stat().st_size), status)
+        if not output.is_file() or output.stat().st_size == 0:
+            raise RuntimeError("WordCraft не создал выходной файл")
+        _normalize_export(output, target)
+        if target == "PDF":
+            with output.open("rb") as stream:
+                if stream.read(5) != b"%PDF-":
+                    raise RuntimeError("WordCraft создал некорректный PDF")
         if should_cancel():
-            raise InterruptedError("Конвертация отменена пользователем")
-        if callable(status):
-            status(f"Конвертация через {name}...")
-        try:
-            with tempfile.TemporaryDirectory(prefix="multifora_office_") as folder:
-                directory = Path(folder)
-                pid_file = None
-                if name == "Microsoft Word":
-                    output = directory / ("result." + target.lower())
-                    pid_file = directory / "word-pid.json"
-                    arguments = [
-                        _powershell(),
-                        "-NoProfile",
-                        "-NonInteractive",
-                        "-ExecutionPolicy",
-                        "Bypass",
-                        "-File",
-                        str(_word_script()),
-                        "-Source",
-                        str(source),
-                        "-Output",
-                        str(output),
-                        "-Target",
-                        target,
-                        "-PidFile",
-                        str(pid_file),
-                    ]
-                else:
-                    profile = directory / "profile"
-                    output_dir = directory / "output"
-                    output_dir.mkdir()
-                    output = output_dir / (source.stem + "." + target.lower())
-                    arguments = [
-                        executable,
-                        "-env:UserInstallation=" + profile.as_uri(),
-                        "--headless",
-                        "--nologo",
-                        "--nodefault",
-                        "--norestore",
-                        "--convert-to",
-                        LIBREOFFICE_FILTERS[target],
-                        "--outdir",
-                        str(output_dir),
-                        str(source),
-                    ]
-                _run(arguments, directory, should_cancel, timeout, status, pid_file)
-                if not output.is_file() or output.stat().st_size == 0:
-                    raise RuntimeError(f"{name} не создал выходной файл")
-                _normalize_export(output, target)
-                if target == "PDF":
-                    with output.open("rb") as stream:
-                        if stream.read(5) != b"%PDF-":
-                            raise RuntimeError(f"{name} создал некорректный PDF")
-                if should_cancel():
-                    raise InterruptedError("Конвертация отменена пользователем")
-                with atomic_output_path(destination) as temporary:
-                    shutil.copyfile(output, temporary)
-                    if should_cancel():
-                        raise InterruptedError("Конвертация отменена пользователем")
-                return "; ".join(failures)
-        except InterruptedError:
-            raise
-        except FileExistsError:
-            raise
-        except (OSError, RuntimeError, TimeoutError) as error:
-            failures.append(f"{name}: {error}")
-    raise RuntimeError("Не удалось конвертировать документ. " + "; ".join(failures))
+            raise InterruptedError("Конвертация отменена")
+        with atomic_output_path(destination) as temporary:
+            shutil.copyfile(output, temporary)
+            if should_cancel():
+                raise InterruptedError("Конвертация отменена")
+    return ""

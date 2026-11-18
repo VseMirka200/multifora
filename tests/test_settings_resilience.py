@@ -93,7 +93,6 @@ class SettingsResilienceTests(unittest.TestCase):
         window = _DummyWindow()
         settings._initialize_settings_defaults(window)
         window.custom_templates = {}
-        window.ghostscript_path_override = None
         window._rename_history = [{"pairs": [["new.txt", "old.txt"]]}]
 
         data = settings._collect_settings_data(window)
@@ -114,7 +113,6 @@ class SettingsResilienceTests(unittest.TestCase):
         self.assertEqual(window.image_compression_output_path, r"C:\output")
 
         window.custom_templates = {}
-        window.ghostscript_path_override = None
         data = settings._collect_settings_data(window)
         self.assertEqual(data["image_compression_output_mode"], "custom")
         self.assertEqual(data["image_compression_output_path"], r"C:\output")
@@ -169,7 +167,6 @@ class SettingsResilienceTests(unittest.TestCase):
             },
         )
         window.custom_templates = {}
-        window.ghostscript_path_override = None
 
         data = settings._collect_settings_data(window)
 
@@ -201,7 +198,6 @@ class SettingsResilienceTests(unittest.TestCase):
         self.assertFalse(hasattr(window, "auto_update_check_enabled"))
 
         window.custom_templates = {}
-        window.ghostscript_path_override = None
         data = settings._collect_settings_data(window)
 
         self.assertFalse(data["auto_check_updates"])
@@ -221,7 +217,6 @@ class SettingsResilienceTests(unittest.TestCase):
         self.assertEqual(window.conversion_output_path, r"C:\converted")
 
         window.custom_templates = {}
-        window.ghostscript_path_override = None
         data = settings._collect_settings_data(window)
         self.assertEqual(data["conversion_output_mode"], "custom")
         self.assertEqual(data["conversion_output_path"], r"C:\converted")
@@ -241,7 +236,6 @@ class SettingsResilienceTests(unittest.TestCase):
         self.assertFalse(hasattr(window, "rename_numbering_scope"))
 
         window.custom_templates = {}
-        window.ghostscript_path_override = None
         data = settings._collect_settings_data(window)
         self.assertNotIn("rename_folder_mode", data)
         self.assertNotIn("rename_numbering_scope", data)
@@ -264,7 +258,6 @@ class SettingsResilienceTests(unittest.TestCase):
         )
 
         window.custom_templates = {}
-        window.ghostscript_path_override = None
         data = settings._collect_settings_data(window)
         self.assertEqual(
             data["file_list_view_state"],

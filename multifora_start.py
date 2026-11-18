@@ -74,40 +74,28 @@ def _run_build_smoke_test() -> int:
         report["image_roundtrip"] = True
         report["imports"].extend(("PIL.Image", "pillow_heif"))
 
-        from core.workers.ghostscript_engine import run_ghostscript
-        from core.workers.office_engine import _word_script, find_libreoffice, find_word
+        from core.workers.office_engine import find_wordcraft, run_office
+        from core.workers.pdfcraft_engine import export_pdf, find_pdfcraft, render_pdf_pages
 
-        if not _word_script().is_file():
-            raise RuntimeError("Word conversion helper is missing")
-        report["office_helper"] = True
-        report["office_backends"] = {"word": bool(find_word()), "libreoffice": bool(find_libreoffice())}
+        if not find_wordcraft() or not find_pdfcraft():
+            raise RuntimeError("Bundled document engines are missing")
+        report["office_backends"] = {"wordcraft": True, "pdfcraft": True}
 
         with TemporaryDirectory(prefix="multifora-pdf-") as directory:
+            source_docx = Path(directory, "source.docx")
             source_pdf = Path(directory, "source.pdf")
             output_docx = Path(directory, "result.docx")
-            raster = Path(directory, "page.png")
-            run_ghostscript(
-                [
-                    "-sDEVICE=pdfwrite",
-                    f"-sOutputFile={source_pdf}",
-                    "-c",
-                    "/Helvetica findfont 12 scalefont setfont 72 720 moveto (Multifora PDF check) show showpage",
-                ],
-                lambda: False,
-            )
-            run_ghostscript(
-                ["-sDEVICE=png16m", "-r72", f"-sOutputFile={raster}", str(source_pdf)],
-                lambda: False,
-            )
-            with deps.Image.open(raster) as image:
+            document = Document()
+            document.add_paragraph("Multifora PDF check")
+            document.save(source_docx)
+            run_office(source_docx, source_pdf, "PDF", lambda: False)
+            pages = render_pdf_pages(source_pdf, directory, lambda: False)
+            with deps.Image.open(pages[0]) as image:
                 image.load()
                 if min(image.size) <= 0:
                     raise RuntimeError("PDF rendering failed")
             report["pdf_roundtrip"] = True
-            run_ghostscript(
-                ["-sDEVICE=docxwrite", f"-sOutputFile={output_docx}", str(source_pdf)],
-                lambda: False,
-            )
+            export_pdf(source_pdf, output_docx, "DOCX", lambda: False)
             converted_text = "\n".join(paragraph.text for paragraph in Document(output_docx).paragraphs)
             if "Multifora PDF check" not in converted_text:
                 raise RuntimeError("PDF to DOCX conversion failed")

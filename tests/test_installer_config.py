@@ -26,15 +26,15 @@ class InstallerConfigTests(unittest.TestCase):
         self.assertIn("/NORESTART", script)
         self.assertIn("/SP-", script)
 
-    def test_installer_copies_complete_bundle_and_requires_office_helper(self):
+    def test_installer_copies_complete_bundle(self):
         root = Path(__file__).parents[1]
         installer = (root / "scripts" / "installer.iss").read_text(encoding="utf-8")
-        packaging = (root / "scripts" / "build_installer.bat").read_text(encoding="utf-8")
         self.assertIn('#define MyAppSource "..\\dist\\Multifora"', installer)
         self.assertIn('Source: "{#MyAppSource}\\*"', installer)
         self.assertIn("recursesubdirs", installer)
-        self.assertIn("core/workers/office_word.ps1", (root / "Multifora.spec").read_text(encoding="utf-8"))
-        self.assertIn("office_word.ps1", packaging)
+        bundle_check = (root / "scripts" / "verify_windows_bundle.py").read_text(encoding="utf-8")
+        self.assertIn("bin/wordcraft/wordcraft-cli.exe", bundle_check)
+        self.assertIn("bin/pdfcraft/pdfcraft-cli.exe", bundle_check)
 
 
 if __name__ == "__main__":

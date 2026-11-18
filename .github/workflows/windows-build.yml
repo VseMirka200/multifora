@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Получить исходный код
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          lfs: true
       - name: Настроить Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
@@ -36,7 +38,7 @@ jobs:
       - name: Собрать портативную версию приложения
         shell: cmd
         run: scripts\build_app.bat --no-pause
-      - name: Проверить собранный EXE и Ghostscript
+      - name: Проверить собранный EXE и движки документов
         shell: pwsh
         run: .\scripts\verify_windows_runtime.ps1
       - name: Установить Inno Setup

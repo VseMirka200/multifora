@@ -23,6 +23,14 @@ class _DummyCompressionWorker(CompressionMixin):
 
 
 class CompressionMixinTests(unittest.TestCase):
+    def test_cancelled_pdf_compression_emits_result(self):
+        worker = _DummyCompressionWorker()
+        worker.cancelled = True
+        worker.status = Mock()
+        worker._emit_finished = Mock()
+        worker._compress_pdf_files()
+        worker._emit_finished.assert_called_once_with([], [])
+
     def test_missing_pdf_engine_is_reported_as_file_error(self):
         with tempfile.TemporaryDirectory() as folder:
             source = Path(folder, "source.pdf")
@@ -33,11 +41,11 @@ class CompressionMixinTests(unittest.TestCase):
             worker._record_error = Mock()
             worker._emit_finished = Mock()
             with patch(
-                "core.workers.compression.compression_mixin.deps.ensure_ghostscript_detected",
-                return_value=(False, None),
+                "core.workers.pdfcraft_engine.find_pdfcraft",
+                return_value=None,
             ):
                 worker._compress_pdf_files()
-            self.assertIn("Ghostscript", worker._record_error.call_args.args[1])
+            self.assertIn("PDFCraft", worker._record_error.call_args.args[1])
             worker._emit_finished.assert_called_once_with([], [])
 
     def test_image_output_path_uses_selected_destination(self):
@@ -60,28 +68,23 @@ class CompressionMixinTests(unittest.TestCase):
             self.assertEqual(custom, str(output_dir / "photo_compressed.jpg"))
             self.assertTrue(output_dir.is_dir())
 
-    def test_ghostscript_profiles_preserve_existing_settings(self):
+    def test_pdf_profiles_preserve_existing_settings(self):
         expected = {
-            "max": ("/screen", 72, 40, "Максимальное сжатие"),
-            "quality": ("/prepress", 300, 92, "Сохранить качество"),
-            "optimize": ("/printer", 300, 90, "Только оптимизация"),
+            "max": (72, 40, "Максимальное сжатие"),
+            "quality": (300, 92, "Сохранить качество"),
+            "optimize": (300, 90, "Только оптимизация"),
         }
 
         for method, (
-            pdf_settings,
             resolution,
             quality,
             name,
         ) in expected.items():
             with self.subTest(method=method):
-                settings = _DummyCompressionWorker(method)._get_ghostscript_settings()
-                self.assertEqual(settings["pdf_settings"], pdf_settings)
+                settings = _DummyCompressionWorker(method)._get_pdf_settings()
                 self.assertEqual(settings["color_resolution"], resolution)
                 self.assertEqual(settings["jpeg_quality"], quality)
                 self.assertEqual(settings["method_name"], name)
-                self.assertTrue(settings["optimize"])
-                self.assertEqual(settings["embed_fonts"], "true")
-                self.assertEqual(settings["subset_fonts"], "true")
 
     def test_auto_profile_depends_on_original_file_size(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -91,8 +94,8 @@ class CompressionMixinTests(unittest.TestCase):
             with large_path.open("wb") as stream:
                 stream.truncate(11 * 1024 * 1024)
 
-            standard = _DummyCompressionWorker("auto", [FileItem(str(standard_path))])._get_ghostscript_settings()
-            large = _DummyCompressionWorker("auto", [FileItem(str(large_path))])._get_ghostscript_settings()
+            standard = _DummyCompressionWorker("auto", [FileItem(str(standard_path))])._get_pdf_settings()
+            large = _DummyCompressionWorker("auto", [FileItem(str(large_path))])._get_pdf_settings()
 
         self.assertEqual(standard["method_name"], "Авто (стандарт)")
         self.assertEqual(standard["color_resolution"], 300)

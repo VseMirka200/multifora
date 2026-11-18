@@ -62,3 +62,4 @@ app/ui/assets/
 *.p12
 *.pfx
 secrets.*
+

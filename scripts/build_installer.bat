@@ -20,11 +20,6 @@ if not exist "dist\Multifora\Multifora.exe" (
 
 
 
-if not exist "dist\Multifora\_internal\core\workers\office_word.ps1" (
-    echo ERROR: Word conversion helper is missing. Rebuild the application.
-    goto error
-)
-
 if exist "%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" set "ISCC_EXE=%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe"
 if not defined ISCC_EXE if exist "%ProgramFiles%\Inno Setup 6\ISCC.exe" set "ISCC_EXE=%ProgramFiles%\Inno Setup 6\ISCC.exe"
 if not defined ISCC_EXE if exist "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" set "ISCC_EXE=%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"

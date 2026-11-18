@@ -48,7 +48,7 @@ class WorkerOpsMixin:
     ) -> str:
         extension = "docx" if output_format == "docx" else "pdf"
         filter_text = (
-            "Word Document (*.docx)"
+            "Документ DOCX (*.docx)"
             if extension == "docx"
             else "PDF Document (*.pdf)"
         )

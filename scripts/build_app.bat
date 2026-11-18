@@ -42,7 +42,7 @@ if exist "bin" (
 )
 %BUILD_PYTHON% "scripts\verify_windows_bundle.py" --bundle "dist\%APP_BUILD_NAME%"
 if errorlevel 1 goto :error
-%BUILD_PYTHON% "scripts\measure_bundle.py" --bundle "dist\%APP_BUILD_NAME%" --output "dist\bundle-metrics.json" --max-mib 675 --max-files 1500
+%BUILD_PYTHON% "scripts\measure_bundle.py" --bundle "dist\%APP_BUILD_NAME%" --output "dist\bundle-metrics.json" --max-mib 2500 --max-files 25000
 if errorlevel 1 goto :error
 
 echo Build complete. Output: dist\%APP_BUILD_NAME%

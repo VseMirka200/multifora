@@ -24,7 +24,7 @@ try {
     $arguments = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/NOICONS', "/DIR=`"$installDirectory`"")
     $setup = Start-Process -FilePath $installers[0].FullName -ArgumentList $arguments -WindowStyle Hidden -Wait -PassThru
     if ($setup.ExitCode -ne 0) { throw "Installer failed: $($setup.ExitCode)" }
-    foreach ($relative in @('Multifora.exe', 'bin\gswin64\gswin64c.exe', '_internal\core\workers\office_word.ps1')) {
+    foreach ($relative in @('Multifora.exe', 'bin\wordcraft\wordcraft-cli.exe', 'bin\pdfcraft\pdfcraft-cli.exe')) {
         if (-not (Test-Path -LiteralPath (Join-Path $installDirectory $relative))) {
             throw "Installer did not copy $relative"
         }

@@ -146,7 +146,6 @@ class MultiforaMainWindow(
         self.start_menu_shortcut_enabled = False
         self.disable_warning_dialogs = False
         self.theme_mode = "system"
-        self.ghostscript_path_override = None
         self.ipc_server = None
         self._ipc_buffers = {}
         self._pending_ipc_file_paths = []

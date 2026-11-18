@@ -179,12 +179,10 @@ class ConversionOutputSafetyTests(unittest.TestCase):
             pdf = Path(directory, "document.pdf")
             pdf.write_bytes(b"placeholder")
 
-            def partial_then_fail(arguments, _cancel):
-                destination = next(arg.split("=", 1)[1] for arg in arguments if arg.startswith("-sOutputFile="))
-                Path(destination).write_bytes(b"invalid half document")
+            def partial_then_fail(_source, _destination, _target, _cancel):
                 raise ValueError("simulated failure")
 
-            with patch("core.workers.ghostscript_engine.run_ghostscript", side_effect=partial_then_fail):
+            with patch("core.workers.pdfcraft_engine.export_pdf", side_effect=partial_then_fail):
                 with self.assertRaisesRegex(Exception, "simulated failure"):
                     Worker()._convert_pdf_to_docx(FileItem(str(pdf)))
             self.assertFalse(Path(directory, "document.docx").exists())

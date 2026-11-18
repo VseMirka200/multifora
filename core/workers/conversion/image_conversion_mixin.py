@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import os
+import shutil
 import tempfile
-from pathlib import Path
 
 from app.core.app_utils import _debug_log
 from app.core.conversion_formats import (
@@ -17,7 +17,6 @@ from app.core.conversion_formats import (
 from app.core.deps import HAS_PIL, Image
 from app.core.models import FileItem
 from core.workers.atomic_output import atomic_output_path
-from core.workers.ghostscript_engine import GhostscriptUnavailableError
 
 
 class ImageConversionMixin:
@@ -91,22 +90,17 @@ class ImageConversionMixin:
         if target_format not in PDF_IMAGE_TARGETS:
             raise ValueError(f"Неподдерживаемый формат экспорта PDF: {target_format}")
 
-        from core.workers.ghostscript_engine import run_ghostscript
+        from core.workers.pdfcraft_engine import PdfCraftUnavailableError, render_pdf_pages
 
         paths = []
         try:
             with tempfile.TemporaryDirectory(prefix="multifora_pdf_images_") as directory:
-                pattern = os.path.join(directory, "page-%06d.png")
-                run_ghostscript(
-                    ["-sDEVICE=png16m", "-r200", f"-sOutputFile={pattern}", os.path.abspath(file.path)],
-                    self._should_cancel,
-                )
-                pages = sorted(Path(directory).glob("page-*.png"))
+                pages = render_pdf_pages(file.path, directory, self._should_cancel)
                 if not pages:
                     raise ValueError("PDF не содержит страниц")
                 for index, page in enumerate(pages):
                     if self._should_cancel():
-                        break
+                        raise InterruptedError("Конвертация отменена пользователем")
                     reference = file
                     if len(pages) > 1:
                         stem = os.path.splitext(file.path)[0]
@@ -115,17 +109,20 @@ class ImageConversionMixin:
                         file, suffix_for_format(target_format), reference_file=reference
                     )
                     try:
-                        with (
-                            Image.open(str(page)) as image,
-                            atomic_output_path(output_path) as temporary,
-                        ):
-                            self._save_pillow_image(image, temporary, target_format)
+                        with atomic_output_path(output_path) as temporary:
+                            if target_format == "PNG":
+                                shutil.copyfile(page, temporary)
+                            else:
+                                with Image.open(str(page)) as image:
+                                    self._save_pillow_image(image, temporary, target_format)
                     except Exception:
                         self._release_conversion_output_path(output_path)
                         raise
                     paths.append(output_path)
+                if self._should_cancel():
+                    raise InterruptedError("Конвертация отменена пользователем")
             return paths[0] if len(paths) == 1 else paths
-        except (InterruptedError, GhostscriptUnavailableError):
+        except (InterruptedError, PdfCraftUnavailableError):
             for path in paths:
                 self._discard_conversion_output(path)
             raise
