@@ -3,10 +3,9 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-from app.core.models import FileItem
-from core.workers.merge.merge_mixin import MergeMixin
-from core.workers.merge.merge_worker import MergeWorker
-from core.workers.result import OperationResult
+from app.workers.merge_worker import MergeMixin, MergeWorker
+from core.file_models import FileItem
+from core.operation_result import OperationResult
 
 
 class _SignalStub:

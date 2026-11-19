@@ -7,6 +7,7 @@ from unittest.mock import patch
 from PySide6.QtCore import Qt
 
 from app.core import settings
+from app.core.settings_values import normalize_settings
 
 
 class _DummyWindow:
@@ -32,6 +33,54 @@ class _DummyCheckbox:
 
 
 class SettingsResilienceTests(unittest.TestCase):
+    def test_normalization_preserves_legacy_settings(self):
+        values = normalize_settings({
+            "auto_clear": True,
+            "auto_clear_enabled": False,
+            "operations_tab_index": "2",
+            "window_pos": ["-200", 90],
+            "window_size": [1200, "700"],
+            "main_splitter_sizes": [0, "600"],
+            "theme_mode": " DARK ",
+        })
+
+        self.assertFalse(values.auto_clear_enabled)
+        self.assertTrue(all(values.auto_clear_by_operation.values()))
+        self.assertEqual(values.operations_tab_label, "Объединение")
+        self.assertEqual(values.window_pos, (-200, 90))
+        self.assertEqual(values.window_size, (1200, 700))
+        self.assertEqual(values.main_splitter_sizes, (1, 600))
+        self.assertEqual(values.theme_mode, "dark")
+
+    def test_operation_id_takes_precedence_over_old_tab_label(self):
+        values = normalize_settings({"operations_tab_id": "merge", "operations_tab_label": "Сжатие"})
+        self.assertEqual(values.operations_tab_label, "merge")
+
+    def test_invalid_fields_do_not_prevent_other_settings_from_loading(self):
+        window = _DummyWindow()
+        settings._initialize_settings_defaults(window)
+        window.custom_templates = {}
+        settings._apply_settings_data(window, {
+            "custom_templates": ["invalid"],
+            "main_splitter_sizes": ["broken", 2**50],
+            "operations_tab_index": "broken",
+            "file_list_view_state": {"sort_column": float("inf")},
+            "window_pos": [100, "broken"],
+            "window_size": [0, 900],
+            "conversion_output_mode": "invalid",
+            "image_compression_output_mode": "custom",
+            "image_compression_output_path": r"C:\output",
+            "theme_mode": "light",
+        })
+
+        self.assertEqual(window.custom_templates, {})
+        self.assertIsNone(window._pending_window_pos)
+        self.assertIsNone(window._pending_window_size)
+        self.assertEqual(window.conversion_output_mode, "ask")
+        self.assertEqual(window.image_compression_output_mode, "custom")
+        self.assertEqual(window.image_compression_output_path, r"C:\output")
+        self.assertEqual(window.theme_mode, "light")
+
     def test_settings_are_stored_in_the_current_user_profile(self):
         profile_dir = r"C:\\Users\\Test\\AppData\\Roaming\\Multifora"
         with (

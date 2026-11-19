@@ -34,6 +34,8 @@ class RuntimeLoggingTests(unittest.TestCase):
     def test_install_is_idempotent(self):
         original_state = runtime_logging._runtime_logging_installed
         runtime_logging._runtime_logging_installed = False
+        core_logger = runtime_logging.logging.getLogger("core")
+        worker_logger = runtime_logging.logging.getLogger("app.workers")
         try:
             with (
                 patch.object(runtime_logging.sys, "excepthook"),
@@ -41,6 +43,10 @@ class RuntimeLoggingTests(unittest.TestCase):
                 patch.object(
                     runtime_logging, "qInstallMessageHandler"
                 ) as install_handler,
+                patch.object(core_logger, "addHandler") as add_handler,
+                patch.object(core_logger, "setLevel"),
+                patch.object(worker_logger, "addHandler") as add_worker_handler,
+                patch.object(worker_logger, "setLevel"),
             ):
                 runtime_logging.install_runtime_logging()
                 runtime_logging.install_runtime_logging()
@@ -48,5 +54,11 @@ class RuntimeLoggingTests(unittest.TestCase):
             install_handler.assert_called_once_with(
                 runtime_logging._log_qt_message
             )
+            add_handler.assert_called_once()
+            add_worker_handler.assert_called_once_with(add_handler.call_args.args[0])
+            with patch.object(runtime_logging, "_debug_log") as debug_log:
+                handler = add_handler.call_args.args[0]
+                handler.handle(core_logger.makeRecord("core.test", 10, "", 0, "Файл %s", ("a.txt",), None))
+            debug_log.assert_called_once_with("Файл a.txt", "DEBUG")
         finally:
             runtime_logging._runtime_logging_installed = original_state

@@ -1,13 +1,11 @@
-import json
 import os
 import threading
 
 from PySide6.QtCore import QEvent, QEventLoop, Qt, QTimer
-from PySide6.QtGui import QAction, QColor, QIcon, QPalette
+from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPalette
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
-    QDialog,
     QFileDialog,
     QFrame,
     QGridLayout,
@@ -16,31 +14,29 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMainWindow,
     QMessageBox,
-    QProgressBar,
     QPushButton,
-    QScrollArea,
     QSizePolicy,
     QSplitter,
     QVBoxLayout,
     QWidget,
 )
+from shiboken6 import isValid
 
 from app.core.app_icons import _find_bundled_icon, _get_app_icon_qt_path
 from app.core.app_identity import APP_WINDOW_TITLE
 from app.core.app_ipc import _drain_queued_files
-from app.core.app_utils import _debug_log, _log_ignored_error
+from app.core.app_utils import _debug_log, _log_ignored_error, signals_blocked
 from app.core.conversion_formats import (
     CONVERSION_CATEGORIES,
+    build_file_dialog_filter,
     category_for_file_type,
     format_for_path,
     mixed_source_label_for_category,
     source_formats_for_category,
 )
-from app.core.file_types import build_file_dialog_filter
 from app.core.ipc_server import LocalFileServer
 from app.core.message_boxes import install_warning_suppression_hook
-from app.core.models import FileItem
-from app.core.qt_utils import signals_blocked
+from app.ui.file_table import FileListWidget
 from app.ui.mixins import (
     AppearanceMixin,
     ConversionActionsMixin,
@@ -61,36 +57,31 @@ from app.ui.mixins import (
     WindowsIntegrationMixin,
     WorkerOpsMixin,
 )
-from app.ui.operation_controller import OperationController, bind_operation_worker
+from app.ui.operation_controller import OperationController, bind_operation_worker, connect_operation_worker
+from app.ui.operation_progress import OperationProgressDialog
+from app.ui.operation_result_panel import OperationResultPanel
 from app.ui.ui_components import (
     DropActionTile,
-    FileListWidget,
     LeftAlignedToolButton,
     LoggingStatusBar,
     ScrollableFilterMenu,
     apply_standard_field_style,
     refresh_standard_button_styles,
     refresh_standard_field_styles,
-    setup_standard_danger_button,
-    setup_standard_dialog,
     setup_standard_header_dropdown,
     setup_standard_line_input,
+    setup_standard_secondary_button,
     sync_standard_menu_width,
 )
-from app.ui.ui_spacing import (
+from app.ui.ui_styles import (
     APP_MARGINS,
-    DIALOG_MARGINS,
     DROP_ZONE_MARGINS,
+    FILE_INFO_LABEL_STYLE,
     HEADER_FIELD_HEIGHT,
     MARGINS_NONE,
-    PROGRESS_HEIGHT,
-    SPACE_LG,
     SPACE_NONE,
     SPACE_SM,
     SPACE_XL,
-)
-from app.ui.ui_styles import (
-    FILE_INFO_LABEL_STYLE,
     SPLITTER_GRIP_LABEL_STYLE,
     TRANSPARENT_CONTAINER_STYLE,
     build_drop_zone_hint_style,
@@ -99,6 +90,7 @@ from app.ui.ui_styles import (
     build_file_info_separator_style,
     build_splitter_style,
 )
+from core.file_models import FileItem
 from core.operation_requests import MergeRequest, OperationRequest, RenameRequest
 
 
@@ -209,10 +201,10 @@ class MultiforaMainWindow(
 
         def preload() -> None:
             try:
-                from core.workers.compression_worker import (  # noqa: F401
+                from app.workers.compression_worker import (  # noqa: F401
                     CompressionWorker,
                 )
-                from core.workers.conversion_worker import (  # noqa: F401
+                from app.workers.conversion_worker import (  # noqa: F401
                     ConversionWorker,
                 )
             except Exception as error:
@@ -238,9 +230,7 @@ class MultiforaMainWindow(
         if not file_paths:
             return False
         self.add_files(file_paths)
-        self.status_bar.showMessage(
-            f"Добавлено {self._ru_files_label(len(file_paths))} {source_suffix}"
-        )
+        self.log_event(f"Получено {self._ru_files_label(len(file_paths))} {source_suffix}")
         return True
 
     def _bring_main_window_to_front(self) -> None:
@@ -295,15 +285,22 @@ class MultiforaMainWindow(
         """Создаёт обработчик операции и подключает сигналы."""
         if not self._ensure_operation_can_start():
             return False
-        from core.workers.factory import create_operation_worker
+        from app.workers.factory import create_operation_worker
 
         bind_operation_worker(self, create_operation_worker(operation))
         return True
 
     def _start_operation(self, request: OperationRequest, files: list[FileItem]) -> bool:
-        started = self._operations.start(self, request, files)
+        started = self._operations.start(
+            request,
+            files,
+            can_start=self._ensure_operation_can_start,
+            connect=lambda worker: connect_operation_worker(self, worker),
+        )
         if not started:
             self._hide_progress_dialog()
+        else:
+            self.operation_result_panel.hide()
         return started
 
     def _operation_is_running(self) -> bool:
@@ -335,110 +332,27 @@ class MultiforaMainWindow(
         """Запрашивает отмену текущей операции."""
         if self.file_worker and self.file_worker.isRunning():
             self.file_worker.request_cancel()
-            self.btn_cancel_operation.setEnabled(False)
+            self.progress_dialog.cancel_button.setEnabled(False)
             self._set_progress_status_text("Отмена операции...")
             self.status_bar.showMessage("Отмена операции...")
 
     def _set_progress_status_text(self, text: str) -> None:
-        label = getattr(self, "progress_status_label", None)
-        if label is None:
-            return
+        self.progress_dialog.set_status(text)
 
-        label.setText(text)
-        dialog = getattr(self, "progress_dialog", None)
-        if dialog is None:
-            return
-
-        left, _top, right, _bottom = DIALOG_MARGINS
-        available_width = max(1, dialog.width() - left - right)
-        required_height = max(
-            label.fontMetrics().height(), label.heightForWidth(available_width)
+    def _create_progress_dialog(self) -> None:
+        self.progress_dialog = OperationProgressDialog(
+            self, getattr(self, "_effective_theme_mode", "dark")
         )
-        label.setMinimumHeight(required_height)
-        scroll = getattr(self, "progress_status_scroll", None)
-        if scroll is not None:
-            screen = dialog.screen()
-            max_height = max(80, screen.availableGeometry().height() // 3) if screen else 240
-            display_height = min(required_height + 2, max_height)
-            scroll.setMinimumHeight(display_height)
-            scroll.setMaximumHeight(display_height)
-        if dialog.layout() is not None:
-            dialog.layout().activate()
-        dialog.adjustSize()
-
-    def _create_progress_dialog(self):
-        dialog = QDialog(self)
-        dialog._effective_theme_mode = getattr(
-            self, "_effective_theme_mode", "dark"
-        )
-        dialog.setObjectName("progress_dialog")
-        screen = self.screen()
-        width = min(360, max(240, screen.availableGeometry().width() - 32)) if screen else 360
-        setup_standard_dialog(dialog, title="Выполнение операции", fixed_width=width)
-        dialog.setModal(False)
-        dialog.setWindowModality(Qt.WindowModality.NonModal)
-        dialog.setWindowFlag(Qt.WindowType.WindowCloseButtonHint, False)
-
-        layout = QVBoxLayout(dialog)
-        layout.setContentsMargins(*DIALOG_MARGINS)
-        layout.setSpacing(SPACE_LG)
-
-        self.progress_status_label = QLabel("Выполняется операция...")
-        self.progress_status_label.setWordWrap(True)
-        self.progress_status_label.setTextFormat(Qt.TextFormat.PlainText)
-        self.progress_status_scroll = QScrollArea(dialog)
-        self.progress_status_scroll.setObjectName("progressStatusScroll")
-        self.progress_status_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self.progress_status_scroll.setWidgetResizable(True)
-        self.progress_status_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.progress_status_scroll.setWidget(self.progress_status_label)
-        layout.addWidget(self.progress_status_scroll)
-
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setTextVisible(True)
-        self.progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.progress_bar.setFormat("%p%")
-        self.progress_bar.setFixedHeight(PROGRESS_HEIGHT)
-        self.progress_bar.setValue(0)
-        layout.addWidget(self.progress_bar)
-
-        self.btn_cancel_operation = QPushButton("Отмена")
-        setup_standard_danger_button(self.btn_cancel_operation, expand=True)
-        self.btn_cancel_operation.clicked.connect(self.cancel_operation)
-        layout.addWidget(self.btn_cancel_operation)
-
-        self.progress_dialog = dialog
+        self.progress_dialog.cancel_requested.connect(self.cancel_operation)
+        self.progress_bar = self.progress_dialog.progress_bar
 
     def _show_progress_dialog(
         self,
         status_text: str = "Выполняется операция...",
         *,
         indeterminate: bool = False,
-    ):
-        dialog = getattr(self, "progress_dialog", None)
-        screen = self.screen()
-        if dialog is not None and screen is not None:
-            dialog.setFixedWidth(min(360, max(240, screen.availableGeometry().width() - 32)))
-        self._set_progress_status_text(status_text)
-        if hasattr(self, "progress_bar") and self.progress_bar is not None:
-            self.progress_bar.setVisible(True)
-            if indeterminate:
-                self.progress_bar.setRange(0, 0)
-            else:
-                self.progress_bar.setRange(0, 100)
-        if (
-            hasattr(self, "btn_cancel_operation")
-            and self.btn_cancel_operation is not None
-        ):
-            self.btn_cancel_operation.setVisible(True)
-            self.btn_cancel_operation.setEnabled(True)
-        if (
-            hasattr(self, "progress_dialog")
-            and self.progress_dialog is not None
-        ):
-            self.progress_dialog.show()
-            self.progress_dialog.raise_()
-            self.progress_dialog.activateWindow()
+    ) -> None:
+        self.progress_dialog.show_progress(status_text, indeterminate=indeterminate)
 
     def _show_operation_starting(self, status_text: str) -> None:
         """Сразу показывает запуск подтверждённой операции до подготовки.
@@ -757,7 +671,7 @@ class MultiforaMainWindow(
         self._list_header_layout = list_header
         list_header.setContentsMargins(*MARGINS_NONE)
         list_header.setHorizontalSpacing(SPACE_SM)
-        list_header.setVerticalSpacing(SPACE_NONE)
+        list_header.setVerticalSpacing(SPACE_SM)
 
         self._create_extension_filter()
         self._create_type_filter()
@@ -786,6 +700,22 @@ class MultiforaMainWindow(
         list_header.addWidget(self.btn_ext_filter, 0, 0)
         list_header.addWidget(self.btn_type_filter, 0, 1)
         list_header.addWidget(self.input_search, 0, 2)
+        self.input_search.setAccessibleName("Поиск по имени файла")
+        self.input_search.setToolTip("Поиск по имени файла (Ctrl+F)")
+        self.btn_ext_filter.setAccessibleName("Фильтр по расширениям")
+        self.btn_type_filter.setAccessibleName("Фильтр по типам")
+        for label, shortcut, callback in (
+            ("Добавить файлы…", QKeySequence.StandardKey.Open, self.select_files),
+            ("Добавить папку…", QKeySequence("Ctrl+Shift+O"), self.select_folder),
+        ):
+            action = QAction(label, self)
+            action.setShortcut(shortcut)
+            action.triggered.connect(callback)
+            self.addAction(action)
+        find_action = QAction("Поиск", self)
+        find_action.setShortcut(QKeySequence.StandardKey.Find)
+        find_action.triggered.connect(self.input_search.setFocus)
+        self.addAction(find_action)
         list_header.setColumnStretch(0, 1)
         list_header.setColumnStretch(1, 1)
         list_header.setColumnStretch(2, 2)
@@ -796,6 +726,10 @@ class MultiforaMainWindow(
     ) -> None:
         self.list_files = FileListWidget()
         self.list_files.setObjectName("files_list")
+        self.list_files.setAccessibleName("Очередь файлов")
+        self.list_files.model().full_path_tooltip = True
+        self.list_files.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.list_files.selectionModel().selectionChanged.connect(self._on_highlighted_rows_changed)
         self.list_files.setFrameShape(QFrame.Shape.NoFrame)
         self.list_files.setWordWrap(False)
         self.list_files.setTextElideMode(Qt.TextElideMode.ElideRight)
@@ -886,6 +820,14 @@ class MultiforaMainWindow(
             0,
             Qt.AlignmentFlag.AlignHCenter,
         )
+        self.btn_reset_queue_filters = QPushButton("Сбросить фильтры")
+        setup_standard_secondary_button(self.btn_reset_queue_filters)
+        self.btn_reset_queue_filters.clicked.connect(self._reset_queue_filters)
+        drop_zone_layout.addWidget(self.btn_reset_queue_filters, 0, Qt.AlignmentFlag.AlignHCenter)
+        self.btn_show_all_queue_files = QPushButton("Показать общую очередь")
+        setup_standard_secondary_button(self.btn_show_all_queue_files)
+        self.btn_show_all_queue_files.clicked.connect(lambda: self.operations_tab_bar.setCurrentIndex(0))
+        drop_zone_layout.addWidget(self.btn_show_all_queue_files, 0, Qt.AlignmentFlag.AlignHCenter)
         drop_zone_layout.addStretch()
 
     def _connect_drop_zone_updates(self, files_panel: QWidget) -> None:
@@ -935,9 +877,6 @@ class MultiforaMainWindow(
         self._connect_drop_zone_updates(files_panel)
 
         files_preview_layout.addWidget(files_panel, 1)
-        self._configure_right_panel_spacing(
-            right_layout, self._list_header_layout
-        )
         right_layout.addWidget(files_preview_row, 1)
 
     def _create_file_info_layout(self) -> QHBoxLayout:
@@ -950,13 +889,13 @@ class MultiforaMainWindow(
         )
         info_layout.setSpacing(SPACE_SM)
 
-        self.label_count = self._setup_info_label(QLabel("Файлов: 0"))
+        self.label_count = self._setup_info_label(QLabel("Видно: 0 из 0"))
         info_layout.addWidget(self.label_count)
 
         count_size_separator = self._create_info_separator()
         info_layout.addWidget(count_size_separator)
 
-        self.label_item_size = self._setup_info_label(QLabel("Размер: 0 MB"))
+        self.label_item_size = self._setup_info_label(QLabel("Выделено: 0 · 0 МБ"))
         info_layout.addWidget(self.label_item_size)
 
         size_total_separator = self._create_info_separator()
@@ -967,7 +906,7 @@ class MultiforaMainWindow(
         ]
 
         self.label_total_size = self._setup_info_label(
-            QLabel("Общий объем: 0 MB")
+            QLabel("Всего: 0 МБ")
         )
         info_layout.addWidget(self.label_total_size)
         info_layout.addStretch()
@@ -978,16 +917,36 @@ class MultiforaMainWindow(
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
         right_layout.setContentsMargins(*MARGINS_NONE)
-        right_layout.setSpacing(SPACE_NONE)
+        right_layout.setSpacing(SPACE_SM)
 
         list_header = self._create_list_header()
         right_layout.addLayout(list_header)
         self._create_files_preview(right_layout)
         self._create_progress_dialog()
+        self.operation_scope_label = QLabel()
+        self.operation_scope_label.setWordWrap(True)
+        self.operation_scope_label.setContentsMargins(SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
+        self.operation_scope_label.setObjectName("operation_scope")
+        self.operation_scope_label.hide()
+        scope_row = QHBoxLayout()
+        scope_row.addWidget(self.operation_scope_label, 1)
+        self.btn_clear_active_filters = QPushButton("Сбросить фильтры")
+        setup_standard_secondary_button(self.btn_clear_active_filters)
+        self.btn_clear_active_filters.clicked.connect(self._reset_queue_filters)
+        self.btn_clear_active_filters.hide()
+        scope_row.addWidget(self.btn_clear_active_filters)
+        right_layout.addLayout(scope_row)
+        self._operation_scope_timer = QTimer(self)
+        self._operation_scope_timer.setSingleShot(True)
+        self._operation_scope_timer.timeout.connect(self._refresh_operation_scope)
         info_panel = QFrame()
         info_panel.setObjectName("file_info_panel")
         info_panel.setLayout(self._create_file_info_layout())
         right_layout.addWidget(info_panel)
+        self.operation_result_panel = OperationResultPanel()
+        self.operation_result_panel.retry_requested.connect(self._retry_failed_operation)
+        self.operation_result_panel.undo_requested.connect(self.show_rename_history_dialog)
+        right_layout.addWidget(self.operation_result_panel)
         return right_widget
 
     def _configure_main_splitter(
@@ -1002,9 +961,10 @@ class MultiforaMainWindow(
         splitter.setChildrenCollapsible(False)
         splitter.setCollapsible(0, False)
         splitter.setCollapsible(1, False)
-        splitter.setSizes([1, 4])
+        splitter.setSizes([310, 890])
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 4)
+        splitter.splitterMoved.connect(self._resize_queue_columns)
 
         handle = splitter.handle(1)
         if handle is None:
@@ -1012,14 +972,15 @@ class MultiforaMainWindow(
         handle.setEnabled(True)
         handle.setCursor(Qt.CursorShape.SizeHorCursor)
 
-    def _create_hidden_status_bar(self) -> None:
+    def _create_status_bar(self) -> None:
         self.status_bar = LoggingStatusBar()
         self.status_bar.messageLogged.connect(self.on_status_message_logged)
         self.setStatusBar(self.status_bar)
         self.status_bar.setSizeGripEnabled(False)
-        self.status_bar.setFixedHeight(0)
         self.status_bar.setContentsMargins(*MARGINS_NONE)
-        self.status_bar.setVisible(False)
+        self.status_bar.messageChanged.connect(
+            lambda message: self.status_bar.setVisible(bool(message))
+        )
         self.status_bar.showMessage(
             "Готово. Перетащите файлы/папки в список или используйте кнопки добавления."
         )
@@ -1046,13 +1007,14 @@ class MultiforaMainWindow(
         self._configure_main_splitter(splitter, left_widget, right_widget)
         content_layout.addWidget(splitter, 1)
         main_layout.addWidget(content_widget, 1)
-        self._create_hidden_status_bar()
+        self._create_status_bar()
 
         self.setMinimumSize(900, 550)
         self.apply_theme_mode(self.theme_mode)
         self.setup_system_theme_tracking()
         self._update_header_compact_mode()
         self._connect_ui_state_autosave()
+        self._schedule_operation_scope_refresh()
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -1079,52 +1041,16 @@ class MultiforaMainWindow(
             pending_size = getattr(self, "_pending_window_size", None)
             pending_geom = getattr(self, "_pending_window_geometry", None)
 
-            settings_path_getter = getattr(
-                self, "get_settings_file_path", None
-            )
-            if callable(settings_path_getter):
-                try:
-                    settings_path = settings_path_getter()
-                    if settings_path and os.path.exists(settings_path):
-                        with open(settings_path, encoding="utf-8") as f:
-                            settings_data = json.load(f)
-                        pending_pos = settings_data.get(
-                            "window_pos", pending_pos
-                        )
-                        pending_size = settings_data.get(
-                            "window_size", pending_size
-                        )
-                        pending_geom = settings_data.get(
-                            "window_geometry", pending_geom
-                        )
-                        if settings_data.get("window_maximized"):
-                            self._pending_window_maximized = True
-                except Exception as e:
-                    _debug_log(
-                        f"Error reading window geometry from settings file: {e}"
-                    )
-
             applied = False
-            if (
-                isinstance(pending_pos, (list, tuple))
-                and len(pending_pos) == 2
-            ):
+            if pending_pos is not None:
                 try:
-                    if (
-                        isinstance(pending_size, (list, tuple))
-                        and len(pending_size) == 2
-                    ):
-                        self.setGeometry(
-                            int(pending_pos[0]),
-                            int(pending_pos[1]),
-                            int(pending_size[0]),
-                            int(pending_size[1]),
-                        )
+                    if pending_size is not None:
+                        self.setGeometry(*pending_pos, *pending_size)
                     else:
-                        self.move(int(pending_pos[0]), int(pending_pos[1]))
+                        self.move(*pending_pos)
                     applied = True
-                except Exception as e:
-                    _debug_log(f"Error restoring window position/size: {e}")
+                except (RuntimeError, TypeError, OverflowError) as error:
+                    _log_ignored_error("восстановления положения окна", error)
 
             if not applied and isinstance(pending_geom, str) and pending_geom:
                 try:
@@ -1166,15 +1092,6 @@ class MultiforaMainWindow(
                 self.main_splitter.splitterMoved,
                 lambda _pos, _index: self._update_drop_zone_controls(),
             )
-
-    def _configure_right_panel_spacing(self, right_layout, list_header):
-        """Выравнивает единый шаг промежутков для правой панели."""
-        right_layout.setContentsMargins(*MARGINS_NONE)
-        right_layout.setSpacing(SPACE_SM)
-
-        list_header.setContentsMargins(*MARGINS_NONE)
-        list_header.setHorizontalSpacing(SPACE_SM)
-        list_header.setVerticalSpacing(SPACE_SM)
 
     @staticmethod
     def _safe_connect_signal(signal, callback) -> None:
@@ -1283,7 +1200,7 @@ class MultiforaMainWindow(
         if checked == total:
             self.btn_type_filter.setText("Все типы")
         else:
-            self.btn_type_filter.setText(f"Выбрано: {checked}")
+            self.btn_type_filter.setText(f"Типы: {checked}")
 
     def _update_ext_filter_button_text(self):
         if (
@@ -1300,11 +1217,12 @@ class MultiforaMainWindow(
         if hasattr(self, "_select_all_ext_filter_action"):
             self._select_all_ext_filter_action.setEnabled(checked < total)
         if checked == total:
-            self.btn_ext_filter.setText("Все расширения")
+            self.btn_ext_filter.setText("Расширения")
         else:
-            self.btn_ext_filter.setText(f"Выбрано: {checked}")
+            self.btn_ext_filter.setText(f"Расширения: {checked}")
 
     def _update_header_compact_mode(self):
+        self._resize_queue_columns()
         compact = self.width() < 1080
         if self._header_compact_mode == compact:
             return
@@ -1327,30 +1245,118 @@ class MultiforaMainWindow(
                     "MultiforaMainWindow._update_header_compact_mode", error
                 )
 
+    def _resize_queue_columns(self, *_args):
+        table = getattr(self, "list_files", None)
+        if table is not None and isValid(table):
+            column = table.model().COLUMN_PATH
+            hide_path = table.width() < 560
+            if table.isColumnHidden(column) != hide_path:
+                table.setColumnHidden(column, hide_path)
+
+    def _reset_queue_filters(self):
+        with signals_blocked(self.input_search):
+            self.input_search.clear()
+        for menu, actions, update in (
+            (self._ext_filter_menu, self._ext_filter_actions, self._update_ext_filter_button_text),
+            (self._type_filter_menu, self._type_filter_actions, self._update_type_filter_button_text),
+        ):
+            self._set_filter_actions_checked(menu, actions, True, lambda _checked, callback=update: callback())
+        self.update_file_list()
+        self.input_search.setFocus()
+
+    def _schedule_operation_scope_refresh(self):
+        timer = getattr(self, "_operation_scope_timer", None)
+        if timer is not None and isValid(timer):
+            timer.start(0)
+
+    def _operation_scope_details(self, operation, candidates):
+        if operation == "rename":
+            if not self.current_template:
+                return 0, "Выберите шаблон."
+            if not self.btn_apply_rename.isEnabled():
+                return 0, self.rename_validation_label.text()
+            return len(self._rename_preview_pairs()), "Имена изменятся в исходных папках."
+        if operation == "convert":
+            source, target = self.from_convert_combo, self.to_convert_combo
+            if source.currentIndex() <= 0 or target.currentIndex() <= 0:
+                return 0, "Выберите исходный и целевой форматы."
+            files, already_converted = self._collect_compatible_conversion_files(
+                self._selected_convert_category(), source.currentText(), target.currentText()
+            )
+            if self.conversion_output_mode == "custom" and not self._conversion_custom_output_path():
+                return 0, "Выберите папку сохранения."
+            if not files:
+                return 0, "Файлы уже в целевом формате." if already_converted else "Нет совместимых файлов."
+            return len(files), f"В {target.currentText()} · {self.combo_conversion_output_mode.currentText()}."
+        if operation == "compress":
+            files = self._compression_files(candidates)
+            if not files:
+                return 0, "Нет файлов выбранного типа."
+            if not self.btn_compress.isEnabled():
+                return 0, "Выберите папку сохранения."
+            pdf = self.combo_compress_type.currentText() == "PDF документы"
+            replace = self.checkbox_replace_pdf.isChecked() if pdf else self._image_output_mode() == "replace"
+            destination = "С заменой исходников." if replace else "Будут созданы отдельные файлы."
+            return len(files), f"{self.combo_compress_type.currentText()} · {destination}"
+        if operation == "merge":
+            if len(candidates) < 2:
+                return 0, "Выберите хотя бы два документа."
+            output_format = self._detect_merge_output_format(candidates)
+            if output_format is None:
+                return 0, "Для объединения нужен один формат — PDF или DOCX."
+            return len(candidates), f"Один файл {output_format.upper()} · папка и имя при запуске."
+        return 0, ""
+
+    def _refresh_operation_scope(self):
+        model = self.list_files.model()
+        visible = model.files()
+        marked = sum(model.is_checked(item) for item in self.files)
+        hidden = len(self.files) - len(visible)
+        hidden_marked = marked - sum(model.is_checked(item) for item in visible)
+        operation = self._active_operation_id()
+        candidates = self._get_operation_file_items(files_only=operation != "rename")
+        if not self.files:
+            message = ""
+        elif not candidates:
+            message = "Покажите отмеченные файлы или снимите отметки." if hidden_marked else "Нет файлов для обработки."
+        else:
+            count, details = self._operation_scope_details(operation, candidates)
+            mode = "Отмеченные" if marked else "Все подходящие"
+            message = f"{mode} · в работу {count} из {len(visible)}. {details}"
+            if count and len(candidates) > count:
+                message += f" Пропустим: {len(candidates) - count}."
+        if hidden:
+            message += f" Скрыто: {hidden}."
+        if hidden_marked:
+            message += f" Скрыто отмеченных: {hidden_marked}."
+        self.operation_scope_label.setText(message)
+        self.operation_scope_label.setVisible(bool(message))
+        self.btn_clear_active_filters.setVisible(bool(visible) and self._is_any_filter_active())
+
     def _update_drop_zone_controls(self):
-        if not hasattr(self, "drop_zone_controls"):
-            return
+        overlay = getattr(self, "drop_zone_controls", None)
         host = getattr(self, "files_panel", None)
-        if host is None:
+        if host is None or overlay is None or not isValid(host) or not isValid(overlay):
             return
-        self.drop_zone_controls.setGeometry(host.rect())
-        has_files = False
-        try:
-            model = (
-                self.list_files.model()
-                if hasattr(self, "list_files")
-                else None
-            )
-            has_files = bool(
-                model
-                and callable(getattr(model, "files", None))
-                and model.files()
-            )
-        except Exception:
-            has_files = False
-        self.drop_zone_controls.setVisible(not has_files)
-        if not has_files:
-            self.drop_zone_controls.raise_()
+        overlay.setGeometry(host.rect())
+        empty_view = not self.list_files.model().files()
+        overlay.setVisible(empty_view)
+        if not empty_view:
+            return
+        empty_queue = not self.files
+        unsupported = not empty_queue and not self._files_visible_for_active_operation(self.files)
+        self.btn_add_files.setVisible(empty_queue)
+        self.btn_add_folder.setVisible(empty_queue)
+        self.btn_reset_queue_filters.setVisible(not empty_queue and not unsupported)
+        self.btn_show_all_queue_files.setVisible(unsupported)
+        if empty_queue:
+            message = "Или перетащите сюда файлы или папки"
+        elif unsupported:
+            message = "Нет документов PDF или DOCX для объединения"
+        else:
+            message = "Ничего не найдено"
+        self.drop_zone_hint_label.setText(message)
+        overlay.raise_()
 
     def eventFilter(self, obj, event):
         if (
@@ -1365,7 +1371,7 @@ class MultiforaMainWindow(
             )
         ):
             self._update_drop_zone_controls()
-        if hasattr(self, "list_files"):
+        if hasattr(self, "list_files") and isValid(self.list_files):
             viewport = self.list_files.viewport()
             if (
                 obj is self.list_files or obj is viewport
@@ -1487,8 +1493,11 @@ class MultiforaMainWindow(
             for fmt in available_formats:
                 self.from_convert_combo.addItem(fmt)
 
+        override = getattr(self, "_conversion_source_override", None)
         selected_source = ""
-        if len(category_source_formats) > 1:
+        if override is not None and override[0] == category_label:
+            selected_source = override[1]
+        elif len(category_source_formats) > 1:
             selected_source = mixed_label
         elif len(category_source_formats) == 1:
             selected_source = next(iter(category_source_formats))
@@ -1513,6 +1522,8 @@ class MultiforaMainWindow(
 
     def on_file_selection_changed(self):
         """Обработчик изменения выбора файлов"""
+        if hasattr(self, "label_count"):
+            self.update_file_info()
         self._update_merge_button_state()
         self.update_converter_from_format()
         if callable(getattr(self, "_auto_select_compress_type", None)):
@@ -1523,6 +1534,14 @@ class MultiforaMainWindow(
             self.refresh_active_file_preview()
         elif callable(getattr(self, "refresh_preview_panel", None)):
             self.refresh_preview_panel()
+        self._schedule_operation_scope_refresh()
+
+    def _on_highlighted_rows_changed(self, *_args):
+        if not hasattr(self, "label_count") or not isValid(self.label_count):
+            return
+        self.update_file_info()
+        if self._active_operation_id() == "convert":
+            self.update_convert_button_state()
 
     def select_files(self):
         """Выбор файлов для обработки"""

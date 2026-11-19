@@ -4,7 +4,6 @@ import time
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
-    QHBoxLayout,
     QLabel,
     QListWidget,
     QMessageBox,
@@ -13,21 +12,17 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from app.core.qt_utils import signals_blocked
 from app.ui.ui_components import (
     setup_standard_danger_button,
     setup_standard_dialog,
-    setup_standard_secondary_button,
 )
-from app.ui.ui_spacing import DIALOG_MARGINS, MARGINS_NONE, SPACE_SM
+from app.ui.ui_styles import DIALOG_MARGINS, SPACE_SM
 from core.operation_requests import RenameRequest
+from core.rename_plan import resolve_rename_targets
 
 
 class RenameHistoryMixin:
     # Хранит пары старых и новых путей для отмены и повтора переименования.
-    def on_history_row_changed(self, row: int):
-        self._update_undo_button()
-
     def _get_selected_history_entry(self):
         history_list = getattr(self, "rename_history_list", None)
         if history_list is None:
@@ -52,26 +47,23 @@ class RenameHistoryMixin:
         if history_list is None:
             return
         current_row = history_list.currentRow()
-        with signals_blocked(history_list):
-            history_list.clear()
-            for entry in reversed(self._rename_history):
-                ts = entry.get("timestamp")
-                count = entry.get("count", 0)
-                label = entry.get("label")
-                time_str = (
-                    time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
-                    if ts
-                    else ""
-                )
-                if not label:
-                    label = f"{count} файлов"
-                text = f"{time_str} • {label}" if time_str else label
-                history_list.addItem(text)
-            if history_list.count():
-                target_row = (
-                    current_row if 0 <= current_row < history_list.count() else 0
-                )
-                history_list.setCurrentRow(target_row)
+        history_list.clear()
+        for entry in reversed(self._rename_history):
+            ts = entry.get("timestamp")
+            count = entry.get("count", 0)
+            label = entry.get("label")
+            time_str = (
+                time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
+                if ts
+                else ""
+            )
+            if not label:
+                label = f"{count} файлов"
+            text = f"{time_str} • {label}" if time_str else label
+            history_list.addItem(text)
+        if history_list.count():
+            target_row = current_row if 0 <= current_row < history_list.count() else 0
+            history_list.setCurrentRow(target_row)
 
     def show_rename_history_dialog(self):
         dialog = QDialog(self)
@@ -96,23 +88,12 @@ class RenameHistoryMixin:
         history_list.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
-        history_list.currentRowChanged.connect(self.on_history_row_changed)
         layout.addWidget(history_list, 1)
-
-        buttons_layout = QHBoxLayout()
-        buttons_layout.setContentsMargins(*MARGINS_NONE)
-        buttons_layout.setSpacing(SPACE_SM)
 
         undo_button = QPushButton("Откатить выбранное", dialog)
         setup_standard_danger_button(undo_button, expand=True)
         undo_button.clicked.connect(self.undo_last_rename)
-        buttons_layout.addWidget(undo_button, 1)
-
-        close_button = QPushButton("Закрыть", dialog)
-        setup_standard_secondary_button(close_button, expand=True)
-        close_button.clicked.connect(dialog.reject)
-        buttons_layout.addWidget(close_button, 1)
-        layout.addLayout(buttons_layout)
+        layout.addWidget(undo_button)
 
         self.rename_history_list = history_list
         self.btn_history_undo = undo_button
@@ -166,14 +147,20 @@ class RenameHistoryMixin:
             return
 
         selected = self._get_selected_history_entry()
-        if selected:
-            entry_index, entry = selected
-            entry = self._rename_history.pop(entry_index)
-        else:
-            entry = self._rename_history.pop()
+        entry_index, entry = selected or (len(self._rename_history) - 1, self._rename_history[-1])
         pairs = entry.get("pairs", [])
         if not pairs:
             self._update_undo_button()
+            return
+        missing = [path for path, _ in pairs if not os.path.exists(path)]
+        if missing:
+            QMessageBox.warning(self, "Файлы недоступны", "\n".join(missing))
+            return
+        try:
+            files = self._collect_file_items_by_paths([path for path, _ in pairs])
+            resolve_rename_targets(files, [os.path.basename(old) for _, old in pairs], strict=True)
+        except ValueError as error:
+            QMessageBox.warning(self, "Откат невозможен", str(error))
             return
 
         reply = self.show_russian_message_box(
@@ -181,15 +168,14 @@ class RenameHistoryMixin:
             f"Откатить переименование {len(pairs)} файлов?",
             QMessageBox.Icon.Question,
             True,
+            yes_text="Откатить",
+            no_text="Отмена",
+            destructive=True,
         )
         if not reply:
-            if selected:
-                self._rename_history.insert(entry_index, entry)
-            else:
-                self._rename_history.append(entry)
-            self._update_undo_button()
             return
 
+        self._rename_history.pop(entry_index)
         self._is_undo_operation = True
         self._pending_undo_entry = entry
         if not self._start_rename_from_pairs(pairs):

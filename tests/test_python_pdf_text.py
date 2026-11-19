@@ -2,8 +2,8 @@ import pytest
 from docx import Document
 from pypdf import PdfWriter
 
-from core.pdf_engine.text import export_text
-from core.workers.office_engine import run_office
+from core.document_engine.office import run_office
+from core.pdf_engine.operations import export_text
 
 
 def test_extract_text_from_multipage_unicode_pdf(tmp_path):

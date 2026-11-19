@@ -10,11 +10,9 @@ from PySide6.QtCore import (
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox
 
 from app.core.message_boxes import show_app_confirmation_with_checkbox
-from app.core.models import normalized_path_key
-from app.ui.ui_components import (
-    get_russian_text_input,
-    selected_file_items,
-)
+from app.ui.file_table import selected_file_items
+from app.ui.ui_components import get_russian_text_input
+from core.filesystem import normalized_path_key
 
 
 class FileListContextMixin:
@@ -23,7 +21,12 @@ class FileListContextMixin:
         context_items = getattr(self, "_context_file_items", None)
         if context_items is not None:
             return context_items
-        return selected_file_items(self.list_files)
+        highlighted = self.list_files.highlighted_file_items()
+        if highlighted:
+            return highlighted
+        marked = selected_file_items(self.list_files)
+        current = self.list_files.currentIndex().data(Qt.ItemDataRole.UserRole)
+        return marked or ([current] if current is not None else [])
 
     def show_file_context_menu(self, pos: QPoint):
         if not self.files:

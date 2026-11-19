@@ -6,7 +6,7 @@ import os
 import uuid
 from collections.abc import Callable, Sequence
 
-from app.core.models import normalized_path_key as path_key
+from core.filesystem import normalized_path_key as path_key
 
 
 def _move_without_overwriting(source: str, target: str) -> None:

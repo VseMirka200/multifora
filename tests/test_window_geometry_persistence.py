@@ -60,6 +60,8 @@ class WindowGeometryPersistenceTests(unittest.TestCase):
 
                     restored = MultiforaMainWindow()
                     try:
+                        with open(settings_path, "w", encoding="utf-8") as f:
+                            json.dump({"window_pos": [1, 2], "window_size": [300, 200]}, f)
                         restored._restore_window_geometry_from_pending()
                         self.assertEqual(restored.geometry().x(), 321)
                         self.assertEqual(restored.geometry().y(), 245)

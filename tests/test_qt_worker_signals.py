@@ -12,8 +12,8 @@ def test_rename_result_reaches_gui_thread_once():
 
         from PySide6.QtCore import QCoreApplication, QObject, QThread, QTimer, Slot
 
-        from app.core.models import FileItem
-        from core.workers.rename_worker import RenameWorker
+        from core.file_models import FileItem
+        from app.workers.rename_worker import RenameWorker
 
         app = QCoreApplication([])
 

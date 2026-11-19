@@ -79,6 +79,7 @@ def show_app_choice(
     default_key: str | None = None,
     cancel_key: str | None = None,
     extra_widget=None,
+    confirmation_shortcuts: bool = True,
 ) -> str | None:
     """Показывает единый диалог приложения и возвращает ключ выбранной кнопки."""
     choices = tuple(choices)
@@ -161,12 +162,7 @@ def show_app_choice(
     for key, label, variant in choices:
         button = QPushButton(label, dialog)
         button.setObjectName(f"appMessageButton_{key}")
-        effective_variant = (
-            "danger"
-            if key == cancel_key or key in {"cancel", "no"}
-            else variant
-        )
-        button = _setup_message_box_button(button, variant=effective_variant)
+        button = _setup_message_box_button(button, variant=variant)
         button.clicked.connect(
             lambda _checked=False, choice_key=key: select(choice_key)
         )
@@ -177,7 +173,7 @@ def show_app_choice(
         buttons.append(button)
 
     choice_keys = {str(key) for key, _label, _variant in choices}
-    if {"yes", "no"}.issubset(choice_keys):
+    if confirmation_shortcuts and {"yes", "no"}.issubset(choice_keys):
         dialog._confirmation_shortcuts = []
         for key, selected_key in (
             (Qt.Key.Key_Return, "yes"),
@@ -243,6 +239,7 @@ def show_app_confirmation(
         icon=icon,
         default_key="no" if default_no else "yes",
         cancel_key="no",
+        confirmation_shortcuts=not destructive,
     )
     return result == "yes"
 
@@ -280,6 +277,7 @@ def show_app_confirmation_with_checkbox(
         default_key="no" if default_no else "yes",
         cancel_key="no",
         extra_widget=checkbox,
+        confirmation_shortcuts=not destructive,
     )
     return result == "yes", checked_state["value"]
 

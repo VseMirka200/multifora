@@ -2,8 +2,7 @@ import os
 
 from PySide6.QtWidgets import QFileDialog
 
-from app.core.app_utils import _log_ignored_error
-from app.core.qt_utils import signals_blocked
+from app.core.app_utils import _log_ignored_error, signals_blocked
 
 
 class OperationsCompressUiMixin:
@@ -47,21 +46,7 @@ class OperationsCompressUiMixin:
     def _has_selected_files_for_current_compress_type(self) -> bool:
         if not hasattr(self, "list_files"):
             return False
-        selected_files = self._get_selected_or_all_file_items()
-
-        compress_type = (
-            self.combo_compress_type.currentText()
-            if hasattr(self, "combo_compress_type")
-            else ""
-        )
-        for file_item in selected_files:
-            if compress_type == "PDF документы":
-                if file_item.path.lower().endswith(".pdf"):
-                    return True
-            else:
-                if file_item.file_type == "image":
-                    return True
-        return False
+        return bool(self._compression_files(self._get_selected_or_all_file_items()))
 
     def _update_compress_button(self):
         if not hasattr(self, "btn_compress"):

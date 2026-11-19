@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QApplication
 from app.ui.mixins.file_list_actions_mixin import FileListActionsMixin
 from app.ui.mixins.lifecycle_mixin import LifecycleMixin
 from app.ui.ui_main import MultiforaMainWindow
-from core.workers.file_metadata_worker import (
+from app.workers.file_metadata_worker import (
     FileMetadataWorker,
     FolderMetadataWorker,
 )
@@ -50,13 +50,13 @@ class FileMetadataWorkerTests(unittest.TestCase):
 
         def build_item(path):
             worker_threads.append(QThread.currentThread())
-            return SimpleNamespace(path=path, size=1)
+            return SimpleNamespace(path=path, size=1, is_file=True)
 
         worker = FileMetadataWorker(paths, batch_size=128)
         worker.batch_ready.connect(batches.append)
         worker.finished.connect(loop.quit)
         with patch(
-            "core.workers.file_metadata_worker.FileItem",
+            "app.workers.file_metadata_worker.FileItem",
             side_effect=build_item,
         ):
             worker.start()
@@ -84,8 +84,8 @@ class FileMetadataWorkerTests(unittest.TestCase):
                 return_value=False,
             ),
             patch(
-                "core.workers.file_metadata_worker.FileItem",
-                side_effect=lambda path: SimpleNamespace(path=path, size=1),
+                "app.workers.file_metadata_worker.FileItem",
+                side_effect=lambda path: SimpleNamespace(path=path, size=1, is_file=True),
             ),
         ):
             host.add_files(paths)
@@ -117,12 +117,12 @@ class FileMetadataWorkerTests(unittest.TestCase):
 
         with (
             patch(
-                "core.workers.file_metadata_worker.os.walk",
+                "app.workers.file_metadata_worker.os.walk",
                 return_value=walk_result,
             ),
             patch(
-                "core.workers.file_metadata_worker.FileItem",
-                side_effect=lambda path: SimpleNamespace(path=path, size=1),
+                "app.workers.file_metadata_worker.FileItem",
+                side_effect=lambda path: SimpleNamespace(path=path, size=1, is_file=True),
             ),
         ):
             worker.start()
@@ -160,12 +160,12 @@ class FileMetadataWorkerTests(unittest.TestCase):
                 side_effect=lambda path: path == root,
             ),
             patch(
-                "core.workers.file_metadata_worker.os.walk",
+                "app.workers.file_metadata_worker.os.walk",
                 side_effect=walk,
             ),
             patch(
-                "core.workers.file_metadata_worker.FileItem",
-                side_effect=lambda path: SimpleNamespace(path=path, size=1),
+                "app.workers.file_metadata_worker.FileItem",
+                side_effect=lambda path: SimpleNamespace(path=path, size=1, is_file=True),
             ),
         ):
             host.add_files(paths)

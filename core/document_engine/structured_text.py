@@ -1,4 +1,4 @@
-"""Экспорт HTML и OpenDocument Text в обычный текст."""
+"""Экспорт DOCX, ODT, RTF и HTML в обычный текст."""
 
 from pathlib import Path
 from zipfile import ZipFile
@@ -89,9 +89,32 @@ def _rtf_text(source, should_cancel):
     return rtf_to_text(data.decode("latin-1")).encode("utf-16", "surrogatepass").decode("utf-16")
 
 
+def _docx_text(source, should_cancel):
+    from docx import Document
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
+
+    _check_cancel(should_cancel)
+    document = Document(source)
+    lines = []
+    for block in document.iter_inner_content():
+        _check_cancel(should_cancel)
+        if isinstance(block, Paragraph):
+            lines.append(block.text)
+        elif isinstance(block, Table):
+            lines.extend("\t".join(cell.text.replace("\n", " ") for cell in row.cells) for row in block.rows)
+    return "\n".join(lines)
+
+
 def export_text(source, destination, source_format, should_cancel):
     _check_cancel(should_cancel)
-    read = {"ODT": _odt_text, "RTF": _rtf_text, "HTM": _html_text, "HTML": _html_text}[source_format]
+    read = {
+        "DOCX": _docx_text,
+        "ODT": _odt_text,
+        "RTF": _rtf_text,
+        "HTM": _html_text,
+        "HTML": _html_text,
+    }[source_format]
     result = read(Path(source), should_cancel)
     with atomic_output_path(destination, allow_empty=True) as temporary:
         Path(temporary).write_text(result, encoding="utf-8", newline="\n")

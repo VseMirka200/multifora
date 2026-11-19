@@ -63,7 +63,7 @@ def _run_build_smoke_test() -> int:
         from docx.shared import Inches
         from docxcompose.composer import Composer
 
-        from app.core import deps
+        from core import image_dependencies as deps
 
         report["lazy_backends"] = all(module not in sys.modules for module in ("PIL.Image", "pillow_heif"))
         if not report["lazy_backends"]:
@@ -84,8 +84,8 @@ def _run_build_smoke_test() -> int:
 
         from pypdf import PdfReader
 
-        from core.workers.office_engine import run_office
-        from core.workers.pdfcraft_engine import export_pdf, optimize_pdf, render_pdf_pages
+        from core.document_engine.office import run_office
+        from core.pdf_engine.operations import export_pdf, optimize_pdf, render_pdf_pages
 
         report["office_backends"] = {"python_office": True, "python_pdf": True}
 

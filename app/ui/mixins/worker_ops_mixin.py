@@ -4,9 +4,10 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from app.core.app_utils import _debug_log
-from app.core.models import FileItem, OperationFile, OperationSource, normalized_path_key
-from app.ui.ui_components import operation_file_items
-from core.operation_requests import CompressionRequest, MergeRequest, RenameRequest
+from app.ui.file_table import operation_file_items
+from core.file_models import FileItem, OperationFile, OperationSource
+from core.filesystem import normalized_path_key
+from core.operation_requests import CompressionRequest, ConversionRequest, MergeRequest, RenameRequest
 from core.operation_result import OperationResult
 
 
@@ -26,6 +27,8 @@ class WorkerOpsMixin:
         if enabled_checkbox is None or not enabled_checkbox.isChecked():
             return False
         request = self._last_operation_request
+        if isinstance(request, ConversionRequest) and request.sample:
+            return False
         operation = request.kind if request is not None else ""
         checkbox_names = {
             "rename": "auto_clear_rename_checkbox",
@@ -92,6 +95,11 @@ class WorkerOpsMixin:
         valid_files = len(files) >= 2 and output_format is not None
         button.setEnabled(valid_files)
 
+    def _compression_files(self, candidates):
+        if self.combo_compress_type.currentText() == "Изображения":
+            return [item for item in candidates if item.file_type == "image"]
+        return [item for item in candidates if item.path.lower().endswith(".pdf")]
+
     def compress_files(self):
         """Сжатие файлов."""
         if not self._ensure_operation_can_start():
@@ -102,18 +110,7 @@ class WorkerOpsMixin:
             return
 
         compress_type = self.combo_compress_type.currentText()
-        if compress_type == "Изображения":
-            files = [
-                file_item
-                for file_item in selected_files
-                if file_item.file_type == "image"
-            ]
-        else:
-            files = [
-                file_item
-                for file_item in selected_files
-                if file_item.path.lower().endswith(".pdf")
-            ]
+        files = self._compression_files(selected_files)
 
         if not files:
             file_type = (
@@ -175,8 +172,10 @@ class WorkerOpsMixin:
             f" ({method_text})" if compress_type == "PDF документы" else ""
         )
 
+        replaces_source = replace_pdf or image_output_mode == "replace"
         if compress_type == "PDF документы":
-            details = method_info
+            destination = "с заменой исходников" if replace_pdf else "с созданием копий"
+            details = f"{method_info} · {destination}"
         else:
             destination_labels = {
                 "replace": "с заменой исходников",
@@ -189,6 +188,9 @@ class WorkerOpsMixin:
             f"Сжать {len(files)} {file_type}{details}?",
             QMessageBox.Icon.Question,
             True,
+            yes_text="Заменить исходники" if replaces_source else "Сжать файлы",
+            no_text="Отмена",
+            destructive=replaces_source,
         )
         if not reply:
             return
@@ -309,29 +311,32 @@ class WorkerOpsMixin:
 
     def on_operation_finished(self, result):
         """Завершение операции."""
-        errors = []
-        warnings = []
-        if isinstance(result, OperationResult):
-            new_files = result.new_files
-            updated_files = result.updated_files
-            errors = result.errors
-            warnings = result.warnings
-        elif hasattr(result, "get"):
-            new_files = result.get("new_files", [])
-            updated_files = result.get("updated_files", [])
-            errors = result.get("errors", [])
-            warnings = result.get("warnings", [])
-        else:
-            new_files = result
-            updated_files = []
-
-        if not errors and self._operation_errors:
-            errors = self._operation_errors
+        if not isinstance(result, OperationResult):
+            result = OperationResult(
+                new_files=result.get("new_files", []) if hasattr(result, "get") else result,
+                updated_files=result.get("updated_files", []) if hasattr(result, "get") else [],
+                errors=result.get("errors", []) if hasattr(result, "get") else [],
+                warnings=result.get("warnings", []) if hasattr(result, "get") else [],
+                cancelled=bool(result.get("cancelled")) if hasattr(result, "get") else False,
+            )
+        if not result.errors and self._operation_errors:
+            result.errors = self._operation_errors
         self._operation_errors = []
+        new_files, updated_files = result.new_files, result.updated_files
+        request = self._last_operation_request
+        self.operation_result_panel.set_result(
+            result,
+            can_retry=request is not None and not isinstance(request, MergeRequest),
+        )
+        self.operation_result_panel.undo.hide()
 
         if self._is_undo_operation:
-            if errors and self._pending_undo_entry:
-                self._rename_history.append(self._pending_undo_entry)
+            if (result.errors or result.cancelled) and self._pending_undo_entry:
+                moved = {normalized_path_key(source.path) for source, _ in updated_files}
+                pending = self._pending_undo_entry
+                pairs = [(path, target) for path, target in pending["pairs"] if normalized_path_key(path) not in moved]
+                if pairs:
+                    self._rename_history.append({**pending, "pairs": pairs, "count": len(pairs)})
             self._pending_undo_entry = None
         else:
             if (
@@ -351,6 +356,7 @@ class WorkerOpsMixin:
                             "label": f"Переименовано {len(undo_pairs)} файлов",
                         }
                     )
+                    self.operation_result_panel.undo.show()
         self._is_undo_operation = False
 
         self.log_event(
@@ -359,31 +365,18 @@ class WorkerOpsMixin:
             "INFO",
         )
 
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setValue(0)
-        self.btn_cancel_operation.setVisible(False)
-        self.btn_cancel_operation.setEnabled(True)
-        if callable(getattr(self, "_hide_progress_dialog", None)):
-            self._hide_progress_dialog()
+        self.progress_dialog.reset()
         if callable(getattr(self, "_update_compress_button", None)):
             self._update_compress_button()
 
-        if (
-            not errors
-            and not warnings
-            and self._should_auto_clear_after_operation()
-        ):
+        if result.outcome == "success" and self._should_auto_clear_after_operation():
             self.files.clear()
             self.list_files.clear()
             self.update_file_info()
             self.status_bar.showMessage(
                 "Операция завершена. Список очищен, файлы на диске сохранены."
             )
-            if self._pending_close and not (
-                self.file_worker and self.file_worker.isRunning()
-            ):
-                self._pending_close = False
-                QTimer.singleShot(0, self.close)
+            self._close_after_operation()
             return
 
         changed = False
@@ -404,41 +397,18 @@ class WorkerOpsMixin:
             if callable(getattr(self, "refresh_active_file_preview", None)):
                 self.refresh_active_file_preview()
 
-        if updated_files and new_files:
-            self.status_bar.showMessage(
-                "Операция завершена. "
-                f"Создано {self._ru_files_label(len(new_files))}, "
-                f"обновлено {self._ru_files_label(len(updated_files))}."
-            )
-        elif updated_files:
-            self.status_bar.showMessage(
-                f"Операция завершена. Обновлено {self._ru_files_label(len(updated_files))}."
-            )
-        else:
-            self.status_bar.showMessage(
-                f"Операция завершена. Создано {self._ru_files_label(len(new_files))}."
-            )
+        self.status_bar.clearMessage()
 
-        if warnings:
-            lines = [f"• {entry.get('message', '')}" for entry in warnings[:8]]
-            extra = (
-                f"\n…и ещё {len(warnings) - 8}" if len(warnings) > 8 else ""
-            )
-            QMessageBox.warning(
-                self,
-                "Предупреждения о результате",
-                "Некоторые файлы обработаны с ограничениями.\n"
-                + "\n".join(lines)
-                + extra,
-            )
-        if errors:
-            self._offer_retry_for_errors(errors)
+        self._close_after_operation()
 
-        if self._pending_close and not (
-            self.file_worker and self.file_worker.isRunning()
-        ):
-            self._pending_close = False
-            QTimer.singleShot(0, self.close)
+    def _close_after_operation(self):
+        if not self._pending_close:
+            return
+        if self._operation_is_running():
+            QTimer.singleShot(50, self._close_after_operation)
+            return
+        self._pending_close = False
+        QTimer.singleShot(0, self.close)
 
     def _apply_operation_updates(self, updates: list[tuple[OperationSource, str]]) -> None:
         # Пакет может обменять пути двух строк. Сопоставляем их до первого изменения.
@@ -457,48 +427,3 @@ class WorkerOpsMixin:
         """Аварийная ошибка: сообщаем при окончательном сигнале finished."""
         self._operation_errors.append({"message": str(error_msg)})
         self.log_event(f"Критическая ошибка операции: {error_msg}", "ERROR")
-
-    def _offer_retry_for_errors(self, errors: list[dict]) -> None:
-        grouped_errors: dict[str, list[dict]] = {}
-        for entry in errors:
-            error_message = str(entry.get("message", ""))
-            grouped_errors.setdefault(error_message, []).append(entry)
-
-        lines = []
-        for error_message, entries in list(grouped_errors.items())[:8]:
-            count = len(entries)
-            suffix = f"\n  Затронуто файлов: {count}." if count > 1 else ""
-            lines.append(f"• {error_message}{suffix}")
-        remaining = len(grouped_errors) - 8
-        more = f"\n• …и ещё {remaining} причин" if remaining > 0 else ""
-        non_retryable_markers = (
-            "недопустимый символ",
-            "ошибка плана",
-        )
-        retryable_errors = [
-            entry
-            for entry in errors
-            if entry.get("path")
-            and not any(
-                marker in str(entry.get("message", "")).casefold()
-                for marker in non_retryable_markers
-            )
-        ]
-        request = self._last_operation_request
-        can_retry = bool(request is not None and not isinstance(request, MergeRequest) and retryable_errors)
-        message = (
-            f"Не удалось обработать {self._ru_files_label(len(errors))}.\n\n"
-            "Причина:\n"
-            + "\n".join(lines)
-            + more
-        )
-        if can_retry:
-            message += "\n\nПовторить только файлы с временными ошибками?"
-        reply = self.show_russian_message_box(
-            "Не удалось завершить операцию",
-            message,
-            QMessageBox.Icon.Warning,
-            can_retry,
-        )
-        if can_retry and reply:
-            self._retry_failed_operation(retryable_errors)

@@ -5,14 +5,16 @@ import pypdfium2 as pdfium
 import pytest
 from docx import Document
 from docx.enum.section import WD_ORIENT, WD_SECTION_START
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
-from docx.shared import Inches, Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK, WD_COLOR_INDEX
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.shared import Inches, Pt, RGBColor
 from PIL import Image
 from pypdf import PdfReader
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import QApplication
 
-from core.workers.office_engine import run_office
+from core.document_engine.office import run_office
 
 
 def _native_font_application():
@@ -160,6 +162,76 @@ def test_html_pdf_keeps_text_after_nested_blocks_and_tables(tmp_path):
     output = tmp_path / "out.pdf"
     run_office(source, output, "PDF", lambda: False)
     assert PdfReader(output).pages[0].extract_text().split() == ["one", "two", "three", "four"]
+
+
+def test_docx_pdf_exports_narrow_columns_and_merged_cells(tmp_path):
+    source = tmp_path / "table.docx"
+    document = Document()
+    table = document.add_table(rows=2, cols=4)
+    for column, width in zip(table.columns, (7.1, 5, 5, 350), strict=True):
+        column.width = Pt(width)
+    table.cell(0, 0).text = "1"
+    table.cell(0, 1).merge(table.cell(0, 2)).text = "2"
+    table.cell(0, 3).text = "Заголовок"
+    table.cell(1, 0).merge(table.cell(1, 3)).text = "Объединённая строка"
+    document.save(source)
+
+    output = tmp_path / "table.pdf"
+    run_office(source, output, "PDF", lambda: False)
+
+    page, = PdfReader(output).pages
+    assert page.extract_text().splitlines() == ["1", "2", "Заголовок", "Объединённая строка"]
+
+
+def test_docx_pdf_retains_explicit_cell_borders_and_highlighted_capitals(tmp_path):
+    source = tmp_path / "form.docx"
+    document = Document()
+    table = document.add_table(rows=2, cols=1)
+    table.style = "Table Grid"
+    table.rows[0].height = Pt(32)
+    margins = OxmlElement("w:tblCellMar")
+    for side in ("left", "right"):
+        margin = OxmlElement(f"w:{side}")
+        margin.set(qn("w:w"), "0")
+        margin.set(qn("w:type"), "dxa")
+        margins.append(margin)
+    table._tbl.tblPr.append(margins)
+    for index in range(2):
+        cell = table.cell(index, 0)
+        borders = OxmlElement("w:tcBorders")
+        for side in ("top", "right", "bottom", "left"):
+            border = OxmlElement(f"w:{side}")
+            border.set(qn("w:val"), "nil")
+            if index == 1 and side == "bottom":
+                border.set(qn("w:val"), "single")
+                border.set(qn("w:sz"), "4")
+                border.set(qn("w:color"), "FF0000")
+            borders.append(border)
+        cell._tc.get_or_add_tcPr().append(borders)
+    run = table.cell(0, 0).paragraphs[0].add_run("Heading")
+    run.font.all_caps = True
+    run.font.color.rgb = RGBColor.from_string("0000FF")
+    run.font.highlight_color = WD_COLOR_INDEX.YELLOW
+    table.cell(1, 0).text = "Signature"
+    document.save(source)
+
+    output = tmp_path / "form.pdf"
+    run_office(source, output, "PDF", lambda: False)
+    page, = PdfReader(output).pages
+    operations = page.get_contents().operations
+    assert page.extract_text().split() == ["HEADING", "Signature"]
+    assert sum(operator == b"S" for _, operator in operations) == 1
+    assert ([1, 0, 0], b"RG") in operations
+    assert ([0, 0, 1], b"rg") in operations
+    assert ([1, 1, 0], b"rg") in operations
+    with pdfium.PdfDocument(str(output)) as pdf:
+        text = pdf[0].get_textpage()
+        with closing(text.search("HEADING")) as search:
+            heading = text.get_charbox(search.get_next()[0])
+        with closing(text.search("Signature")) as search:
+            signature = text.get_charbox(search.get_next()[0])
+        assert heading[0] == pytest.approx(document.sections[0].left_margin.pt, abs=1.5)
+        assert heading[1] - signature[1] == pytest.approx(32, abs=1.5)
 
 
 def test_docx_pdf_fits_tall_image_to_custom_page(tmp_path):
@@ -331,7 +403,7 @@ def test_docx_html_keeps_numbered_list_and_horizontal_merge(tmp_path):
     result = output.read_text(encoding="utf-8")
     assert result.count("<ol>") == 1
     assert result.count("<li>") == 2
-    assert '<td colspan="2">' in result
+    assert '<td colspan="2"' in result
     assert result.count("Merged cell") == 1
 
 

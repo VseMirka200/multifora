@@ -3,8 +3,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from app.core.models import FileItem
-from core.workers.compression.compression_mixin import CompressionMixin
+from app.workers.compression_worker import CompressionMixin
+from core.file_models import FileItem
 
 
 class _DummyCompressionWorker(CompressionMixin):
@@ -63,7 +63,7 @@ class CompressionMixinTests(unittest.TestCase):
                     competitor.write_bytes(b"external")
                 Path(stage).write_bytes(b"small")
 
-            with patch("core.workers.pdfcraft_engine.optimize_pdf", side_effect=compress):
+            with patch("core.pdf_engine.operations.optimize_pdf", side_effect=compress):
                 worker._compress_pdf_files()
 
             results, updated = worker._emit_finished.call_args.args
@@ -125,7 +125,7 @@ class CompressionMixinTests(unittest.TestCase):
                 stream.truncate(11 * 1024 * 1024)
 
             worker = _DummyCompressionWorker("auto", [FileItem(str(standard_path)), FileItem(str(large_path))])
-            with patch("core.workers.pdfcraft_engine.optimize_pdf") as optimize:
+            with patch("core.pdf_engine.operations.optimize_pdf") as optimize:
                 for source in (standard_path, large_path):
                     output = source.with_stem("out-" + source.stem)
                     output.write_bytes(b"ok")

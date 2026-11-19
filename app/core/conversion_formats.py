@@ -6,12 +6,21 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import Iterable
 
-from app.core.file_types import FILE_TYPE_EXTENSIONS as FILE_TYPE_EXTENSIONS
-from app.core.file_types import KNOWN_FILE_EXTENSIONS as KNOWN_FILE_EXTENSIONS
-from app.core.file_types import build_file_dialog_filter as build_file_dialog_filter
+from core.conversion_formats import DOCUMENT_FORMATS as DOCUMENT_FORMATS
+from core.conversion_formats import FORMAT_EXTENSIONS as FORMAT_EXTENSIONS
+from core.conversion_formats import IMAGE_SOURCE_FORMATS
+from core.conversion_formats import OFFICE_INPUTS as OFFICE_INPUTS
+from core.conversion_formats import OFFICE_OUTPUTS as OFFICE_OUTPUTS
+from core.conversion_formats import OFFICE_ROUTES as OFFICE_ROUTES
+from core.conversion_formats import PDF_IMAGE_TARGETS as PDF_IMAGE_TARGETS
+from core.conversion_formats import format_for_path as format_for_path
+from core.conversion_formats import matches_format as matches_format
+from core.conversion_formats import suffix_for_format as suffix_for_format
+from core.file_types import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS
+from core.file_types import FILE_TYPE_EXTENSIONS as FILE_TYPE_EXTENSIONS
+from core.file_types import KNOWN_FILE_EXTENSIONS as KNOWN_FILE_EXTENSIONS
 
 DOCUMENT_CATEGORY = "Документы"
 IMAGE_CATEGORY = "Изображения"
@@ -26,19 +35,6 @@ _FILE_TYPE_CATEGORIES = {file_type: category for category, file_type in CATEGORY
 MIXED_SOURCE_LABELS: dict[str, str] = {
     DOCUMENT_CATEGORY: "Любой поддерживаемый документ",
     IMAGE_CATEGORY: "Любое поддерживаемое изображение",
-}
-
-DOCUMENT_FORMATS = ("DOCX", "PDF", "ODT", "RTF", "TXT", "HTML")
-OFFICE_OUTPUTS = frozenset(DOCUMENT_FORMATS)
-OFFICE_INPUTS = OFFICE_OUTPUTS - {"PDF"}
-
-# Идентификаторы движков разрешаются адаптером документов при обращении.
-OFFICE_ROUTES = {
-    "DOCX": {"PDF": "rich_pdf", "ODT": "odt", "RTF": "rtf", "TXT": "docx_text", "HTML": "docx_html"},
-    "ODT": {"DOCX": "odt_body", "PDF": "rich_pdf", "RTF": "rtf", "TXT": "text", "HTML": "odt_body"},
-    "RTF": {"DOCX": "rtf_body", "PDF": "rich_pdf", "ODT": "odt", "TXT": "text", "HTML": "rtf_body"},
-    "TXT": {"DOCX": "plain", "PDF": "text_pdf", "ODT": "plain", "RTF": "plain", "HTML": "plain"},
-    "HTML": {"DOCX": "html_docx", "PDF": "rich_pdf", "ODT": "odt", "RTF": "rtf", "TXT": "text"},
 }
 
 _OPTIMIZED_DOCUMENT_ROUTES: dict[tuple[str, str], str] = {
@@ -57,33 +53,9 @@ def conversion_type_for_formats(category: str, source: str, target: str) -> str:
 
 CATEGORY_SOURCE_FORMATS: dict[str, tuple[str, ...]] = {
     DOCUMENT_CATEGORY: DOCUMENT_FORMATS,
-    IMAGE_CATEGORY: (
-        "JPG",
-        "JPEG",
-        "PNG",
-        "WEBP",
-        "BMP",
-        "TIFF",
-        "GIF",
-        "ICO",
-        "TGA",
-        "PCX",
-        "JP2",
-        "QOI",
-        "DDS",
-        "ICNS",
-        "XBM",
-        "SGI",
-        "PPM",
-        "PGM",
-        "PBM",
-        "AVIF",
-        "HEIC",
-        "HEIF",
-        "SVG",
-        "PSD",
-    ),
+    IMAGE_CATEGORY: IMAGE_SOURCE_FORMATS,
 }
+
 
 # PDF доступен как цель для изображений, потому что каждое изображение можно
 # сохранить в отдельный PDF, в том числе при обработке смешанного набора.
@@ -118,58 +90,7 @@ CATEGORY_TARGET_FORMATS: dict[str, tuple[str, ...]] = {
     ),
 }
 
-FORMAT_EXTENSIONS: dict[str, tuple[str, ...]] = {
-    "DOC": (".doc",),
-    "DOCX": (".docx",),
-    "PDF": (".pdf",),
-    "ODT": (".odt",),
-    "RTF": (".rtf",),
-    "TXT": (".txt",),
-    "HTML": (".html", ".htm"),
-    "JPG": (".jpg", ".jpe"),
-    "JPEG": (".jpeg", ".jfif"),
-    "PNG": (".png",),
-    "WEBP": (".webp",),
-    "BMP": (".bmp", ".dib"),
-    "TIFF": (".tif", ".tiff"),
-    "GIF": (".gif",),
-    "ICO": (".ico",),
-    "TGA": (".tga", ".targa"),
-    "PCX": (".pcx",),
-    "JP2": (".jp2", ".j2k", ".j2c", ".jpf", ".jpx"),
-    "QOI": (".qoi",),
-    "DDS": (".dds",),
-    "EPS": (".eps",),
-    "ICNS": (".icns",),
-    "XBM": (".xbm",),
-    "SGI": (".sgi", ".rgb", ".rgba", ".bw"),
-    "PPM": (".ppm",),
-    "PGM": (".pgm",),
-    "PBM": (".pbm",),
-    "AVIF": (".avif",),
-    "HEIC": (".heic",),
-    "HEIF": (".heif", ".hif"),
-    "SVG": (".svg",),
-    "PSD": (".psd",),
-}
-
-PDF_IMAGE_TARGETS = ("JPG", "JPEG", "PNG", "WEBP", "TIFF", "BMP")
 CATEGORY_TARGET_FORMATS[DOCUMENT_CATEGORY] += PDF_IMAGE_TARGETS
-
-
-_CANONICAL_SUFFIXES: dict[str, str] = {
-    "JPG": ".jpg",
-    "JPEG": ".jpeg",
-    "TIFF": ".tiff",
-    "HTML": ".html",
-    "HEIC": ".heic",
-    "HEIF": ".heif",
-    "JP2": ".jp2",
-}
-
-_EXTENSION_FORMATS = {
-    extension: format_label for format_label, extensions in FORMAT_EXTENSIONS.items() for extension in extensions
-}
 
 
 def _normalize_label(value: object) -> str:
@@ -220,28 +141,14 @@ def category_for_file_type(file_type: str) -> str | None:
     return _FILE_TYPE_CATEGORIES.get(_normalize_label(file_type).lower())
 
 
-def format_for_path(path: str) -> str | None:
-    """Определяет формат по расширению пути."""
-    extension = os.path.splitext(str(path or ""))[1].lower()
-    return _EXTENSION_FORMATS.get(extension)
-
-
-def suffix_for_format(format_label: str) -> str:
-    """Возвращает каноническое расширение выходного файла."""
-    label = _normalize_label(format_label)
-    if label in _CANONICAL_SUFFIXES:
-        return _CANONICAL_SUFFIXES[label]
-    extensions = FORMAT_EXTENSIONS.get(label, ())
-    return extensions[0] if extensions else ""
-
-
-def matches_format(path: str, format_label: str) -> bool:
-    """Проверяет соответствие расширения пути выбранному формату."""
-    extension = os.path.splitext(str(path or ""))[1].lower()
-    return extension in FORMAT_EXTENSIONS.get(_normalize_label(format_label), ())
-
-
 def extensions_for_category(category: str) -> tuple[str, ...]:
     """Возвращает все входные расширения категории."""
     formats = CATEGORY_SOURCE_FORMATS.get(_normalize_label(category), ())
     return _extensions_for_formats(formats)
+
+
+def build_file_dialog_filter() -> str:
+    supported = " ".join(f"*{extension}" for extension in sorted(KNOWN_FILE_EXTENSIONS))
+    documents = " ".join(f"*{extension}" for extension in DOCUMENT_EXTENSIONS)
+    images = " ".join(f"*{extension}" for extension in IMAGE_EXTENSIONS)
+    return f"Поддерживаемые файлы ({supported});;Документы ({documents});;Изображения ({images})"

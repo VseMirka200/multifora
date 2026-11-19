@@ -26,7 +26,7 @@ from app.core.message_boxes import (
     show_app_confirmation,
     show_app_confirmation_with_checkbox,
 )
-from app.ui.ui_spacing import FIELD_HEIGHT
+from app.ui.ui_styles import FIELD_HEIGHT
 
 
 class MessageBoxTests(unittest.TestCase):
@@ -127,7 +127,7 @@ class MessageBoxTests(unittest.TestCase):
             dialog.findChild(QPushButton, "appMessageButton_second").property(
                 "buttonVariant"
             ),
-            "danger",
+            "secondary",
         )
         self.assertEqual(
             dialog.findChild(

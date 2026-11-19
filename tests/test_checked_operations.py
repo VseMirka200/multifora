@@ -9,9 +9,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication
 
-from app.core.models import FileItem, OperationFile
-from app.ui.ui_components import operation_file_items
+from app.ui.file_table import operation_file_items
 from app.ui.ui_main import MultiforaMainWindow
+from core.file_models import FileItem, OperationFile
 
 
 class OperationScopeTests(unittest.TestCase):
@@ -87,10 +87,10 @@ class CheckedOperationsTests(unittest.TestCase):
         self.assertEqual(self.window.list_files.model().preview_for(self.items[0]).preview_name, self.items[0].name)
         self.assertTrue(self.window.list_files.model().preview_for(self.items[1]).preview_name.startswith("001"))
         self.assertTrue(self.window.list_files.model().preview_for(self.items[3]).preview_name.startswith("002"))
-        window.file_worker = Mock()
+        worker = Mock()
         with (
             patch.object(window, "_ensure_operation_can_start", return_value=True),
-            patch.object(window, "create_file_worker", return_value=True),
+            patch("app.workers.factory.create_operation_worker", return_value=worker),
             patch.object(window, "show_russian_message_box", return_value=True),
             patch.object(window, "_show_operation_starting"),
             patch.object(window, "_show_progress_dialog"),
@@ -150,7 +150,7 @@ class CheckedOperationsTests(unittest.TestCase):
         window.refresh_compression_preview()
         model = window.list_files.model()
         column = model.COLUMN_TYPE
-        self.assertEqual(model.headerData(column, Qt.Orientation.Horizontal), "Размер: сейчас → после")
+        self.assertEqual(model.headerData(column, Qt.Orientation.Horizontal), "Размер → оценка")
         self.assertEqual(model.index(0, column).data(), "10,0 МБ → ≈7,0 МБ")
         window.combo_pdf_method.setCurrentText("Максимальное сжатие")
         self.assertEqual(model.index(0, column).data(), "10,0 МБ → ≈4,5 МБ")

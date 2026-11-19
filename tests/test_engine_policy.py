@@ -1,4 +1,4 @@
-from core.workers.engine_policy import adaptive_timeout
+from core.document_engine.office import adaptive_timeout
 
 
 def test_large_documents_get_more_time_with_a_fixed_upper_limit():

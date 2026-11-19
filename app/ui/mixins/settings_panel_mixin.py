@@ -1,4 +1,4 @@
-﻿import concurrent.futures
+import concurrent.futures
 
 from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QIcon
@@ -19,15 +19,14 @@ from PySide6.QtWidgets import (
 )
 
 from app.core.app_icons import _get_app_icon_qt_path
-from app.core.app_identity import APP_DISPLAY_NAME, APP_VERSION
+from app.core.app_identity import APP_DISPLAY_NAME, APP_VERSION, GUIDE_URL, REPO_PAGE
 from app.core.app_utils import _log_ignored_error
 from app.core.auto_updater import (
     automatic_updates_supported,
     download_and_launch_latest_installer,
 )
-from app.core.github_links import GUIDE_URL
+from app.core.message_boxes import show_app_choice
 from app.core.update_checker import (
-    REPO_PAGE,
     check_for_updates,
 )
 from app.ui.ui_components import (
@@ -37,10 +36,12 @@ from app.ui.ui_components import (
     setup_standard_dropdown,
     setup_standard_secondary_button,
 )
-from app.ui.ui_spacing import (
+from app.ui.ui_styles import (
     CHECKBOX_SIZE,
     DIALOG_MARGINS,
     MARGINS_NONE,
+    PAGE_CONTENT_MARGINS,
+    PAGE_SECTION_SPACING,
     SETTINGS_PANEL_MARGINS,
     SPACE_LG,
     SPACE_NONE,
@@ -129,10 +130,10 @@ class SettingsPanelMixin:
         layout = QHBoxLayout(row)
         layout.setContentsMargins(*MARGINS_NONE)
         layout.setSpacing(SPACE_SM)
-        button = QPushButton("Создать ярлык")
+        button = QPushButton("Создать")
         setup_standard_secondary_button(button)
         button.clicked.connect(action)
-        layout.addWidget(button, 0, Qt.AlignmentFlag.AlignTop)
+        layout.addWidget(button, 0, Qt.AlignmentFlag.AlignVCenter)
         text_column = QWidget(row)
         text_column.setObjectName("settings_row")
         text_layout = QVBoxLayout(text_column)
@@ -255,17 +256,14 @@ class SettingsPanelMixin:
                 host_layout.addWidget(self.help_panel_widget)
         return self.help_panel_widget
 
-    def _show_header_panel(
-        self, panel: QWidget, active_button: QPushButton | None = None
-    ) -> None:
+    def _show_header_panel(self, panel: QWidget) -> None:
         for widget_name in ("settings_panel_widget", "help_panel_widget"):
             widget = getattr(self, widget_name, None)
             if widget is not None:
                 widget.setVisible(widget is panel)
-        for button_name in ("btn_help",):
-            button = getattr(self, button_name, None)
-            if button is not None:
-                button.setChecked(button is active_button)
+        button = getattr(self, "btn_help", None)
+        if button is not None:
+            button.setChecked(False)
 
         host = getattr(self, "settings_panel_host", None)
         if host is not None:
@@ -283,6 +281,7 @@ class SettingsPanelMixin:
     def show_settings_modal(self):
         """Показывает панель настроек поверх рабочей области."""
         settings_widget = self._ensure_settings_panel_widget()
+        self.update_context_menu_button()
         self._show_header_panel(settings_widget)
 
         if callable(getattr(self, "attach_action_logging", None)):
@@ -351,10 +350,9 @@ class SettingsPanelMixin:
         tab_bar = getattr(self, "operations_tab_bar", None)
         if tab_bar is not None:
             self._apply_operations_tab_bar_theme()
-        for button_name in ("btn_help",):
-            button = getattr(self, button_name, None)
-            if button is not None:
-                button.setChecked(False)
+        button = getattr(self, "btn_help", None)
+        if button is not None:
+            button.setChecked(False)
         host = getattr(self, "settings_panel_host", None)
         if host is not None:
             host.setVisible(False)
@@ -447,6 +445,9 @@ class SettingsPanelMixin:
             lambda: QDesktopServices.openUrl(QUrl(GUIDE_URL))
         )
         links.addWidget(self.about_guide_button)
+        copy_version = QPushButton("Скопировать версию")
+        copy_version.clicked.connect(lambda: QApplication.clipboard().setText(f"{APP_DISPLAY_NAME} {APP_VERSION}"))
+        links.addWidget(copy_version)
         links.addStretch()
         layout.addLayout(links)
 
@@ -454,7 +455,7 @@ class SettingsPanelMixin:
         section = QFrame()
         section.setObjectName("settings_section")
         layout = QVBoxLayout(section)
-        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setContentsMargins(*PAGE_CONTENT_MARGINS)
         layout.setSpacing(SPACE_SM)
         heading = QLabel(title)
         heading.setObjectName("settings_section_heading")
@@ -480,15 +481,15 @@ class SettingsPanelMixin:
         settings_content = QWidget()
         settings_content.setObjectName("settings_page_content")
         self.settings_content_layout = QVBoxLayout(settings_content)
-        self.settings_content_layout.setContentsMargins(16, 16, 16, 16)
-        self.settings_content_layout.setSpacing(12)
+        self.settings_content_layout.setContentsMargins(*PAGE_CONTENT_MARGINS)
+        self.settings_content_layout.setSpacing(PAGE_SECTION_SPACING)
         self.settings_content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.settings_scroll.setWidget(settings_content)
         root_layout.addWidget(self.settings_scroll, 1)
-        appearance_layout = self._add_settings_section("Интерфейс")
+        appearance_layout = self._add_settings_section("Внешний вид")
         behavior_layout = self._add_settings_section("Поведение")
-        auto_clear_layout = self._add_settings_section("Автоочистка")
-        shortcuts_layout = self._add_settings_section("Ярлыки")
+        auto_clear_layout = self._add_settings_section("Файлы и папки")
+        shortcuts_layout = self._add_settings_section("Интеграция Windows")
 
         self.theme_mode_combo = MenuLikeComboBox()
         setup_standard_dropdown(self.theme_mode_combo, fixed_width=200)
@@ -611,7 +612,7 @@ class SettingsPanelMixin:
         context_row, self.context_menu_button = self._create_shortcut_action_row(
             "Контекстное меню Windows",
             "Добавляет пункт «Добавить в Мультифору» в меню файлов и папок.",
-            self.create_context_menu_entry,
+            self.toggle_context_menu_entry,
         )
         shortcuts_layout.addWidget(context_row)
         self.settings_content_layout.addStretch()
@@ -691,6 +692,9 @@ class SettingsPanelMixin:
             self._update_poll_timer.timeout.connect(self._poll_update_future)
 
         self._update_silent = bool(silent)
+        status_bar = getattr(self, "status_bar", None)
+        if not silent and status_bar is not None:
+            status_bar.showMessage("Проверяем обновления…")
         action = getattr(self, "check_updates_action", None)
         if action is not None:
             action.setEnabled(False)
@@ -729,6 +733,9 @@ class SettingsPanelMixin:
                 text_msg = (
                     f"Проверка завершена. Текущая: {current}, GitHub: {latest}"
                 )
+            status_bar = getattr(self, "status_bar", None)
+            if not getattr(self, "_update_silent", False) and status_bar is not None:
+                status_bar.showMessage(text_msg)
 
             if cmp_result == -1 and not getattr(self, "_update_silent", False):
                 if automatic_updates_supported():
@@ -767,7 +774,16 @@ class SettingsPanelMixin:
         except Exception as e:
             text_msg = f"Не удалось проверить обновления: {e!s}"
             if not getattr(self, "_update_silent", False):
-                QMessageBox.warning(self, "Проверка обновлений", text_msg)
+                status_bar = getattr(self, "status_bar", None)
+                if status_bar is not None:
+                    status_bar.showMessage("Не удалось проверить обновления")
+                choice = show_app_choice(
+                    self, "Проверка обновлений", text_msg,
+                    (("retry", "Повторить", "primary"), ("close", "Закрыть", "secondary")),
+                    icon=QMessageBox.Icon.Warning, default_key="close", cancel_key="close",
+                )
+                if choice == "retry":
+                    QTimer.singleShot(0, self.check_updates_now)
         finally:
             if getattr(self, "_update_operation", "check") == "check":
                 action = getattr(self, "check_updates_action", None)

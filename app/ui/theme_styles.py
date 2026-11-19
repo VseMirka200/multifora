@@ -866,6 +866,10 @@ QMenu#help_menu_popup {{
     border-bottom-right-radius: 4px;
     padding-bottom: 0px;
 }}
+QMenu#header_dropdown_popup,
+QMenu#menu_like_combo_popup {{
+    border-top-color: {background};
+}}
 QMenu::item,
 QMenu QListWidget#scrollable_filter_list::item {{
     padding: 4px 8px;
@@ -876,6 +880,10 @@ QMenu QListWidget#scrollable_filter_list::item {{
 }}
 QMenu#header_dropdown_popup::item {{
     padding-left: 4px;
+    padding-right: 4px;
+}}
+QMenu#menu_like_combo_popup::item {{
+    padding-left: 3px;
     padding-right: 4px;
 }}
 QMenu#help_menu_popup::item {{

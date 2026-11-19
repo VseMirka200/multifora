@@ -81,8 +81,15 @@ def _fixtures(folder):
 
 def _sample(engine, inputs, output, case):
     sys.path.insert(0, str(engine))
-    from core.workers.office_engine import run_office
-    from core.workers.pdfcraft_engine import export_pdf, optimize_pdf, render_pdf_pages
+    if (engine / "core/document_engine/office.py").is_file():
+        from core.document_engine.office import run_office
+    else:
+        from core.workers.office_engine import run_office
+
+    if (engine / "core/pdf_engine/operations.py").is_file():
+        from core.pdf_engine.operations import export_pdf, optimize_pdf, render_pdf_pages
+    else:
+        from core.workers.pdfcraft_engine import export_pdf, optimize_pdf, render_pdf_pages
 
     def active():
         return False

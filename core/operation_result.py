@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import NotRequired, TypedDict
 
-from app.core.models import FileItem, OperationSource
+from core.file_models import FileItem, OperationSource
 
 
 class OperationIssue(TypedDict):
@@ -13,6 +13,15 @@ class OperationIssue(TypedDict):
     message: str
     path: NotRequired[str | None]
     name: NotRequired[str]
+    explanation: NotRequired[str]
+    retryable: NotRequired[bool]
+
+
+@dataclass(frozen=True, slots=True)
+class CompressionSize:
+    path: str
+    before: int
+    after: int
 
 
 @dataclass(slots=True)
@@ -23,6 +32,16 @@ class OperationResult:
     updated_files: list[tuple[OperationSource, str]] = field(default_factory=list)
     errors: list[OperationIssue] = field(default_factory=list)
     warnings: list[OperationIssue] = field(default_factory=list)
+    cancelled: bool = False
+    compression_sizes: list[CompressionSize] = field(default_factory=list)
+
+    @property
+    def outcome(self) -> str:
+        if self.cancelled:
+            return "cancelled"
+        if self.errors:
+            return "partial" if self.new_files or self.updated_files else "failed"
+        return "warning" if self.warnings else "success"
 
     def as_dict(self) -> dict[str, object]:
         """Возвращает совместимое со старым API словарное представление."""
@@ -31,6 +50,8 @@ class OperationResult:
             "updated_files": self.updated_files,
             "errors": self.errors,
             "warnings": self.warnings,
+            "cancelled": self.cancelled,
+            "compression_sizes": self.compression_sizes,
         }
 
     def get(self, key: str, default: object = None) -> object:

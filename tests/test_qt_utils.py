@@ -1,7 +1,7 @@
 import pytest
 from PySide6.QtCore import QObject
 
-from app.core.qt_utils import signals_blocked
+from app.core.app_utils import signals_blocked
 
 
 @pytest.mark.parametrize("initially_blocked", [False, True])

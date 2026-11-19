@@ -6,7 +6,7 @@ import pytest
 from docx import Document
 from pypdf import PdfReader
 
-from core.workers.office_engine import run_office
+from core.document_engine.office import run_office
 
 FORMATS = ("DOCX", "ODT", "RTF", "TXT", "HTML")
 MARKER = "MultiforaConversionMarker"

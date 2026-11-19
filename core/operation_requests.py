@@ -25,6 +25,7 @@ class ConversionRequest:
     target_format: str
     output_mode: str
     output_dir: str
+    sample: bool = False
 
     @property
     def worker_kind(self) -> str:

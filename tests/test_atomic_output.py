@@ -3,7 +3,7 @@ from threading import Barrier
 
 import pytest
 
-from core.workers.atomic_output import atomic_output_path
+from core.filesystem import atomic_output_path
 
 
 def test_competing_writers_publish_only_one_complete_result(tmp_path):

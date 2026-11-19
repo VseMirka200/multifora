@@ -1,86 +1,61 @@
 """Связывает запросы вкладок с жизненным циклом рабочих потоков Qt."""
 
+from collections.abc import Callable, Sequence
+
 from app.core.app_utils import _debug_log
-from app.core.models import FileItem, OperationFile
-from core.operation_requests import CompressionRequest, ConversionRequest, MergeRequest, OperationRequest, RenameRequest
-from core.workers.operation_worker import OperationWorker
+from app.workers.factory import create_worker_for_request
+from app.workers.operation_worker import OperationWorker
+from core.file_models import FileItem, OperationFile
+from core.operation_requests import OperationRequest
 
 
-def bind_operation_worker(window, worker: OperationWorker) -> None:
-    """Отключает сигналы прежнего обработчика и подключает новый к окну."""
-    if window.file_worker:
-        for signal in (
-            window.file_worker.progress,
-            window.file_worker.status,
-            window.file_worker.finished,
-            window.file_worker.error,
-        ):
-            try:
-                signal.disconnect()
-            except (RuntimeError, TypeError) as error:
-                _debug_log(f"Ошибка отключения старого сигнала: {error}")
+def _disconnect_operation_worker(worker: OperationWorker | None) -> None:
+    if worker is None:
+        return
+    for signal in (worker.progress, worker.status, worker.finished, worker.error):
+        try:
+            signal.disconnect()
+        except (RuntimeError, TypeError) as error:
+            _debug_log(f"Ошибка отключения старого сигнала: {error}")
 
-    window.file_worker = worker
+
+def connect_operation_worker(window, worker: OperationWorker) -> None:
+    """Подключает сигналы обработчика к слотам окна."""
     worker.progress.connect(window.progress_bar.setValue)
     worker.status.connect(window.on_worker_status)
     worker.finished.connect(window.on_operation_finished)
     worker.error.connect(window.on_operation_error)
 
 
+def bind_operation_worker(window, worker: OperationWorker) -> None:
+    """Заменяет обработчик при вызове прежней точки входа окна."""
+    _disconnect_operation_worker(window.file_worker)
+    connect_operation_worker(window, worker)
+    window.file_worker = worker
+
+
 class OperationController:
-    """Подготавливает запросы и запускает соответствующие обработчики операций."""
+    """Владеет рабочим потоком и запросом последней запущенной операции."""
+
     def __init__(self) -> None:
         self.worker: OperationWorker | None = None
         self.last_request: OperationRequest | None = None
 
-    def start(self, window, request: OperationRequest, files: list[FileItem]) -> bool:
-        """Запускает операцию и возвращает False, если окно не разрешило запуск.
-
-        Для переименования пути файлов должны в точности совпадать с запросом;
-        при несоответствии возбуждается ValueError до запуска обработчика.
-        """
-        sources = [OperationFile.from_item(file) for file in files]
-        if isinstance(request, RenameRequest):
-            names = dict(request.pairs)
-            if (
-                len(names) != len(request.pairs)
-                or len(sources) != len(names)
-                or {source.path for source in sources} != names.keys()
-            ):
-                raise ValueError("Файлы переименования не соответствуют запросу")
-            rename_names = [names[source.path] for source in sources]
-        if isinstance(request, MergeRequest):
-            if not window._ensure_operation_can_start():
-                return False
-            from core.workers.merge.merge_worker import MergeWorker
-
-            bind_operation_worker(window, MergeWorker(sources, request.output_format, request.output_path))
-        else:
-            worker_kind = request.worker_kind if isinstance(request, ConversionRequest) else request.kind
-            if not window.create_file_worker(operation=worker_kind):
-                return False
-            worker = window.file_worker
-            if isinstance(request, RenameRequest):
-                worker.set_rename(sources, rename_names, strict=request.strict)
-            elif isinstance(request, ConversionRequest):
-                worker.set_conversion(
-                    sources,
-                    request.conversion_type,
-                    request.target_format,
-                    output_mode=request.output_mode,
-                    output_dir=request.output_dir,
-                )
-            elif isinstance(request, CompressionRequest):
-                worker.set_compression(
-                    sources,
-                    request.level,
-                    request.compression_type,
-                    request.pdf_method,
-                    request.replace_pdf,
-                    request.image_output_mode,
-                    request.image_output_dir,
-                )
-
+    def start(
+        self,
+        request: OperationRequest,
+        files: Sequence[FileItem],
+        *,
+        can_start: Callable[[], bool],
+        connect: Callable[[OperationWorker], None],
+    ) -> bool:
+        """Запускает операцию после проверки доступности и подключения сигналов."""
+        if not can_start():
+            return False
+        worker = create_worker_for_request(request, [OperationFile.from_item(file) for file in files])
+        _disconnect_operation_worker(self.worker)
+        connect(worker)
+        self.worker = worker
         self.last_request = request
-        window.file_worker.start()
+        worker.start()
         return True

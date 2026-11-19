@@ -4,6 +4,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from html import escape
 from pathlib import Path
+from re import fullmatch
 from tempfile import TemporaryDirectory
 from urllib.parse import urlsplit
 
@@ -37,6 +38,8 @@ _CELL_BLOCKS = _BLOCKS | {"p", "table", "pre", "li", *(f"h{i}" for i in range(1,
 _INLINE = {"strong": "b", "b": "b", "i": "i", "em": "i", "u": "u"}
 _SKIP = {"script", "style", "template", "head"}
 _MARGIN = 54
+_CELL_PADDING = 6
+_MIN_CELL_CONTENT_WIDTH = 12
 _ALIGNMENT = {"left": TA_LEFT, "center": TA_CENTER, "right": TA_RIGHT, "justify": TA_JUSTIFY}
 
 
@@ -87,6 +90,14 @@ def _docx_sections(source, should_cancel):
         body = html.fragment_fromstring(
             _body_html(section, should_cancel, typography, skip_section_mark=True), create_parent="body"
         )
+        for span in body.iter("span"):
+            _check_cancel(should_cancel)
+            if inline_style(span).get("text-transform") == "uppercase":
+                for element in span.iter():
+                    if element.text:
+                        element.text = element.text.upper()
+                    if element is not span and element.tail:
+                        element.tail = element.tail.upper()
         start = section.start_type
         if result and start == WD_SECTION_START.CONTINUOUS and layout == previous:
             result[-1][0].extend(body)
@@ -141,6 +152,10 @@ def _inline(node, should_cancel):
     attributes = [f'face="{escape(font, quote=True)}"'] if font else []
     if size is not None:
         attributes.append(f'size="{size:g}"')
+    for property_name, attribute in (("color", "color"), ("background-color", "backColor")):
+        value = css.get(property_name, "")
+        if fullmatch(r"#[0-9a-fA-F]{6}", value):
+            attributes.append(f'{attribute}="{value}"')
     if attributes:
         text = f"<font {' '.join(attributes)}>{text}</font>"
     if tag in _INLINE:
@@ -221,23 +236,55 @@ def _table_flowable(node, root, width, height, should_cancel):
     if not widths:
         return None
     grid = [[""] * len(widths) for _ in range(row_count)]
-    commands = [
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ]
+    docx = node.get("data-docx-table") == "true"
+    commands = [("VALIGN", (0, 0), (-1, -1), "TOP")]
+    if not docx:
+        commands.append(("GRID", (0, 0), (-1, -1), 0.4, colors.grey))
     for cell, row, column, across, down in placements:
         _check_cancel(should_cancel)
-        cell_width = max(1, sum(widths[column:column + across]) - 12)
-        cell_height = max(1, height - 6)
+        span_width = sum(widths[column:column + across])
+        css = inline_style(cell) if docx else {}
+        left, right, top, bottom = (
+            (points(css.get(f"padding-{side}")) or 0) if docx else default
+            for side, default in (("left", _CELL_PADDING), ("right", _CELL_PADDING), ("top", 3), ("bottom", 3))
+        )
+        if left + right:
+            scale = min(1, max(0, span_width - _MIN_CELL_CONTENT_WIDTH) / (left + right))
+            left, right = left * scale, right * scale
+        position = (column, row)
+        end = (column + across - 1, row + down - 1)
+        for side, padding, default in (
+            ("LEFT", left, _CELL_PADDING), ("RIGHT", right, _CELL_PADDING), ("TOP", top, 3), ("BOTTOM", bottom, 3),
+        ):
+            if padding != default:
+                commands.append((side + "PADDING", position, position, padding))
+        if alignment := {"middle": "MIDDLE", "bottom": "BOTTOM"}.get(css.get("vertical-align")):
+            commands.append(("VALIGN", position, position, alignment))
+        for side, command in (("left", "LINEBEFORE"), ("right", "LINEAFTER"),
+                              ("top", "LINEABOVE"), ("bottom", "LINEBELOW")):
+            if match := fullmatch(r"([0-9.]+pt) solid (#[0-9a-fA-F]{6})", css.get(f"border-{side}", "")):
+                border_width = points(match[1])
+                if border_width is not None:
+                    commands.append((command, position, end, border_width, colors.HexColor(match[2]), 0))
+        cell_width = span_width - left - right
+        cell_height = max(1, height - top - bottom)
         if any(child.tag in _CELL_BLOCKS for child in cell):
             content = list(_flowables(cell, root, cell_width, cell_height, should_cancel, in_cell=True))
+        elif docx and not len(cell) and not cell.text:
+            content = []
         else:
             content = [_paragraph(_inline(cell, should_cancel)),
                        *_pictures(cell, root, cell_width, cell_height, should_cancel)]
         grid[row][column] = content
         if across > 1 or down > 1:
-            commands.append(("SPAN", (column, row), (column + across - 1, row + down - 1)))
-    return LongTable(grid, colWidths=widths, splitInRow=1, style=TableStyle(commands))
+            commands.append(("SPAN", position, end))
+    min_heights = [points(inline_style(row).get("height")) or 0 for row in node.xpath(
+        "./tr|./thead/tr|./tbody/tr|./tfoot/tr"
+    )] if docx else None
+    return LongTable(
+        grid, colWidths=widths, splitInRow=1, style=TableStyle(commands), minRowHeights=min_heights,
+        hAlign=node.get("align", "LEFT").upper() if docx else "CENTER",
+    )
 
 
 def _flowables(container, root, width, height, should_cancel, *, in_cell=False):
@@ -254,7 +301,8 @@ def _flowables(container, root, width, height, should_cancel, *, in_cell=False):
         elif tag == "table":
             if table := _table_flowable(node, root, width, height, should_cancel):
                 yield table
-                yield Spacer(1, 8)
+                if node.get("data-docx-table") != "true":
+                    yield Spacer(1, 8)
         elif tag == "br" and node.get("data-page-break") == "true" and not in_cell:
             yield PageBreak()
         else:

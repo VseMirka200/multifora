@@ -1,5 +1,6 @@
 """Резервное журналирование ошибок вне обычных обработчиков приложения."""
 
+import logging
 import sys
 import threading
 import traceback
@@ -9,6 +10,11 @@ from PySide6.QtCore import QtMsgType, qInstallMessageHandler
 from app.core.app_utils import _debug_log
 
 _runtime_logging_installed = False
+
+
+class _CoreLogHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:
+        _debug_log(self.format(record), record.levelname)
 
 
 def log_unhandled_exception(
@@ -67,4 +73,9 @@ def install_runtime_logging() -> None:
         threading.excepthook = threading_excepthook
 
     qInstallMessageHandler(_log_qt_message)
+    handler = _CoreLogHandler()
+    for namespace in ("core", "app.workers"):
+        logger = logging.getLogger(namespace)
+        logger.addHandler(handler)
+        logger.setLevel(logging.DEBUG)
     _runtime_logging_installed = True

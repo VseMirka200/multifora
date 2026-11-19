@@ -4,8 +4,8 @@ import os
 from collections.abc import Callable
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
-from app.core.models import FileItem, OperationSource
-from core.workers.pdfcraft_engine import PdfCraftUnavailableError
+from core.file_models import FileItem, OperationSource
+from core.pdf_engine.operations import PdfCraftUnavailableError
 
 
 def pdf_docx_worker_count(files: list[OperationSource]) -> int:

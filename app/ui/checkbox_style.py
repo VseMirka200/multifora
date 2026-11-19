@@ -4,7 +4,7 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPalette, QPen
 from PySide6.QtWidgets import QProxyStyle, QStyle
 
-from app.ui.ui_spacing import CHECKBOX_SIZE
+from app.ui.ui_styles import CHECKBOX_SIZE
 
 
 def paint_checkbox(painter, option):

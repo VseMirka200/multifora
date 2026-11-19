@@ -9,8 +9,8 @@ from pypdf import PdfReader, PdfWriter
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen.canvas import Canvas
 
-from core.workers.office_engine import run_office
-from core.workers.pdfcraft_engine import combine_pdfs, export_pdf, optimize_pdf, render_pdf_pages
+from core.document_engine.office import run_office
+from core.pdf_engine.operations import combine_pdfs, export_pdf, optimize_pdf, render_pdf_pages
 
 
 def test_pdfcraft_export_and_combine(tmp_path):

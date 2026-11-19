@@ -12,8 +12,8 @@ from docx.text.paragraph import Paragraph
 
 from core.filesystem import atomic_output_path
 from core.pdf_engine.image_placements import measure_page_images
+from core.pdf_engine.operations import open_pdf
 from core.pdf_engine.render import open_pdf_renderer, render_page_image
-from core.pdf_engine.text import open_pdf
 
 _PDF_FAMILY_ALIASES = {
     "arial": "Arial", "helvetica": "Arial", "times": "Times New Roman", "timesnewroman": "Times New Roman",

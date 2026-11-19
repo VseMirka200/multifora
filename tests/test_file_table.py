@@ -9,9 +9,9 @@ from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QAbstractItemView, QApplication, QHeaderView
 
-from app.core.models import FileItem
-from app.ui.ui_components import FileListModel, FileListWidget
+from app.ui.file_table import FileListModel, FileListWidget
 from app.ui.ui_styles import build_standard_field_style
+from core.file_models import FileItem
 
 
 class FileTableTests(unittest.TestCase):
@@ -359,7 +359,7 @@ class FileTableTests(unittest.TestCase):
         self.assertTrue(checkbox.isChecked())
         index = widget.model().index(0, widget.model().COLUMN_CHECK)
         widget.model().setData(index, Qt.CheckState.Unchecked, Qt.ItemDataRole.CheckStateRole)
-        self.assertFalse(checkbox.isChecked())
+        self.assertEqual(checkbox.checkState(), Qt.CheckState.PartiallyChecked)
         QTest.mouseClick(checkbox, Qt.MouseButton.LeftButton)
         self.assertTrue(all(widget.model().is_checked(item) for item in files))
         QTest.mouseClick(checkbox, Qt.MouseButton.LeftButton)
@@ -370,7 +370,7 @@ class FileTableTests(unittest.TestCase):
         self.assertTrue(all(widget.model().is_checked(item) for item in files[:2]))
         self.assertFalse(widget.model().is_checked(files[2]))
         widget.set_files(files)
-        self.assertFalse(checkbox.isChecked())
+        self.assertEqual(checkbox.checkState(), Qt.CheckState.PartiallyChecked)
         widget.selectAll()
         self.assertTrue(checkbox.isChecked())
         widget.clear()

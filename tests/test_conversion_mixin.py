@@ -4,10 +4,10 @@ import threading
 import unittest
 from unittest.mock import Mock, patch
 
-import core.workers.conversion.conversion_mixin as conv_module
-from app.core.models import FileItem
-from core.workers.conversion.conversion_mixin import ConversionMixin
-from core.workers.result import OperationResult
+import app.workers.conversion.conversion_mixin as conv_module
+from app.workers.conversion.conversion_mixin import ConversionMixin
+from core.file_models import FileItem
+from core.operation_result import OperationResult
 
 
 class _SignalStub:
@@ -36,7 +36,7 @@ class _DummyConversionWorker(ConversionMixin):
     def _should_cancel(self):
         return self._cancel_requested
 
-    def _record_error(self, file_item, message):
+    def _record_error(self, file_item, message, *, cause=None):
         self.errors.append({"file": file_item, "message": message})
 
     def _emit_finished(self, new_files=None, updated_files=None):
@@ -93,8 +93,8 @@ class ConversionMixinTests(unittest.TestCase):
     def test_common_engine_failure_does_not_retry_every_file(self):
         from types import SimpleNamespace
 
-        from core.workers.office_engine import OfficeUnavailableError
-        from core.workers.pdfcraft_engine import PdfCraftUnavailableError
+        from core.document_engine.office import OfficeUnavailableError
+        from core.pdf_engine.operations import PdfCraftUnavailableError
 
         for error_type in (OfficeUnavailableError, PdfCraftUnavailableError):
             with self.subTest(engine=error_type.__name__):
@@ -140,7 +140,7 @@ class ConversionMixinTests(unittest.TestCase):
     def test_parallel_pdf_to_docx_stops_scheduling_when_engine_is_missing(self):
         from types import SimpleNamespace
 
-        from core.workers.pdfcraft_engine import PdfCraftUnavailableError
+        from core.pdf_engine.operations import PdfCraftUnavailableError
 
         worker = _DummyConversionWorker()
         worker.files = [SimpleNamespace(name=f"{i}.pdf", path=f"{i}.pdf", is_file=True) for i in range(20)]
@@ -212,7 +212,7 @@ class ConversionMixinTests(unittest.TestCase):
         with (
             patch.object(worker, "_conversion_output_path", return_value="result.docx"),
             patch.object(worker, "_release_conversion_output_path") as release,
-            patch("core.workers.pdfcraft_engine.export_pdf", side_effect=InterruptedError("cancelled")),
+            patch("core.pdf_engine.operations.export_pdf", side_effect=InterruptedError("cancelled")),
         ):
             with self.assertRaises(InterruptedError):
                 worker._convert_pdf_to_docx(FileItem("source.pdf"))
@@ -258,7 +258,7 @@ class ConversionMixinTests(unittest.TestCase):
                 return_value=r"C:\temp\output.jpg",
             ) as convert_mock,
             patch(
-                "core.workers.conversion.conversion_mixin.os.path.exists",
+                "app.workers.conversion.conversion_mixin.os.path.exists",
                 return_value=True,
             ),
         ):

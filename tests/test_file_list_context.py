@@ -5,11 +5,11 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from app.core.models import FileItem
 from app.ui.mixins.file_list_actions_mixin import FileListActionsMixin
 from app.ui.mixins.file_list_context_mixin import FileListContextMixin
 from app.ui.mixins.file_list_preview_mixin import FileListPreviewMixin
 from app.ui.mixins.worker_ops_mixin import WorkerOpsMixin
+from core.file_models import FileItem
 from core.operation_requests import ConversionRequest, RenameRequest
 
 
@@ -185,7 +185,7 @@ class FileListContextTests(unittest.TestCase):
 class FileMetadataTests(unittest.TestCase):
     def test_file_item_reads_type_and_size_with_one_stat_call(self):
         path_stat = SimpleNamespace(st_mode=stat.S_IFREG, st_size=4096)
-        with patch("app.core.models.os.stat", return_value=path_stat) as os_stat:
+        with patch("core.file_models.os.stat", return_value=path_stat) as os_stat:
             item = FileItem(r"C:\queue\report.pdf")
 
         os_stat.assert_called_once_with(r"C:\queue\report.pdf")

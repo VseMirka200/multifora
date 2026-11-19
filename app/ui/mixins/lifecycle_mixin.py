@@ -73,7 +73,18 @@ class LifecycleMixin:
             try:
                 with open(file_path, encoding="utf-8") as f:
                     imported_templates = json.load(f)
+                if not isinstance(imported_templates, dict):
+                    raise ValueError("В файле должен быть список именованных шаблонов.")
+                added = renamed = invalid = 0
                 for name, template_data in imported_templates.items():
+                    if (
+                        not name.strip()
+                        or not isinstance(template_data, dict)
+                        or not isinstance(template_data.get("type"), str)
+                        or not isinstance(template_data.get("data"), dict)
+                    ):
+                        invalid += 1
+                        continue
                     if name in self.custom_templates:
                         counter = 1
                         new_name = f"{name}_{counter}"
@@ -81,14 +92,16 @@ class LifecycleMixin:
                             counter += 1
                             new_name = f"{name}_{counter}"
                         self.custom_templates[new_name] = template_data
+                        renamed += 1
                     else:
                         self.custom_templates[name] = template_data
+                    added += 1
                 self.update_templates_table(parent_window)
                 self.save_settings()
                 QMessageBox.information(
                     parent_window if parent_window else self,
-                    "Успех",
-                    f"Импортировано {len(imported_templates)} шаблонов",
+                    "Импорт шаблонов",
+                    f"Добавлено: {added}. Переименовано при совпадении: {renamed}. Пропущено: {invalid}.",
                 )
             except Exception as exc:
                 QMessageBox.critical(
@@ -117,20 +130,24 @@ class LifecycleMixin:
             selected = show_app_choice(
                 self,
                 "Операция выполняется",
-                "Дождаться завершения операции перед закрытием?",
+                "Выберите, что сделать с текущей операцией.",
                 (
-                    ("wait", "Подождать", "secondary"),
-                    ("cancel", "Отменить", "secondary"),
+                    ("wait", "Закрыть после завершения", "secondary"),
+                    ("stop", "Остановить и закрыть", "danger"),
+                    ("stay", "Остаться", "secondary"),
                 ),
                 icon=QMessageBox.Icon.Question,
-                default_key="wait",
-                cancel_key="cancel",
+                default_key="stay",
+                cancel_key="stay",
             )
-            if selected == "wait":
+            if selected in {"wait", "stop"}:
                 self._pending_close = True
+            if selected == "wait":
                 self.status_bar.showMessage(
                     "Закрытие запланировано после завершения операции."
                 )
+            elif selected == "stop":
+                self.cancel_operation()
             event.ignore()
             return
 

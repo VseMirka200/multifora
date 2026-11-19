@@ -4,12 +4,7 @@ import re
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from app.core.app_identity import APP_VERSION
-
-REPO = "VseMirka200/multifora"
-RELEASES_LATEST_API = f"https://api.github.com/repos/{REPO}/releases/latest"
-TAGS_API = f"https://api.github.com/repos/{REPO}/tags"
-REPO_PAGE = f"https://github.com/{REPO}"
+from app.core.app_identity import APP_VERSION, RELEASES_LATEST_API, TAGS_API
 
 
 def _parse_version(version: str) -> tuple[int, ...]:

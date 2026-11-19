@@ -1,7 +1,13 @@
+param(
+    [string]$BundleDirectory,
+    [string]$MetricsPath
+)
+
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$bundle = Join-Path $root 'dist\Multifora'
-$executable = Join-Path $bundle 'Multifora.exe'
+if (-not $BundleDirectory) { $BundleDirectory = Join-Path $root 'dist\Multifora' }
+if (-not $MetricsPath) { $MetricsPath = Join-Path $root 'dist\runtime-metrics.json' }
+$executable = Join-Path $BundleDirectory 'Multifora.exe'
 $expectedWork = Join-Path ([IO.Path]::GetTempPath()) ('multifora-runtime-' + [guid]::NewGuid().ToString('N'))
 $savedProfile = $env:USERPROFILE
 $savedPlatform = $env:QT_QPA_PLATFORM
@@ -26,7 +32,7 @@ try {
     $report = Get-Content -LiteralPath $env:MULTIFORA_SMOKE_REPORT -Raw | ConvertFrom-Json
     if ($report.status -ne 'ok') { throw "Application smoke test failed: $($report | ConvertTo-Json -Compress -Depth 10)" }
     @{ started = $true; observation_ms = $timer.ElapsedMilliseconds; office_backend = 'Python' } |
-        ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'dist\runtime-metrics.json') -Encoding UTF8
+        ConvertTo-Json | Set-Content -LiteralPath $MetricsPath -Encoding UTF8
 } finally {
     $env:USERPROFILE = $savedProfile
     $env:QT_QPA_PLATFORM = $savedPlatform

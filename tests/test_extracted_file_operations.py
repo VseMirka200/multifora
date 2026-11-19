@@ -4,8 +4,8 @@ from unittest.mock import patch
 import pytest
 from PIL import Image
 
-from app.core.models import FileItem
 from core.compress_files import compress_image, compress_pdf, pdf_settings
+from core.file_models import FileItem
 from core.filesystem import atomic_output_path, get_unique_path
 from core.merge_documents import merge_documents
 from core.rename_transaction import rename_batch

@@ -9,8 +9,8 @@ from zipfile import ZipFile
 
 from docx import Document
 
-from app.core.models import FileItem
-from core.workers.conversion.conversion_mixin import ConversionMixin
+from app.workers.conversion.conversion_mixin import ConversionMixin
+from core.file_models import FileItem
 
 
 class ConversionWorker(ConversionMixin):

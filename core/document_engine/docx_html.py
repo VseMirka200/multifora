@@ -3,6 +3,7 @@
 from base64 import b64encode
 from html import escape
 from pathlib import Path
+from re import fullmatch
 from urllib.parse import urlsplit
 
 from docx import Document
@@ -17,6 +18,12 @@ from core.filesystem import atomic_output_path
 
 _IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp"}
 _PAGE_BREAK = '<br data-page-break="true">'
+_HIGHLIGHTS = {
+    "black": "#000000", "blue": "#0000FF", "cyan": "#00FFFF", "green": "#00FF00",
+    "magenta": "#FF00FF", "red": "#FF0000", "yellow": "#FFFF00", "white": "#FFFFFF",
+    "darkBlue": "#000080", "darkCyan": "#008080", "darkGreen": "#008000", "darkMagenta": "#800080",
+    "darkRed": "#800000", "darkYellow": "#808000", "darkGray": "#808080", "lightGray": "#C0C0C0",
+}
 _ALIGNMENT = {
     WD_ALIGN_PARAGRAPH.LEFT: "left", WD_ALIGN_PARAGRAPH.CENTER: "center",
     WD_ALIGN_PARAGRAPH.RIGHT: "right", WD_ALIGN_PARAGRAPH.JUSTIFY: "justify",
@@ -77,6 +84,7 @@ def _family(properties, theme):
 
 
 def _run_html(run, paragraph, typography):
+    fonts = (run.font, *_style_fonts(run.style), *_style_fonts(paragraph.style))
     fragments = []
     for child in run._element:
         if child.tag == qn("w:t"):
@@ -89,7 +97,6 @@ def _run_html(run, paragraph, typography):
             extent = next(child.iter(qn("wp:extent")), None)
             fragments.extend(_inline_picture(blip, run.part, extent) for blip in child.iter(qn("a:blip")))
     pieces = "".join(fragments).split(_PAGE_BREAK)
-    fonts = (run.font, *_style_fonts(run.style), *_style_fonts(paragraph.style))
     for attribute, tag in (("bold", "strong"), ("italic", "em"), ("underline", "u")):
         flag = next((value for font in fonts if (value := getattr(font, attribute)) is not None), None)
         if flag:
@@ -99,6 +106,14 @@ def _run_html(run, paragraph, typography):
     family = next((name for prop in (*properties, defaults) if (name := _family(prop, theme))), None)
     size = next((font.size for font in fonts if font.size is not None), None)
     css = []
+    if next((font.all_caps for font in fonts if font.all_caps is not None), False):
+        css.append("text-transform:uppercase")
+    color = next((font.color for font in fonts if font.color.type is not None), None)
+    if color is not None and color.rgb is not None:
+        css.append(f"color:#{color.rgb}")
+    highlight = next((font.highlight_color for font in fonts if font.highlight_color is not None), None)
+    if highlight is not None and (background := _HIGHLIGHTS.get(highlight.xml_value)):
+        css.append(f"background-color:{background}")
     if family:
         css.append(f"font-family:{family}")
     if size is not None:
@@ -171,8 +186,64 @@ def _paragraph_html(paragraph, typography):
     return f"<{tag}{attributes}>{''.join(inline)}</{tag}>"
 
 
+def _table_properties(table):
+    yield table._tbl.tblPr
+    style = table.style
+    while style is not None:
+        if (properties := style.element.find(qn("w:tblPr"))) is not None:
+            yield properties
+        style = style.base_style
+
+
+def _table_setting(properties, tag):
+    return next((value for prop in properties if prop is not None and (value := prop.find(tag, nsmap)) is not None),
+                None)
+
+
+def _cell_style(cell, properties, row, column, down, rows, columns):
+    css = []
+    cell_properties = cell._tc.tcPr
+    for side, default in (("left", 5.4), ("right", 5.4), ("top", 0), ("bottom", 0)):
+        margin = _table_setting((cell_properties,), f"w:tcMar/w:{side}")
+        if margin is None:
+            margin = _table_setting(properties, f"w:tblCellMar/w:{side}")
+        width = margin.get(qn("w:w"), "") if margin is not None else ""
+        if width.isascii() and width.isdecimal():
+            default = int(width) / 20
+        css.append(f"padding-{side}:{default:g}pt")
+
+    for side, outside, inside in (
+        ("left", column == 0, "insideV"),
+        ("right", column + cell.grid_span == columns, "insideV"),
+        ("top", row == 0, "insideH"),
+        ("bottom", row + down == rows, "insideH"),
+    ):
+        border = _table_setting((cell_properties,), f"w:tcBorders/w:{side}")
+        if border is None:
+            border = _table_setting(properties, f"w:tblBorders/w:{side if outside else inside}")
+        if border is None or border.get(qn("w:val")) in {"nil", "none"}:
+            continue
+        size = border.get(qn("w:sz"), "4")
+        color = border.get(qn("w:color"), "auto")
+        width = int(size) / 8 if size.isascii() and size.isdecimal() else .5
+        if width:
+            color = color if fullmatch(r"[0-9a-fA-F]{6}", color) else "000000"
+            css.append(f"border-{side}:{width:g}pt solid #{color}")
+
+    alignment = _table_setting((cell_properties,), "w:vAlign")
+    if alignment is not None:
+        value = {"center": "middle", "bottom": "bottom"}.get(alignment.get(qn("w:val")))
+        if value:
+            css.append(f"vertical-align:{value}")
+    return ";".join(css)
+
+
 def _table_html(table, should_cancel, typography):
-    parts = ["<table><colgroup>"]
+    properties = tuple(_table_properties(table))
+    justification = _table_setting(properties, "w:jc")
+    alignment = justification.get(qn("w:val")) if justification is not None else None
+    align = f' align="{alignment}"' if alignment in {"left", "center", "right"} else ""
+    parts = [f'<table data-docx-table="true"{align}><colgroup>']
     for column in table.columns:
         width = f' style="width:{column.width.pt:g}pt"' if column.width else ""
         parts.append(f"<col{width}>")
@@ -186,10 +257,11 @@ def _table_html(table, should_cancel, typography):
             cell = _Cell(cell_xml, table)
             cells[offset] = cell
             offset += cell.grid_span
-        rows.append((cells, offset + row.grid_cols_after))
-    for index, (cells, columns) in enumerate(rows):
+        rows.append((cells, offset + row.grid_cols_after, row.height))
+    column_count = max(len(table.columns), max((columns for _, columns, _ in rows), default=0))
+    for index, (cells, columns, row_height) in enumerate(rows):
         _check_cancel(should_cancel)
-        parts.append("<tr>")
+        parts.append(f'<tr style="height:{row_height.pt:g}pt">' if row_height else "<tr>")
         column = 0
         while column < columns:
             cell = cells.get(column)
@@ -200,8 +272,8 @@ def _table_html(table, should_cancel, typography):
             span = cell.grid_span
             if cell._tc.vMerge != "continue":
                 attrs = f' colspan="{span}"' if span > 1 else ""
+                height = 1
                 if cell._tc.vMerge == "restart":
-                    height = 1
                     for next_index in range(index + 1, len(rows)):
                         next_cells = rows[next_index][0]
                         below = next_cells.get(column)
@@ -210,7 +282,14 @@ def _table_html(table, should_cancel, typography):
                         height += 1
                     if height > 1:
                         attrs += f' rowspan="{height}"'
-                parts.extend((f"<td{attrs}>", _body_html(cell, should_cancel, typography), "</td>"))
+                css = _cell_style(cell, properties, index, column, height, len(rows), column_count)
+                hide_mark = _table_setting((cell._tc.tcPr,), "w:hideMark")
+                empty_cell = len(cell._tc) == 2 and not cell._tc.xpath(".//w:r | .//w:hyperlink")
+                hide_empty_mark = (
+                    empty_cell and hide_mark is not None and hide_mark.get(qn("w:val")) not in {"0", "false", "off"}
+                )
+                content = "" if hide_empty_mark else _body_html(cell, should_cancel, typography)
+                parts.extend((f'<td{attrs} style="{css}">', content, "</td>"))
             column += span
         parts.append("</tr>")
     return "".join((*parts, "</table>"))

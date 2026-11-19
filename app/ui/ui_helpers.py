@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QSpinBox, QVBoxLayout, QWidget
 
 from app.ui.ui_components import setup_standard_form_label
-from app.ui.ui_spacing import MARGINS_NONE, SPACE_NONE, SPACE_SM
+from app.ui.ui_styles import MARGINS_NONE, SPACE_NONE, SPACE_SM
 
 
 def configure_layout(layout, *, margins=MARGINS_NONE, spacing=SPACE_NONE):

@@ -3,12 +3,12 @@
 import unittest
 from pathlib import Path
 
-from app.core.github_links import (
-    DOCUMENTATION_URL,
+from app.core.app_identity import (
     GITHUB_NEW_ISSUE_URL,
+    GUIDE_URL,
     PROJECT_CONTRIBUTING_URL,
+    REPO_PAGE,
 )
-from app.core.update_checker import REPO_PAGE
 
 
 class GitHubLinksTests(unittest.TestCase):
@@ -22,10 +22,11 @@ class GitHubLinksTests(unittest.TestCase):
             GITHUB_NEW_ISSUE_URL, REPO_PAGE + "/issues/new/choose"
         )
 
-    def test_documentation_uses_the_project_site(self):
+    def test_documentation_links_to_the_repository_guide(self):
         self.assertEqual(
-            DOCUMENTATION_URL, "https://vsemirka200.github.io/multifora/"
+            GUIDE_URL, f"{REPO_PAGE}/blob/main/docs/USAGE.md"
         )
+        self.assertTrue(Path("docs/USAGE.md").is_file())
 
     def test_five_russian_issue_templates_exist(self):
         directory = (

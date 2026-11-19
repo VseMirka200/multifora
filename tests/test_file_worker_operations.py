@@ -4,7 +4,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from core.workers.file_worker import FileWorker, _format_rename_error
+from app.workers.factory import create_operation_worker
+from app.workers.rename_worker import _format_rename_error
 
 
 class FileWorkerOperationTests(unittest.TestCase):
@@ -15,7 +16,7 @@ class FileWorkerOperationTests(unittest.TestCase):
         self.assertNotIn("WinError", message)
 
     def test_cancel_immediately_calls_active_operation_stop(self):
-        worker = FileWorker()
+        worker = create_operation_worker(None)
         stop = Mock()
         worker._set_active_cancel_action(stop)
 
@@ -25,7 +26,7 @@ class FileWorkerOperationTests(unittest.TestCase):
         stop.assert_called_once_with()
 
     def test_operation_handlers_can_be_built_for_every_operation(self):
-        worker = FileWorker()
+        worker = create_operation_worker(None)
 
         self.assertEqual(
             set(worker._operation_handlers()),
@@ -42,7 +43,7 @@ class FileWorkerOperationTests(unittest.TestCase):
             folder="C:/files",
             name="source.txt",
         )
-        worker = FileWorker()
+        worker = create_operation_worker(None)
         results = []
         worker.finished.connect(results.append)
         worker.set_rename([source], ["renamed.txt"])
@@ -67,7 +68,7 @@ class FileWorkerOperationTests(unittest.TestCase):
                 folder=tmp_dir,
                 name="source.txt",
             )
-            worker = FileWorker()
+            worker = create_operation_worker(None)
             results = []
             worker.finished.connect(results.append)
             worker.set_rename([source], ["renamed.txt"])
@@ -93,7 +94,7 @@ class FileWorkerOperationTests(unittest.TestCase):
                 folder=directory,
                 name="source.txt",
             )
-            worker = FileWorker()
+            worker = create_operation_worker(None)
             results = []
             worker.finished.connect(results.append)
             worker.set_rename([source], ["renamed.txt"])

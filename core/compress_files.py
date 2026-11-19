@@ -5,7 +5,7 @@ from collections.abc import Callable
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from app.core import deps
+from core import image_dependencies as deps
 from core.filesystem import publish_new_file
 from core.image_optimizer import save_optimized_image
 

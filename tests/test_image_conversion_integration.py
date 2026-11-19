@@ -13,7 +13,7 @@ from app.core.conversion_formats import (
     mixed_source_label_for_category,
     target_formats_for_category,
 )
-from app.core.models import FileItem
+from core.file_models import FileItem
 from tests.pdf_engine_fixtures import create_pdf
 from tests.test_conversion_mixin import _DummyConversionWorker
 

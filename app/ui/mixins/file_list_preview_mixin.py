@@ -2,15 +2,12 @@ import os
 
 from PySide6.QtWidgets import QMessageBox
 
-from app.core.conversion_formats import CATEGORY_FILE_TYPES, suffix_for_format
-from app.core.rename_plan import resolve_rename_targets
-from app.core.rename_validation import (
-    analyze_rename_plan,
-    format_rename_plan_issues,
-)
-from app.ui.ui_components import operation_file_items
+from app.core.conversion_formats import suffix_for_format
+from app.ui.file_table import operation_file_items
+from core.filesystem import compressed_name, conversion_directory, converted_name
 from core.operation_requests import RenameRequest
-from core.output_paths import compressed_name, conversion_directory, converted_name
+from core.rename_plan import resolve_rename_targets
+from core.rename_validation import analyze_rename_plan, format_rename_plan_issues
 
 
 class FileListPreviewMixin:
@@ -32,6 +29,7 @@ class FileListPreviewMixin:
     def _set_preview_names_to_original(self):
         for file_item in getattr(self, "files", []) or []:
             preview = self.list_files.model().preview_for(file_item)
+            preview.rename_status = ""
             preview.preview_name = file_item.name
             preview.estimated_compressed_size = None
             preview.conversion_target_format = ""
@@ -46,12 +44,16 @@ class FileListPreviewMixin:
             self.list_files.refresh()
         if callable(getattr(self, "refresh_preview_panel", None)):
             self.refresh_preview_panel()
+        if callable(getattr(self, "_schedule_operation_scope_refresh", None)):
+            self._schedule_operation_scope_refresh()
 
     def _active_operation_id(self) -> str:
         tab_bar = getattr(self, "operations_tab_bar", None)
         if tab_bar is None:
             return ""
         index = tab_bar.currentIndex()
+        if index == getattr(self, "_settings_tab_index", None):
+            index = self.operations_stack.currentIndex()
         if index < 0:
             return ""
         return str(tab_bar.tabData(index) or "")
@@ -91,9 +93,13 @@ class FileListPreviewMixin:
 
     def refresh_rename_preview(self, show_empty_warning=False):
         """Автоматически обновляет предпросмотр переименования."""
+        issue_button = getattr(self, "btn_locate_rename_issue", None)
+        if issue_button is not None:
+            issue_button.hide()
         if not getattr(self, "files", None):
             if hasattr(self, "btn_apply_rename"):
                 self.btn_apply_rename.setEnabled(False)
+                self.btn_apply_rename.setText("Переименовать")
             self._set_preview_names_to_original()
             self._refresh_list_preview()
             if show_empty_warning:
@@ -108,33 +114,33 @@ class FileListPreviewMixin:
         if not getattr(self, "current_template", None):
             if hasattr(self, "btn_apply_rename"):
                 self.btn_apply_rename.setEnabled(False)
+                self.btn_apply_rename.setText("Переименовать")
             self._set_preview_names_to_original()
             self._refresh_list_preview()
             return
 
         self.apply_template_logic()
-        self._refresh_list_preview()
         if getattr(self, "_rename_template_error", ""):
             self._rename_plan_issues = []
             self.btn_apply_rename.setEnabled(False)
+            self.btn_apply_rename.setText("Переименовать")
             validation_label = getattr(self, "rename_validation_label", None)
             if validation_label is not None:
                 validation_label.setText(self._rename_template_error)
             self.status_bar.showMessage(self._rename_template_error)
+            self._refresh_list_preview()
             return
 
-        changed_pairs = []
-        model = self.list_files.model()
-        for item in self.files:
-            name = model.preview_for(item).preview_name
-            if name != item.name:
-                changed_pairs.append((item, name))
+        changed_pairs = self._rename_preview_pairs()
         has_changes = bool(changed_pairs)
         self._rename_plan_issues = analyze_rename_plan(
             [item for item, _name in changed_pairs],
             [name for _item, name in changed_pairs],
         )
+        issues_by_path = {issue.source: issue for issue in self._rename_plan_issues}
         blocking = any(issue.blocking for issue in self._rename_plan_issues)
+        if issue_button is not None:
+            issue_button.setVisible(bool(self._rename_plan_issues))
         if has_changes and not blocking:
             try:
                 actual_paths = resolve_rename_targets(
@@ -149,6 +155,19 @@ class FileListPreviewMixin:
                 blocking = True
                 self._rename_template_error = str(error)
         self.btn_apply_rename.setEnabled(has_changes and not blocking)
+        self.btn_apply_rename.setText(
+            f"Переименовать ({len(changed_pairs)})" if has_changes and not blocking else "Переименовать"
+        )
+        model = self.list_files.model()
+        touched = {id(item) for item, _ in changed_pairs}
+        for item in self.files:
+            preview = model.preview_for(item)
+            issue = issues_by_path.get(item.path)
+            if issue is not None:
+                preview.rename_status = issue.message if blocking else "Конфликт разрешён"
+            else:
+                preview.rename_status = "Новое имя" if id(item) in touched else "Без изменений"
+        self._refresh_list_preview()
         validation_label = getattr(self, "rename_validation_label", None)
         if validation_label is not None:
             if blocking:
@@ -249,18 +268,10 @@ class FileListPreviewMixin:
             self._refresh_list_preview()
             return
 
-        mode_combo = getattr(self, "combo_conversion_output_mode", None)
-        output_mode = str(
-            mode_combo.currentData()
-            if mode_combo is not None
-            else getattr(self, "conversion_output_mode", "ask")
-        )
-        header = self._RESULT_FOLDER_HEADER
-        if output_mode == "ask":
-            header = "Папка результата (выбор при запуске)"
-        self._set_preview_folder_header(header)
+        self._set_preview_folder_header(self._RESULT_FOLDER_HEADER)
 
-        active_ids = {id(item) for item in self._preview_operation_items()}
+        active_files, _ = self._collect_compatible_conversion_files(category_label, from_format, to_format)
+        active_ids = {id(item) for item in active_files}
         for file_item in self.files:
             preview = self.list_files.model().preview_for(file_item)
             preview.preview_name = file_item.name
@@ -270,23 +281,11 @@ class FileListPreviewMixin:
                 getattr(file_item, "folder", "")
                 or os.path.dirname(str(getattr(file_item, "path", "")))
             )
-            if id(file_item) not in active_ids or not getattr(file_item, "is_file", False):
+            if id(file_item) not in active_ids:
                 continue
-            if category_label:
-                file_type = str(getattr(file_item, "file_type", "")).lower()
-                expected = CATEGORY_FILE_TYPES.get(category_label, "")
-                if expected and file_type != expected:
-                    continue
-            if callable(
-                getattr(self, "_check_file_compatibility_dual", None)
-            ) and self._check_file_compatibility_dual(file_item, from_format):
-                preview.conversion_target_format = str(to_format).strip().upper()
-                preview.preview_name = self._build_conversion_preview_name(
-                    file_item.name, to_format
-                )
-                preview.preview_folder = self._conversion_preview_folder(
-                    file_item
-                )
+            preview.conversion_target_format = str(to_format).strip().upper()
+            preview.preview_name = self._build_conversion_preview_name(file_item.name, to_format)
+            preview.preview_folder = self._conversion_preview_folder(file_item)
 
         self._refresh_list_preview()
 
@@ -436,6 +435,27 @@ class FileListPreviewMixin:
 
         self._refresh_list_preview()
 
+    def _rename_preview_pairs(self):
+        model = self.list_files.model()
+        return [
+            (item, name) for item in self._preview_operation_items()
+            if (name := model.preview_for(item).preview_name) != item.name
+        ]
+
+    def _locate_rename_issue(self):
+        issues = self._rename_plan_issues
+        if not issues:
+            return
+        issue = next((item for item in issues if item.blocking), issues[0])
+        table = self.list_files
+        model = table.model()
+        for row, item in enumerate(model.files()):
+            if item.path == issue.source:
+                table.selectRow(row)
+                table.scrollTo(model.index(row, model.COLUMN_NEW_NAME))
+                table.setFocus()
+                break
+
     def apply_rename(self):
         """Применение переименования"""
         if not self._ensure_operation_can_start():
@@ -443,19 +463,8 @@ class FileListPreviewMixin:
         if not self.files:
             return
 
-        files_to_rename = []
-        new_names = []
-
-        for file_item in self._preview_operation_items():
-            preview = self.list_files.model().preview_for(file_item)
-            if (
-                hasattr(preview, "preview_name")
-                and file_item.name != preview.preview_name
-            ):
-                files_to_rename.append(file_item)
-                new_names.append(preview.preview_name)
-
-        if not files_to_rename:
+        pairs = self._rename_preview_pairs()
+        if not pairs:
             QMessageBox.information(
                 self, "Информация", "Нет изменений для применения"
             )
@@ -463,6 +472,7 @@ class FileListPreviewMixin:
                 "Переименование: нет изменений для применения", "INFO"
             )
             return
+        files_to_rename, new_names = zip(*pairs, strict=True)
 
         issues = analyze_rename_plan(files_to_rename, new_names)
         blocking_issues = [issue for issue in issues if issue.blocking]
@@ -482,10 +492,13 @@ class FileListPreviewMixin:
             )
 
         reply = self.show_russian_message_box(
-            "Подтверждение",
-            f"Переименовать {len(files_to_rename)} файлов?{conflict_details}",
+            "Переименование исходников",
+            f"Изменятся имена {len(files_to_rename)} файлов или папок в их исходных папках.{conflict_details}",
             QMessageBox.Icon.Question,
             True,
+            yes_text="Переименовать",
+            no_text="Отмена",
+            destructive=True,
         )
 
         if reply:

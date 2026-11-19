@@ -8,9 +8,8 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
-from app.core.app_utils import _log_ignored_error
+from app.core.app_utils import _log_ignored_error, signals_blocked
 from app.core.message_boxes import show_app_confirmation
-from app.core.qt_utils import signals_blocked
 from app.ui.checkbox_style import install_checkbox_style
 from app.ui.theme_styles import APPLICATION_STYLES
 from app.ui.ui_components import (
@@ -167,7 +166,7 @@ class AppearanceMixin:
             self.apply_theme_mode("system")
 
     def show_russian_message_box(
-        self, title, text, icon=QMessageBox.Icon.Question, default_no=True
+        self, title, text, icon=QMessageBox.Icon.Question, default_no=True, **button_options
     ):
         """Показывает диалог подтверждения с русскими кнопками Да/Нет."""
         return show_app_confirmation(
@@ -176,4 +175,5 @@ class AppearanceMixin:
             text,
             icon=icon,
             default_no=default_no,
+            **button_options,
         )

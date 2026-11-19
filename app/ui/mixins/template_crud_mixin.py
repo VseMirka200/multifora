@@ -24,8 +24,7 @@ from app.ui.ui_components import (
     setup_standard_primary_button,
     setup_standard_secondary_button,
 )
-from app.ui.ui_spacing import DIALOG_MARGINS, MARGINS_NONE, SPACE_SM
-from app.ui.ui_styles import build_template_table_style
+from app.ui.ui_styles import DIALOG_MARGINS, MARGINS_NONE, SPACE_SM, build_template_table_style
 
 
 class TemplateCrudMixin:
@@ -443,16 +442,19 @@ class TemplateCrudMixin:
             current_name = self._get_selected_template_name()
             self.templates_table.clearContents()
             self.templates_table.setRowCount(len(self.custom_templates))
-            for row, name in enumerate(self.custom_templates):
-                name_item = QTableWidgetItem(f"{row + 1}. {name}")
+            for row, (name, template) in enumerate(self.custom_templates.items()):
+                name_item = QTableWidgetItem(name)
                 name_item.setData(Qt.ItemDataRole.UserRole, name)
                 name_item.setFlags(
                     name_item.flags() & ~Qt.ItemFlag.ItemIsEditable
                 )
                 self.templates_table.setItem(row, 0, name_item)
-            self.templates_table.horizontalHeader().setSectionResizeMode(
-                QHeaderView.ResizeMode.Stretch
-            )
+                if self.templates_table.columnCount() > 1:
+                    kind = template.get("type", "") if isinstance(template, dict) else ""
+                    self.templates_table.setItem(row, 1, QTableWidgetItem(kind))
+            empty_hint = getattr(self, "template_empty_hint", None)
+            if empty_hint is not None:
+                empty_hint.setVisible(not self.custom_templates)
             if current_name:
                 for row in range(self.templates_table.rowCount()):
                     item = self.templates_table.item(row, 0)
@@ -512,6 +514,9 @@ class TemplateCrudMixin:
         description = QLabel("Сохранённые пользовательские шаблоны", dialog)
         description.setWordWrap(True)
         layout.addWidget(description)
+        self.template_empty_hint = QLabel("Сохраните параметры на вкладке «Переименование» или импортируйте шаблон.")
+        self.template_empty_hint.setWordWrap(True)
+        layout.addWidget(self.template_empty_hint)
 
         self.templates_table = QTableWidget(dialog)
         self.templates_table.setObjectName("template_manager_table")
@@ -519,8 +524,8 @@ class TemplateCrudMixin:
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Expanding,
         )
-        self.templates_table.setColumnCount(1)
-        self.templates_table.setHorizontalHeaderLabels(["Название шаблона"])
+        self.templates_table.setColumnCount(2)
+        self.templates_table.setHorizontalHeaderLabels(["Шаблон", "Тип"])
         self.templates_table.setSelectionBehavior(
             QTableWidget.SelectionBehavior.SelectRows
         )
@@ -535,7 +540,6 @@ class TemplateCrudMixin:
         self.templates_table.setAutoFillBackground(False)
         self.templates_table.setIconSize(QSize(16, 16))
         self.templates_table.verticalHeader().setVisible(False)
-        self.templates_table.horizontalHeader().setVisible(False)
         self.templates_table.setContextMenuPolicy(
             Qt.ContextMenuPolicy.CustomContextMenu
         )
@@ -552,12 +556,27 @@ class TemplateCrudMixin:
         layout.addWidget(self.templates_table, 1)
 
         actions_layout = self._build_template_manager_action_buttons(dialog)
-        self.templates_table.itemSelectionChanged.connect(
-            lambda: self.btn_apply_template.setEnabled(
-                bool(self.templates_table.selectionModel().selectedRows())
-            )
-        )
         layout.addLayout(actions_layout)
+        edit_layout = QHBoxLayout()
+        edit_buttons = []
+        for label, callback in (
+            ("Переименовать", self._rename_selected_template),
+            ("Удалить шаблон", self.delete_selected_template),
+        ):
+            button = QPushButton(label, dialog)
+            setup_standard_secondary_button(button, expand=True)
+            button.setEnabled(False)
+            button.clicked.connect(lambda _checked, action=callback: action(dialog))
+            edit_layout.addWidget(button, 1)
+            edit_buttons.append(button)
+        layout.addLayout(edit_layout)
+
+        def sync_actions():
+            selected = bool(self.templates_table.selectionModel().selectedRows())
+            for button in (self.btn_apply_template, *edit_buttons):
+                button.setEnabled(selected)
+
+        self.templates_table.itemSelectionChanged.connect(sync_actions)
 
         self._templates_apply_shortcut = QShortcut(
             QKeySequence(Qt.Key.Key_Return), dialog

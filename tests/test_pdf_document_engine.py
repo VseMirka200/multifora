@@ -13,7 +13,7 @@ from tests.pdf_engine_fixtures import create_pdf
 
 class PdfDocumentEngineTests(unittest.TestCase):
     def test_pdf_to_docx_keeps_text_in_page_order(self):
-        from app.core.models import FileItem
+        from core.file_models import FileItem
         from tests.test_conversion_mixin import _DummyConversionWorker
 
         with tempfile.TemporaryDirectory() as directory:
@@ -30,7 +30,7 @@ class PdfDocumentEngineTests(unittest.TestCase):
 
 @pytest.mark.parametrize("target", ["TXT"])
 def test_pdf_text_export_needs_no_office(tmp_path, target):
-    from app.core.models import FileItem
+    from core.file_models import FileItem
     from tests.test_conversion_mixin import _DummyConversionWorker
 
     source = tmp_path / "pages.pdf"

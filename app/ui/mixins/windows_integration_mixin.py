@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 
-from app.core.qt_utils import signals_blocked
+from app.core.app_utils import signals_blocked
 
 try:
     import winreg
@@ -310,6 +310,40 @@ class WindowsIntegrationMixin:
             self.save_settings()
             self.refresh_shell_context_menu()
             self.status_bar.showMessage("Пункт контекстного меню создан")
+
+    def context_menu_installed(self):
+        if os.name != "nt" or winreg is None:
+            return False
+        try:
+            command = _context_menu_command()
+            for root in self._CONTEXT_MENU_ROOTS:
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, root + r"\command", 0, winreg.KEY_READ) as key:
+                    value, _ = winreg.QueryValueEx(key, "")
+                    if str(value).strip() != command:
+                        return False
+            return True
+        except OSError:
+            return False
+
+    def update_context_menu_button(self):
+        button = getattr(self, "context_menu_button", None)
+        if button is None:
+            return
+        button.setEnabled(os.name == "nt" and winreg is not None)
+        button.setText("Удалить" if self.context_menu_installed() else "Создать")
+
+    def toggle_context_menu_entry(self):
+        if self.context_menu_installed():
+            if self.unregister_context_menu() and not self.context_menu_installed():
+                self.windows_context_menu_enabled = False
+                self.save_settings()
+                self.refresh_shell_context_menu()
+                self.status_bar.showMessage("Пункт удалён из меню Проводника")
+            else:
+                self.status_bar.showMessage("Не удалось удалить пункт из меню Проводника")
+        else:
+            self.create_context_menu_entry()
+        self.update_context_menu_button()
 
     def get_desktop_shortcut_path(self):
         """Возвращает путь ярлыка на рабочем столе."""

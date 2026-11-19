@@ -20,13 +20,13 @@ from PySide6.QtWidgets import (
     QSizePolicy,
 )
 
-from app.core.app_identity import APP_VERSION
+from app.core.app_identity import APP_VERSION, GITHUB_NEW_ISSUE_URL, GUIDE_URL
 from app.core.ipc_server import LocalFileServer
-from app.core.models import FileItem
+from app.core.settings import _collect_settings_data
 from app.ui.ui_components import ScrollableFilterMenu
 from app.ui.ui_main import MultiforaMainWindow
-from app.ui.ui_spacing import DIALOG_MARGINS, FIELD_HEIGHT
-from app.ui.ui_styles import build_standard_button_style
+from app.ui.ui_styles import DIALOG_MARGINS, FIELD_HEIGHT, build_standard_button_style
+from core.file_models import FileItem
 
 
 class MainWindowSmokeTests(unittest.TestCase):
@@ -200,7 +200,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     )
                 )
                 self.assertEqual(window.list_files.model().files(), [])
-                self.assertEqual(window.btn_type_filter.text(), "Выбрано: 0")
+                self.assertEqual(window.btn_type_filter.text(), "Типы: 0")
                 self.assertTrue(
                     all(
                         window._type_filter_menu.filter_list.item(index).checkState()
@@ -237,7 +237,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     )
                 )
                 self.assertEqual(window.list_files.model().files(), [])
-                self.assertEqual(window.btn_ext_filter.text(), "Выбрано: 0")
+                self.assertEqual(window.btn_ext_filter.text(), "Расширения: 0")
                 self.assertTrue(
                     all(
                         window._ext_filter_menu.filter_list.item(index).checkState()
@@ -266,15 +266,15 @@ class MainWindowSmokeTests(unittest.TestCase):
                     Qt.WindowModality.NonModal,
                 )
                 self.assertEqual(
-                    window.btn_cancel_operation.sizePolicy().horizontalPolicy(),
+                    window.progress_dialog.cancel_button.sizePolicy().horizontalPolicy(),
                     QSizePolicy.Policy.Expanding,
                 )
                 self.assertEqual(
-                    window.btn_cancel_operation.property("buttonVariant"),
+                    window.progress_dialog.cancel_button.property("buttonVariant"),
                     "danger",
                 )
                 self.assertEqual(
-                    window.btn_cancel_operation.styleSheet(),
+                    window.progress_dialog.cancel_button.styleSheet(),
                     build_standard_button_style(
                         window._effective_theme_mode,
                         "danger",
@@ -287,11 +287,11 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(
                     tab_labels,
                     [
-                        "ПЕРЕИМЕНОВАНИЕ",
-                        "КОНВЕРТАЦИЯ",
-                        "СЖАТИЕ",
-                        "ОБЪЕДИНЕНИЕ",
-                        "НАСТРОЙКИ",
+                        "Переименование",
+                        "Конвертация",
+                        "Сжатие",
+                        "Объединение",
+                        "Настройки",
                     ],
                 )
                 header_layout = window.operations_header_widget.layout()
@@ -319,7 +319,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                         help_margins.right(),
                         help_margins.bottom(),
                     ),
-                    (0, 0, 0, 0),
+                    (4, 0, 4, 0),
                 )
                 self.assertIs(
                     window.operations_tab_bar.parentWidget(),
@@ -400,7 +400,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     [label.text() for label in window.settings_scroll.widget().findChildren(
                         QLabel, "settings_section_heading"
                     )],
-                    ["Интерфейс", "Поведение", "Автоочистка", "Ярлыки"],
+                    ["Внешний вид", "Поведение", "Файлы и папки", "Интеграция Windows"],
                 )
                 for button in (
                     window.desktop_shortcut_button,
@@ -417,7 +417,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     [
                         "О программе",
                         "Проверить обновления",
-                        "Скачать логи",
+                        "Сохранить журнал…",
                         "Открыть руководство",
                         "Сообщить об ошибке",
                     ],
@@ -430,7 +430,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 open_url.assert_called_once()
                 self.assertEqual(
                     open_url.call_args.args[0].toString(),
-                    "https://vsemirka200.github.io/multifora/guide/index.html",
+                    GUIDE_URL,
                 )
                 self.assertFalse(hasattr(window, "_support_help_row"))
                 with patch(
@@ -441,7 +441,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 open_url.assert_called_once()
                 self.assertEqual(
                     open_url.call_args.args[0].toString(),
-                    "https://vsemirka200.github.io/multifora/reference/troubleshooting.html",
+                    GITHUB_NEW_ISSUE_URL,
                 )
                 behavior_page = window.settings_scroll.widget()
                 behavior_labels = [
@@ -506,15 +506,24 @@ class MainWindowSmokeTests(unittest.TestCase):
                 )
                 self.assertTrue(window.checkbox_replace_pdf.isChecked())
                 original_index = window.operations_tab_bar.currentIndex()
-                window.operations_tab_bar.setCurrentIndex(
-                    window._settings_tab_index
-                )
+                window.operations_tab_bar.setCurrentIndex(window._settings_tab_index)
                 self.assertFalse(window.settings_panel_host.isHidden())
                 self.assertFalse(window.settings_panel_widget.isHidden())
                 self.assertTrue(window.help_panel_widget.isHidden())
+                self.assertEqual(_collect_settings_data(window)["operations_tab_index"], original_index)
                 window.show()
                 window.resize(900, 550)
                 QApplication.processEvents()
+                window.status_bar.showMessage("Проверяем обновления…")
+                QApplication.processEvents()
+                settings_height_with_message = window.settings_scroll.height()
+                self.assertTrue(window.status_bar.isVisible())
+                window.status_bar.clearMessage()
+                QApplication.processEvents()
+                self.assertTrue(window.status_bar.isHidden())
+                self.assertGreater(
+                    window.settings_scroll.height(), settings_height_with_message
+                )
                 self.assertFalse(window.btn_help.isChecked())
                 self.assertEqual(
                     window.operations_tab_bar.currentIndex(),
@@ -550,7 +559,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                         window.about_guide_button.click()
                         self.assertEqual(
                             open_url.call_args.args[0].toString(),
-                            "https://vsemirka200.github.io/multifora/guide/index.html",
+                            GUIDE_URL,
                         )
                     self.assertEqual(
                         dialog.minimumSize(), dialog.maximumSize()
@@ -572,7 +581,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertTrue(window.help_panel_widget.isHidden())
                 self.assertEqual(window.help_stack.currentIndex(), 0)
                 self.assertFalse(window.btn_help.isChecked())
-                window.operations_tab_bar.tabBarClicked.emit(original_index)
+                window.operations_tab_bar.setCurrentIndex(original_index)
                 self.assertTrue(window.settings_panel_host.isHidden())
                 self.assertFalse(window.btn_help.isChecked())
 
@@ -629,25 +638,25 @@ class MainWindowSmokeTests(unittest.TestCase):
 
                 left, _top, right, _bottom = DIALOG_MARGINS
                 available_width = window.progress_dialog.width() - left - right
-                required_height = window.progress_status_label.heightForWidth(
+                required_height = window.progress_dialog.status_label.heightForWidth(
                     available_width
                 )
                 self.assertGreater(
                     required_height,
-                    window.progress_status_label.fontMetrics().height(),
+                    window.progress_dialog.status_label.fontMetrics().height(),
                 )
                 self.assertGreaterEqual(
-                    window.progress_status_label.minimumHeight(),
+                    window.progress_dialog.status_label.minimumHeight(),
                     required_height,
                 )
                 window._show_progress_dialog("Длинная строка о конвертации " * 100)
                 self.app.processEvents()
                 self.assertGreater(
-                    window.progress_status_label.minimumHeight(),
-                    window.progress_status_scroll.maximumHeight(),
+                    window.progress_dialog.status_label.minimumHeight(),
+                    window.progress_dialog.status_scroll.maximumHeight(),
                 )
                 self.assertLessEqual(
-                    window.progress_status_scroll.maximumHeight(),
+                    window.progress_dialog.status_scroll.maximumHeight(),
                     max(80, window.progress_dialog.screen().availableGeometry().height() // 3),
                 )
             finally:
@@ -707,8 +716,9 @@ class MainWindowSmokeTests(unittest.TestCase):
                 buttons = dialog.findChildren(QPushButton)
                 self.assertEqual(
                     {button.text() for button in buttons},
-                    {"Откатить выбранное", "Закрыть"},
+                    {"Откатить выбранное"},
                 )
+                self.assertEqual(dialog.layout().count(), 3)
                 for button in buttons:
                     self.assertEqual(
                         button.sizePolicy().horizontalPolicy(),
@@ -1128,11 +1138,8 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertTrue(window.btn_compress.isEnabled())
                 compression_worker = Mock()
                 compression_worker.isRunning.return_value = False
-                window.file_worker = compression_worker
                 with (
-                    patch.object(
-                        window, "create_file_worker", return_value=True
-                    ),
+                    patch("app.workers.factory.create_operation_worker", return_value=compression_worker),
                     patch.object(
                         window, "show_russian_message_box", return_value=True
                     ),
@@ -1489,7 +1496,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 }
                 self.assertEqual(
                     set(action_buttons),
-                    {"Экспорт шаблонов", "Импорт шаблонов", "Применить"},
+                    {"Экспорт шаблонов", "Импорт шаблонов", "Применить", "Переименовать", "Удалить шаблон"},
                 )
                 for button in (
                     action_buttons["Экспорт шаблонов"],

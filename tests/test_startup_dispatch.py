@@ -33,6 +33,12 @@ startup = _load_startup_module()
 
 
 class _DummyApp:
+    def font(self):
+        return Mock()
+
+    def setFont(self, _font):
+        return None
+
     def setApplicationName(self, _name):
         return None
 

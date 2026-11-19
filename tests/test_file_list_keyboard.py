@@ -8,7 +8,7 @@ from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import QApplication
 
-from app.ui.ui_components import FileListWidget
+from app.ui.file_table import FileListWidget
 
 
 class FileListKeyboardTests(unittest.TestCase):

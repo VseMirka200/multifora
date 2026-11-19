@@ -9,9 +9,9 @@ from docx import Document
 from PIL import Image
 from pypdf import PdfReader
 
+from core.document_engine.office import run_office
 from core.pdf_engine.merge import combine_pdfs as python_merge
 from core.pdf_engine.render import render_pdf_pages as python_render
-from core.workers.office_engine import run_office
 
 _REFERENCE = Path(environ.get("MULTIFORA_REFERENCE_PDFCRAFT", "bin/pdfcraft/pdfcraft-cli.exe")).resolve()
 

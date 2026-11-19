@@ -4,15 +4,15 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
 from app.core.app_utils import _log_ignored_error
-from app.core.file_types import KNOWN_FILE_EXTENSIONS
 from app.core.message_boxes import show_app_choice
-from app.core.models import (
+from core.file_models import (
     FileItem,
     file_item_source_folder,
     file_item_type_label,
     natural_sort_key,
-    normalized_path_key,
 )
+from core.file_types import KNOWN_FILE_EXTENSIONS
+from core.filesystem import normalized_path_key
 
 
 class FileListActionsMixin:
@@ -152,10 +152,10 @@ class FileListActionsMixin:
         selected = show_app_choice(
             self,
             "Добавление папки",
-            "Выберите способ добавления:\nдобавить папку целиком или только её содержимое?",
+            "Добавьте саму папку для переименования или файлы из неё и всех вложенных папок.",
             (
                 ("folder", "Добавить папку", "secondary"),
-                ("contents", "Добавить содержимое", "secondary"),
+                ("contents", "Добавить файлы из папок", "secondary"),
                 ("cancel", "Отмена", "secondary"),
             ),
             icon=QMessageBox.Icon.Question,
@@ -216,6 +216,7 @@ class FileListActionsMixin:
             existing_paths = {
                 normalized_path_key(file_item.path) for file_item in self.files
             }
+            self._metadata_import_counts = (0, 0)
             self._start_folder_metadata_worker(
                 classified_paths, existing_paths
             )
@@ -227,58 +228,49 @@ class FileListActionsMixin:
         }
 
         candidate_paths = []
-        unsupported_paths = []
+        duplicates = unsupported = 0
         for file_path in file_paths:
             abs_path = normalized_path_key(file_path)
             if abs_path in existing_paths:
+                duplicates += 1
                 continue
 
             if not self._is_supported_queue_path(file_path):
-                unsupported_paths.append(str(file_path))
+                unsupported += 1
                 continue
 
             existing_paths.add(abs_path)
             candidate_paths.append(file_path)
 
-        self._report_unsupported_paths(unsupported_paths)
         if len(candidate_paths) >= self._ASYNC_METADATA_THRESHOLD:
+            self._metadata_import_counts = (duplicates, unsupported)
             self._start_file_metadata_worker(candidate_paths)
             return
 
         new_items = []
+        unavailable = 0
         for file_path in candidate_paths:
             try:
-                new_items.append(FileItem(file_path))
+                item = FileItem(file_path)
+                if not item.is_file and not os.path.isdir(file_path):
+                    raise FileNotFoundError(file_path)
+                new_items.append(item)
             except Exception as error:
-                QMessageBox.warning(
-                    self,
-                    "Ошибка",
-                    f"Не удалось добавить файл {os.path.basename(file_path)}: {error}",
-                )
+                unavailable += 1
+                self.log_event(f"Не удалось добавить файл {os.path.basename(file_path)}: {error}", "WARN")
         if new_items:
             self.files.extend(new_items)
             self._complete_file_add(len(new_items))
+        self._show_import_summary(len(new_items), duplicates, unsupported, unavailable)
 
-    def _report_unsupported_paths(self, unsupported_paths: list[str]) -> None:
-        if not unsupported_paths:
-            return
-        file_names = "\n".join(
-            os.path.basename(path) for path in unsupported_paths
+    def _show_import_summary(self, added, duplicates, unsupported, unavailable):
+        self.status_bar.showMessage(
+            f"Добавлено {added} · Уже в очереди {duplicates} · "
+            f"Неподдерживаемых {unsupported} · Недоступных {unavailable}"
         )
-        QMessageBox.warning(
-            self,
-            "Неподдерживаемые файлы",
-            "Эти файлы не добавлены в проект, потому что их форматы "
-            f"не поддерживаются:\n\n{file_names}",
-        )
-        if callable(getattr(self, "log_event", None)):
-            self.log_event(
-                f"Не добавлены неподдерживаемые файлы: {len(unsupported_paths)}",
-                "WARN",
-            )
 
     def _start_file_metadata_worker(self, paths: list[str]) -> None:
-        from core.workers.file_metadata_worker import FileMetadataWorker
+        from app.workers.file_metadata_worker import FileMetadataWorker
 
         worker = FileMetadataWorker(paths, parent=self)
         self._attach_file_metadata_worker(
@@ -290,7 +282,7 @@ class FileListActionsMixin:
         entries: list[tuple[str, bool]],
         existing_paths: set[str],
     ) -> None:
-        from core.workers.file_metadata_worker import FolderMetadataWorker
+        from app.workers.file_metadata_worker import FolderMetadataWorker
 
         worker = FolderMetadataWorker(entries, existing_paths, parent=self)
         self._attach_file_metadata_worker(
@@ -326,19 +318,14 @@ class FileListActionsMixin:
             getattr(worker, "unsupported_paths", [])
         )
         added_count = int(getattr(self, "_metadata_added_count", 0))
+        duplicates, unsupported = getattr(self, "_metadata_import_counts", (0, 0))
+        duplicates += getattr(worker, "duplicates", 0)
         worker.deleteLater()
         self._file_metadata_worker = None
 
         if errors and not getattr(self, "_pending_metadata_close", False):
             first_path, first_error = errors[0]
-            QMessageBox.warning(
-                self,
-                "Ошибка добавления файлов",
-                f"Не удалось добавить файлов: {len(errors)}.\n"
-                f"Первый: {os.path.basename(first_path)} — {first_error}",
-            )
-        if not getattr(self, "_pending_metadata_close", False):
-            self._report_unsupported_paths(unsupported_paths)
+            self.log_event(f"Не добавлен файл {os.path.basename(first_path)}: {first_error}", "WARN")
         if added_count:
             self._complete_file_add(added_count)
 
@@ -346,6 +333,7 @@ class FileListActionsMixin:
             self._pending_metadata_close = False
             self.close()
             return
+        self._show_import_summary(added_count, duplicates, unsupported + len(unsupported_paths), len(errors))
         pending = getattr(self, "_pending_file_add_requests", [])
         if pending:
             self.add_files(pending.pop(0))
@@ -382,14 +370,16 @@ class FileListActionsMixin:
             )
 
     def update_file_info(self):
-        """Обновление информации о файлах"""
+        """Обновляет счётчики очереди и размер выделенных строк."""
         total_files = len(self.files)
         total_size = sum(f.size for f in self.files) / (1024 * 1024)
-        item_size = self.files[0].size / (1024 * 1024) if self.files else 0.0
+        selected = self.list_files.highlighted_file_items()
+        selected_size = sum(item.size for item in selected) / (1024 * 1024)
+        visible = len(self.list_files.model().files())
 
-        self.label_count.setText(f"Файлов: {total_files}")
-        self.label_item_size.setText(f"Размер: {item_size:.2f} MB")
-        self.label_total_size.setText(f"Общий объем: {total_size:.2f} MB")
+        self.label_count.setText(f"Видно: {visible} из {total_files}")
+        self.label_item_size.setText(f"Выделено: {len(selected)} · {selected_size:.2f} МБ")
+        self.label_total_size.setText(f"Всего: {total_size:.2f} МБ")
 
     def on_file_header_clicked(self, section: int):
         """Переключает общий флажок или сортирует выбранную колонку."""

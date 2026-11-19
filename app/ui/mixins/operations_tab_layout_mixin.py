@@ -26,11 +26,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.core.conversion_formats import CONVERSION_CATEGORIES
-from app.core.github_links import (
+from app.core.app_identity import (
+    GITHUB_NEW_ISSUE_URL,
     GUIDE_URL,
-    TROUBLESHOOTING_URL,
 )
+from app.ui.conversion_panel import ConversionPanel
+from app.ui.operation_layout import add_labeled_field, create_operation_card, create_operation_label
 from app.ui.ui_components import (
     MenuLikeComboBox,
     resolve_widget_theme_mode,
@@ -43,7 +44,7 @@ from app.ui.ui_components import (
     setup_standard_primary_button,
     setup_standard_secondary_button,
 )
-from app.ui.ui_spacing import (
+from app.ui.ui_styles import (
     CHECKBOX_SIZE,
     CONTROL_HEIGHT,
     MARGINS_NONE,
@@ -51,9 +52,7 @@ from app.ui.ui_spacing import (
     SPACE_NONE,
     SPACE_SM,
     TAB_BAR_HEIGHT,
-)
-from app.ui.ui_styles import (
-    build_operations_settings_button_style,
+    build_operations_help_button_style,
     build_operations_tab_bar_style,
 )
 
@@ -97,12 +96,9 @@ class OperationsTabLayoutMixin:
             return
         effective = resolve_widget_theme_mode(self, theme)
         tab_bar.setStyleSheet(build_operations_tab_bar_style(effective))
-        for button_name in ("btn_help",):
-            button = getattr(self, button_name, None)
-            if button is not None:
-                button.setStyleSheet(
-                    build_operations_settings_button_style(effective)
-                )
+        button = getattr(self, "btn_help", None)
+        if button is not None:
+            button.setStyleSheet(build_operations_help_button_style(effective))
 
     def _build_rename_action_row(
         self,
@@ -139,47 +135,6 @@ class OperationsTabLayoutMixin:
             pass
         return button
 
-    def _create_operation_card(
-        self,
-        *,
-        margins: tuple[int, int, int, int] = MARGINS_NONE,
-        align_top: bool = False,
-    ) -> tuple[QFrame, QVBoxLayout]:
-        card = QFrame()
-        card.setObjectName("card")
-        card.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum
-        )
-        card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(*margins)
-        card_layout.setSpacing(SPACE_NONE)
-        if align_top:
-            card_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-        content = QWidget()
-        content.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum
-        )
-        content_layout = QVBoxLayout(content)
-        content_layout.setSpacing(SPACE_NONE)
-        content_layout.setContentsMargins(*MARGINS_NONE)
-        if align_top:
-            content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-            card_layout.addWidget(content, 0, Qt.AlignmentFlag.AlignTop)
-        else:
-            card_layout.addWidget(content)
-
-        return card, content_layout
-
-    def _create_operation_label(self, text: str) -> QLabel:
-        label = QLabel(text)
-        label.setObjectName("tab_section_label")
-        setup_standard_form_label(label)
-        label.setAlignment(
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        )
-        return label
-
     def _create_operation_hint_label(self, text: str) -> QLabel:
         label = QLabel(text)
         label.setObjectName("tab_hint_label")
@@ -196,16 +151,6 @@ class OperationsTabLayoutMixin:
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
         )
         return label
-
-    def _add_labeled_field(
-        self, layout: QVBoxLayout, label_text: str, field: QWidget
-    ):
-        field_layout = QVBoxLayout()
-        field_layout.setContentsMargins(*MARGINS_NONE)
-        field_layout.setSpacing(SPACE_SM)
-        field_layout.addWidget(self._create_operation_label(label_text))
-        field_layout.addWidget(field)
-        layout.addLayout(field_layout)
 
     def _create_replace_row(
         self, checkbox: QCheckBox, tooltip: str, callback
@@ -325,7 +270,6 @@ class OperationsTabLayoutMixin:
 
         self.operations_stack = QStackedWidget()
         self.operations_stack.setObjectName("operations_stack")
-        self._settings_tab_index = -1
         self.operations_tab_bar.currentChanged.connect(
             self._on_operations_tab_changed
         )
@@ -335,14 +279,8 @@ class OperationsTabLayoutMixin:
         self._create_conversion_operation_page()
         self._create_compression_operation_page()
         self._create_merge_operation_page()
-        self._settings_tab_index = self.operations_tab_bar.addTab("НАСТРОЙКИ")
-        self.operations_tab_bar.setTabData(
-            self._settings_tab_index, "settings"
-        )
-
-        self.operations_tab_bar.tabBarClicked.connect(
-            self._on_operation_tab_clicked
-        )
+        self._settings_tab_index = self.operations_tab_bar.addTab("Настройки")
+        self.operations_tab_bar.setTabData(self._settings_tab_index, "settings")
         self.operations_tab_bar.setUsesScrollButtons(True)
         self.operations_tab_bar.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
@@ -374,7 +312,7 @@ class OperationsTabLayoutMixin:
         )
         self.check_updates_action.triggered.connect(self.check_updates_now)
         self.help_menu_actions.append(self.check_updates_action)
-        logs_action = self.help_menu.addAction("Скачать логи")
+        logs_action = self.help_menu.addAction("Сохранить журнал…")
         logs_action.triggered.connect(self.download_logs)
         self.help_menu_actions.append(logs_action)
 
@@ -386,7 +324,7 @@ class OperationsTabLayoutMixin:
 
         report_bug_action = self.help_menu.addAction("Сообщить об ошибке")
         report_bug_action.triggered.connect(
-            lambda: QDesktopServices.openUrl(QUrl(TROUBLESHOOTING_URL))
+            lambda: QDesktopServices.openUrl(QUrl(GITHUB_NEW_ISSUE_URL))
         )
         self.help_menu_actions.append(report_bug_action)
         self.help_menu.aboutToHide.connect(self._sync_help_button_after_menu)
@@ -452,7 +390,7 @@ class OperationsTabLayoutMixin:
 
     def _create_rename_operation_page(self) -> None:
         """Создаёт страницу переименования."""
-        rename_card, rename_layout = self._create_operation_card()
+        rename_card, rename_layout = create_operation_card()
         rename_layout.setContentsMargins(*OPERATIONS_PAGE_MARGINS)
 
         self.combo_templates = MenuLikeComboBox()
@@ -461,7 +399,7 @@ class OperationsTabLayoutMixin:
             self.on_template_selected
         )
         setup_standard_dropdown(self.combo_templates)
-        self._add_labeled_field(rename_layout, "Шаблон:", self.combo_templates)
+        add_labeled_field(rename_layout, "Шаблон:", self.combo_templates)
         rename_layout.addSpacing(SPACE_SM)
 
         self.rename_validation_label = self._create_operation_hint_label(
@@ -469,6 +407,11 @@ class OperationsTabLayoutMixin:
         )
         self.rename_validation_label.setWordWrap(True)
         rename_layout.addWidget(self.rename_validation_label)
+        self.btn_locate_rename_issue = QPushButton("Показать первую проблему")
+        setup_standard_secondary_button(self.btn_locate_rename_issue)
+        self.btn_locate_rename_issue.clicked.connect(self._locate_rename_issue)
+        self.btn_locate_rename_issue.hide()
+        rename_layout.addWidget(self.btn_locate_rename_issue)
         rename_layout.addSpacing(SPACE_SM)
 
         self.template_params_widget = QWidget()
@@ -480,7 +423,7 @@ class OperationsTabLayoutMixin:
         self.template_params_layout.setSpacing(SPACE_SM)
         rename_layout.addWidget(self.template_params_widget)
 
-        self.btn_apply_rename = QPushButton("Начать действие")
+        self.btn_apply_rename = QPushButton("Переименовать")
         self.btn_apply_rename.setProperty("buttonVariant", "primary")
         self.btn_apply_rename.clicked.connect(self.apply_rename)
         self.btn_apply_rename.setEnabled(False)
@@ -489,9 +432,6 @@ class OperationsTabLayoutMixin:
             [self.btn_apply_rename]
         )
 
-        rename_layout.addWidget(rename_buttons_widget)
-        rename_layout.addSpacing(SPACE_SM)
-
         self.btn_open_rename_history = QPushButton("История")
         setup_standard_secondary_button(self.btn_open_rename_history)
         self.btn_open_rename_history.clicked.connect(
@@ -499,141 +439,51 @@ class OperationsTabLayoutMixin:
         )
         history_button_widget, _ = self._build_rename_action_row(
             [self.btn_open_rename_history],
-            margins=MARGINS_NONE,
         )
-        rename_layout.addWidget(history_button_widget)
+
+        actions = QWidget()
+        actions_layout = QVBoxLayout(actions)
+        actions_layout.setContentsMargins(*MARGINS_NONE)
+        actions_layout.setSpacing(SPACE_NONE)
+        actions_layout.addWidget(rename_buttons_widget)
+        actions_layout.addWidget(history_button_widget)
 
         self._add_operations_page(
-            self._wrap_operations_page(rename_card, "rename_page"),
+            self._wrap_operations_page(rename_card, "rename_page", actions),
             "Переименование",
         )
 
     def _create_conversion_operation_page(self) -> None:
-        """Создаёт страницу конвертации."""
-        convert_card, convert_layout = self._create_operation_card()
-        convert_layout.setContentsMargins(*OPERATIONS_PAGE_MARGINS)
+        panel = ConversionPanel(self)
+        self.conversion_panel = panel
+        self.convert_file_type_combo = panel.convert_file_type_combo
+        self.from_convert_combo = panel.from_convert_combo
+        self.to_convert_combo = panel.to_convert_combo
+        self.combo_conversion_output_mode = panel.combo_conversion_output_mode
+        self.input_conversion_output_path = panel.input_conversion_output_path
+        self.btn_select_conversion_output_folder = panel.btn_select_conversion_output_folder
+        self.conversion_output_path_section = panel.conversion_output_path_section
 
-        self.convert_file_type_combo = MenuLikeComboBox()
-        self.convert_file_type_combo.addItems(
-            ["Выберите тип файла:", *CONVERSION_CATEGORIES]
-        )
-        setup_standard_dropdown(self.convert_file_type_combo)
-        self.convert_file_type_combo.currentIndexChanged.connect(
-            self.update_converter_from_format
-        )
-        self.convert_file_type_combo.currentIndexChanged.connect(
-            self.update_convert_button_state
-        )
-        self._add_labeled_field(
-            convert_layout, "Тип файла:", self.convert_file_type_combo
-        )
-
-        self.from_convert_combo = MenuLikeComboBox()
-        self.from_convert_combo.addItem("Выберите исходный формат:")
-        setup_standard_dropdown(self.from_convert_combo)
-        self.from_convert_combo.currentIndexChanged.connect(
-            self.update_to_combo_based_on_from
-        )
-        self._add_labeled_field(
-            convert_layout, "Конвертировать из:", self.from_convert_combo
-        )
-
-        self.to_convert_combo = MenuLikeComboBox()
-        self.to_convert_combo.addItem("Выберите целевой формат:")
-        setup_standard_dropdown(self.to_convert_combo)
-        self.to_convert_combo.currentIndexChanged.connect(
-            self.update_convert_button_state
-        )
-        self.to_convert_combo.setEnabled(False)
-        self._add_labeled_field(
-            convert_layout, "Конвертировать в:", self.to_convert_combo
-        )
-
-
-        self.combo_conversion_output_mode = MenuLikeComboBox()
-        self.combo_conversion_output_mode.addItem(
-            "Спрашивать каждый раз", "ask"
-        )
-        self.combo_conversion_output_mode.addItem(
-            "Рядом с исходными файлами", "alongside"
-        )
-        self.combo_conversion_output_mode.addItem(
-            "В папку «Конвертированные»",
-            "source_subfolder",
-        )
-        self.combo_conversion_output_mode.addItem(
-            "В отдельную папку", "custom"
-        )
-        setup_standard_dropdown(self.combo_conversion_output_mode)
-        self.combo_conversion_output_mode.currentIndexChanged.connect(
-            self.on_conversion_output_mode_changed
-        )
-        self._add_labeled_field(
-            convert_layout,
-            "Способ сохранения:",
-            self.combo_conversion_output_mode,
-        )
-
-        self.conversion_output_path_widget = QWidget()
-        conversion_output_path_layout = QHBoxLayout(
-            self.conversion_output_path_widget
-        )
-        conversion_output_path_layout.setContentsMargins(*MARGINS_NONE)
-        conversion_output_path_layout.setSpacing(SPACE_SM)
-
-        self.input_conversion_output_path = QLineEdit()
-        self.input_conversion_output_path.setReadOnly(True)
-        self.input_conversion_output_path.setPlaceholderText(
-            "Выберите папку сохранения"
-        )
-        setup_standard_line_input(self.input_conversion_output_path)
-        conversion_output_path_layout.addWidget(
-            self.input_conversion_output_path, 1
-        )
-
-        self.btn_select_conversion_output_folder = QPushButton("Выбрать папку")
-        setup_standard_secondary_button(
-            self.btn_select_conversion_output_folder
-        )
-        self.btn_select_conversion_output_folder.clicked.connect(
-            self.select_conversion_output_folder
-        )
-        conversion_output_path_layout.addWidget(
-            self.btn_select_conversion_output_folder
-        )
-
-        self.conversion_output_path_section = QWidget()
-        conversion_output_section_layout = QVBoxLayout(
-            self.conversion_output_path_section
-        )
-        conversion_output_section_layout.setContentsMargins(*MARGINS_NONE)
-        conversion_output_section_layout.setSpacing(SPACE_SM)
-        conversion_output_section_layout.addWidget(
-            self._create_operation_label("Папка сохранения:")
-        )
-        conversion_output_section_layout.addWidget(
-            self.conversion_output_path_widget
-        )
-        convert_layout.addWidget(self.conversion_output_path_section)
+        panel.category_changed.connect(self.update_converter_from_format)
+        panel.category_changed.connect(self.update_convert_button_state)
+        panel.source_changed.connect(self.on_conversion_source_changed)
+        panel.target_changed.connect(self.update_convert_button_state)
+        panel.output_mode_changed.connect(self.on_conversion_output_mode_changed)
+        panel.output_folder_requested.connect(self.select_conversion_output_folder)
+        panel.conversion_requested.connect(self.convert_files_dual_combo)
+        panel.sample_requested.connect(lambda: self.convert_files_dual_combo(sample=True))
         self.on_conversion_output_mode_changed()
-
-        convert_layout.addSpacing(SPACE_SM)
-
-        self.btn_convert = QPushButton("Конвертировать")
-        setup_standard_primary_button(self.btn_convert)
-        self._make_action_button_fill_width(self.btn_convert)
-        self.btn_convert.clicked.connect(self.convert_files_dual_combo)
-        self.btn_convert.setEnabled(False)
-        convert_layout.addWidget(self.btn_convert)
+        self.btn_convert = panel.btn_convert
+        self.btn_convert.setParent(None)
 
         self._add_operations_page(
-            self._wrap_operations_page(convert_card, "convert_page"),
+            self._wrap_operations_page(panel.card, "convert_page", self.btn_convert),
             "Конвертация",
         )
 
     def _create_merge_operation_page(self) -> None:
         """Создаёт страницу объединения документов."""
-        merge_card, merge_layout = self._create_operation_card()
+        merge_card, merge_layout = create_operation_card()
         merge_layout.setContentsMargins(*OPERATIONS_PAGE_MARGINS)
 
         self.merge_format_hint_label = self._create_operation_hint_label(
@@ -641,18 +491,16 @@ class OperationsTabLayoutMixin:
         )
         self.merge_format_hint_label.setWordWrap(True)
         merge_layout.addWidget(self.merge_format_hint_label)
-        merge_layout.addSpacing(SPACE_SM)
 
         self.btn_merge = QPushButton("Объединить")
         setup_standard_primary_button(self.btn_merge)
         self._make_action_button_fill_width(self.btn_merge)
         self.btn_merge.clicked.connect(self.merge_files)
         self.btn_merge.setEnabled(False)
-        merge_layout.addWidget(self.btn_merge)
         self._update_merge_button_state()
 
         self._add_operations_page(
-            self._wrap_operations_page(merge_card, "merge_page"),
+            self._wrap_operations_page(merge_card, "merge_page", self.btn_merge),
             "Объединение",
         )
 
@@ -681,7 +529,7 @@ class OperationsTabLayoutMixin:
         self.combo_pdf_method.currentTextChanged.connect(
             self.on_pdf_method_changed
         )
-        self._add_labeled_field(
+        add_labeled_field(
             pdf_method_layout,
             "Метод сжатия PDF:",
             self.combo_pdf_method,
@@ -728,7 +576,7 @@ class OperationsTabLayoutMixin:
         self.combo_compression_level.currentIndexChanged.connect(
             self._refresh_compression_preview_if_available
         )
-        self._add_labeled_field(
+        add_labeled_field(
             level_layout,
             "Уровень сжатия PNG/JPG:",
             self.combo_compression_level,
@@ -748,7 +596,7 @@ class OperationsTabLayoutMixin:
         self.combo_image_output_mode.currentIndexChanged.connect(
             self.on_image_output_mode_changed
         )
-        self._add_labeled_field(
+        add_labeled_field(
             image_mode_layout,
             "Способ сохранения:",
             self.combo_image_output_mode,
@@ -781,7 +629,7 @@ class OperationsTabLayoutMixin:
         image_output_section_layout.setContentsMargins(*MARGINS_NONE)
         image_output_section_layout.setSpacing(SPACE_SM)
         image_output_section_layout.addWidget(
-            self._create_operation_label("Папка сохранения:")
+            create_operation_label("Папка сохранения:")
         )
         image_output_section_layout.addWidget(self.image_output_path_widget)
         image_mode_layout.addWidget(self.image_output_path_section)
@@ -790,7 +638,7 @@ class OperationsTabLayoutMixin:
 
     def _create_compression_operation_page(self) -> None:
         """Создаёт страницу сжатия."""
-        compress_card, compress_layout = self._create_operation_card(
+        compress_card, compress_layout = create_operation_card(
             align_top=True
         )
         compress_layout.setContentsMargins(*OPERATIONS_PAGE_MARGINS)
@@ -801,7 +649,7 @@ class OperationsTabLayoutMixin:
         self.combo_compress_type.currentTextChanged.connect(
             self.on_compress_type_changed
         )
-        self._add_labeled_field(
+        add_labeled_field(
             compress_layout,
             "Тип файлов:",
             self.combo_compress_type,
@@ -827,7 +675,6 @@ class OperationsTabLayoutMixin:
         self.btn_compress.clicked.connect(self.compress_files)
         self.btn_compress.setEnabled(False)
         compress_layout.addSpacing(SPACE_SM)
-        compress_layout.addWidget(self.btn_compress)
 
         self.compress_tips_label = self._create_operation_hint_label("")
         self.compress_tips_label.setWordWrap(True)
@@ -841,12 +688,12 @@ class OperationsTabLayoutMixin:
         compress_layout.addWidget(self.compress_info_label)
 
         self.on_compress_type_changed(self.combo_compress_type.currentText())
-        page = self._wrap_operations_page(compress_card, "compress_page")
+        page = self._wrap_operations_page(compress_card, "compress_page", self.btn_compress)
         self._add_operations_page(page, "Сжатие")
 
     def _add_operations_page(self, page: QWidget, label: str) -> None:
         self.operations_stack.addWidget(page)
-        tab_index = self.operations_tab_bar.addTab(label.upper())
+        tab_index = self.operations_tab_bar.addTab(label)
         # Не привязываем логику операций к переводу видимых названий вкладок.
         self.operations_tab_bar.setTabData(
             tab_index, page.objectName().removesuffix("_page")
@@ -854,17 +701,6 @@ class OperationsTabLayoutMixin:
         if self.operations_stack.count() == 1:
             self.operations_tab_bar.setCurrentIndex(0)
             self.operations_stack.setCurrentIndex(0)
-
-    def _on_operation_tab_clicked(self, index: int) -> None:
-        host = getattr(self, "settings_panel_host", None)
-        if host is None or host.isHidden():
-            return
-
-        if index != self.operations_tab_bar.currentIndex():
-            self.operations_tab_bar.setCurrentIndex(index)
-            return
-
-        self._on_operations_tab_changed(index)
 
     def _on_operations_tab_changed(self, index: int) -> None:
         # Добавление первой вкладки может вызвать currentChanged до создания
@@ -874,16 +710,16 @@ class OperationsTabLayoutMixin:
             if 0 <= index < self.operations_stack.count():
                 self.operations_stack.setCurrentIndex(index)
             return
+        if index == self._settings_tab_index:
+            self.show_settings_modal()
+            return
 
         if callable(getattr(self, "sync_file_preview_columns", None)):
             self.sync_file_preview_columns()
-        if index == getattr(self, "_settings_tab_index", -1):
-            if callable(getattr(self, "show_settings_modal", None)):
-                self.show_settings_modal()
-            if callable(getattr(self, "_schedule_settings_save", None)):
-                self._schedule_settings_save()
-            return
-
+        merge = self._active_operation_id() == "merge"
+        self.list_files.keyboard_reordering_enabled = merge
+        if merge:
+            self.list_files.set_manual_sorting(True)
         if callable(getattr(self, "hide_settings_panel", None)):
             self.hide_settings_panel()
 
@@ -900,7 +736,7 @@ class OperationsTabLayoutMixin:
                 self._schedule_settings_save()
 
     def _wrap_operations_page(
-        self, card: QWidget, object_name: str
+        self, card: QWidget, object_name: str, action: QWidget
     ) -> QWidget:
         page = QWidget()
         page.setObjectName(object_name)
@@ -938,5 +774,7 @@ class OperationsTabLayoutMixin:
         page_layout.setContentsMargins(*MARGINS_NONE)
         page_layout.setSpacing(SPACE_NONE)
         page_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        page_layout.addWidget(scroll)
+        page_layout.addWidget(scroll, 1)
+        page_layout.addWidget(action)
+        action.show()
         return page

@@ -2,8 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from app.core.models import FileItem
-from app.core.rename_validation import (
+from core.file_models import FileItem
+from core.rename_validation import (
     analyze_rename_plan,
     format_rename_plan_issues,
 )

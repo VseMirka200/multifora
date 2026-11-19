@@ -2,9 +2,9 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
+from core.filesystem import compressed_name, conversion_directory, converted_name
 from core.operation_requests import ConversionRequest, RenameRequest
 from core.operation_result import OperationResult
-from core.output_paths import compressed_name, conversion_directory, converted_name
 
 
 def test_retry_preserves_requested_order_and_strictness():

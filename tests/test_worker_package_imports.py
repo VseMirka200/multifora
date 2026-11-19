@@ -5,13 +5,31 @@ import unittest
 
 
 class WorkerPackageImportTests(unittest.TestCase):
+    def test_file_operations_import_without_app(self):
+        script = textwrap.dedent("""
+            import sys
+
+            from core.compress_files import compress_image
+            from core.document_engine.office import run_office
+            from core.file_models import OperationFile
+            from core.operation_result import OperationResult
+            from core.pdf_docx_batch import run_parallel_batch
+            from core.rename_plan import resolve_rename_targets
+            from core.rename_transaction import rename_batch
+
+            assert not any(name == "app" or name.startswith("app.") for name in sys.modules)
+            assert "PySide6.QtCore" not in sys.modules
+            assert "PIL.Image" not in sys.modules
+        """)
+        subprocess.run([sys.executable, "-c", script], check=True, timeout=30)
+
     def test_file_worker_defers_heavy_backends(self):
         script = textwrap.dedent("""
             import sys
 
-            from core.workers.file_worker import FileWorker
+            from app.workers.factory import create_operation_worker
 
-            assert FileWorker
+            assert create_operation_worker(None)
             assert "cv2" not in sys.modules
             assert "numpy" not in sys.modules
             assert "PIL.Image" not in sys.modules
@@ -31,7 +49,7 @@ class WorkerPackageImportTests(unittest.TestCase):
         script = textwrap.dedent("""
             import sys
 
-            import app.core.deps as deps
+            from core import image_dependencies as deps
 
             assert deps.HAS_PIL
             assert deps.HAS_HEIF
@@ -66,14 +84,14 @@ class WorkerPackageImportTests(unittest.TestCase):
             class RejectConversionImports:
                 def find_spec(self, fullname, path=None, target=None):
                     if fullname.startswith((
-                        "app.core.deps", "core.workers.file_worker",
-                        "core.workers.conversion", "core.workers.compression",
+                        "core.image_dependencies",
+                        "app.workers.conversion", "app.workers.compression",
                     )):
                         raise AssertionError("Unexpected dependency: " + fullname)
 
             sys.meta_path.insert(0, RejectConversionImports())
             from app.ui.ui_main import MultiforaMainWindow
-            from core.workers.rename_worker import RenameWorker
+            from app.workers.rename_worker import RenameWorker
 
             window = SimpleNamespace(
                 _ensure_operation_can_start=lambda: True,
@@ -112,23 +130,28 @@ class WorkerPackageImportTests(unittest.TestCase):
         ).strip()
         self.assertEqual(output, "OK")
 
-    def test_core_workers_package_import_is_qt_lazy(self):
-        script = "import sys; import core.workers; print('core.workers.file_worker' in sys.modules)"
+    def test_worker_package_import_is_qt_lazy(self):
+        script = "import sys; import core; import app.workers; print('PySide6.QtCore' in sys.modules)"
 
         output = subprocess.check_output([sys.executable, "-c", script], text=True, encoding="utf-8").strip()
 
         self.assertEqual(output, "False")
 
+    def test_generic_worker_factory_reuses_the_same_class(self):
+        from app.workers.factory import create_operation_worker
+
+        self.assertIs(type(create_operation_worker(None)), type(create_operation_worker(None)))
+
     def test_conversion_worker_does_not_import_compression_backend(self):
         script = textwrap.dedent("""
             import sys
-            from core.workers.factory import create_operation_worker
-            from core.workers.conversion_worker import ConversionWorker
+            from app.workers.factory import create_operation_worker
+            from app.workers.conversion_worker import ConversionWorker
 
             worker = create_operation_worker("convert")
             assert isinstance(worker, ConversionWorker)
-            assert "core.workers.compression_worker" not in sys.modules
-            assert "core.workers.compression" not in sys.modules
+            assert "app.workers.compression_worker" not in sys.modules
+            assert "app.workers.compression" not in sys.modules
             print("OK")
         """)
         output = subprocess.check_output(
@@ -142,13 +165,13 @@ class WorkerPackageImportTests(unittest.TestCase):
     def test_compression_worker_does_not_import_conversion_backend(self):
         script = textwrap.dedent("""
             import sys
-            from core.workers.factory import create_operation_worker
-            from core.workers.compression_worker import CompressionWorker
+            from app.workers.factory import create_operation_worker
+            from app.workers.compression_worker import CompressionWorker
 
             worker = create_operation_worker("compress")
             assert isinstance(worker, CompressionWorker)
-            assert "core.workers.conversion_worker" not in sys.modules
-            assert "core.workers.conversion" not in sys.modules
+            assert "app.workers.conversion_worker" not in sys.modules
+            assert "app.workers.conversion" not in sys.modules
             print("OK")
         """)
         output = subprocess.check_output(
@@ -160,9 +183,8 @@ class WorkerPackageImportTests(unittest.TestCase):
         self.assertEqual(output, "OK")
 
     def test_conversion_factory_selects_image_and_document_workers(self):
-        from core.workers.document_worker import DocumentWorker
-        from core.workers.factory import create_operation_worker
-        from core.workers.image_worker import ImageWorker
+        from app.workers.conversion_worker import DocumentWorker, ImageWorker
+        from app.workers.factory import create_operation_worker
 
         self.assertIsInstance(create_operation_worker("convert_image"), ImageWorker)
         self.assertIsInstance(create_operation_worker("convert_document"), DocumentWorker)

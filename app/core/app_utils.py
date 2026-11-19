@@ -1,9 +1,10 @@
 import os
+from contextlib import contextmanager
 from datetime import datetime
 
 
 def _debug_log(message: str, level: str = "DEBUG"):
-    """Пишет диагностику в единый журнал, доступный через «Скачать логи»."""
+    """Пишет диагностику в журнал, доступный через «Сохранить журнал…»."""
     try:
         base_dir = os.path.join(
             os.path.expanduser("~"), "AppData", "Roaming", "Multifora"
@@ -32,3 +33,15 @@ def _get_app_data_dir():
     except Exception as error:
         _debug_log(f"Ошибка получения каталога данных приложения: {error}")
     return base_dir
+
+
+@contextmanager
+def signals_blocked(widget):
+    if widget is None or not hasattr(widget, "blockSignals"):
+        yield
+        return
+    previous = widget.blockSignals(True)
+    try:
+        yield
+    finally:
+        widget.blockSignals(previous)

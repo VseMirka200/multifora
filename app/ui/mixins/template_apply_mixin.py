@@ -61,7 +61,6 @@ class TemplateApplyMixin:
         if callable(getattr(self, "attach_action_logging", None)):
             self.attach_action_logging(self.template_params_widget)
         self.refresh_rename_preview()
-        self.status_bar.showMessage(f"Выбран шаблон: {template_name}")
         if callable(getattr(self, "_schedule_settings_save", None)):
             self._schedule_settings_save()
 

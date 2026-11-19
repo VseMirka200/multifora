@@ -5,7 +5,7 @@ from app.ui.mixins.appearance_mixin import AppearanceMixin
 from app.ui.theme_styles import DARK_APPLICATION_STYLE, LIGHT_APPLICATION_STYLE
 from app.ui.ui_styles import (
     build_drop_zone_surface_style,
-    build_operations_settings_button_style,
+    build_operations_help_button_style,
     build_operations_tab_bar_style,
     build_settings_navigation_style,
     build_standard_button_style,
@@ -84,16 +84,15 @@ class ThemeStyleAuditTests(unittest.TestCase):
             self.assertIn(f"color: {color}", hint_style)
             self.assertIn("font-size: 11px", hint_style)
 
-    def test_all_button_roles_use_the_same_neutral_style(self):
-        accent_colors = ("#3d74b3", "#8f3b3b", "#c55353")
+    def test_button_roles_have_distinct_styles_and_visible_focus(self):
         for theme in ("light", "dark"):
             styles = {
                 build_standard_button_style(theme, role)
                 for role in ("primary", "danger", "secondary")
             }
-            self.assertEqual(len(styles), 1)
-            style = next(iter(styles))
-            self.assertFalse(any(color in style for color in accent_colors))
+            self.assertEqual(len(styles), 3)
+            for style in styles:
+                self.assertIn("QPushButton:focus", style)
 
     def test_standard_field_text_contrast(self):
         for theme in ("light", "dark"):
@@ -150,7 +149,7 @@ class ThemeStyleAuditTests(unittest.TestCase):
 
     def test_help_button_uses_larger_text(self):
         for theme in ("light", "dark"):
-            style = build_operations_settings_button_style(theme)
+            style = build_operations_help_button_style(theme)
             base_button = style.split("QPushButton {", 1)[1].split("}", 1)[0]
             self.assertIn("font-size: 12px", base_button)
             selector = "QPushButton#help_button {"
@@ -159,19 +158,6 @@ class ThemeStyleAuditTests(unittest.TestCase):
             self.assertIn("font-size: 12px", help_button)
             self.assertIn("text-align: left", help_button)
             self.assertIn("padding-left: 0px", help_button)
-
-    def test_settings_button_matches_main_navigation_text(self):
-        for theme in ("light", "dark"):
-            style = build_operations_settings_button_style(theme)
-            selector = "QPushButton#settings_button {"
-            self.assertIn(selector, style)
-            settings_button = style.split(selector, 1)[1].split("}", 1)[0]
-            self.assertIn("font-size: 14px", settings_button)
-            active_selector = "QPushButton#settings_button:checked {"
-            self.assertIn(active_selector, style)
-            active_button = style.split(active_selector, 1)[1].split("}", 1)[0]
-            self.assertIn("color: #3d74b3", active_button)
-            self.assertIn("border-bottom: 1px solid #3d74b3", active_button)
 
     def test_scrollable_dropdown_has_vertical_arrow_buttons(self):
         for style, track, handle in (

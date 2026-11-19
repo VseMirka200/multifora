@@ -13,7 +13,7 @@ from app.ui.ui_components import (
     ScrollableFilterMenu,
     sync_standard_menu_width,
 )
-from app.ui.ui_spacing import FIELD_HEIGHT
+from app.ui.ui_styles import FIELD_HEIGHT
 
 
 class ScrollableFilterMenuTests(unittest.TestCase):

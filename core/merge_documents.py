@@ -4,7 +4,7 @@ import os
 from collections.abc import Callable, Sequence
 from copy import deepcopy
 
-from app.core.models import OperationSource
+from core.file_models import OperationSource
 from core.filesystem import atomic_output_path, get_unique_path
 
 

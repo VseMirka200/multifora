@@ -12,9 +12,8 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+from app.core.app_identity import RELEASES_LATEST_API, REPO
 from app.core.update_checker import (
-    RELEASES_LATEST_API,
-    REPO,
     _fetch_json,
     compare_versions,
     get_local_version,

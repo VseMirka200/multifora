@@ -1,4 +1,30 @@
-from app.ui.ui_spacing import FIELD_HEIGHT
+SPACE_NONE = 0
+SPACE_XXS = 1
+SPACE_XS = 2
+SPACE_SM = 4
+SPACE_MD = 6
+SPACE_LG = 8
+SPACE_XL = 10
+
+MARGINS_NONE = (0, 0, 0, 0)
+APP_MARGINS = (SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
+DIALOG_MARGINS = (12, 12, 12, 12)
+DROP_ZONE_MARGINS = (0, 8, 0, 8)
+SETTINGS_PANEL_MARGINS = (0, SPACE_LG, 0, 0)
+SETTINGS_PANEL_COLUMN_GAP = SPACE_SM
+PAGE_CONTENT_MARGINS = (16, 16, 16, 16)
+PAGE_SECTION_SPACING = 12
+OPERATIONS_PAGE_MARGINS = (0, 0, 0, 0)
+
+CONTROL_HEIGHT = 28
+FIELD_HEIGHT = CONTROL_HEIGHT
+HEADER_FIELD_HEIGHT = CONTROL_HEIGHT
+ACTION_BUTTON_HEIGHT = FIELD_HEIGHT
+PROGRESS_HEIGHT = 22
+# Вкладка имеет высоту 32 px; ещё 2 px нужны, чтобы нижняя граница
+# активной вкладки не обрезалась QTabBar.
+TAB_BAR_HEIGHT = 34
+CHECKBOX_SIZE = 16
 
 STANDARD_RADIUS = 4
 
@@ -14,6 +40,8 @@ FILE_LIST_HEADER_STYLE = (
     "QHeaderView::section { background: transparent; border: none; "
     "border-right: 1px solid palette(mid); "
     "padding: 4px 6px; font-weight: 600; }"
+    "QHeaderView::section:last, QHeaderView::section:only-one { "
+    "border-right: none; }"
     "QHeaderView::up-arrow, QHeaderView::down-arrow { "
     "image: none; width: 0px; height: 0px; }"
 )
@@ -33,9 +61,8 @@ def build_splitter_style() -> str:
     """
 
 
-def build_operations_settings_button_style(theme: str) -> str:
+def build_operations_help_button_style(theme: str) -> str:
     foreground = "#202833" if str(theme).lower() == "light" else "#e3e6ea"
-    active = "#3d74b3"
     return f"""
         QPushButton {{
             color: {foreground};
@@ -55,16 +82,6 @@ def build_operations_settings_button_style(theme: str) -> str:
             text-align: left;
             padding-left: 0px;
             padding-right: 2px;
-        }}
-        QPushButton#settings_button {{
-            font-size: 14px;
-            text-align: right;
-            padding-left: 0px;
-            padding-right: 0px;
-        }}
-        QPushButton#settings_button:checked {{
-            color: {active};
-            border-bottom: 1px solid {active};
         }}
     """
 
@@ -163,9 +180,8 @@ _BUTTON_PALETTES = {
 
 
 def build_standard_button_style(theme: str, role: str) -> str:
-    palette = _BUTTON_PALETTES[
-        "light" if str(theme).lower() == "light" else "dark"
-    ]
+    light = str(theme).lower() == "light"
+    palette = _BUTTON_PALETTES["light" if light else "dark"]
     (
         bg,
         hover,
@@ -176,6 +192,11 @@ def build_standard_button_style(theme: str, role: str) -> str:
         disabled_border,
         disabled_fg,
     ) = palette
+    if role == "primary":
+        bg, hover, pressed, border, fg = "#245da3", "#2869b7", "#1a487e", "#2869b7", "#ffffff"
+    elif role == "danger":
+        bg, hover, pressed, border, fg = "#a62d35", "#b7353d", "#82242a", "#b7353d", "#ffffff"
+    focus = "#17395f" if light and role == "secondary" else "#b2d5ff"
     return f"""
         QPushButton {{
             background-color: {bg}; color: {fg}; border: 1px solid {border};
@@ -183,6 +204,7 @@ def build_standard_button_style(theme: str, role: str) -> str:
         }}
         QPushButton:hover {{ background-color: {hover}; border-color: {border}; }}
         QPushButton:pressed {{ background-color: {pressed}; border-color: {border}; }}
+        QPushButton:focus {{ border: 2px solid {focus}; padding: 1px 8px; }}
         QPushButton:disabled {{
             background-color: {disabled_bg}; color: {disabled_fg};
             border: 1px solid {disabled_border};

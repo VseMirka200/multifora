@@ -1,6 +1,6 @@
 from threading import Event
 
-from app.core.models import FileItem
+from core.file_models import FileItem
 from core.pdf_docx_batch import pdf_docx_worker_count, run_parallel_batch
 
 

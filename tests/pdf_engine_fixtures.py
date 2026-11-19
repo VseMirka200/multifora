@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from core.workers.pdfcraft_engine import export_pdf
+from core.pdf_engine.operations import export_pdf
 
 
 def create_pdf(path, labels):

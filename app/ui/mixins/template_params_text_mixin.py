@@ -15,7 +15,7 @@ from app.ui.ui_components import (
     setup_standard_spin_input,
 )
 from app.ui.ui_helpers import create_param_block, create_spin_param_block
-from app.ui.ui_spacing import MARGINS_NONE, SPACE_SM
+from app.ui.ui_styles import MARGINS_NONE, SPACE_SM
 
 
 class TemplateParamsTextMixin:

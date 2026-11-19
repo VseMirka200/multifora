@@ -2,8 +2,8 @@ import pytest
 from docx import Document
 from PIL import Image
 
-from core.document_engine.docx_text import export_text
-from core.workers.office_engine import run_office
+from core.document_engine.office import run_office
+from core.document_engine.structured_text import export_text
 
 
 def test_export_preserves_paragraph_and_table_order(tmp_path):
@@ -16,7 +16,7 @@ def test_export_preserves_paragraph_and_table_order(tmp_path):
     source = tmp_path / "тест.docx"
     doc.save(source)
     target = tmp_path / "результат.txt"
-    export_text(source, target, lambda: False)
+    export_text(source, target, "DOCX", lambda: False)
     assert target.read_text(encoding="utf-8") == "До таблицы\nПервая\tВторая\nПосле таблицы"
 
 
@@ -26,7 +26,7 @@ def test_cancel_keeps_existing_file(tmp_path):
     target = tmp_path / "out.txt"
     target.write_text("existing", encoding="utf-8")
     with pytest.raises(InterruptedError):
-        export_text(source, target, lambda: True)
+        export_text(source, target, "DOCX", lambda: True)
     assert target.read_text(encoding="utf-8") == "existing"
 
 

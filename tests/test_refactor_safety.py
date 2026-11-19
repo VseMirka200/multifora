@@ -10,11 +10,11 @@ from unittest.mock import patch
 from docx import Document
 from PIL import Image
 
-from app.core.rename_plan import resolve_rename_targets
+from core.filesystem import atomic_output_path
+from core.image_optimizer import save_optimized_image
+from core.merge_documents import _requires_docx_composer
+from core.rename_plan import resolve_rename_targets
 from core.rename_transaction import rename_batch
-from core.workers.atomic_output import atomic_output_path
-from core.workers.compression.image_optimizer import save_optimized_image
-from core.workers.merge.merge_mixin import _requires_docx_composer
 
 
 class RenameSafetyTests(unittest.TestCase):
@@ -168,8 +168,8 @@ class ConversionOutputSafetyTests(unittest.TestCase):
         self,
     ):
 
-        from app.core.models import FileItem
-        from core.workers.conversion.conversion_mixin import ConversionMixin
+        from app.workers.conversion.conversion_mixin import ConversionMixin
+        from core.file_models import FileItem
 
         class Worker(ConversionMixin):
             def __init__(self):
@@ -187,15 +187,15 @@ class ConversionOutputSafetyTests(unittest.TestCase):
             def partial_then_fail(_source, _destination, _target, _cancel):
                 raise ValueError("simulated failure")
 
-            with patch("core.workers.pdfcraft_engine.export_pdf", side_effect=partial_then_fail):
+            with patch("core.pdf_engine.operations.export_pdf", side_effect=partial_then_fail):
                 with self.assertRaisesRegex(Exception, "simulated failure"):
                     Worker()._convert_pdf_to_docx(FileItem(str(pdf)))
             self.assertFalse(Path(directory, "document.docx").exists())
             self.assertFalse(list(Path(directory).glob(".__multifora_*")))
 
     def test_pdf_merge_produces_readable_pdf(self):
-        from app.core.models import FileItem
-        from core.workers.merge.merge_mixin import MergeMixin
+        from app.workers.merge_worker import MergeMixin
+        from core.file_models import FileItem
         from tests.pdf_engine_fixtures import create_pdf, read_pdf_text
 
         class Worker(MergeMixin):

@@ -8,6 +8,17 @@ import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 
+CONVERTED_FOLDER_NAME = "Конвертированные"
+
+
+def normalized_path_key(path: object) -> str:
+    """Возвращает устойчивый к регистру ключ пути для сравнений."""
+    try:
+        normalized = os.path.abspath(os.fspath(path))
+    except (OSError, TypeError, ValueError):
+        normalized = str(path)
+    return os.path.normcase(normalized).casefold()
+
 
 def publish_new_file(source, destination):
     """Публикует готовый файл в той же файловой системе, не заменяя существующий."""
@@ -54,3 +65,23 @@ def get_unique_path(path: str) -> str:
         candidate = f"{base}_{counter}{extension}"
         counter += 1
     return candidate
+
+
+def conversion_directory(source_folder: str, mode: str, custom_dir: str) -> str:
+    if mode == "custom" and custom_dir:
+        return custom_dir
+    if mode == "alongside":
+        return source_folder
+    return os.path.join(source_folder, CONVERTED_FOLDER_NAME)
+
+
+def converted_name(name: str, extension: str) -> str:
+    if not extension:
+        return name
+    return os.path.splitext(name)[0] + extension
+
+
+def compressed_name(name: str, extension: str) -> str:
+    if extension and not extension.startswith("."):
+        extension = "." + extension
+    return os.path.splitext(name)[0] + "_compressed" + extension
