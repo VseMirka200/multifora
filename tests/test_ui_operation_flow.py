@@ -6,7 +6,7 @@ from PIL import Image
 from pypdf import PdfReader, PdfWriter
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QWidget
 
 from app.ui.ui_main import MultiforaMainWindow
 from app.workers.operation_worker import OperationWorker
@@ -43,10 +43,9 @@ def test_empty_queue_controls_centered_in_file_viewport(window):
         QApplication.processEvents()
         viewport = window.list_files.viewport()
         center = viewport.mapToGlobal(viewport.rect().center())
-        tiles_and_hint = window.btn_add_files.geometry().united(
-            window.btn_add_folder.geometry()
-        ).united(window.drop_zone_hint_label.geometry())
-        actual = window.drop_zone_controls.mapToGlobal(tiles_and_hint.center())
+        card = window.drop_zone_controls
+        actual = card.mapToGlobal(card.rect().center())
+        assert card.width() < viewport.width()
         assert (actual - center).manhattanLength() <= 2
 
 
@@ -108,7 +107,9 @@ def test_conversion_sample_uses_highlighted_docx_and_keeps_queue(window, tmp_pat
         document.add_paragraph(source.stem)
         document.save(source)
     window.add_files(list(map(str, sources)))
-    window.operations_tab_bar.setCurrentIndex(1)
+    window.operations_tab_bar.setCurrentIndex(window.operations_stack.indexOf(
+        window.operations_stack.findChild(QWidget, "convert_page")
+    ))
     window.convert_file_type_combo.setCurrentText("Документы")
     window.from_convert_combo.setCurrentText("DOCX")
     window.to_convert_combo.setCurrentText("PDF")
@@ -137,10 +138,17 @@ def test_merge_keyboard_order_matches_output(window, tmp_path):
             writer.add_blank_page(width=200 + index * 10, height=300)
             writer.write(source)
     window.add_files(list(map(str, sources)))
-    window.operations_tab_bar.setCurrentIndex(3)
+    window.operations_tab_bar.setCurrentIndex(window.operations_stack.indexOf(
+        window.operations_stack.findChild(QWidget, "merge_page")
+    ))
     assert window.list_files.verticalHeader().isHidden()
     window.list_files.selectRow(2)
     QTest.keyClick(window.list_files, Qt.Key.Key_Up, Qt.KeyboardModifier.AltModifier)
+    model = window.list_files.model()
+    assert not window.list_files.isColumnHidden(model.COLUMN_ORDER)
+    assert window.list_files.horizontalHeader().visualIndex(model.COLUMN_ORDER) == 1
+    assert [model.index(row, model.COLUMN_ORDER).data() for row in range(3)] == [1, 2, 3]
+    assert not window.operation_result_panel.undo.isVisible()
     output = tmp_path / "combined.pdf"
     with (
         patch.object(window, "_select_merge_output_path_for_format", return_value=str(output)),
@@ -174,7 +182,9 @@ def test_compression_result_reports_measured_sizes(window, tmp_path):
     Image.effect_noise((600, 400), 90).save(source, quality=100)
     original_size = source.stat().st_size
     window.add_files([str(source)])
-    window.operations_tab_bar.setCurrentIndex(2)
+    window.operations_tab_bar.setCurrentIndex(window.operations_stack.indexOf(
+        window.operations_stack.findChild(QWidget, "compress_page")
+    ))
     with patch.object(window, "show_russian_message_box", return_value=True):
         window.btn_compress.click()
     assert window.file_worker.wait(5000)
@@ -186,3 +196,50 @@ def test_compression_result_reports_measured_sizes(window, tmp_path):
     assert size.before == original_size
     assert size.after == target.size < original_size
     assert "Экономия" in window.operation_result_panel.summary.text()
+
+def test_ribbon_keeps_parameters_and_queue_accessible(window):
+    tabs = window.operations_tab_bar
+    tabs.setCurrentIndex(0)
+    window.combo_templates.setCurrentText("Добавить текст в начало")
+    window.template_prefix.setText("готово_")
+    for theme in ("dark", "light"):
+        window.apply_theme_mode(theme)
+        for width in (900, 1200):
+            window.resize(width, 600)
+            QApplication.processEvents()
+            assert window.rename_options.isVisible()
+            assert window.template_prefix.text() == "готово_"
+            assert window.btn_apply_rename.isVisible()
+            assert window.queue_panel.width() == window.ribbon_panel.width()
+            assert window.queue_panel.height() > window.ribbon_panel.height()
+
+    QTest.mouseDClick(tabs.group.button(0), Qt.MouseButton.LeftButton)
+    assert window.ribbon_panel.isHidden()
+    tabs.setCurrentIndex(window._settings_tab_index)
+    window.hide_settings_panel()
+    assert window.ribbon_panel.isHidden()
+    QTest.mouseDClick(tabs.group.button(0), Qt.MouseButton.LeftButton)
+    assert window.ribbon_panel.isVisible()
+    assert window.template_prefix.text() == "готово_"
+
+def test_help_opens_in_ribbon(window):
+    tabs = window.operations_tab_bar
+    index = tabs.count() - 1
+    QTest.mouseClick(tabs.group.button(index), Qt.MouseButton.LeftButton)
+    assert tabs.currentIndex() == index
+    assert window.operations_stack.currentWidget().objectName() == "help_page"
+    assert all(button.isVisible() for button in window.help_commands)
+    assert all(button.width() == button.height() == 78 for button in window.help_commands)
+    tiles = sorted(window.help_commands, key=lambda button: button.x())
+    first_tile = tiles[0].mapTo(window, tiles[0].rect().topLeft())
+    filters = window.btn_ext_filter.mapTo(window, window.btn_ext_filter.rect().topLeft())
+    assert first_tile.x() == filters.x() == 20
+    for left, right in zip(tiles, tiles[1:]):
+        assert right.x() - left.x() - left.width() == 4
+    assert window.queue_panel.isVisible()
+    QTest.keyClick(tabs.group.button(index), Qt.Key.Key_Left)
+    assert window.settings_panel_host.isVisible()
+    window.hide_settings_panel()
+    assert tabs.currentIndex() == index
+    tabs.setCurrentIndex(0)
+    assert window.btn_apply_rename.isVisible()

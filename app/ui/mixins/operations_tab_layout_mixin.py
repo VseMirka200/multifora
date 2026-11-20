@@ -1,31 +1,20 @@
 from PySide6.QtCore import (
-    QEasingCurve,
-    QEvent,
-    QObject,
-    QPoint,
-    QPropertyAnimation,
+    QSize,
     Qt,
     QUrl,
 )
-from PySide6.QtGui import QDesktopServices, QPalette
+from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
-    QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMenu,
     QPushButton,
-    QScrollArea,
     QSizePolicy,
     QStackedWidget,
-    QStyle,
-    QStyleOptionFocusRect,
-    QStyleOptionTab,
-    QStylePainter,
-    QTabBar,
+    QFrame,
     QVBoxLayout,
     QWidget,
 )
@@ -34,11 +23,11 @@ from app.core.app_identity import (
     GITHUB_NEW_ISSUE_URL,
     GUIDE_URL,
 )
+from app.ui.ribbon import RibbonNavigation, RibbonPage, RibbonStack, RibbonTile
 from app.ui.conversion_panel import ConversionPanel
 from app.ui.operation_layout import add_labeled_field, create_operation_card, create_operation_label
 from app.ui.ui_components import (
     IconButton,
-    draw_icon_caption,
     MenuLikeComboBox,
     resolve_widget_theme_mode,
     setup_clickable_checkbox_label,
@@ -58,61 +47,8 @@ from app.ui.ui_styles import (
     SPACE_NONE,
     SPACE_SM,
     TAB_BAR_HEIGHT,
-    build_operations_help_button_style,
     build_operations_tab_bar_style,
 )
-
-
-class _OperationsTabBar(QTabBar):
-    def paintEvent(self, event):
-        painter = QStylePainter(self)
-        for index in range(self.count()):
-            option = QStyleOptionTab()
-            self.initStyleOption(option, index)
-            if not option.rect.intersects(event.rect()) or not self.isTabVisible(index):
-                continue
-            painter.drawControl(QStyle.ControlElement.CE_TabBarTabShape, option)
-            rect = option.rect
-            role = (QPalette.ColorRole.HighlightedText if index == self.currentIndex()
-                    else QPalette.ColorRole.WindowText)
-            painter.setPen(option.palette.color(role))
-            draw_icon_caption(painter, rect.adjusted(4, 0, -4, 0), option.icon,
-                              option.iconSize, option.text, self.isTabEnabled(index))
-            if option.state & QStyle.StateFlag.State_HasFocus:
-                focus = QStyleOptionFocusRect()
-                focus.initFrom(self)
-                focus.rect = rect.adjusted(3, 3, -3, -3)
-                painter.drawPrimitive(QStyle.PrimitiveElement.PE_FrameFocusRect, focus)
-
-
-class _HelpMenuClickFilter(QObject):
-    """Закрывает открытую подсказку при нажатии её кнопки.
-
-    QMenu может захватить мышь и скрыться до сигнала QPushButton.clicked.
-    Обычный обработчик повторно открыл бы меню. Фильтр QApplication
-    перехватывает закрывающее нажатие независимо от его получателя в Qt.
-    """
-
-    def __init__(self, button: QPushButton, menu: QMenu):
-        super().__init__(button)
-        self._button = button
-        self._menu = menu
-
-    def eventFilter(self, watched, event):
-        if (
-            event.type()
-            in (QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonDblClick)
-            and event.button() == Qt.MouseButton.LeftButton
-            and self._menu.isVisible()
-            and self._button.isVisible()
-            and self._button.rect().contains(
-                self._button.mapFromGlobal(event.globalPosition().toPoint())
-            )
-        ):
-            self._menu.hide()
-            self._button.setChecked(False)
-            return True
-        return False
 
 
 class OperationsTabLayoutMixin:
@@ -124,9 +60,6 @@ class OperationsTabLayoutMixin:
             return
         effective = resolve_widget_theme_mode(self, theme)
         tab_bar.setStyleSheet(build_operations_tab_bar_style(effective))
-        button = getattr(self, "btn_help", None)
-        if button is not None:
-            button.setStyleSheet(build_operations_help_button_style(effective))
 
     def _build_rename_action_row(
         self,
@@ -208,22 +141,7 @@ class OperationsTabLayoutMixin:
 
     def create_operations_tab(self) -> QWidget:
         """Создаёт контейнер вкладок файловых операций."""
-        tab = QWidget()
-        tab_layout = QVBoxLayout(tab)
-        tab_layout.setContentsMargins(*MARGINS_NONE)
-        tab_layout.setSpacing(SPACE_NONE)
-
-        self.operations_tab_bar = _OperationsTabBar()
-        self.operations_tab_bar.setObjectName("operations_tab_bar")
-        self.operations_tab_bar.setSizePolicy(
-            QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed
-        )
-        self.operations_tab_bar.setContentsMargins(*MARGINS_NONE)
-        self.operations_tab_bar.setExpanding(True)
-        self.operations_tab_bar.setDrawBase(False)
-        self.operations_tab_bar.setElideMode(Qt.TextElideMode.ElideNone)
-        self.operations_tab_bar.setUsesScrollButtons(False)
-        self.operations_tab_bar.setDocumentMode(False)
+        self.operations_tab_bar = RibbonNavigation()
         self.operations_tab_bar.setFixedHeight(TAB_BAR_HEIGHT)
         self._apply_operations_tab_bar_theme()
 
@@ -233,178 +151,60 @@ class OperationsTabLayoutMixin:
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed,
         )
-        operations_header_layout = QVBoxLayout(self.operations_header_widget)
-        operations_header_layout.setContentsMargins(*MARGINS_NONE)
-        operations_header_layout.setSpacing(SPACE_SM)
-        operations_header_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        header = QHBoxLayout(self.operations_header_widget)
+        header.setContentsMargins(20, 0, 20, 0)
+        header.setSpacing(0)
+        header.addWidget(self.operations_tab_bar)
 
-        self.operations_header_actions_widget = QWidget(
-            self.operations_header_widget
-        )
-        self.operations_header_actions_widget.setObjectName(
-            "operations_header_actions_widget"
-        )
-        self.operations_header_actions_widget.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
-            QSizePolicy.Policy.Fixed,
-        )
-        operations_header_actions_layout = QHBoxLayout(
-            self.operations_header_actions_widget
-        )
-        operations_header_actions_layout.setContentsMargins(
-            SPACE_SM, 0, SPACE_SM, 0
-        )
-        operations_header_actions_layout.setSpacing(SPACE_SM)
-        operations_header_layout.addWidget(
-            self.operations_header_actions_widget
-        )
-
-        self.operations_navigation_widget = QWidget(
-            self.operations_header_widget
-        )
-        self.operations_navigation_widget.setObjectName(
-            "operations_navigation_widget"
-        )
-        self.operations_navigation_widget.setSizePolicy(
-            QSizePolicy.Policy.Expanding,
-            QSizePolicy.Policy.Fixed,
-        )
-        operations_navigation_layout = QHBoxLayout(
-            self.operations_navigation_widget
-        )
-        operations_navigation_layout.setContentsMargins(*MARGINS_NONE)
-        operations_navigation_layout.setSpacing(SPACE_SM)
-        operations_navigation_layout.addWidget(
-            self.operations_tab_bar,
-            1,
-            Qt.AlignmentFlag.AlignTop,
-        )
-        operations_header_layout.addWidget(self.operations_navigation_widget)
-
-        self.operations_stack = QStackedWidget()
+        self.operations_stack = RibbonStack()
         self.operations_stack.setObjectName("operations_stack")
+        self.operations_stack.currentChanged.connect(self._fit_active_ribbon_page)
         self.operations_tab_bar.currentChanged.connect(
             self._on_operations_tab_changed
         )
-        tab_layout.addWidget(self.operations_stack)
 
+        self.operations_tab_bar.tabBarDoubleClicked.connect(self._toggle_ribbon)
         self._create_rename_operation_page()
         self._create_conversion_operation_page()
         self._create_compression_operation_page()
         self._create_merge_operation_page()
-        self._settings_tab_index = self.operations_tab_bar.addTab("Настройки")
-        self.operations_tab_bar.setTabData(self._settings_tab_index, "settings")
-        self.operations_tab_bar.setUsesScrollButtons(True)
-        self.operations_tab_bar.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
+        for button in (self.btn_apply_rename, self.btn_convert, self.btn_compress, self.btn_merge):
+            button.setFixedHeight(36)
+            button.setIconSize(QSize(22, 22))
+        self.operations_tab_bar.layout().addStretch(1)
+        self._settings_tab_index = self.operations_stack.count()
+        self._add_operations_page(RibbonPage("settings"), "Настройки")
+        self._create_help_ribbon_page()
+        return self.operations_stack
 
-        self.btn_help = IconButton("Справка")
-        self.btn_help.setObjectName("help_button")
-        self.btn_help.setCheckable(True)
-        self.btn_help.setFixedHeight(22)
-        self.btn_help.setSizePolicy(
-            QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed
-        )
-        self.btn_help.setCursor(Qt.CursorShape.PointingHandCursor)
-        operations_header_actions_layout.addWidget(
-            self.btn_help,
-            0,
-            Qt.AlignmentFlag.AlignTop,
-        )
-        operations_header_actions_layout.addStretch(1)
-        self.help_menu = QMenu(self.btn_help)
-        setup_standard_popup_menu(self.help_menu)
-        self.help_menu.setObjectName("help_menu_popup")
-        self.help_menu_actions = []
-        about_action = self.help_menu.addAction("О программе")
-        about_action.setProperty("uiIcon", "help")
-        about_action.triggered.connect(self.show_help_modal)
-        self.help_menu_actions.append(about_action)
-        self.check_updates_action = self.help_menu.addAction(
-            "Проверить обновления"
-        )
-        self.check_updates_action.setProperty("uiIcon", "updates")
-        self.check_updates_action.triggered.connect(self.check_updates_now)
-        self.help_menu_actions.append(self.check_updates_action)
-        logs_action = self.help_menu.addAction("Сохранить журнал…")
-        logs_action.setProperty("uiIcon", "save")
-        logs_action.triggered.connect(self.download_logs)
-        self.help_menu_actions.append(logs_action)
+    def _create_help_ribbon_page(self):
+        page = RibbonPage("help")
+        page.row.setContentsMargins(*MARGINS_NONE)
+        page.row.setSpacing(SPACE_SM)
+        self.help_commands = []
 
-        guide_action = self.help_menu.addAction("Открыть руководство")
-        guide_action.setProperty("uiIcon", "guide")
-        guide_action.triggered.connect(
-            lambda: QDesktopServices.openUrl(QUrl(GUIDE_URL))
-        )
-        self.help_menu_actions.append(guide_action)
+        def command(caption, label, icon, callback):
+            button = RibbonTile(caption)
+            button.setAccessibleName(label)
+            button.setToolTip(label)
+            button.setProperty("uiIcon", icon)
+            button.clicked.connect(callback)
+            self.help_commands.append(button)
+            return button
 
-        report_bug_action = self.help_menu.addAction("Сообщить об ошибке")
-        report_bug_action.setProperty("uiIcon", "bug")
-        report_bug_action.triggered.connect(
-            lambda: QDesktopServices.openUrl(QUrl(GITHUB_NEW_ISSUE_URL))
-        )
-        self.help_menu_actions.append(report_bug_action)
-        self.help_menu.aboutToHide.connect(self._sync_help_button_after_menu)
-        # QMenu может получить щелчок по своей кнопке раньше QPushButton.
-        # Поглощаем щелчок, чтобы закрытие popup не открыло его повторно.
-        self._help_menu_click_filter = _HelpMenuClickFilter(
-            self.btn_help, self.help_menu
-        )
-        QApplication.instance().installEventFilter(
-            self._help_menu_click_filter
-        )
-        self.btn_help.clicked.connect(self._show_help_menu)
-        self._apply_operations_tab_bar_theme()
+        about = command("О программе", "О программе", "help", self.show_help_modal)
+        self.check_updates_action = command("Обновления", "Проверить обновления", "updates", self.check_updates_now)
+        logs = command("Журнал", "Сохранить журнал…", "save", self.download_logs)
+        guide = command("Руководство", "Открыть руководство", "guide", lambda: QDesktopServices.openUrl(QUrl(GUIDE_URL)))
+        report = command("Об ошибке", "Сообщить об ошибке", "bug", lambda: QDesktopServices.openUrl(QUrl(GITHUB_NEW_ISSUE_URL)))
+        for tile in (guide, about, self.check_updates_action, logs, report):
+            page.row.addWidget(tile)
+        page.row.addStretch()
+        self._add_operations_page(page, "Справка")
 
-        return tab
-
-    def _show_help_menu(self, _checked=False) -> None:
-        if self.help_menu.isVisible():
-            self.help_menu.hide()
-            self.btn_help.setChecked(False)
-            return
-        self.btn_help.setChecked(True)
-        self.help_menu.adjustSize()
-        target_pos = self.btn_help.mapToGlobal(
-            self.btn_help.rect().topRight()
-        ) + QPoint(4, 0)
-        start_pos = target_pos - QPoint(14, 0)
-        self.help_menu.popup(start_pos)
-        self.help_menu.setWindowOpacity(0.0)
-
-        self._help_menu_position_animation = QPropertyAnimation(
-            self.help_menu, b"pos", self.help_menu
-        )
-        self._help_menu_position_animation.setDuration(150)
-        self._help_menu_position_animation.setEasingCurve(
-            QEasingCurve.Type.OutCubic
-        )
-        self._help_menu_position_animation.setStartValue(start_pos)
-        self._help_menu_position_animation.setEndValue(target_pos)
-
-        self._help_menu_opacity_animation = QPropertyAnimation(
-            self.help_menu, b"windowOpacity", self.help_menu
-        )
-        self._help_menu_opacity_animation.setDuration(130)
-        self._help_menu_opacity_animation.setEasingCurve(
-            QEasingCurve.Type.OutCubic
-        )
-        self._help_menu_opacity_animation.setStartValue(0.0)
-        self._help_menu_opacity_animation.setEndValue(1.0)
-        self._help_menu_position_animation.start()
-        self._help_menu_opacity_animation.start()
-
-    def _sync_help_button_after_menu(self) -> None:
-        host = getattr(self, "settings_panel_host", None)
-        help_panel = getattr(self, "help_panel_widget", None)
-        is_help_visible = bool(
-            host is not None
-            and help_panel is not None
-            and host.isVisible()
-            and help_panel.isVisible()
-        )
-        self.btn_help.setChecked(is_help_visible)
+    def _toggle_ribbon(self, index):
+        if index >= 0 and index != self._settings_tab_index:
+            self.ribbon_panel.setVisible(self.ribbon_panel.isHidden())
 
     def _create_rename_operation_page(self) -> None:
         """Создаёт страницу переименования."""
@@ -417,20 +217,16 @@ class OperationsTabLayoutMixin:
             self.on_template_selected
         )
         setup_standard_dropdown(self.combo_templates)
-        add_labeled_field(rename_layout, "Шаблон:", self.combo_templates)
-        rename_layout.addSpacing(SPACE_SM)
+        self.combo_templates.setAccessibleName("Шаблон")
 
         self.rename_validation_label = self._create_operation_hint_label(
-            "Проверка имён будет выполнена перед запуском."
+            "Имена проверяются перед запуском"
         )
         self.rename_validation_label.setWordWrap(True)
-        rename_layout.addWidget(self.rename_validation_label)
         self.btn_locate_rename_issue = IconButton("Показать первую проблему")
         setup_standard_secondary_button(self.btn_locate_rename_issue)
         self.btn_locate_rename_issue.clicked.connect(self._locate_rename_issue)
         self.btn_locate_rename_issue.hide()
-        rename_layout.addWidget(self.btn_locate_rename_issue)
-        rename_layout.addSpacing(SPACE_SM)
 
         self.template_params_widget = QWidget()
         self.template_params_widget.setObjectName("template_params_widget")
@@ -446,46 +242,40 @@ class OperationsTabLayoutMixin:
         self.btn_apply_rename.clicked.connect(self.apply_rename)
         self.btn_apply_rename.setEnabled(False)
 
-        rename_buttons_widget, _ = self._build_rename_action_row(
-            [self.btn_apply_rename]
-        )
-
-        self.btn_open_rename_history = IconButton("История")
-        setup_standard_secondary_button(self.btn_open_rename_history)
-        self.btn_open_rename_history.clicked.connect(
-            self.show_rename_history_dialog
-        )
-        history_button_widget, _ = self._build_rename_action_row(
-            [self.btn_open_rename_history],
-        )
-
-        actions = QWidget()
-        actions_layout = QVBoxLayout(actions)
-        actions_layout.setContentsMargins(*MARGINS_NONE)
-        actions_layout.setSpacing(SPACE_NONE)
-        actions_layout.addWidget(rename_buttons_widget)
-        actions_layout.addWidget(history_button_widget)
-
-        self.template_actions = QWidget(actions)
-        template_actions_layout = QVBoxLayout(self.template_actions)
-        template_actions_layout.setContentsMargins(0, SPACE_SM, 0, 0)
-        template_actions_layout.setSpacing(SPACE_SM)
-        self.btn_save_template = IconButton("Сохранить")
-        self.btn_save_template.setToolTip("Сохранить шаблон")
-        self.btn_save_template.clicked.connect(self.save_current_template)
-        self.btn_manage_templates = IconButton("Шаблоны")
-        self.btn_manage_templates.setToolTip("Управлять шаблонами")
-        self.btn_manage_templates.clicked.connect(self.show_template_manager)
-        for button in (self.btn_save_template, self.btn_manage_templates):
-            setup_standard_secondary_button(button)
-            template_actions_layout.addWidget(button)
-        self.template_actions.hide()
-        actions_layout.addWidget(self.template_actions)
-
-        self._add_operations_page(
-            self._wrap_operations_page(rename_card, "rename_page", actions),
-            "Переименование",
-        )
+        setup_standard_action_button(self.btn_apply_rename)
+        page = RibbonPage("rename", "Пакетное переименование")
+        self.rename_options = page.options_button("Параметры шаблона", rename_card, "Параметры")
+        self.rename_options.setEnabled(False)
+        tools = IconButton("Шаблоны и история")
+        setup_standard_secondary_button(tools, expand=False)
+        menu = QMenu(tools)
+        setup_standard_popup_menu(menu)
+        self.btn_open_rename_history = menu.addAction("История", self.show_rename_history_dialog)
+        self.btn_save_template = menu.addAction("Сохранить шаблон", self.save_current_template)
+        self.btn_manage_templates = menu.addAction("Управлять шаблонами", self.show_template_manager)
+        self.btn_save_template.setVisible(False)
+        tools.setMenu(menu)
+        page.heading_row.addWidget(tools)
+        row = page.row
+        label = QLabel("Правило")
+        label.setStyleSheet("font-size: 15px; font-weight: 600;")
+        label.setBuddy(self.combo_templates)
+        row.addWidget(label)
+        row.addWidget(self.combo_templates, 4)
+        row.addWidget(self.rename_options)
+        row.addSpacing(12)
+        divider = QFrame()
+        divider.setFrameShape(QFrame.Shape.VLine)
+        row.addWidget(divider)
+        self.rename_status_icon = QLabel()
+        self.rename_status_icon.setFixedSize(20, 20)
+        self.rename_status_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.rename_status_icon.setStyleSheet("font-weight: 600;")
+        row.addWidget(self.rename_status_icon)
+        self.rename_validation_label.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        row.addWidget(self.rename_validation_label, 2)
+        row.addWidget(self.btn_locate_rename_issue)
+        self._add_operations_page(page, "Переименование")
 
     def _create_conversion_operation_page(self) -> None:
         panel = ConversionPanel(self)
@@ -508,23 +298,23 @@ class OperationsTabLayoutMixin:
         panel.sample_requested.connect(lambda: self.convert_files_dual_combo(sample=True))
         self.on_conversion_output_mode_changed()
         self.btn_convert = panel.btn_convert
-        self.btn_convert.setParent(None)
-
-        self._add_operations_page(
-            self._wrap_operations_page(panel.card, "convert_page", self.btn_convert),
-            "Конвертация",
-        )
+        page = RibbonPage("convert", "Конвертация файлов")
+        options = page.options_button("Параметры сохранения", panel.card, "Сохранение")
+        page.row.addWidget(panel.formats, 1)
+        divider = QFrame()
+        divider.setFrameShape(QFrame.Shape.VLine)
+        page.row.addWidget(divider)
+        page.row.addWidget(options)
+        page.row.addWidget(panel.btn_sample)
+        self._add_operations_page(page, "Конвертация")
 
     def _create_merge_operation_page(self) -> None:
         """Создаёт страницу объединения документов."""
-        merge_card, merge_layout = create_operation_card()
-        merge_layout.setContentsMargins(*OPERATIONS_PAGE_MARGINS)
 
-        self.merge_format_hint_label = self._create_operation_hint_label(
-            "Можно объединять только файлы одного формата: PDF с PDF или DOCX с DOCX."
+        self.merge_format_hint_label = QLabel(
+            "Объединяйте файлы одного формата: PDF с PDF или DOCX с DOCX"
         )
         self.merge_format_hint_label.setWordWrap(True)
-        merge_layout.addWidget(self.merge_format_hint_label)
 
         self.btn_merge = IconButton("Объединить")
         setup_standard_primary_button(self.btn_merge)
@@ -532,10 +322,14 @@ class OperationsTabLayoutMixin:
         self.btn_merge.setEnabled(False)
         self._update_merge_button_state()
 
-        self._add_operations_page(
-            self._wrap_operations_page(merge_card, "merge_page", self.btn_merge),
-            "Объединение",
-        )
+        page = RibbonPage("merge", "Объединение файлов")
+        instructions = QVBoxLayout()
+        instructions.setSpacing(3)
+        self.merge_format_hint_label.setStyleSheet("font-size: 15px;")
+        instructions.addWidget(self.merge_format_hint_label)
+        instructions.addWidget(QLabel("Порядок в очереди определяет порядок в результате"))
+        page.row.addLayout(instructions)
+        self._add_operations_page(page, "Объединение")
 
     def _create_pdf_compression_mode(self) -> QWidget:
         """Создаёт набор элементов для сжатия PDF."""
@@ -682,11 +476,8 @@ class OperationsTabLayoutMixin:
         self.combo_compress_type.currentTextChanged.connect(
             self.on_compress_type_changed
         )
-        add_labeled_field(
-            compress_layout,
-            "Тип файлов:",
-            self.combo_compress_type,
-        )
+        self.combo_compress_type.setAccessibleName("Тип файлов")
+        self.combo_compress_type.setMinimumWidth(165)
 
         self.compress_mode_stack = QStackedWidget()
         self.compress_mode_stack.setContentsMargins(*MARGINS_NONE)
@@ -720,10 +511,21 @@ class OperationsTabLayoutMixin:
         compress_layout.addWidget(self.compress_info_label)
 
         self.on_compress_type_changed(self.combo_compress_type.currentText())
-        page = self._wrap_operations_page(compress_card, "compress_page", self.btn_compress)
+        page = RibbonPage("compress", "Сжатие файлов")
+        label = QLabel("Тип файлов")
+        label.setBuddy(self.combo_compress_type)
+        label.setStyleSheet("font-size: 15px; font-weight: 600;")
+        self.combo_compress_type.setFixedWidth(280)
+        options = page.options_button("Параметры сжатия", compress_card, "Параметры сжатия")
+        options.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+        page.row.addWidget(label)
+        page.row.addWidget(self.combo_compress_type)
+        page.row.addWidget(options)
+        page.row.addStretch()
         self._add_operations_page(page, "Сжатие")
 
     def _add_operations_page(self, page: QWidget, label: str) -> None:
+        page.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Ignored)
         self.operations_stack.addWidget(page)
         tab_index = self.operations_tab_bar.addTab(label)
         # Не привязываем логику операций к переводу видимых названий вкладок.
@@ -734,10 +536,22 @@ class OperationsTabLayoutMixin:
             self.operations_tab_bar.setCurrentIndex(0)
             self.operations_stack.setCurrentIndex(0)
 
+    def _fit_active_ribbon_page(self, index):
+        for position in range(self.operations_stack.count()):
+            page = self.operations_stack.widget(position)
+            vertical = QSizePolicy.Policy.Preferred if position == index else QSizePolicy.Policy.Ignored
+            page.setSizePolicy(QSizePolicy.Policy.Preferred, vertical)
+        self.operations_stack.fit_current_page()
+        self.operations_stack.updateGeometry()
+
     def _on_operations_tab_changed(self, index: int) -> None:
         # Добавление первой вкладки может вызвать currentChanged до создания
         # списка файлов. Обновление списка в этот момент завершило бы процесс
         # из-за исключения в слоте Qt.
+        if hasattr(self, "launch_buttons"):
+            self.operation_result_panel.undo.setVisible(self.operations_tab_bar.tabData(index) == "rename")
+            for operation, button in self.launch_buttons.items():
+                button.setVisible(operation == self.operations_tab_bar.tabData(index))
         if not hasattr(self, "list_files"):
             if 0 <= index < self.operations_stack.count():
                 self.operations_stack.setCurrentIndex(index)
@@ -745,7 +559,6 @@ class OperationsTabLayoutMixin:
         if index == self._settings_tab_index:
             self.show_settings_modal()
             return
-
         if callable(getattr(self, "sync_file_preview_columns", None)):
             self.sync_file_preview_columns()
         merge = self._active_operation_id() == "merge"
@@ -766,47 +579,3 @@ class OperationsTabLayoutMixin:
                 self.refresh_active_file_preview()
             if callable(getattr(self, "_schedule_settings_save", None)):
                 self._schedule_settings_save()
-
-    def _wrap_operations_page(
-        self, card: QWidget, object_name: str, action: QWidget
-    ) -> QWidget:
-        page = QWidget()
-        page.setObjectName(object_name)
-
-        scroll = QScrollArea()
-        scroll.setObjectName("operation_page_scroll")
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setContentsMargins(*MARGINS_NONE)
-        scroll.setViewportMargins(0, 0, 0, 0)
-        scroll.setAlignment(
-            Qt.AlignmentFlag.AlignTop
-        )
-
-        content = QWidget()
-        content.setObjectName("operation_page_content")
-        content.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum
-        )
-        content_layout = QVBoxLayout(content)
-        content_layout.setContentsMargins(*MARGINS_NONE)
-        content_layout.setSpacing(SPACE_NONE)
-        content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        content_layout.addWidget(card)
-        content_layout.addStretch()
-        scroll.setWidget(content)
-
-        page_layout = QVBoxLayout(page)
-        # Внешний отступ уже задают центральный layout и содержимое карточки.
-        # Нулевой margin здесь не удваивает общий левый gutter.
-        page_layout.setContentsMargins(*MARGINS_NONE)
-        page_layout.setSpacing(SPACE_NONE)
-        page_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        page_layout.addWidget(scroll, 1)
-        page_layout.addWidget(action)
-        action.show()
-        return page

@@ -13,7 +13,6 @@ from core.rename_validation import analyze_rename_plan, format_rename_plan_issue
 class FileListPreviewMixin:
     # Показывает будущие имена файлов без изменения исходных файлов на диске.
     _SOURCE_FOLDER_HEADER = "Исходная папка"
-    _RESULT_FOLDER_HEADER = "Папка результата"
 
     def _set_preview_folder_header(self, text: str) -> None:
         file_list = getattr(self, "list_files", None)
@@ -64,16 +63,20 @@ class FileListPreviewMixin:
         if file_list is None:
             return
         model = file_list.model()
+        operation = self._active_operation_id()
         size_setter = getattr(model, "set_compression_sizes_visible", None)
         if callable(size_setter):
-            size_setter(self._active_operation_id() == "compress")
+            size_setter(operation == "compress")
         format_setter = getattr(model, "set_conversion_formats_visible", None)
         if callable(format_setter):
-            format_setter(self._active_operation_id() == "convert")
+            format_setter(operation == "convert")
+        if hasattr(model, "COLUMN_ORDER"):
+            model.set_merge_order_visible(operation == "merge")
+            file_list.setColumnHidden(model.COLUMN_ORDER, not model.merge_order_visible)
         new_name_column = getattr(model, "COLUMN_NEW_NAME", None)
         if new_name_column is None:
             return
-        should_hide = self._active_operation_id() != "rename"
+        should_hide = operation != "rename"
         if file_list.isColumnHidden(new_name_column) != should_hide:
             file_list.setColumnHidden(new_name_column, should_hide)
 
@@ -93,10 +96,15 @@ class FileListPreviewMixin:
 
     def refresh_rename_preview(self, show_empty_warning=False):
         """Автоматически обновляет предпросмотр переименования."""
+        status_icon = getattr(self, "rename_status_icon", None)
+        if status_icon is not None:
+            status_icon.setPixmap(self.rename_ok_pixmap)
         issue_button = getattr(self, "btn_locate_rename_issue", None)
         if issue_button is not None:
             issue_button.hide()
         if not getattr(self, "files", None):
+            if hasattr(self, "rename_validation_label"):
+                self.rename_validation_label.setText("Имена проверяются перед запуском")
             if hasattr(self, "btn_apply_rename"):
                 self.btn_apply_rename.setEnabled(False)
                 self.btn_apply_rename.setText("Переименовать")
@@ -121,6 +129,8 @@ class FileListPreviewMixin:
 
         self.apply_template_logic()
         if getattr(self, "_rename_template_error", ""):
+            if status_icon is not None:
+                status_icon.setText("!")
             self._rename_plan_issues = []
             self.btn_apply_rename.setEnabled(False)
             self.btn_apply_rename.setText("Переименовать")
@@ -155,6 +165,8 @@ class FileListPreviewMixin:
                 blocking = True
                 self._rename_template_error = str(error)
         self.btn_apply_rename.setEnabled(has_changes and not blocking)
+        if status_icon is not None and (blocking or self._rename_plan_issues):
+            status_icon.setText("!")
         self.btn_apply_rename.setText(
             f"Переименовать ({len(changed_pairs)})" if has_changes and not blocking else "Переименовать"
         )
@@ -268,7 +280,7 @@ class FileListPreviewMixin:
             self._refresh_list_preview()
             return
 
-        self._set_preview_folder_header(self._RESULT_FOLDER_HEADER)
+        self._set_preview_folder_header(self._SOURCE_FOLDER_HEADER)
 
         active_files, _ = self._collect_compatible_conversion_files(category_label, from_format, to_format)
         active_ids = {id(item) for item in active_files}
@@ -376,7 +388,7 @@ class FileListPreviewMixin:
                 getattr(self, "_image_output_path", lambda: "")() or ""
             ).strip() or "Выберите папку сохранения"
 
-        self._set_preview_folder_header(self._RESULT_FOLDER_HEADER)
+        self._set_preview_folder_header(self._SOURCE_FOLDER_HEADER)
 
         active_ids = {id(item) for item in self._preview_operation_items()}
         for file_item in self.files:

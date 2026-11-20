@@ -107,30 +107,18 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(window.windowTitle(), "Мультифора")
                 self.assertFalse(hasattr(window, "tabs"))
                 self.assertIsNotNone(window.operations_stack)
-                self.assertEqual(window.operations_stack.count(), 4)
-                self.assertEqual(window.operations_tab_bar.count(), 5)
-                self.assertTrue(window.operations_tab_bar.expanding())
-                self.assertEqual(
-                    window.main_splitter.widget(0).minimumWidth(), 240
-                )
-                for page_index in range(window.operations_stack.count()):
-                    page = window.operations_stack.widget(page_index)
-                    scroll = page.findChild(
-                        QScrollArea, "operation_page_scroll"
-                    )
-                    card = scroll.widget().layout().itemAt(0).widget()
-                    operation_content = card.layout().itemAt(0).widget()
-                    content_margins = (
-                        operation_content.layout().contentsMargins()
-                    )
-                    self.assertEqual(
-                        content_margins.left(), content_margins.right()
-                    )
-                    self.assertEqual(content_margins.left(), 0)
+                self.assertEqual(window.operations_stack.count(), 6)
+                self.assertEqual(window.operations_tab_bar.count(), 6)
+                bar = window.operations_tab_bar
+                for index in range(bar.count()):
+                    button = bar.group.button(index)
+                    self.assertTrue(button.icon().isNull())
+                    self.assertEqual(button.height(), 40)
+                self.assertEqual(window.operations_stack.currentWidget().objectName(), "rename_page")
                 self.assertFalse(hasattr(window, "combo_merge_format"))
                 self.assertEqual(
                     window.merge_format_hint_label.text(),
-                    "Можно объединять только файлы одного формата: PDF с PDF или DOCX с DOCX.",
+                    "Объединяйте файлы одного формата: PDF с PDF или DOCX с DOCX",
                 )
                 self.assertFalse(hasattr(window, "checkbox_replace_image"))
                 self.assertTrue(hasattr(window, "btn_ext_filter"))
@@ -292,57 +280,9 @@ class MainWindowSmokeTests(unittest.TestCase):
                         "Сжатие",
                         "Объединение",
                         "Настройки",
+                        "Справка",
                     ],
                 )
-                header_layout = window.operations_header_widget.layout()
-                self.assertLess(
-                    header_layout.indexOf(
-                        window.operations_header_actions_widget
-                    ),
-                    header_layout.indexOf(window.operations_navigation_widget),
-                )
-                self.assertIs(
-                    window.btn_help.parentWidget(),
-                    window.operations_header_actions_widget,
-                )
-                self.assertEqual(window.btn_help.height(), 22)
-                self.assertEqual(window.btn_help.objectName(), "help_button")
-                self.assertEqual(window.operations_tab_bar.height(), 34)
-                self.assertEqual(
-                    window.help_menu.objectName(), "help_menu_popup"
-                )
-                help_margins = window.operations_header_actions_widget.layout().contentsMargins()
-                self.assertEqual(
-                    (
-                        help_margins.left(),
-                        help_margins.top(),
-                        help_margins.right(),
-                        help_margins.bottom(),
-                    ),
-                    (4, 0, 4, 0),
-                )
-                self.assertIs(
-                    window.operations_tab_bar.parentWidget(),
-                    window.operations_navigation_widget,
-                )
-                self.assertEqual(
-                    window.operations_tab_bar.sizePolicy().horizontalPolicy(),
-                    QSizePolicy.Policy.Expanding,
-                )
-                navigation_layout = (
-                    window.operations_navigation_widget.layout()
-                )
-                navigation_margins = navigation_layout.contentsMargins()
-                self.assertEqual(
-                    (
-                        navigation_margins.left(),
-                        navigation_margins.top(),
-                        navigation_margins.right(),
-                        navigation_margins.bottom(),
-                    ),
-                    (0, 0, 0, 0),
-                )
-                self.assertEqual(window._settings_tab_index, 4)
 
                 settings_widget = window._ensure_settings_panel_widget()
                 self.assertIsNotNone(settings_widget)
@@ -384,14 +324,13 @@ class MainWindowSmokeTests(unittest.TestCase):
                     if button.property("buttonVariant")
                 ]
                 self.assertTrue(standard_buttons)
-                self.assertEqual(
-                    [
-                        (button.objectName(), button.text(), button.height())
-                        for button in standard_buttons
-                        if button.height() != FIELD_HEIGHT
-                    ],
-                    [],
-                )
+                large_buttons = {
+                    window.btn_apply_rename, window.btn_merge,
+                    window.btn_compress, window.btn_convert,
+                }
+                for button in standard_buttons:
+                    large = button in large_buttons or button in window.operation_result_panel.action_buttons
+                    self.assertEqual(button.height(), 36 if large else FIELD_HEIGHT)
                 self.assertEqual(
                     window.settings_scroll.objectName(), "settings_page_scroll"
                 )
@@ -413,7 +352,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     )
                 self.assertEqual(window.help_stack.count(), 1)
                 self.assertEqual(
-                    [action.text() for action in window.help_menu_actions],
+                    [button.accessibleName() for button in window.help_commands],
                     [
                         "О программе",
                         "Проверить обновления",
@@ -426,7 +365,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     "app.ui.mixins.operations_tab_layout_mixin.QDesktopServices.openUrl",
                     return_value=True,
                 ) as open_url:
-                    window.help_menu_actions[3].trigger()
+                    window.help_commands[3].click()
                 open_url.assert_called_once()
                 self.assertEqual(
                     open_url.call_args.args[0].toString(),
@@ -437,7 +376,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     "app.ui.mixins.operations_tab_layout_mixin.QDesktopServices.openUrl",
                     return_value=True,
                 ) as open_url:
-                    window.help_menu_actions[4].trigger()
+                    window.help_commands[4].click()
                 open_url.assert_called_once()
                 self.assertEqual(
                     open_url.call_args.args[0].toString(),
@@ -496,10 +435,6 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window.btn_open_rename_history.text(),
                     "История",
                 )
-                self.assertEqual(
-                    window.btn_open_rename_history.property("buttonVariant"),
-                    "secondary",
-                )
                 self.assertFalse(window.checkbox_replace_pdf.isChecked())
                 QTest.mouseClick(
                     window.replace_files_label, Qt.MouseButton.LeftButton
@@ -524,14 +459,13 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(
                     window.settings_scroll.height(), settings_height_with_message
                 )
-                self.assertFalse(window.btn_help.isChecked())
                 self.assertEqual(
                     window.operations_tab_bar.currentIndex(),
                     window._settings_tab_index,
                 )
                 self.assertTrue(
                     all(
-                        window.operations_tab_bar.isTabVisible(index)
+                        window.operations_tab_bar.group.button(index).isVisible()
                         for index in range(window.operations_tab_bar.count())
                     )
                 )
@@ -568,22 +502,20 @@ class MainWindowSmokeTests(unittest.TestCase):
                     return int(QDialog.DialogCode.Rejected)
 
                 with patch.object(QDialog, "exec", new=inspect_help_dialog):
-                    window.help_menu_actions[0].trigger()
+                    window.help_commands[0].click()
                 self.assertIn("dialog", captured_help_dialog)
                 with patch.object(
                     QDialog,
                     "exec",
                     new=lambda dialog: int(QDialog.DialogCode.Rejected),
                 ):
-                    window.help_menu_actions[0].trigger()
+                    window.help_commands[0].click()
                 self.assertEqual(window.help_stack.currentIndex(), 0)
                 self.assertFalse(window.settings_panel_widget.isHidden())
                 self.assertTrue(window.help_panel_widget.isHidden())
                 self.assertEqual(window.help_stack.currentIndex(), 0)
-                self.assertFalse(window.btn_help.isChecked())
-                window.operations_tab_bar.setCurrentIndex(original_index)
+                window.hide_settings_panel()
                 self.assertTrue(window.settings_panel_host.isHidden())
-                self.assertFalse(window.btn_help.isChecked())
 
                 running_worker = Mock()
                 running_worker.isRunning.return_value = True
@@ -729,7 +661,7 @@ class MainWindowSmokeTests(unittest.TestCase):
 
             try:
                 with patch.object(QDialog, "exec", new=inspect_dialog):
-                    window.btn_open_rename_history.click()
+                    window.btn_open_rename_history.trigger()
                 self.assertIn("dialog", captured)
                 self.assertIsNone(window.rename_history_list)
                 self.assertIsNone(window.btn_history_undo)
@@ -1277,35 +1209,18 @@ class MainWindowSmokeTests(unittest.TestCase):
 
                 window.resize(900, 550)
                 window.show()
-                window.main_splitter.setSizes([240, 654])
-                QApplication.processEvents()
-                for (
-                    token,
-                    button,
-                ) in window.template_quick_insert_buttons.items():
-                    with self.subTest(token=token):
-                        self.assertGreaterEqual(
-                            button.width(), button.sizeHint().width()
-                        )
-                previous = window.btn_open_rename_history
-                for button in (
-                    window.btn_save_template,
-                    window.btn_manage_templates,
-                ):
-                    self.assertTrue(button.isVisible())
-                    self.assertEqual(button.width(), previous.width())
-                    self.assertGreater(
-                        button.mapToGlobal(button.rect().topLeft()).y(),
-                        previous.mapToGlobal(previous.rect().bottomLeft()).y(),
-                    )
-                    self.assertGreaterEqual(
-                        button.width(), button.sizeHint().width()
-                    )
-                    previous = button
-                self.assertGreaterEqual(
-                    window.btn_open_rename_history.width(),
-                    window.btn_open_rename_history.sizeHint().width(),
-                )
+                def inspect_template_dialog(dialog):
+                    dialog.show()
+                    QApplication.processEvents()
+                    self.assertTrue(window.template_custom.isVisible())
+                    for button in window.template_quick_insert_buttons.values():
+                        self.assertGreaterEqual(button.width(), button.sizeHint().width())
+                    return QDialog.DialogCode.Accepted
+
+                with patch.object(QDialog, "exec", new=inspect_template_dialog):
+                    window.rename_options.click()
+                self.assertTrue(window.btn_save_template.isVisible())
+                self.assertTrue(window.btn_manage_templates.isVisible())
             finally:
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()

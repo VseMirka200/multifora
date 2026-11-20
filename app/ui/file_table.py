@@ -95,9 +95,10 @@ class FileListModel(QAbstractTableModel):
     COLUMN_TYPE = 2
     COLUMN_PATH = 3
     COLUMN_CHECK = 4
+    COLUMN_ORDER = 5
     # Совместимость с кодом, которому нужна любая колонка для выбора строки.
     COLUMN_NAME = COLUMN_OLD_NAME
-    HEADERS = ("Старое имя", "Новое имя", "Тип файла", "Исходная папка", "")
+    HEADERS = ("Старое имя", "Новое имя", "Тип файла", "Исходная папка", "", "№")
 
     # Хранит общий порядок файлов, чтобы выделение и перетаскивание не расходились с UI.
     def __init__(self, parent=None):
@@ -107,6 +108,7 @@ class FileListModel(QAbstractTableModel):
         self._folder_header = self.HEADERS[self.COLUMN_PATH]
         self.compression_sizes_visible = False
         self.conversion_formats_visible = False
+        self.merge_order_visible = False
         self.full_path_tooltip = False
 
     def preview_for(self, item):
@@ -133,7 +135,7 @@ class FileListModel(QAbstractTableModel):
         if self.conversion_formats_visible == visible:
             return
         self.conversion_formats_visible = visible
-        self.headerDataChanged.emit(Qt.Orientation.Horizontal, self.COLUMN_TYPE, self.COLUMN_TYPE)
+        self.headerDataChanged.emit(Qt.Orientation.Horizontal, self.COLUMN_OLD_NAME, self.COLUMN_TYPE)
         self.refresh()
 
     def _conversion_type_label(self, file_item) -> str:
@@ -147,8 +149,13 @@ class FileListModel(QAbstractTableModel):
         if self.compression_sizes_visible == visible:
             return
         self.compression_sizes_visible = visible
-        self.headerDataChanged.emit(Qt.Orientation.Horizontal, self.COLUMN_TYPE, self.COLUMN_TYPE)
+        self.headerDataChanged.emit(Qt.Orientation.Horizontal, self.COLUMN_OLD_NAME, self.COLUMN_TYPE)
         self.refresh()
+
+    def set_merge_order_visible(self, visible: bool) -> None:
+        if self.merge_order_visible != visible:
+            self.merge_order_visible = visible
+            self.headerDataChanged.emit(Qt.Orientation.Horizontal, self.COLUMN_OLD_NAME, self.COLUMN_OLD_NAME)
 
     @staticmethod
     def _format_file_size(size: int) -> str:
@@ -179,6 +186,12 @@ class FileListModel(QAbstractTableModel):
             Qt.Orientation.Horizontal, self.COLUMN_PATH, self.COLUMN_PATH
         )
 
+    def displayed_folder(self, item):
+        source = file_item_source_folder(item)
+        if self._folder_header == self.HEADERS[self.COLUMN_PATH]:
+            return source
+        return getattr(self.preview_for(item), "preview_folder", "") or source
+
     @staticmethod
     def _original_display_name(file_item) -> str:
         return file_item.name
@@ -207,7 +220,7 @@ class FileListModel(QAbstractTableModel):
                 return "Текущий размер и приблизительный размер после сжатия. Сортировка по текущему размеру."
         if orientation == Qt.Orientation.Horizontal and section == self.COLUMN_TYPE and self.conversion_formats_visible:
             if role == Qt.ItemDataRole.DisplayRole:
-                return "Тип: сейчас → после"
+                return "Формат → результат"
             if role == Qt.ItemDataRole.ToolTipRole:
                 return "Исходный формат и формат результата. Сортировка по исходному типу файла."
         if (
@@ -215,6 +228,10 @@ class FileListModel(QAbstractTableModel):
             and role == Qt.ItemDataRole.DisplayRole
             and 0 <= section < len(self.HEADERS)
         ):
+            if section == self.COLUMN_OLD_NAME and (
+                self.compression_sizes_visible or self.conversion_formats_visible or self.merge_order_visible
+            ):
+                return "Имя файла"
             if section == self.COLUMN_PATH:
                 return self._folder_header
             return self.HEADERS[section]
@@ -242,6 +259,8 @@ class FileListModel(QAbstractTableModel):
                     "Без отметок обрабатываются все файлы текущего списка."
                 )
         if role == Qt.ItemDataRole.DisplayRole:
+            if index.column() == self.COLUMN_ORDER:
+                return index.row() + 1
             if index.column() == self.COLUMN_OLD_NAME:
                 return self._original_display_name(file_item)
             if index.column() == self.COLUMN_NEW_NAME:
@@ -256,8 +275,7 @@ class FileListModel(QAbstractTableModel):
                     return self._conversion_type_label(file_item)
                 return file_item_type_label(file_item)
             if index.column() == self.COLUMN_PATH:
-                preview_folder = getattr(self.preview_for(file_item), "preview_folder", "")
-                return str(preview_folder or file_item_source_folder(file_item))
+                return str(self.displayed_folder(file_item))
         if role == Qt.ItemDataRole.ToolTipRole:
             if index.column() == self.COLUMN_TYPE and self.conversion_formats_visible:
                 return (
@@ -278,7 +296,10 @@ class FileListModel(QAbstractTableModel):
                 return self.data(index, Qt.ItemDataRole.DisplayRole)
             if index.column() == self.COLUMN_PATH:
                 preview_folder = getattr(self.preview_for(file_item), "preview_folder", "")
-                return str(preview_folder or getattr(file_item, "path", ""))
+                folder = self.displayed_folder(file_item)
+                if preview_folder and preview_folder != folder:
+                    return f"{folder}\nПапка результата: {preview_folder}"
+                return str(preview_folder or getattr(file_item, "path", "") or folder)
         if role == Qt.ItemDataRole.SizeHintRole:
             metrics = QFontMetrics(QApplication.font())
             text = self.data(index, Qt.ItemDataRole.DisplayRole) or ""
@@ -365,6 +386,11 @@ class FileListModel(QAbstractTableModel):
         for i, item in enumerate(rows):
             self._files.insert(destinationChild + i, item)
         self.endMoveRows()
+        if self.merge_order_visible:
+            first, last = sorted((sourceRow, destinationChild))
+            self.dataChanged.emit(self.index(first, self.COLUMN_ORDER),
+                                  self.index(last + count - 1, self.COLUMN_ORDER),
+                                  [Qt.ItemDataRole.DisplayRole])
         return True
 
     def refresh(self):
@@ -455,6 +481,8 @@ class FileListWidget(QTableView):
         header.setStyleSheet(FILE_LIST_HEADER_STYLE)
         # Номера остальных колонок сохраняются для существующих настроек сортировки.
         header.moveSection(self.model().COLUMN_CHECK, 0)
+        header.moveSection(header.visualIndex(self.model().COLUMN_ORDER), 1)
+        self.setColumnHidden(self.model().COLUMN_ORDER, True)
         header.setStretchLastSection(True)
         # Измерение каждой ячейки заметно замедляет сброс модели для больших
         # пакетов. Репрезентативная выборка сохраняет полезную автоширину и
@@ -463,6 +491,8 @@ class FileListWidget(QTableView):
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         header.setSectionResizeMode(self.model().COLUMN_CHECK, QHeaderView.ResizeMode.Fixed)
         header.resizeSection(self.model().COLUMN_CHECK, self._CHECK_COLUMN_WIDTH)
+        header.setSectionResizeMode(self.model().COLUMN_ORDER, QHeaderView.ResizeMode.Fixed)
+        header.resizeSection(self.model().COLUMN_ORDER, 60)
         self.check_all_checkbox = QCheckBox(header.viewport())
         self.check_all_checkbox.setObjectName("check_all_files")
         self.check_all_checkbox.setAccessibleName("Отметить видимые файлы")
@@ -678,7 +708,7 @@ class FileListWidget(QTableView):
         if files:
             header = self.horizontalHeader()
             for column in range(self.model().columnCount()):
-                if column != self.model().COLUMN_CHECK:
+                if column not in (self.model().COLUMN_CHECK, self.model().COLUMN_ORDER):
                     header.setSectionResizeMode(column, QHeaderView.ResizeMode.Interactive)
             header.setStretchLastSection(True)
             self._resize_columns_to_contents()
@@ -691,7 +721,7 @@ class FileListWidget(QTableView):
         header = self.horizontalHeader()
         header.setStretchLastSection(False)
         for column in range(self.model().columnCount()):
-            if column != self.model().COLUMN_CHECK:
+            if column not in (self.model().COLUMN_CHECK, self.model().COLUMN_ORDER):
                 header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
         header.resizeSection(self.model().COLUMN_CHECK, self._CHECK_COLUMN_WIDTH)
         self.horizontalScrollBar().setValue(

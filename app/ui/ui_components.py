@@ -1024,7 +1024,7 @@ class IconButton(QPushButton):
 
 
 class FilterToolButton(QToolButton):
-    """Кнопка фильтра с центрированной подписью и стрелкой меню справа."""
+    """Кнопка фильтра с подписью слева и стрелкой меню справа."""
 
     def paintEvent(self, event):
         option = QStyleOptionToolButton()
@@ -1038,8 +1038,8 @@ class FilterToolButton(QToolButton):
         painter.drawComplexControl(QStyle.ComplexControl.CC_ToolButton, option)
 
         painter.setPen(option.palette.buttonText().color())
-        draw_icon_caption(painter, self.rect().adjusted(22, 0, -22, 0), icon,
-                          option.iconSize, text, self.isEnabled(), text_y_offset=1)
+        draw_icon_caption(painter, self.rect().adjusted(12, 0, -22, 0), icon,
+                          option.iconSize, text, self.isEnabled(), align_left=True, text_y_offset=1)
 
 
 class DropActionTile(QFrame):

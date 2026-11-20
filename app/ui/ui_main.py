@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QSizePolicy,
-    QSplitter,
     QVBoxLayout,
     QWidget,
 )
@@ -62,7 +61,6 @@ from app.ui.operation_progress import OperationProgressDialog
 from app.ui.operation_result_panel import OperationResultPanel
 from app.ui.ui_components import (
     IconButton,
-    DropActionTile,
     FilterToolButton,
     LoggingStatusBar,
     ScrollableFilterMenu,
@@ -72,24 +70,23 @@ from app.ui.ui_components import (
     setup_standard_header_dropdown,
     setup_standard_line_input,
     setup_standard_secondary_button,
+    setup_standard_primary_button,
     sync_standard_menu_width,
 )
 from app.ui.ui_styles import (
     APP_MARGINS,
-    DROP_ZONE_MARGINS,
     FILE_INFO_LABEL_STYLE,
     HEADER_FIELD_HEIGHT,
     MARGINS_NONE,
     SPACE_NONE,
     SPACE_SM,
-    SPACE_XL,
     SPLITTER_GRIP_LABEL_STYLE,
     TRANSPARENT_CONTAINER_STYLE,
     build_drop_zone_hint_style,
     build_drop_zone_overlay_style,
     build_drop_zone_surface_style,
+    build_workspace_style,
     build_file_info_separator_style,
-    build_splitter_style,
 )
 from core.file_models import FileItem
 from core.operation_requests import MergeRequest, OperationRequest, RenameRequest
@@ -176,8 +173,10 @@ class MultiforaMainWindow(
                 self.restore_template_session_state(pending_template_session)
             except Exception as e:
                 _debug_log(f"Ошибка восстановления шаблона сессии: {e}")
-        # Тяжёлые backend-библиотеки загружаются только при первой операции.
+        else:
+            self.combo_templates.setCurrentText("Добавить текст в конец")
         self._update_undo_button()
+        self.update_file_info()
 
         self.create_ipc_server()
 
@@ -443,32 +442,13 @@ class MultiforaMainWindow(
         self.settings_panel_host_layout.setContentsMargins(*MARGINS_NONE)
         self.settings_panel_host_layout.setSpacing(SPACE_NONE)
 
-    def _create_main_splitter(self) -> QSplitter:
-        """Создаёт изменяемый разделитель рабочих панелей."""
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.main_splitter = splitter
-        splitter.setHandleWidth(SPACE_SM)
-        splitter.setStyleSheet(build_splitter_style())
-        return splitter
-
-    def _create_left_panel(
-        self, main_layout: QVBoxLayout, content_layout: QVBoxLayout
-    ) -> QWidget:
-        """Создаёт левую панель операций и подключает панель настроек."""
-        left_widget = QFrame()
-        left_widget.setObjectName("operations_panel")
-        # Длинные подписи шаблонов и истории не должны обрезаться
-        # при сужении панели разделителем.
-        left_widget.setMinimumWidth(240)
-        left_layout = QVBoxLayout(left_widget)
-        left_layout.setContentsMargins(SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
-        left_layout.setSpacing(SPACE_NONE)
-
-        operations_tab = self.create_operations_tab()
-        if hasattr(self, "operations_header_widget"):
-            main_layout.addWidget(self.operations_header_widget)
-        elif hasattr(self, "operations_tab_bar"):
-            main_layout.addWidget(self.operations_tab_bar)
+    def _create_ribbon(self, main_layout, content_layout):
+        self.ribbon_panel = self.create_operations_tab()
+        main_layout.addWidget(self.operations_header_widget)
+        content_layout.addWidget(self.ribbon_panel)
+        back = IconButton("Вернуться к очереди")
+        back.clicked.connect(self.hide_settings_panel)
+        self.settings_panel_host_layout.addWidget(back, 0, Qt.AlignmentFlag.AlignLeft)
         if (
             not hasattr(self, "settings_panel_widget")
             or self.settings_panel_widget is None
@@ -490,8 +470,6 @@ class MultiforaMainWindow(
         self.help_panel_widget.setVisible(False)
 
         content_layout.addWidget(self.settings_panel_host)
-        left_layout.addWidget(operations_tab)
-        return left_widget
 
     @staticmethod
     def _set_header_menu_open_state(button, is_open: bool) -> None:
@@ -671,7 +649,7 @@ class MultiforaMainWindow(
         list_header = QGridLayout()
         self._list_header_layout = list_header
         list_header.setContentsMargins(*MARGINS_NONE)
-        list_header.setHorizontalSpacing(SPACE_SM)
+        list_header.setHorizontalSpacing(12)
         list_header.setVerticalSpacing(SPACE_SM)
 
         self._create_extension_filter()
@@ -758,6 +736,7 @@ class MultiforaMainWindow(
         )
         self.list_files.renameRequested.connect(self.rename_selected_item)
         table_header = self.list_files.horizontalHeader()
+        table_header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         table_header.setSectionsClickable(True)
         table_header.setSortIndicatorShown(False)
         table_header.sectionClicked.connect(self.on_file_header_clicked)
@@ -778,44 +757,29 @@ class MultiforaMainWindow(
             build_drop_zone_overlay_style("dark")
         )
         drop_zone_layout = QVBoxLayout(self.drop_zone_controls)
-        drop_zone_layout.setContentsMargins(*DROP_ZONE_MARGINS)
-        drop_zone_layout.setSpacing(SPACE_XL)
-        drop_zone_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        drop_zone_layout.setContentsMargins(10, 8, 10, 8)
+        drop_zone_layout.setSpacing(10)
         drop_zone_layout.addStretch()
-
-        drop_buttons_row = QGridLayout()
-        drop_buttons_row.setContentsMargins(*MARGINS_NONE)
-        drop_buttons_row.setHorizontalSpacing(SPACE_SM)
-        drop_buttons_row.setVerticalSpacing(SPACE_NONE)
-        drop_buttons_row.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-
-        self.btn_add_files = DropActionTile(
-            ui_icon("add-file", "tiles"),
-            "Добавить\nфайлы",
-        )
-        self.btn_add_files.clicked.connect(self.select_files)
-        drop_buttons_row.addWidget(self.btn_add_files, 0, 0)
-
-        self.btn_add_folder = DropActionTile(
-            ui_icon("add-folder", "tiles"),
-            "Добавить\nпапки",
-        )
-        self.btn_add_folder.clicked.connect(self.select_folder)
-        drop_buttons_row.addWidget(self.btn_add_folder, 0, 1)
-        drop_buttons_row.setColumnStretch(0, 1)
-        drop_buttons_row.setColumnStretch(1, 1)
-        drop_zone_layout.addLayout(drop_buttons_row, 0)
-
-        self.drop_zone_hint_label = QLabel("Или перетащите сюда файлы/папки")
+        self.drop_document = QLabel()
+        self.drop_document.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        drop_zone_layout.addWidget(self.drop_document)
+        self.drop_zone_hint_label = QLabel("Перетащите файлы или папки сюда")
         self.drop_zone_hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.drop_zone_hint_label.setStyleSheet(
-            build_drop_zone_hint_style("dark")
-        )
-        drop_zone_layout.addWidget(
-            self.drop_zone_hint_label,
-            0,
-            Qt.AlignmentFlag.AlignHCenter,
-        )
+        drop_zone_layout.addWidget(self.drop_zone_hint_label)
+        drop_buttons_row = QHBoxLayout()
+        drop_buttons_row.setSpacing(12)
+        drop_buttons_row.addStretch()
+        self.btn_add_files = IconButton("Добавить файлы")
+        setup_standard_primary_button(self.btn_add_files)
+        self.btn_add_files.clicked.connect(self.select_files)
+        self.btn_add_folder = IconButton("Добавить папки")
+        setup_standard_secondary_button(self.btn_add_folder)
+        self.btn_add_folder.clicked.connect(self.select_folder)
+        for button in (self.btn_add_files, self.btn_add_folder):
+            button.setMinimumWidth(146)
+            drop_buttons_row.addWidget(button)
+        drop_buttons_row.addStretch()
+        drop_zone_layout.addLayout(drop_buttons_row)
         self.btn_reset_queue_filters = IconButton("Сбросить фильтры")
         setup_standard_secondary_button(self.btn_reset_queue_filters)
         self.btn_reset_queue_filters.clicked.connect(self._reset_queue_filters)
@@ -865,7 +829,7 @@ class MultiforaMainWindow(
         files_panel.setObjectName("drop_zone_surface")
         files_panel.setStyleSheet(build_drop_zone_surface_style("light"))
         files_panel_layout = QVBoxLayout(files_panel)
-        files_panel_layout.setContentsMargins(*MARGINS_NONE)
+        files_panel_layout.setContentsMargins(1, 1, 1, 1)
         files_panel_layout.setSpacing(SPACE_NONE)
 
         self._create_file_list_widget(files_panel_layout)
@@ -880,13 +844,13 @@ class MultiforaMainWindow(
         info_layout.setContentsMargins(*MARGINS_NONE)
         info_layout.setSpacing(SPACE_SM)
 
-        self.label_count = self._setup_info_label(QLabel("Видно: 0 из 0"))
+        self.label_count = self._setup_info_label(QLabel("Файлов: 0"))
         info_layout.addWidget(self.label_count)
 
         count_size_separator = self._create_info_separator()
         info_layout.addWidget(count_size_separator)
 
-        self.label_item_size = self._setup_info_label(QLabel("Выделено: 0 · 0 МБ"))
+        self.label_item_size = self._setup_info_label(QLabel("Выделено: 0"))
         info_layout.addWidget(self.label_item_size)
 
         size_total_separator = self._create_info_separator()
@@ -908,7 +872,7 @@ class MultiforaMainWindow(
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
         right_layout.setContentsMargins(*MARGINS_NONE)
-        right_layout.setSpacing(SPACE_SM)
+        right_layout.setSpacing(12)
 
         list_header = self._create_list_header()
         right_layout.addLayout(list_header)
@@ -917,8 +881,8 @@ class MultiforaMainWindow(
         info_panel = QFrame()
         info_panel.setObjectName("file_info_panel")
         summary_layout = QVBoxLayout(info_panel)
-        summary_layout.setContentsMargins(SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
-        summary_layout.setSpacing(SPACE_SM)
+        summary_layout.setContentsMargins(0, 0, 0, 0)
+        summary_layout.setSpacing(12)
         info_row = self._create_file_info_layout()
         self.btn_clear_active_filters = IconButton("Сбросить фильтры")
         setup_standard_secondary_button(self.btn_clear_active_filters, expand=False)
@@ -932,32 +896,18 @@ class MultiforaMainWindow(
         self.operation_result_panel = OperationResultPanel()
         self.operation_result_panel.retry_requested.connect(self._retry_failed_operation)
         self.operation_result_panel.undo_requested.connect(self.show_rename_history_dialog)
+        self.launch_buttons = {
+            "rename": self.btn_apply_rename,
+            "convert": self.btn_convert,
+            "compress": self.btn_compress,
+            "merge": self.btn_merge,
+        }
+        for operation, button in self.launch_buttons.items():
+            self.operation_result_panel.actions.addWidget(button, 1)
+            button.setVisible(operation == self._active_operation_id())
         summary_layout.addWidget(self.operation_result_panel)
         right_layout.addWidget(info_panel)
         return right_widget
-
-    def _configure_main_splitter(
-        self,
-        splitter: QSplitter,
-        left_widget: QWidget,
-        right_widget: QWidget,
-    ) -> None:
-        """Подключает панели к разделителю и создаёт визуальную ручку."""
-        splitter.addWidget(left_widget)
-        splitter.addWidget(right_widget)
-        splitter.setChildrenCollapsible(False)
-        splitter.setCollapsible(0, False)
-        splitter.setCollapsible(1, False)
-        splitter.setSizes([310, 890])
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 4)
-        splitter.splitterMoved.connect(self._resize_queue_columns)
-
-        handle = splitter.handle(1)
-        if handle is None:
-            return
-        handle.setEnabled(True)
-        handle.setCursor(Qt.CursorShape.SizeHorCursor)
 
     def _create_status_bar(self) -> None:
         self.status_bar = LoggingStatusBar()
@@ -976,21 +926,20 @@ class MultiforaMainWindow(
         self.resize(1200, 700)
 
         central = QWidget()
+        central.setObjectName("workspace")
         self.setCentralWidget(central)
         main_layout = QVBoxLayout(central)
         main_layout.setContentsMargins(0, APP_MARGINS[1], 0, APP_MARGINS[3])
-        main_layout.setSpacing(SPACE_SM)
+        main_layout.setSpacing(14)
 
         self._create_settings_panel_host()
-        splitter = self._create_main_splitter()
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
         content_layout.setContentsMargins(APP_MARGINS[0], 0, APP_MARGINS[2], 0)
-        content_layout.setSpacing(SPACE_SM)
-        left_widget = self._create_left_panel(main_layout, content_layout)
-        right_widget = self._create_right_panel()
-        self._configure_main_splitter(splitter, left_widget, right_widget)
-        content_layout.addWidget(splitter, 1)
+        content_layout.setSpacing(14)
+        self._create_ribbon(main_layout, content_layout)
+        self.queue_panel = self._create_right_panel()
+        content_layout.addWidget(self.queue_panel, 1)
         main_layout.addWidget(content_widget, 1)
         self._create_status_bar()
 
@@ -998,7 +947,6 @@ class MultiforaMainWindow(
         self.apply_theme_mode(self.theme_mode)
         self.setup_system_theme_tracking()
         self._update_header_compact_mode()
-        self._connect_ui_state_autosave()
         self._schedule_filter_button_refresh()
 
     def showEvent(self, event):
@@ -1067,26 +1015,6 @@ class MultiforaMainWindow(
             self._restoring_window_geometry = False
             self.initial_load_complete = True
 
-    def _connect_ui_state_autosave(self):
-        if hasattr(self, "main_splitter"):
-            self._safe_connect_signal(
-                self.main_splitter.splitterMoved,
-                lambda _pos, _index: self._schedule_settings_save(),
-            )
-            self._safe_connect_signal(
-                self.main_splitter.splitterMoved,
-                lambda _pos, _index: self._update_drop_zone_controls(),
-            )
-
-    @staticmethod
-    def _safe_connect_signal(signal, callback) -> None:
-        try:
-            signal.connect(callback)
-        except Exception as error:
-            _log_ignored_error(
-                "MultiforaMainWindow._safe_connect_signal", error
-            )
-
     def _apply_theme_runtime_widgets(self):
         mode = getattr(self, "_effective_theme_mode", "dark")
         apply_window_icons(self, mode)
@@ -1148,12 +1076,22 @@ class MultiforaMainWindow(
                 self.drop_zone_hint_label.setStyleSheet(
                     build_drop_zone_hint_style(mode)
                 )
-        for tile_name in ("btn_add_files", "btn_add_folder"):
-            tile = getattr(self, tile_name, None)
-            if tile is not None and callable(
-                getattr(tile, "set_theme_mode", None)
-            ):
-                tile.set_theme_mode(mode)
+        self.rename_ok_pixmap = ui_icon("validated", mode).pixmap(20, 20)
+        if not self.rename_status_icon.text():
+            self.rename_status_icon.setPixmap(self.rename_ok_pixmap)
+        self.drop_document.setPixmap(ui_icon("document", mode).pixmap(42, 42))
+        dark = mode == "dark"
+        self.centralWidget().setStyleSheet(build_workspace_style(mode))
+        self.list_files.horizontalHeader().setFixedHeight(32)
+        self.rename_validation_label.setStyleSheet("font-size: 14px; color: " + ("#c7cbd3" if dark else "#4b5563"))
+        self.btn_add_files.setStyleSheet(self.btn_add_files.styleSheet() + """
+            QPushButton { background: #527ff1; color: white; border-color: #527ff1; }
+            QPushButton:hover { background: #416cda; }
+        """)
+        for button in self.launch_buttons.values():
+            button.setStyleSheet(self.btn_add_files.styleSheet() + """
+                QPushButton:disabled { background: #445679; color: #b0bbd1; border-color: #445679; }
+            """)
 
     def _schedule_settings_save(self):
         if not getattr(self, "initial_load_complete", False):
@@ -1267,19 +1205,24 @@ class MultiforaMainWindow(
         viewport = self.list_files.viewport()
         field_rect = viewport.rect()
         field_rect.moveTopLeft(viewport.mapTo(host, field_rect.topLeft()))
-        overlay.setGeometry(field_rect)
+        card = field_rect.adjusted(8, 6, -8, -6)
+        card.setWidth(min(card.width(), 510))
+        card.setHeight(min(card.height(), 196))
+        card.moveCenter(field_rect.center())
+        overlay.setGeometry(card)
         empty_view = not self.list_files.model().files()
         overlay.setVisible(empty_view)
         if not empty_view:
             return
         empty_queue = not self.files
         unsupported = not empty_queue and not self._files_visible_for_active_operation(self.files)
+        self.drop_document.setVisible(empty_queue and card.height() >= 125)
         self.btn_add_files.setVisible(empty_queue)
         self.btn_add_folder.setVisible(empty_queue)
         self.btn_reset_queue_filters.setVisible(not empty_queue and not unsupported)
         self.btn_show_all_queue_files.setVisible(unsupported)
         if empty_queue:
-            message = "Или перетащите сюда файлы или папки"
+            message = "Перетащите файлы или папки сюда"
         elif unsupported:
             message = "Нет документов PDF или DOCX для объединения"
         else:
@@ -1394,10 +1337,10 @@ class MultiforaMainWindow(
         if not category_label:
             with signals_blocked(self.from_convert_combo):
                 self.from_convert_combo.clear()
-                self.from_convert_combo.addItem("Выберите исходный формат:")
+                self.from_convert_combo.addItem("Выберите формат")
             with signals_blocked(self.to_convert_combo):
                 self.to_convert_combo.clear()
-                self.to_convert_combo.addItem("Выберите целевой формат:")
+                self.to_convert_combo.addItem("Выберите формат")
                 self.to_convert_combo.setEnabled(False)
             self.btn_convert.setEnabled(False)
             return
@@ -1416,7 +1359,7 @@ class MultiforaMainWindow(
         ).strip()
         with signals_blocked(self.from_convert_combo):
             self.from_convert_combo.clear()
-            self.from_convert_combo.addItem("Выберите исходный формат:")
+            self.from_convert_combo.addItem("Выберите формат")
             if mixed_label:
                 self.from_convert_combo.addItem(mixed_label)
             for fmt in available_formats:

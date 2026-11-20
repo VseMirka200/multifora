@@ -19,8 +19,8 @@ from app.ui.file_table import operation_file_items
 from core.file_models import FileItem
 from core.operation_requests import ConversionRequest
 
-_CATEGORY_PLACEHOLDER = "Выберите тип файла:"
-_TARGET_PLACEHOLDER = "Выберите целевой формат:"
+_CATEGORY_PLACEHOLDER = "Выберите тип"
+_TARGET_PLACEHOLDER = "Выберите формат"
 
 class ConversionActionsMixin:
     """Содержит UI-логику запуска конвертации файлов."""

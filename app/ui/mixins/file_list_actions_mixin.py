@@ -7,7 +7,6 @@ from app.core.app_utils import _log_ignored_error
 from app.core.message_boxes import show_app_choice
 from core.file_models import (
     FileItem,
-    file_item_source_folder,
     file_item_type_label,
     natural_sort_key,
 )
@@ -377,8 +376,10 @@ class FileListActionsMixin:
         selected_size = sum(item.size for item in selected) / (1024 * 1024)
         visible = len(self.list_files.model().files())
 
-        self.label_count.setText(f"Видно: {visible} из {total_files}")
-        self.label_item_size.setText(f"Выделено: {len(selected)} · {selected_size:.2f} МБ")
+        self.label_count.setText(f"Файлов: {total_files}" if visible == total_files else f"Видно: {visible} из {total_files}")
+        self.label_item_size.setText(f"Выделено: {len(selected)} · {selected_size:.2f} МБ" if selected else "Выделено: 0")
+        self.label_total_size.setVisible(bool(total_files))
+        self._file_info_separators[-1].setVisible(bool(total_files))
         self.label_total_size.setText(f"Всего: {total_size:.2f} МБ")
 
     def on_file_header_clicked(self, section: int):
@@ -456,10 +457,7 @@ class FileListActionsMixin:
 
             def key_func(file_item):
                 return (
-                    natural_sort_key(
-                        getattr(model.preview_for(file_item), "preview_folder", "")
-                        or file_item_source_folder(file_item)
-                    ),
+                    natural_sort_key(model.displayed_folder(file_item)),
                     natural_sort_key(getattr(file_item, "name", "")),
                 )
 

@@ -43,7 +43,7 @@ class FileTableTests(unittest.TestCase):
         new_name_index = model.index(0, model.COLUMN_NEW_NAME)
         type_index = model.index(0, model.COLUMN_TYPE)
         path_index = model.index(0, model.COLUMN_PATH)
-        self.assertEqual(model.columnCount(), 5)
+        self.assertEqual(model.columnCount(), 6)
         self.assertEqual(
             model.headerData(model.COLUMN_OLD_NAME, Qt.Orientation.Horizontal),
             "Старое имя",

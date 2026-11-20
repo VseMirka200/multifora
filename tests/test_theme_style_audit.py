@@ -152,12 +152,6 @@ class ThemeStyleAuditTests(unittest.TestCase):
             style = build_operations_help_button_style(theme)
             base_button = style.split("QPushButton {", 1)[1].split("}", 1)[0]
             self.assertIn("font-size: 12px", base_button)
-            selector = "QPushButton#help_button {"
-            self.assertIn(selector, style)
-            help_button = style.split(selector, 1)[1].split("}", 1)[0]
-            self.assertIn("font-size: 12px", help_button)
-            self.assertIn("text-align: left", help_button)
-            self.assertIn("padding-left: 0px", help_button)
 
     def test_scrollable_dropdown_has_vertical_arrow_buttons(self):
         for style, track, handle in (
@@ -189,22 +183,15 @@ class ThemeStyleAuditTests(unittest.TestCase):
             self.assertIn("height: 14px", scoped_lines)
             self.assertNotIn("height: 0px", scoped_lines)
 
-    def test_operations_tabs_share_full_width_bar(self):
-        for theme, background, active in (
-            ("light", "#ffffff", "#3d74b3"),
-            ("dark", "#383838", "#79b5f5"),
+    def test_operations_tabs_have_transparent_background(self):
+        for theme, active in (
+            ("light", "#3d74b3"),
+            ("dark", "#79b5f5"),
         ):
             style = build_operations_tab_bar_style(theme)
-            bar = style.split("QTabBar#operations_tab_bar {", 1)[1].split("}", 1)[0]
-            self.assertIn(f"background-color: {background}", bar)
-            self.assertIn("border-top:", bar)
-            self.assertIn("border-bottom:", bar)
-            tab = style.split("QTabBar#operations_tab_bar::tab {", 1)[1].split("}", 1)[0]
-            self.assertIn("padding: 0px 8px", tab)
-            self.assertIn("border-right:", tab)
-            selected = style.split("QTabBar#operations_tab_bar::tab:selected {", 1)[1].split("}", 1)[0]
-            self.assertIn(f"color: {active}", selected)
-            self.assertIn("border-bottom: 2px solid #3d74b3", selected)
+            self.assertIn("background: transparent", style)
+            self.assertIn(f"color: {active}", style)
+            self.assertIn("border-bottom: 3px solid #6495ff", style)
 
     def test_settings_navigation_uses_vertical_tab_selection_style(self):
         for theme, foreground, background, active in (

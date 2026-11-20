@@ -6,7 +6,7 @@ DEFAULT_THEME_MODE = "system"
 CONVERSION_OUTPUT_MODES = frozenset({"ask", "alongside", "source_subfolder", "custom"})
 IMAGE_OUTPUT_MODES = frozenset({"replace", "alongside", "custom"})
 AUTO_CLEAR_OPERATIONS = ("rename", "convert", "merge", "compress")
-_LEGACY_TAB_LABELS = {2: "Объединение", 3: "Сжатие"}
+_LEGACY_TAB_LABELS = {0: "Переименование", 1: "Конвертация", 2: "Объединение", 3: "Сжатие"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,7 +68,7 @@ def normalize_settings(data: dict) -> SavedSettings:
         auto_clear_enabled = any(operation_values.values())
 
     tab_id = data.get("operations_tab_id")
-    tab_label = tab_id if tab_id in ("rename", "convert", "compress", "merge") else (
+    tab_label = tab_id if tab_id in ("home", "rename", "convert", "compress", "merge") else (
         str(data.get("operations_tab_label") or "").strip()
     )
     tab_index = _integer(data.get("operations_tab_index")) if not tab_label else None

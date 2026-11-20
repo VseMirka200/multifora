@@ -52,28 +52,35 @@ class OperationResultPanel(QFrame):
         layout.addWidget(self.summary)
 
         actions = QHBoxLayout()
-        actions.setSpacing(SPACE_SM)
+        self.actions = actions
+        actions.setSpacing(10)
         self.open_result = IconButton("Открыть")
         self.open_folder = IconButton("Папка результата")
         for button in (self.open_result, self.open_folder):
             button.clicked.connect(lambda _checked, target=button: self._open_path(target.property("resultPath")))
         self.details = IconButton("Подробности")
-        self.undo = IconButton("Откатить переименование")
+        self.undo = IconButton("Отменить переименование")
         self.undo.clicked.connect(self.undo_requested)
         self.details.clicked.connect(self._show_details)
         self.action_buttons = (self.open_result, self.open_folder, self.details, self.undo)
         for button in self.action_buttons:
             setup_standard_secondary_button(button, expand=True)
+            button.setFixedHeight(36)
             actions.addWidget(button, 1)
+        policy = self.undo.sizePolicy()
+        policy.setRetainSizeWhenHidden(True)
+        self.undo.setSizePolicy(policy)
         layout.addLayout(actions)
-        self.set_pending("Операции ещё не выполнялись.")
+        self.set_pending("")
 
     def set_pending(self, message: str):
+        self.summary.setVisible(bool(message))
         self.summary.setText(message)
         for button in self.action_buttons:
             button.setEnabled(False)
 
     def set_result(self, result: OperationResult, *, can_retry: bool):
+        self.summary.show()
         self.result = result
         self.retryable = [
             issue for issue in result.errors if can_retry and issue.get("retryable") and issue.get("path")
@@ -207,7 +214,11 @@ class OperationResultPanel(QFrame):
         close.clicked.connect(dialog.reject)
         for button in (expand, copy, retry, close):
             setup_standard_secondary_button(button, expand=True)
+            button.setFixedHeight(36)
             actions.addWidget(button, 1)
+        policy = self.undo.sizePolicy()
+        policy.setRetainSizeWhenHidden(True)
+        self.undo.setSizePolicy(policy)
         layout.addLayout(actions)
 
         def update_diagnostics():

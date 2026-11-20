@@ -32,37 +32,44 @@ class ConversionPanel(QObject):
         self.card, convert_layout = create_operation_card()
         convert_layout.setContentsMargins(*OPERATIONS_PAGE_MARGINS)
 
+        self.formats = QWidget(self.card)
+        self.formats.setObjectName("conversion_formats")
+        formats = QHBoxLayout(self.formats)
+        formats.setSpacing(16)
+        formats.setContentsMargins(*MARGINS_NONE)
+        convert_layout.addWidget(self.formats)
+
         self.convert_file_type_combo = MenuLikeComboBox()
         self.convert_file_type_combo.addItems(
-            ["Выберите тип файла:", *CONVERSION_CATEGORIES]
+            ["Выберите тип", *CONVERSION_CATEGORIES]
         )
         setup_standard_dropdown(self.convert_file_type_combo)
         self.convert_file_type_combo.currentIndexChanged.connect(
             self.category_changed
         )
         add_labeled_field(
-            convert_layout, "Тип файла:", self.convert_file_type_combo
+            formats, "Тип файла", self.convert_file_type_combo
         )
 
         self.from_convert_combo = MenuLikeComboBox()
-        self.from_convert_combo.addItem("Выберите исходный формат:")
+        self.from_convert_combo.addItem("Выберите формат")
         setup_standard_dropdown(self.from_convert_combo)
         self.from_convert_combo.currentIndexChanged.connect(
             self.source_changed
         )
         add_labeled_field(
-            convert_layout, "Конвертировать из:", self.from_convert_combo
+            formats, "Исходный формат", self.from_convert_combo
         )
 
         self.to_convert_combo = MenuLikeComboBox()
-        self.to_convert_combo.addItem("Выберите целевой формат:")
+        self.to_convert_combo.addItem("Выберите формат")
         setup_standard_dropdown(self.to_convert_combo)
         self.to_convert_combo.currentIndexChanged.connect(
             self.target_changed
         )
         self.to_convert_combo.setEnabled(False)
         add_labeled_field(
-            convert_layout, "Конвертировать в:", self.to_convert_combo
+            formats, "Целевой формат", self.to_convert_combo
         )
 
         self.combo_conversion_output_mode = MenuLikeComboBox()

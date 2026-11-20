@@ -190,7 +190,7 @@ class CheckedOperationsTests(unittest.TestCase):
         window.to_convert_combo.setCurrentText("PDF")
         model = window.list_files.model()
         column = model.COLUMN_TYPE
-        self.assertEqual(model.headerData(column, Qt.Orientation.Horizontal), "Тип: сейчас → после")
+        self.assertEqual(model.headerData(column, Qt.Orientation.Horizontal), "Формат → результат")
         self.assertEqual(model.index(2, column).data(), "DOCX → PDF")
         self.assertEqual(model.index(0, column).data(), "PDF → —")
         window.to_convert_combo.setCurrentText("TXT")

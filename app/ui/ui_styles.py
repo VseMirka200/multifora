@@ -7,7 +7,7 @@ SPACE_LG = 8
 SPACE_XL = 10
 
 MARGINS_NONE = (0, 0, 0, 0)
-APP_MARGINS = (SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
+APP_MARGINS = (20, 0, 20, 16)
 DIALOG_MARGINS = (12, 12, 12, 12)
 DROP_ZONE_MARGINS = (0, 8, 0, 8)
 SETTINGS_PANEL_MARGINS = (0, SPACE_LG, 0, 0)
@@ -21,9 +21,7 @@ FIELD_HEIGHT = CONTROL_HEIGHT
 HEADER_FIELD_HEIGHT = CONTROL_HEIGHT
 ACTION_BUTTON_HEIGHT = FIELD_HEIGHT
 PROGRESS_HEIGHT = 22
-# Вкладка имеет высоту 32 px; ещё 2 px нужны, чтобы нижняя граница
-# активной вкладки не обрезалась QTabBar.
-TAB_BAR_HEIGHT = 34
+TAB_BAR_HEIGHT = 40
 CHECKBOX_SIZE = 16
 
 STANDARD_RADIUS = 4
@@ -77,12 +75,6 @@ def build_operations_help_button_style(theme: str) -> str:
         QPushButton:checked {{
             border-bottom: 1px solid {foreground};
         }}
-        QPushButton#help_button {{
-            font-size: 12px;
-            text-align: left;
-            padding-left: 0px;
-            padding-right: 2px;
-        }}
     """
 
 
@@ -95,13 +87,32 @@ def build_file_info_separator_style(theme: str) -> str:
     return f"background-color: {color}; border: none;"
 
 
+def build_workspace_style(theme: str) -> str:
+    dark = theme == "dark"
+    background = "#202125" if dark else "#f6f7fa"
+    panel = "#28292d" if dark else "#ffffff"
+    border = "#55565b" if dark else "#c6c9d1"
+    return f"""
+        QWidget#workspace, QWidget#workspace .QWidget, QFrame#file_info_panel,
+        QFrame#operation_result {{ background: {background}; }}
+        QFrame#file_info_panel {{ border: none; }}
+        QWidget#workspace QWidget#conversion_formats {{ background: transparent; }}
+        QWidget#workspace QLabel {{ background: transparent; }}
+        QWidget#operations_header_widget {{ border-bottom: 1px solid {border}; }}
+        QFrame#operation_options {{
+            background: {panel}; border: 1px solid {border}; border-radius: 7px;
+        }}
+    """
+
+
 def build_drop_zone_surface_style(theme: str) -> str:
-    background = "#ffffff" if str(theme).lower() == "light" else "#383838"
+    background = "#ffffff" if str(theme).lower() == "light" else "#28292d"
+    border = standard_palette(theme)["border"]
     return f"""
         QWidget#drop_zone_surface {{
             background-color: {background};
-            border: none;
-            border-radius: {STANDARD_RADIUS}px;
+            border: 1px solid {border};
+            border-radius: 7px;
         }}
     """
 
@@ -116,8 +127,8 @@ def build_drop_zone_overlay_style(theme: str) -> str:
     return f"""
         QWidget#drop_zone_overlay {{
             background-color: transparent;
-            border: none;
-            border-radius: {STANDARD_RADIUS}px;
+            border: 1px dashed {drop_zone_muted_color(theme)};
+            border-radius: 12px;
         }}
         QWidget#drop_zone_overlay QLabel {{
             background-color: transparent;
@@ -127,7 +138,8 @@ def build_drop_zone_overlay_style(theme: str) -> str:
 
 
 def build_drop_zone_hint_style(theme: str) -> str:
-    return f"color: {drop_zone_muted_color(theme)}; font-size: 12px;"
+    color = "#f2f3f6" if theme == "dark" else "#252933"
+    return f"color: {color}; font-size: 18px; font-weight: 600;"
 
 
 def build_drop_action_tile_style(theme: str) -> str:
@@ -465,6 +477,7 @@ def build_standard_field_style(theme: str, kind: str) -> str:
             }}
         """
     if kind == "surface":
+        surface = "#28292d" if str(theme).lower() == "dark" else "#ffffff"
         alternate_bg = p["window_bg"]
         hover_bg = selected_bg = p["hover_bg"]
         return f"""
@@ -472,10 +485,10 @@ def build_standard_field_style(theme: str, kind: str) -> str:
             QTableView#files_list,
             QListWidget#files_list,
             QListView#files_list {{
-                background-color: {p["bg"]};
+                background-color: {surface};
                 alternate-background-color: {alternate_bg};
                 color: {p["fg"]};
-                border: 1px solid {p["border"]};
+                border: none;
                 border-radius: {STANDARD_RADIUS}px;
                 outline: 0px;
                 margin: 0px;
@@ -486,7 +499,7 @@ def build_standard_field_style(theme: str, kind: str) -> str:
             QTableView#files_list::item,
             QListWidget#files_list::item,
             QListView#files_list::item {{
-                background-color: {p["bg"]};
+                background-color: {surface};
                 color: {p["fg"]};
                 padding: 0px 6px;
             }}
@@ -527,46 +540,17 @@ def build_standard_field_style(theme: str, kind: str) -> str:
 def build_operations_tab_bar_style(theme: str) -> str:
     is_light = str(theme).lower() == "light"
     foreground = "#202833" if is_light else "#e3e6ea"
-    inactive_bg = standard_palette(theme)["bg"]
-    separator = "#c7cfda" if is_light else "#4f4f4f"
-    hover_bg = standard_palette(theme)["hover_bg"]
     underline = "#3d74b3"
     active_text = underline if is_light else "#79b5f5"
     return f"""
-        QTabBar#operations_tab_bar {{
-            background-color: {inactive_bg};
-            color: {foreground};
-            selection-color: {active_text};
-            font-size: 13px;
-            font-weight: 600;
-            margin: 0px;
-            padding: 0px;
-            border-top: 1px solid {separator};
-            border-bottom: 1px solid {separator};
+        QToolButton#navigation_tab {{
+            background: transparent; color: {foreground}; border: none;
+            padding: 0px 8px; border-bottom: 3px solid transparent;
+            font-size: 15px; font-weight: 400;
         }}
-        QTabBar#operations_tab_bar::tab {{
-            margin: 0px;
-            padding: 0px 8px;
-            min-width: 24px;
-            min-height: 32px;
-            max-height: 32px;
-            font-size: 13px;
-            font-weight: 600;
-            color: {foreground};
-            background-color: {inactive_bg};
-            border: none;
-            border-right: 1px solid {separator};
-        }}
-        QTabBar#operations_tab_bar::tab:last {{
-            border-right: none;
-        }}
-        QTabBar#operations_tab_bar::tab:!selected:hover {{
-            background-color: {hover_bg};
-        }}
-        QTabBar#operations_tab_bar::tab:selected {{
-            color: {active_text};
-            background-color: transparent;
-            border-bottom: 2px solid {underline};
+        QToolButton#navigation_tab:hover {{ color: {active_text}; }}
+        QToolButton#navigation_tab:checked {{
+            border-bottom: 3px solid #6495ff; font-weight: 600;
         }}
     """
 

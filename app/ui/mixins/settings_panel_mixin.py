@@ -255,18 +255,16 @@ class SettingsPanelMixin:
             widget = getattr(self, widget_name, None)
             if widget is not None:
                 widget.setVisible(widget is panel)
-        button = getattr(self, "btn_help", None)
-        if button is not None:
-            button.setChecked(False)
 
         host = getattr(self, "settings_panel_host", None)
         if host is not None:
             host.setVisible(True)
             host.adjustSize()
             host.updateGeometry()
-        splitter = getattr(self, "main_splitter", None)
-        if splitter is not None:
-            splitter.setVisible(False)
+        if not self.queue_panel.isHidden():
+            host.setProperty("ribbonHidden", self.ribbon_panel.isHidden())
+        self.queue_panel.hide()
+        self.ribbon_panel.hide()
 
         tab_bar = getattr(self, "operations_tab_bar", None)
         if tab_bar is not None:
@@ -336,23 +334,21 @@ class SettingsPanelMixin:
             help_widget.setVisible(False)
             if host_layout is not None:
                 host_layout.addWidget(help_widget)
-            if getattr(self, "btn_help", None) is not None:
-                self.btn_help.setChecked(False)
             dialog.deleteLater()
 
     def hide_settings_panel(self):
         tab_bar = getattr(self, "operations_tab_bar", None)
         if tab_bar is not None:
             self._apply_operations_tab_bar_theme()
-        button = getattr(self, "btn_help", None)
-        if button is not None:
-            button.setChecked(False)
         host = getattr(self, "settings_panel_host", None)
+        was_open = host is not None and not host.isHidden()
         if host is not None:
             host.setVisible(False)
-        splitter = getattr(self, "main_splitter", None)
-        if splitter is not None:
-            splitter.setVisible(True)
+        if was_open:
+            self.queue_panel.show()
+            self.ribbon_panel.setVisible(not host.property("ribbonHidden"))
+            if tab_bar.currentIndex() == self._settings_tab_index:
+                tab_bar.setCurrentIndex(self.operations_stack.currentIndex())
 
     def _ensure_about_help_page(self):
         """Страница со стандартной для настольных приложений информацией."""
