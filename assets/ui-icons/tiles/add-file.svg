@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+<defs>
+  <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+    <stop offset="0" stop-color="#FBFCFF"/><stop offset="1" stop-color="#D9E5F3"/>
+  </linearGradient>
+  <linearGradient id="folder" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+    <stop offset="0" stop-color="#FFDF78"/><stop offset="1" stop-color="#FFCC50"/>
+  </linearGradient>
+  <linearGradient id="badge" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+    <stop offset="0" stop-color="#4A92F4"/><stop offset="1" stop-color="#2863CA"/>
+  </linearGradient>
+</defs>
+<path fill="#233652" opacity=".16" d="M12 6.5h14l10 10v22a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4v-28a4 4 0 0 1 4-4Z"/>
+<path fill="url(#paper)" stroke="#A6B7CD" stroke-width="1" d="M12 4.5h14l9 9v22.8a4.2 4.2 0 0 1-4.2 4.2H12a4.5 4.5 0 0 1-4.5-4.5V9A4.5 4.5 0 0 1 12 4.5Z"/>
+<path fill="#97AEC9" d="M25.5 4.7v6a3.3 3.3 0 0 0 3.3 3.3h6.1Z"/>
+<path stroke="#8CA0B9" fill="none" stroke-width="1.9" stroke-linecap="round" d="M14.5 18.5h13M14.5 24h13M14.5 29.5H23"/>
+<circle cx="35.8" cy="35.8" r="9.4" fill="url(#badge)" stroke="#D6E7FF" stroke-width="1.45"/>
+<path d="M31.9 35.8h7.8m-3.9-3.9v7.8" fill="none" stroke="#FFFFFF" stroke-width="1.95" stroke-linecap="round"/>
+</svg>

@@ -37,9 +37,24 @@ def window(tmp_path, monkeypatch):
     main.deleteLater()
 
 
+def test_empty_queue_controls_centered_in_file_viewport(window):
+    for width, height in ((900, 600), (1200, 800)):
+        window.resize(width, height)
+        QApplication.processEvents()
+        viewport = window.list_files.viewport()
+        center = viewport.mapToGlobal(viewport.rect().center())
+        tiles_and_hint = window.btn_add_files.geometry().united(
+            window.btn_add_folder.geometry()
+        ).united(window.drop_zone_hint_label.geometry())
+        actual = window.drop_zone_controls.mapToGlobal(tiles_and_hint.center())
+        assert (actual - center).manhattanLength() <= 2
+
+
 def test_queue_distinguishes_filters_highlight_and_work_marks(window, tmp_path):
     assert window._list_header_layout.count() == 3
-    assert window.operation_scope_label.isHidden()
+    panel = window.operation_result_panel
+    assert not panel.isHidden()
+    assert all(not button.isHidden() and not button.isEnabled() for button in panel.action_buttons)
     assert not window.drop_zone_controls.isHidden()
     source = tmp_path / "first.txt"
     source.write_bytes(b"a" * 1024)
@@ -48,7 +63,6 @@ def test_queue_distinguishes_filters_highlight_and_work_marks(window, tmp_path):
     window.add_files([str(source), str(other)])
     assert window.drop_zone_controls.isHidden()
     QApplication.processEvents()
-    assert not window.operation_scope_label.isHidden()
 
     window.list_files.selectRow(1)
     assert "2.00 МБ" in window.label_item_size.text()
@@ -58,7 +72,6 @@ def test_queue_distinguishes_filters_highlight_and_work_marks(window, tmp_path):
     window.input_search.setText("second")
     QApplication.processEvents()
     assert window._get_operation_file_items() == []
-    assert "Скрыто отмеченных: 1" in window.operation_scope_label.text()
 
     window.input_search.setText("unmatched")
     assert window.drop_zone_hint_label.text() == "Ничего не найдено"

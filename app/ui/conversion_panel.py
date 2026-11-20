@@ -1,11 +1,12 @@
 """Панель параметров конвертации и сигналы действий пользователя."""
 
 from PySide6.QtCore import QObject, Signal
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QVBoxLayout, QWidget
 
 from app.core.conversion_formats import CONVERSION_CATEGORIES
 from app.ui.operation_layout import add_labeled_field, create_operation_card, create_operation_label
 from app.ui.ui_components import (
+    IconButton,
     MenuLikeComboBox,
     setup_standard_dropdown,
     setup_standard_line_input,
@@ -105,7 +106,7 @@ class ConversionPanel(QObject):
             self.input_conversion_output_path, 1
         )
 
-        self.btn_select_conversion_output_folder = QPushButton("Выбрать папку")
+        self.btn_select_conversion_output_folder = IconButton("Выбрать папку")
         setup_standard_secondary_button(
             self.btn_select_conversion_output_folder
         )
@@ -113,7 +114,7 @@ class ConversionPanel(QObject):
             self.output_folder_requested
         )
         conversion_output_path_layout.addWidget(
-            self.btn_select_conversion_output_folder
+            self.btn_select_conversion_output_folder, 1
         )
 
         self.conversion_output_path_section = QWidget()
@@ -132,7 +133,7 @@ class ConversionPanel(QObject):
 
         convert_layout.addSpacing(SPACE_SM)
 
-        self.btn_convert = QPushButton("Конвертировать")
+        self.btn_convert = IconButton("Конвертировать")
         setup_standard_primary_button(self.btn_convert, expand=True)
         self.btn_convert.clicked.connect(self.conversion_requested)
         self.btn_convert.setEnabled(False)
@@ -143,7 +144,7 @@ class ConversionPanel(QObject):
         self.sample_hint.setWordWrap(True)
         self.sample_hint.hide()
         convert_layout.addWidget(self.sample_hint)
-        self.btn_sample = QPushButton("Проверить один DOCX")
+        self.btn_sample = IconButton("Проверить один DOCX")
         setup_standard_secondary_button(self.btn_sample, expand=True)
         self.btn_sample.clicked.connect(self.sample_requested)
         self.btn_sample.hide()

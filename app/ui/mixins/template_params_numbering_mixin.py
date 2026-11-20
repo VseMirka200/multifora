@@ -3,7 +3,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QPushButton,
     QSizePolicy,
     QSpinBox,
     QVBoxLayout,
@@ -13,8 +12,9 @@ from PySide6.QtWidgets import (
 from app.core.app_utils import signals_blocked
 from app.ui.ui_components import (
     AutoHeightTextEdit,
+    IconButton,
     MenuLikeComboBox,
-    setup_standard_action_button,
+    resolve_widget_theme_mode,
     setup_standard_dropdown,
     setup_standard_form_label,
     setup_standard_line_input,
@@ -24,6 +24,7 @@ from app.ui.ui_helpers import (
     create_param_block,
     create_spin_param_block,
 )
+from app.ui.ui_icons import ui_icon
 from app.ui.ui_styles import (
     MARGINS_NONE,
     SPACE_NONE,
@@ -338,7 +339,7 @@ class TemplateParamsNumberingMixin:
 
     def create_custom_template_params(self):
         """Создает параметры для пользовательского шаблона"""
-        container = QWidget()
+        container = QWidget(self.template_params_widget)
         layout = QVBoxLayout(container)
         layout.setSpacing(SPACE_NONE)
         layout.setContentsMargins(*MARGINS_NONE)
@@ -368,22 +369,25 @@ class TemplateParamsNumberingMixin:
         layout.addWidget(input_container)
 
         quick_tokens = (
-            ("{name}", "Исходное имя файла"),
+            ("{name}", "Исходное имя файла", "rename"),
             (
                 "{num:03d,start=1,step=1}",
                 "Порядковый номер: три цифры, начало с 1, шаг 1",
+                "number",
             ),
-            ("{date}", "Текущая дата"),
-            ("{ext}", "Расширение файла без точки"),
-            ("{created}", "Дата создания файла"),
-            ("{modified}", "Дата изменения файла"),
-            ("{exif_date}", "Дата съёмки из EXIF"),
-            ("{width}", "Ширина изображения"),
-            ("{height}", "Высота изображения"),
+            ("{date}", "Текущая дата", "calendar"),
+            ("{ext}", "Расширение файла без точки", "details"),
+            ("{created}", "Дата создания файла", "calendar"),
+            ("{modified}", "Дата изменения файла", "history"),
+            ("{exif_date}", "Дата съёмки из EXIF", "camera"),
+            ("{width}", "Ширина изображения", "width"),
+            ("{height}", "Высота изображения", "height"),
         )
         self.template_quick_insert_buttons = {}
-        for token, tooltip in quick_tokens:
-            button = QPushButton(token)
+        mode = resolve_widget_theme_mode(container)
+        for token, tooltip, icon_name in quick_tokens:
+            button = IconButton(ui_icon(icon_name, mode), token, container)
+            button.setProperty("uiIcon", icon_name)
             button.setToolTip(tooltip)
             button.setProperty("buttonVariant", "secondary")
             button.clicked.connect(
@@ -414,23 +418,5 @@ class TemplateParamsNumberingMixin:
                 )
             )
             layout.addWidget(quick_buttons_container)
-
-        self.btn_save_template = QPushButton("Сохранить")
-        self.btn_save_template.setToolTip("Сохранить шаблон")
-        self.btn_save_template.setProperty("buttonVariant", "secondary")
-        setup_standard_action_button(self.btn_save_template)
-        self.btn_save_template.clicked.connect(self.save_current_template)
-
-        self.btn_manage_templates = QPushButton("Управление")
-        self.btn_manage_templates.setToolTip("Управление шаблонов")
-        self.btn_manage_templates.setProperty("buttonVariant", "secondary")
-        setup_standard_action_button(self.btn_manage_templates)
-        self.btn_manage_templates.clicked.connect(self.show_template_manager)
-
-        buttons_container, _buttons_layout = self._build_rename_action_row(
-            [self.btn_save_template, self.btn_manage_templates]
-        )
-        layout.addWidget(buttons_container)
-        layout.setStretch(layout.count() - 1, 0)
 
         self.template_params_layout.addWidget(container)

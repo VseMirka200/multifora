@@ -1,6 +1,7 @@
 """Сводка и подробности последней файловой операции."""
 
 import os
+from pathlib import Path
 
 from PySide6.QtCore import QStringListModel, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
@@ -21,7 +22,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from app.ui.ui_components import setup_standard_dialog, setup_standard_popup_menu, setup_standard_secondary_button
+from app.ui.ui_components import IconButton, setup_standard_dialog, setup_standard_popup_menu, setup_standard_secondary_button
+from app.ui.ui_styles import MARGINS_NONE, SPACE_SM
 from core.operation_result import OperationResult
 
 _TITLES = {
@@ -43,28 +45,33 @@ class OperationResultPanel(QFrame):
         self.result = OperationResult()
         self.retryable = []
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(6, 4, 6, 4)
-        layout.setSpacing(4)
+        layout.setContentsMargins(*MARGINS_NONE)
+        layout.setSpacing(SPACE_SM)
         self.summary = QLabel()
         self.summary.setWordWrap(True)
         layout.addWidget(self.summary)
 
         actions = QHBoxLayout()
-        self.open_result = QPushButton("Открыть")
-        self.open_folder = QPushButton("Папка результата")
+        actions.setSpacing(SPACE_SM)
+        self.open_result = IconButton("Открыть")
+        self.open_folder = IconButton("Папка результата")
         for button in (self.open_result, self.open_folder):
             button.clicked.connect(lambda _checked, target=button: self._open_path(target.property("resultPath")))
-        self.details = QPushButton("Подробности")
-        self.undo = QPushButton("Откатить переименование")
-        self.undo.hide()
+        self.details = IconButton("Подробности")
+        self.undo = IconButton("Откатить переименование")
         self.undo.clicked.connect(self.undo_requested)
         self.details.clicked.connect(self._show_details)
-        for button in (self.open_result, self.open_folder, self.details, self.undo):
-            setup_standard_secondary_button(button)
-            actions.addWidget(button)
-        actions.addStretch()
+        self.action_buttons = (self.open_result, self.open_folder, self.details, self.undo)
+        for button in self.action_buttons:
+            setup_standard_secondary_button(button, expand=True)
+            actions.addWidget(button, 1)
         layout.addLayout(actions)
-        self.hide()
+        self.set_pending("Операции ещё не выполнялись.")
+
+    def set_pending(self, message: str):
+        self.summary.setText(message)
+        for button in self.action_buttons:
+            button.setEnabled(False)
 
     def set_result(self, result: OperationResult, *, can_retry: bool):
         self.result = result
@@ -89,7 +96,7 @@ class OperationResultPanel(QFrame):
         self._set_path_menu(self.open_result, outputs)
         folders = list(dict.fromkeys(os.path.dirname(path) for path in outputs))
         self._set_path_menu(self.open_folder, folders, folders=True)
-        self.details.setVisible(bool(result.errors or result.warnings or result.compression_sizes))
+        self.details.setEnabled(bool(result.errors or result.warnings or result.compression_sizes))
         self.show()
 
     def _set_path_menu(self, button, paths, *, folders=False):
@@ -97,14 +104,23 @@ class OperationResultPanel(QFrame):
         if previous is not None:
             button.setMenu(None)
             previous.deleteLater()
-        button.setVisible(bool(paths))
+        button.setEnabled(bool(paths))
         button.setProperty("resultPath", paths[0] if len(paths) == 1 else "")
         if len(paths) <= 1:
             return
         menu = QMenu(button)
         setup_standard_popup_menu(menu)
-        for path in paths[:12]:
-            label = path if folders else os.path.basename(path)
+        menu.setToolTipsVisible(True)
+        visible_paths = paths[:12]
+        parts = [Path(path).parts for path in visible_paths]
+        for index, path in enumerate(visible_paths):
+            label = os.path.basename(path)
+            if folders and parts[index]:
+                for depth in range(1, len(parts[index]) + 1):
+                    suffix = parts[index][-depth:]
+                    label = os.path.join(*suffix)
+                    if all(other[-depth:] != suffix for i, other in enumerate(parts) if i != index):
+                        break
             action = menu.addAction(label.replace("&", "&&"))
             action.setToolTip(path)
             action.triggered.connect(lambda _checked, value=path: self._open_path(value))
@@ -129,7 +145,7 @@ class OperationResultPanel(QFrame):
         view.activated.connect(lambda index: self._open_path(index.data()))
         layout.addWidget(view)
         close = QPushButton("Закрыть")
-        setup_standard_secondary_button(close)
+        setup_standard_secondary_button(close, expand=True)
         close.clicked.connect(dialog.reject)
         layout.addWidget(close)
         dialog.exec()
@@ -153,6 +169,9 @@ class OperationResultPanel(QFrame):
         dialog.resize(720, 400)
         layout = QVBoxLayout(dialog)
         table = QTableWidget(len(rows), 3, dialog)
+        table.setStyleSheet(
+            "QHeaderView::section, QTableCornerButton::section { border: none; }"
+        )
         table.setHorizontalHeaderLabels(("Файл", "Состояние", "Что произошло"))
         table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -187,8 +206,8 @@ class OperationResultPanel(QFrame):
         close = QPushButton("Закрыть")
         close.clicked.connect(dialog.reject)
         for button in (expand, copy, retry, close):
-            setup_standard_secondary_button(button)
-            actions.addWidget(button)
+            setup_standard_secondary_button(button, expand=True)
+            actions.addWidget(button, 1)
         layout.addLayout(actions)
 
         def update_diagnostics():

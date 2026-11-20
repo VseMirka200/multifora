@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QMessageBox
 from app.core.message_boxes import show_app_confirmation_with_checkbox
 from app.ui.file_table import selected_file_items
 from app.ui.ui_components import get_russian_text_input
+from app.ui.ui_icons import ui_icon
 from core.filesystem import normalized_path_key
 
 
@@ -40,11 +41,11 @@ class FileListContextMixin:
             return
 
         menu = QMenu(self)
-        action_open = menu.addAction("Открыть\tEnter")
-        action_copy = menu.addAction("Скопировать\tCtrl+C")
-        action_rename = menu.addAction("Переименовать\tF2")
+        action_open = menu.addAction(ui_icon("open", self._effective_theme_mode), "Открыть\tEnter")
+        action_copy = menu.addAction(ui_icon("copy", self._effective_theme_mode), "Скопировать\tCtrl+C")
+        action_rename = menu.addAction(ui_icon("rename", self._effective_theme_mode), "Переименовать\tF2")
         menu.addSeparator()
-        action_remove = menu.addAction("Удалить из списка\tDelete")
+        action_remove = menu.addAction(ui_icon("remove", self._effective_theme_mode), "Удалить из списка\tDelete")
 
         if len(selected_items) != 1:
             action_rename.setEnabled(False)

@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -63,9 +64,11 @@ class SettingsPanelMixin:
     def _create_settings_checkbox_row(self, text: str, tooltip: str = ""):
         row = QWidget()
         row.setObjectName("settings_row")
-        layout = QHBoxLayout(row)
+        layout = QGridLayout(row)
         layout.setContentsMargins(*MARGINS_NONE)
-        layout.setSpacing(SPACE_SM)
+        layout.setHorizontalSpacing(SPACE_SM)
+        layout.setVerticalSpacing(SPACE_NONE)
+        layout.setColumnStretch(1, 1)
 
         checkbox = QCheckBox()
         checkbox.setFixedSize(CHECKBOX_SIZE + 2, CHECKBOX_SIZE + 2)
@@ -74,21 +77,12 @@ class SettingsPanelMixin:
         )
         if tooltip:
             checkbox.setToolTip(tooltip)
-        layout.addWidget(
-            checkbox, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
-        )
-
-        text_column = QWidget(row)
-        text_column.setObjectName("settings_row")
-        text_layout = QVBoxLayout(text_column)
-        text_layout.setContentsMargins(*MARGINS_NONE)
-        text_layout.setSpacing(SPACE_NONE)
+        layout.addWidget(checkbox, 0, 0, 2 if tooltip else 1, 1, Qt.AlignmentFlag.AlignVCenter)
         label = QLabel(text)
         setup_clickable_checkbox_label(label, checkbox, tooltip=tooltip)
-        text_layout.addWidget(label)
+        layout.addWidget(label, 0, 1, Qt.AlignmentFlag.AlignVCenter)
         if tooltip:
-            text_layout.addWidget(self._create_settings_hint_label(tooltip))
-        layout.addWidget(text_column, 1)
+            layout.addWidget(self._create_settings_hint_label(tooltip), 1, 1)
         return row, checkbox
 
     def _create_settings_select_row(
@@ -131,7 +125,7 @@ class SettingsPanelMixin:
         layout.setContentsMargins(*MARGINS_NONE)
         layout.setSpacing(SPACE_SM)
         button = QPushButton("Создать")
-        setup_standard_secondary_button(button)
+        setup_standard_secondary_button(button, expand=False)
         button.clicked.connect(action)
         layout.addWidget(button, 0, Qt.AlignmentFlag.AlignVCenter)
         text_column = QWidget(row)
@@ -153,7 +147,7 @@ class SettingsPanelMixin:
         page_layout.setContentsMargins(*MARGINS_NONE)
         page_layout.setSpacing(SPACE_NONE)
         page_layout.setAlignment(
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+            Qt.AlignmentFlag.AlignTop
         )
 
         scroll = QScrollArea()
@@ -177,7 +171,7 @@ class SettingsPanelMixin:
         content_layout.setContentsMargins(*MARGINS_NONE)
         content_layout.setSpacing(SPACE_NONE)
         content_layout.setAlignment(
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+            Qt.AlignmentFlag.AlignTop
         )
 
         card = QFrame()
@@ -189,7 +183,7 @@ class SettingsPanelMixin:
         card_layout.setContentsMargins(*MARGINS_NONE)
         card_layout.setSpacing(SPACE_NONE)
         card_layout.setAlignment(
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+            Qt.AlignmentFlag.AlignTop
         )
 
         content_layout.addWidget(card, 1)
@@ -386,10 +380,7 @@ class SettingsPanelMixin:
         )
 
         self.about_title_label = QLabel(APP_DISPLAY_NAME)
-        title_font = self.about_title_label.font()
-        title_font.setPointSize(16)
-        title_font.setBold(True)
-        self.about_title_label.setFont(title_font)
+        self.about_title_label.setStyleSheet("font-size: 14px; font-weight: 600;")
         self.about_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         about_header_layout.addWidget(
             self.about_title_label, 0, Qt.AlignmentFlag.AlignHCenter
@@ -434,21 +425,19 @@ class SettingsPanelMixin:
         layout.addWidget(capabilities)
 
         links = QHBoxLayout()
-        links.addStretch()
         self.about_github_button = QPushButton("GitHub")
         self.about_github_button.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl(REPO_PAGE))
         )
-        links.addWidget(self.about_github_button)
         self.about_guide_button = QPushButton("Руководство")
         self.about_guide_button.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl(GUIDE_URL))
         )
-        links.addWidget(self.about_guide_button)
         copy_version = QPushButton("Скопировать версию")
         copy_version.clicked.connect(lambda: QApplication.clipboard().setText(f"{APP_DISPLAY_NAME} {APP_VERSION}"))
-        links.addWidget(copy_version)
-        links.addStretch()
+        for button in (self.about_github_button, self.about_guide_button, copy_version):
+            setup_standard_secondary_button(button)
+            links.addWidget(button, 1)
         layout.addLayout(links)
 
     def _add_settings_section(self, title: str) -> QVBoxLayout:
@@ -459,7 +448,7 @@ class SettingsPanelMixin:
         layout.setSpacing(SPACE_SM)
         heading = QLabel(title)
         heading.setObjectName("settings_section_heading")
-        heading.setStyleSheet("font-size: 14px; font-weight: 700;")
+        heading.setStyleSheet("font-size: 14px; font-weight: 600;")
         layout.addWidget(heading)
         layout.addSpacing(SPACE_SM)
         self.settings_content_layout.addWidget(section)
@@ -469,9 +458,6 @@ class SettingsPanelMixin:
         """Создает панель основных настроек на всю доступную ширину."""
         tab = QWidget()
         tab.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        settings_font = tab.font()
-        settings_font.setPointSize(13)
-        tab.setFont(settings_font)
         root_layout = QHBoxLayout(tab)
         root_layout.setContentsMargins(*MARGINS_NONE)
         self.settings_scroll = QScrollArea()
@@ -622,9 +608,6 @@ class SettingsPanelMixin:
         """Создает отдельную панель справки со сведениями о программе."""
         tab = QWidget()
         tab.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        help_font = tab.font()
-        help_font.setPointSize(10)
-        tab.setFont(help_font)
         root_layout = QHBoxLayout(tab)
         root_layout.setContentsMargins(*SETTINGS_PANEL_MARGINS)
         root_layout.setSpacing(SPACE_NONE)

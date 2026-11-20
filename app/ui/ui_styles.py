@@ -31,7 +31,7 @@ STANDARD_RADIUS = 4
 STANDARD_FORM_LABEL_STYLE = (
     "font-size: 13px; font-weight: 400; margin: 0px; padding: 0px;"
 )
-FILE_INFO_LABEL_STYLE = "font-size: 13px; font-weight: 600; padding: 0px 2px;"
+FILE_INFO_LABEL_STYLE = "font-size: 12px; font-weight: 500; padding: 0px 2px;"
 TRANSPARENT_CONTAINER_STYLE = "background-color: transparent;"
 SPLITTER_GRIP_LABEL_STYLE = (
     "background-color: transparent; border: none; padding: 0px;"
@@ -127,16 +127,14 @@ def build_drop_zone_overlay_style(theme: str) -> str:
 
 
 def build_drop_zone_hint_style(theme: str) -> str:
-    return f"color: {drop_zone_muted_color(theme)}; font-size: 13px;"
+    return f"color: {drop_zone_muted_color(theme)}; font-size: 12px;"
 
 
 def build_drop_action_tile_style(theme: str) -> str:
     light = str(theme).lower() == "light"
     border = "rgba(90, 100, 110, 170)" if light else "rgba(255,255,255,120)"
     hover_border = "rgba(61,116,179,220)" if light else "rgba(255,255,255,210)"
-    hover_background = (
-        "rgba(61,116,179,18)" if light else "rgba(255,255,255,24)"
-    )
+    hover_background = standard_palette(theme)["hover_bg"]
     return f"""
         QFrame#drop_action_tile {{
             background-color: transparent;
@@ -155,52 +153,22 @@ def build_drop_action_tile_text_style(theme: str) -> str:
     return f'font-family: "Segoe UI"; font-size: 12px; font-weight: 600; color: {color};'
 
 
-_BUTTON_PALETTES = {
-    "dark": (
-        "#303030",
-        "#505050",
-        "#2a2a2a",
-        "#474747",
-        "#f1f1f1",
-        "#292929",
-        "#3b3b3b",
-        "#787878",
-    ),
-    "light": (
-        "#ffffff",
-        "#dce6f1",
-        "#e2eaf3",
-        "#d6dee8",
-        "#243244",
-        "#f8fafc",
-        "#e4eaf2",
-        "#6f7785",
-    ),
-}
-
-
 def build_standard_button_style(theme: str, role: str) -> str:
     light = str(theme).lower() == "light"
-    palette = _BUTTON_PALETTES["light" if light else "dark"]
-    (
-        bg,
-        hover,
-        pressed,
-        border,
-        fg,
-        disabled_bg,
-        disabled_border,
-        disabled_fg,
-    ) = palette
+    p = standard_palette(theme)
+    bg, hover, pressed = p["bg"], p["hover_bg"], p["window_bg"]
+    border, fg = p["border"], p["fg"]
+    disabled_bg, disabled_border, disabled_fg = p["window_bg"], p["disabled_border"], p["disabled_fg"]
     if role == "primary":
-        bg, hover, pressed, border, fg = "#245da3", "#2869b7", "#1a487e", "#2869b7", "#ffffff"
+        border, fg = ("#2869b7", "#245da3") if light else ("#629de1", "#b2d5ff")
     elif role == "danger":
-        bg, hover, pressed, border, fg = "#a62d35", "#b7353d", "#82242a", "#b7353d", "#ffffff"
-    focus = "#17395f" if light and role == "secondary" else "#b2d5ff"
+        border, fg = ("#b7353d", "#98232b") if light else ("#ce6770", "#ffb2b8")
+    focus = "#17395f" if light else "#b2d5ff"
     return f"""
         QPushButton {{
             background-color: {bg}; color: {fg}; border: 1px solid {border};
-            border-radius: 7px; padding: 2px 9px; font-weight: 500; font-size: 13px;
+            border-radius: 7px; padding: 2px 9px; text-align: center;
+            font-weight: 500; font-size: 13px;
         }}
         QPushButton:hover {{ background-color: {hover}; border-color: {border}; }}
         QPushButton:pressed {{ background-color: {pressed}; border-color: {border}; }}
@@ -213,17 +181,13 @@ def build_standard_button_style(theme: str, role: str) -> str:
 
 
 def build_template_table_style(theme: str) -> str:
-    light = str(theme).lower() == "light"
     palette = standard_palette(theme)
     foreground = palette["fg"]
     background = palette["bg"]
     border = palette["border"]
-    alternate = "#eef1f5" if light else "#454545"
-    hover = (
-        "rgba(61, 116, 179, 0.10)" if light else "rgba(255, 255, 255, 0.07)"
-    )
-    selected = "rgba(61, 116, 179, 0.22)" if light else "#5c5c5c"
-    header = alternate if light else "#2b2b2b"
+    alternate = palette["window_bg"]
+    hover = selected = palette["hover_bg"]
+    header = alternate
     return f"""
         QTableWidget {{
             background-color: {background}; alternate-background-color: {alternate};
@@ -246,7 +210,7 @@ def build_template_table_style(theme: str) -> str:
         QTableWidget::item:selected:focus {{
             outline: none; border: none; background-color: {selected};
         }}
-        QHeaderView::section {{ background-color: {header}; color: {foreground}; padding: 4px; }}
+        QHeaderView::section {{ background-color: {header}; color: {foreground}; padding: 1px 4px; }}
         QTableCornerButton::section {{ background-color: {header}; border: none; }}
     """
 
@@ -261,7 +225,7 @@ def standard_palette(theme: str) -> dict[str, str]:
             "border": "#c7cfda",
             "hover_border": "#aab5c3",
             "hover_bg": "#dce6f1",
-            "disabled_bg": "#f2f4f7",
+            "disabled_bg": "#f4f6f8",
             "disabled_fg": "#6f7785",
             "disabled_border": "#d6dbe2",
             "placeholder": "#6f7785",
@@ -274,7 +238,7 @@ def standard_palette(theme: str) -> dict[str, str]:
         "border": "#4f4f4f",
         "hover_border": "#4f4f4f",
         "hover_bg": "#505050",
-        "disabled_bg": "#3d3d3d",
+        "disabled_bg": "#2c2c2c",
         "disabled_fg": "#a8a8a8",
         "disabled_border": "#5a5a5a",
         "placeholder": "#9aa3ad",
@@ -423,7 +387,7 @@ def build_standard_field_style(theme: str, kind: str) -> str:
     if kind == "menu":
         return f"""
             QToolButton#menu_like_combo {{
-                font-size: 14px;
+                font-size: 13px;
                 padding: 3px;
                 background-color: {p["bg"]};
                 color: {p["fg"]};
@@ -455,7 +419,7 @@ def build_standard_field_style(theme: str, kind: str) -> str:
         return f"""
             QToolButton#header_cell_tl,
             QToolButton#header_cell_tr {{
-                font-size: 14px;
+                font-size: 13px;
                 padding: 3px;
                 padding-left: 8px;
                 background-color: {p["bg"]};
@@ -475,7 +439,7 @@ def build_standard_field_style(theme: str, kind: str) -> str:
                 border-bottom-right-radius: 0px;
             }}
             QLineEdit#header_cell_br {{
-                font-size: 14px;
+                font-size: 13px;
                 padding: 3px;
                 background-color: {p["bg"]};
                 color: {p["fg"]};
@@ -501,19 +465,8 @@ def build_standard_field_style(theme: str, kind: str) -> str:
             }}
         """
     if kind == "surface":
-        alternate_bg = (
-            "#f8fafc" if str(theme).lower() == "light" else "#3d3d3d"
-        )
-        hover_bg = (
-            "rgba(61, 116, 179, 0.10)"
-            if str(theme).lower() == "light"
-            else "rgba(255, 255, 255, 0.07)"
-        )
-        selected_bg = (
-            "rgba(61, 116, 179, 0.22)"
-            if str(theme).lower() == "light"
-            else "rgba(61, 116, 179, 0.38)"
-        )
+        alternate_bg = p["window_bg"]
+        hover_bg = selected_bg = p["hover_bg"]
         return f"""
             QAbstractItemView#files_list,
             QTableView#files_list,
@@ -574,14 +527,18 @@ def build_standard_field_style(theme: str, kind: str) -> str:
 def build_operations_tab_bar_style(theme: str) -> str:
     is_light = str(theme).lower() == "light"
     foreground = "#202833" if is_light else "#e3e6ea"
-    inactive_bg = "#e8ecf1" if is_light else "#303030"
+    inactive_bg = standard_palette(theme)["bg"]
     separator = "#c7cfda" if is_light else "#4f4f4f"
-    hover_bg = _BUTTON_PALETTES["light" if is_light else "dark"][1]
+    hover_bg = standard_palette(theme)["hover_bg"]
     underline = "#3d74b3"
     active_text = underline if is_light else "#79b5f5"
     return f"""
         QTabBar#operations_tab_bar {{
             background-color: {inactive_bg};
+            color: {foreground};
+            selection-color: {active_text};
+            font-size: 13px;
+            font-weight: 600;
             margin: 0px;
             padding: 0px;
             border-top: 1px solid {separator};
@@ -594,7 +551,7 @@ def build_operations_tab_bar_style(theme: str) -> str:
             min-height: 32px;
             max-height: 32px;
             font-size: 13px;
-            font-weight: {600 if is_light else 700};
+            font-weight: 600;
             color: {foreground};
             background-color: {inactive_bg};
             border: none;
@@ -617,7 +574,7 @@ def build_operations_tab_bar_style(theme: str) -> str:
 def build_settings_navigation_style(theme: str) -> str:
     """Оформляет разделы настроек по аналогии с вкладками операций."""
     foreground = "#202833" if str(theme).lower() == "light" else "#e3e6ea"
-    inactive_bg = "#e8ecf1" if str(theme).lower() == "light" else "#303030"
+    inactive_bg = standard_palette(theme)["bg"]
     separator = "#c7cfda" if str(theme).lower() == "light" else "#4f4f4f"
     active_text = "#3d74b3" if str(theme).lower() == "light" else "#79b5f5"
     return f"""
@@ -629,7 +586,7 @@ def build_settings_navigation_style(theme: str) -> str:
             margin: 0px;
             padding: 0px 8px;
             font-size: 13px;
-            font-weight: {600 if str(theme).lower() == "light" else 700};
+            font-weight: 600;
             color: {foreground};
             background-color: {inactive_bg};
             border: none;
@@ -718,7 +675,7 @@ def build_tab_content_style_block(theme: str) -> str:
                 max-height: {1 if is_light else 3}px;
             }}
             QLabel#tab_hint_label {{
-                font-size: 13px;
+                font-size: 12px;
                 color: #3d74b3;
             }}
         """

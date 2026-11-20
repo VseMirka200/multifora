@@ -155,7 +155,7 @@ class FileListActionsMixin:
             "Добавьте саму папку для переименования или файлы из неё и всех вложенных папок.",
             (
                 ("folder", "Добавить папку", "secondary"),
-                ("contents", "Добавить файлы из папок", "secondary"),
+                ("contents", "Добавить содержимое папок", "secondary"),
                 ("cancel", "Отмена", "secondary"),
             ),
             icon=QMessageBox.Icon.Question,

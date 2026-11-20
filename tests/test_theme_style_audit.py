@@ -82,7 +82,7 @@ class ThemeStyleAuditTests(unittest.TestCase):
             self.assertIn(selector, style)
             hint_style = style.split(selector, 1)[1].split("}", 1)[0]
             self.assertIn(f"color: {color}", hint_style)
-            self.assertIn("font-size: 11px", hint_style)
+            self.assertIn("font-size: 12px", hint_style)
 
     def test_button_roles_have_distinct_styles_and_visible_focus(self):
         for theme in ("light", "dark"):
@@ -161,8 +161,8 @@ class ThemeStyleAuditTests(unittest.TestCase):
 
     def test_scrollable_dropdown_has_vertical_arrow_buttons(self):
         for style, track, handle in (
-            (LIGHT_APPLICATION_STYLE, "#eef1f5", "#8f99a6"),
-            (DARK_APPLICATION_STYLE, "#2f2f2f", "#777777"),
+            (LIGHT_APPLICATION_STYLE, "#f4f6f8", "#8f99a6"),
+            (DARK_APPLICATION_STYLE, "#2c2c2c", "#777777"),
         ):
             scrollbar = style.split(
                 "QMenu QListWidget#scrollable_filter_list QScrollBar:vertical {",
@@ -191,8 +191,8 @@ class ThemeStyleAuditTests(unittest.TestCase):
 
     def test_operations_tabs_share_full_width_bar(self):
         for theme, background, active in (
-            ("light", "#e8ecf1", "#3d74b3"),
-            ("dark", "#303030", "#79b5f5"),
+            ("light", "#ffffff", "#3d74b3"),
+            ("dark", "#383838", "#79b5f5"),
         ):
             style = build_operations_tab_bar_style(theme)
             bar = style.split("QTabBar#operations_tab_bar {", 1)[1].split("}", 1)[0]
@@ -208,8 +208,8 @@ class ThemeStyleAuditTests(unittest.TestCase):
 
     def test_settings_navigation_uses_vertical_tab_selection_style(self):
         for theme, foreground, background, active in (
-            ("light", "#202833", "#e8ecf1", "#3d74b3"),
-            ("dark", "#e3e6ea", "#303030", "#79b5f5"),
+            ("light", "#202833", "#ffffff", "#3d74b3"),
+            ("dark", "#e3e6ea", "#383838", "#79b5f5"),
         ):
             style = build_settings_navigation_style(theme)
             button = style.split("QPushButton#settings_nav_item {", 1)[
@@ -220,7 +220,7 @@ class ThemeStyleAuditTests(unittest.TestCase):
             )[1].split("}", 1)[0]
             self.assertIn(f"color: {foreground}", button)
             self.assertIn("font-size: 13px", button)
-            self.assertIn(f"font-weight: {600 if theme == 'light' else 700}", button)
+            self.assertIn("font-weight: 600", button)
             self.assertIn(f"background-color: {background}", button)
             self.assertIn("border-radius: 0px", button)
             self.assertIn(f"color: {active}", selected_button)
@@ -236,14 +236,11 @@ class ThemeStyleAuditTests(unittest.TestCase):
             )
         )
         self.assertNotIn("#383838", light)
-        self.assertTrue(
-            "alternate-background-color: #eef1f5" in light
-            or "alternate-background-color: #f8fafc" in light
-        )
+        self.assertIn("alternate-background-color: #f4f6f8", light)
 
     def test_template_manager_light_alternating_rows_are_light(self):
         light_style = build_template_table_style("light")
-        self.assertIn("alternate-background-color: #eef1f5", light_style)
+        self.assertIn("alternate-background-color: #f4f6f8", light_style)
         self.assertNotIn("alternate-background-color: #454545", light_style)
 
     def test_runtime_refreshes_buttons_and_operation_tabs(self):

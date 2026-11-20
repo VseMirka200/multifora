@@ -5,6 +5,7 @@ from PySide6.QtCore import (
     QAbstractAnimation,
     QEasingCurve,
     QPropertyAnimation,
+    QRect,
     QSize,
     Qt,
     QTimer,
@@ -14,6 +15,9 @@ from PySide6.QtGui import (
     QAction,
     QFontMetrics,
     QIcon,
+    QPainter,
+    QPainterPath,
+    QPalette,
     QTextOption,
 )
 from PySide6.QtWidgets import (
@@ -34,6 +38,8 @@ from PySide6.QtWidgets import (
     QStatusBar,
     QStyle,
     QStyledItemDelegate,
+    QStyleOptionButton,
+    QStyleOptionMenuItem,
     QStyleOptionToolButton,
     QStylePainter,
     QTextEdit,
@@ -380,7 +386,7 @@ def setup_standard_action_button(
     widget,
     *,
     variant: str | None = None,
-    expand: bool = False,
+    expand: bool = True,
 ):
     role = variant or widget.property("buttonVariant") or "secondary"
     widget.setFixedHeight(ACTION_BUTTON_HEIGHT)
@@ -407,7 +413,7 @@ def setup_standard_action_button(
 def setup_standard_primary_button(
     widget,
     *,
-    expand: bool = False,
+    expand: bool = True,
 ):
     return setup_standard_action_button(
         widget,
@@ -419,7 +425,7 @@ def setup_standard_primary_button(
 def setup_standard_danger_button(
     widget,
     *,
-    expand: bool = False,
+    expand: bool = True,
 ):
     return setup_standard_action_button(
         widget,
@@ -431,7 +437,7 @@ def setup_standard_danger_button(
 def setup_standard_secondary_button(
     widget,
     *,
-    expand: bool = False,
+    expand: bool = True,
 ):
     return setup_standard_action_button(widget, expand=expand)
 
@@ -565,11 +571,18 @@ def sync_standard_menu_width(menu: QMenu, anchor_widget: QWidget):
     width = anchor_widget.width()
     if width <= 0:
         width = anchor_widget.sizeHint().width()
+    filter_list = getattr(menu, "filter_list", None)
+    if filter_list is not None:
+        metrics = menu.fontMetrics()
+        icon_width = menu.style().pixelMetric(QStyle.PixelMetric.PM_SmallIconSize, None, menu)
+        for action in menu.actions():
+            if action.text() and not isinstance(action, QWidgetAction):
+                # Оставляем место для значка, промежутка и полей с обеих сторон.
+                width = max(width, metrics.horizontalAdvance(action.text()) + icon_width + 24)
     menu.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
     menu.setMinimumWidth(width)
     menu.setMaximumWidth(width)
     menu.setFixedWidth(width)
-    filter_list = getattr(menu, "filter_list", None)
     if filter_list is not None:
         # QWidgetAction иначе сохраняет sizeHint по самому длинному пункту:
         # меню сжимается до ширины кнопки, а вертикальный скроллбар остаётся
@@ -637,6 +650,29 @@ class ScrollableFilterMenu(QMenu):
         self._filter_actions: list[QAction] = []
         self._filter_items: dict[QAction, QListWidgetItem] = {}
         self._filter_list: SmoothScrollListWidget | None = None
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QStylePainter(self)
+        icon_size = self.style().pixelMetric(QStyle.PixelMetric.PM_SmallIconSize, None, self)
+        for action in self.actions():
+            row = self.actionGeometry(action)
+            if action.icon().isNull() or not row.intersects(event.rect()):
+                continue
+            option = QStyleOptionMenuItem()
+            self.initStyleOption(option, action)
+            option.rect = row
+            option.icon = QIcon()
+            option.text = ""
+            painter.drawControl(QStyle.ControlElement.CE_MenuItem, option)
+            painter.setFont(option.font)
+            group = option.palette.currentColorGroup() if action.isEnabled() else QPalette.ColorGroup.Disabled
+            role = (QPalette.ColorRole.HighlightedText if option.state & QStyle.StateFlag.State_Selected
+                    else QPalette.ColorRole.Text)
+            painter.setPen(option.palette.color(group, role))
+            draw_icon_caption(painter, row.adjusted(4, 0, -4, 0), action.icon(),
+                              QSize(icon_size, icon_size), action.text(), action.isEnabled(),
+                              align_left=True)
 
     def _ensure_filter_list(self) -> SmoothScrollListWidget:
         if self._filter_list is not None:
@@ -930,27 +966,80 @@ class MenuLikeComboBox(QToolButton):
             self.setCurrentIndex(idx)
 
 
-class LeftAlignedToolButton(QToolButton):
-    """Кнопка инструмента с текстом слева и стрелкой меню справа."""
+def draw_icon_caption(painter, rect, icon, icon_size, text, enabled, *,
+                      align_left=False, text_y_offset=0):
+    metrics = painter.fontMetrics()
+    size = icon.actualSize(icon_size)
+    offset = 0 if size.isEmpty() else size.width() + 5
+    text = metrics.elidedText(text, Qt.TextElideMode.ElideRight, max(0, rect.width() - offset))
+    glyphs = QPainterPath()
+    glyphs.addText(0, 0, painter.font(), text)
+    bounds = glyphs.boundingRect()
+    width = offset + bounds.width()
+    left = rect.left() if align_left else round(rect.x() + (rect.width() - width) / 2)
+    if not size.isEmpty():
+        icon_rect = QRect(0, 0, size.width(), size.height())
+        icon_rect.moveCenter(rect.center())
+        icon_rect.moveLeft(left)
+        mode = QIcon.Mode.Normal if enabled else QIcon.Mode.Disabled
+        icon.paint(painter, icon_rect, Qt.AlignmentFlag.AlignCenter, mode)
+    glyphs.translate(left + offset - bounds.left(),
+                     rect.y() + rect.height() / 2 - bounds.center().y() + text_y_offset)
+    painter.save()
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.fillPath(glyphs, painter.pen().brush())
+    painter.restore()
+
+
+class IconButton(QPushButton):
+    def sizeHint(self):
+        hint = super().sizeHint()
+        if self.icon().isNull():
+            return hint
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        option.rect.setSize(hint)
+        content = self.style().subElementRect(
+            QStyle.SubElement.SE_PushButtonContents, option, self
+        )
+        caption_width = self.fontMetrics().horizontalAdvance(self.text())
+        required = self.icon().actualSize(self.iconSize()).width() + 5 + caption_width
+        hint.setWidth(hint.width() + max(0, required - content.width()))
+        return hint
+
+    def paintEvent(self, event):
+        if self.icon().isNull():
+            return super().paintEvent(event)
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        option.icon = QIcon()
+        option.text = ""
+        painter = QStylePainter(self)
+        painter.drawControl(QStyle.ControlElement.CE_PushButton, option)
+        painter.setPen(option.palette.buttonText().color())
+        rect = self.style().subElementRect(QStyle.SubElement.SE_PushButtonContents, option, self)
+        draw_icon_caption(painter, rect, self.icon(), self.iconSize(), self.text(),
+                          self.isEnabled(), align_left=self.objectName() == "help_button",
+                          text_y_offset=1)
+
+
+class FilterToolButton(QToolButton):
+    """Кнопка фильтра с центрированной подписью и стрелкой меню справа."""
 
     def paintEvent(self, event):
         option = QStyleOptionToolButton()
         self.initStyleOption(option)
         text = option.text
         option.text = ""
+        icon = option.icon
+        option.icon = QIcon()
 
         painter = QStylePainter(self)
         painter.drawComplexControl(QStyle.ComplexControl.CC_ToolButton, option)
 
-        text_rect = self.rect().adjusted(8, 0, -22, 0)
-        painter.drawItemText(
-            text_rect,
-            int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
-            self.palette(),
-            self.isEnabled(),
-            text,
-            self.foregroundRole(),
-        )
+        painter.setPen(option.palette.buttonText().color())
+        draw_icon_caption(painter, self.rect().adjusted(22, 0, -22, 0), icon,
+                          option.iconSize, text, self.isEnabled(), text_y_offset=1)
 
 
 class DropActionTile(QFrame):

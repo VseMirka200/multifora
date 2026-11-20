@@ -44,8 +44,8 @@ class FileListPreviewMixin:
             self.list_files.refresh()
         if callable(getattr(self, "refresh_preview_panel", None)):
             self.refresh_preview_panel()
-        if callable(getattr(self, "_schedule_operation_scope_refresh", None)):
-            self._schedule_operation_scope_refresh()
+        if callable(getattr(self, "_schedule_filter_button_refresh", None)):
+            self._schedule_filter_button_refresh()
 
     def _active_operation_id(self) -> str:
         tab_bar = getattr(self, "operations_tab_bar", None)

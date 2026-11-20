@@ -7,7 +7,7 @@ from PySide6.QtCore import (
     Qt,
     QUrl,
 )
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QDesktopServices, QPalette
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -21,6 +21,10 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QStackedWidget,
+    QStyle,
+    QStyleOptionFocusRect,
+    QStyleOptionTab,
+    QStylePainter,
     QTabBar,
     QVBoxLayout,
     QWidget,
@@ -33,6 +37,8 @@ from app.core.app_identity import (
 from app.ui.conversion_panel import ConversionPanel
 from app.ui.operation_layout import add_labeled_field, create_operation_card, create_operation_label
 from app.ui.ui_components import (
+    IconButton,
+    draw_icon_caption,
     MenuLikeComboBox,
     resolve_widget_theme_mode,
     setup_clickable_checkbox_label,
@@ -55,6 +61,28 @@ from app.ui.ui_styles import (
     build_operations_help_button_style,
     build_operations_tab_bar_style,
 )
+
+
+class _OperationsTabBar(QTabBar):
+    def paintEvent(self, event):
+        painter = QStylePainter(self)
+        for index in range(self.count()):
+            option = QStyleOptionTab()
+            self.initStyleOption(option, index)
+            if not option.rect.intersects(event.rect()) or not self.isTabVisible(index):
+                continue
+            painter.drawControl(QStyle.ControlElement.CE_TabBarTabShape, option)
+            rect = option.rect
+            role = (QPalette.ColorRole.HighlightedText if index == self.currentIndex()
+                    else QPalette.ColorRole.WindowText)
+            painter.setPen(option.palette.color(role))
+            draw_icon_caption(painter, rect.adjusted(4, 0, -4, 0), option.icon,
+                              option.iconSize, option.text, self.isTabEnabled(index))
+            if option.state & QStyle.StateFlag.State_HasFocus:
+                focus = QStyleOptionFocusRect()
+                focus.initFrom(self)
+                focus.rect = rect.adjusted(3, 3, -3, -3)
+                painter.drawPrimitive(QStyle.PrimitiveElement.PE_FrameFocusRect, focus)
 
 
 class _HelpMenuClickFilter(QObject):
@@ -118,22 +146,10 @@ class OperationsTabLayoutMixin:
 
         for index, button in enumerate(buttons):
             setup_standard_action_button(button)
-            self._make_action_button_fill_width(button)
             row_layout.setColumnStretch(index, 1)
             row_layout.addWidget(button, 0, index)
 
         return row_widget, row_layout
-
-    def _make_action_button_fill_width(self, button: QPushButton):
-        try:
-            button.setMinimumWidth(0)
-            button.setMaximumWidth(16777215)
-            button.setSizePolicy(
-                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-            )
-        except Exception:
-            pass
-        return button
 
     def _create_operation_hint_label(self, text: str) -> QLabel:
         label = QLabel(text)
@@ -197,7 +213,7 @@ class OperationsTabLayoutMixin:
         tab_layout.setContentsMargins(*MARGINS_NONE)
         tab_layout.setSpacing(SPACE_NONE)
 
-        self.operations_tab_bar = QTabBar()
+        self.operations_tab_bar = _OperationsTabBar()
         self.operations_tab_bar.setObjectName("operations_tab_bar")
         self.operations_tab_bar.setSizePolicy(
             QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed
@@ -239,9 +255,6 @@ class OperationsTabLayoutMixin:
             SPACE_SM, 0, SPACE_SM, 0
         )
         operations_header_actions_layout.setSpacing(SPACE_SM)
-        operations_header_actions_layout.setAlignment(
-            Qt.AlignmentFlag.AlignLeft
-        )
         operations_header_layout.addWidget(
             self.operations_header_actions_widget
         )
@@ -286,7 +299,7 @@ class OperationsTabLayoutMixin:
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
 
-        self.btn_help = QPushButton("Справка")
+        self.btn_help = IconButton("Справка")
         self.btn_help.setObjectName("help_button")
         self.btn_help.setCheckable(True)
         self.btn_help.setFixedHeight(22)
@@ -305,24 +318,29 @@ class OperationsTabLayoutMixin:
         self.help_menu.setObjectName("help_menu_popup")
         self.help_menu_actions = []
         about_action = self.help_menu.addAction("О программе")
+        about_action.setProperty("uiIcon", "help")
         about_action.triggered.connect(self.show_help_modal)
         self.help_menu_actions.append(about_action)
         self.check_updates_action = self.help_menu.addAction(
             "Проверить обновления"
         )
+        self.check_updates_action.setProperty("uiIcon", "updates")
         self.check_updates_action.triggered.connect(self.check_updates_now)
         self.help_menu_actions.append(self.check_updates_action)
         logs_action = self.help_menu.addAction("Сохранить журнал…")
+        logs_action.setProperty("uiIcon", "save")
         logs_action.triggered.connect(self.download_logs)
         self.help_menu_actions.append(logs_action)
 
         guide_action = self.help_menu.addAction("Открыть руководство")
+        guide_action.setProperty("uiIcon", "guide")
         guide_action.triggered.connect(
             lambda: QDesktopServices.openUrl(QUrl(GUIDE_URL))
         )
         self.help_menu_actions.append(guide_action)
 
         report_bug_action = self.help_menu.addAction("Сообщить об ошибке")
+        report_bug_action.setProperty("uiIcon", "bug")
         report_bug_action.triggered.connect(
             lambda: QDesktopServices.openUrl(QUrl(GITHUB_NEW_ISSUE_URL))
         )
@@ -407,7 +425,7 @@ class OperationsTabLayoutMixin:
         )
         self.rename_validation_label.setWordWrap(True)
         rename_layout.addWidget(self.rename_validation_label)
-        self.btn_locate_rename_issue = QPushButton("Показать первую проблему")
+        self.btn_locate_rename_issue = IconButton("Показать первую проблему")
         setup_standard_secondary_button(self.btn_locate_rename_issue)
         self.btn_locate_rename_issue.clicked.connect(self._locate_rename_issue)
         self.btn_locate_rename_issue.hide()
@@ -423,7 +441,7 @@ class OperationsTabLayoutMixin:
         self.template_params_layout.setSpacing(SPACE_SM)
         rename_layout.addWidget(self.template_params_widget)
 
-        self.btn_apply_rename = QPushButton("Переименовать")
+        self.btn_apply_rename = IconButton("Переименовать")
         self.btn_apply_rename.setProperty("buttonVariant", "primary")
         self.btn_apply_rename.clicked.connect(self.apply_rename)
         self.btn_apply_rename.setEnabled(False)
@@ -432,7 +450,7 @@ class OperationsTabLayoutMixin:
             [self.btn_apply_rename]
         )
 
-        self.btn_open_rename_history = QPushButton("История")
+        self.btn_open_rename_history = IconButton("История")
         setup_standard_secondary_button(self.btn_open_rename_history)
         self.btn_open_rename_history.clicked.connect(
             self.show_rename_history_dialog
@@ -447,6 +465,22 @@ class OperationsTabLayoutMixin:
         actions_layout.setSpacing(SPACE_NONE)
         actions_layout.addWidget(rename_buttons_widget)
         actions_layout.addWidget(history_button_widget)
+
+        self.template_actions = QWidget(actions)
+        template_actions_layout = QVBoxLayout(self.template_actions)
+        template_actions_layout.setContentsMargins(0, SPACE_SM, 0, 0)
+        template_actions_layout.setSpacing(SPACE_SM)
+        self.btn_save_template = IconButton("Сохранить")
+        self.btn_save_template.setToolTip("Сохранить шаблон")
+        self.btn_save_template.clicked.connect(self.save_current_template)
+        self.btn_manage_templates = IconButton("Шаблоны")
+        self.btn_manage_templates.setToolTip("Управлять шаблонами")
+        self.btn_manage_templates.clicked.connect(self.show_template_manager)
+        for button in (self.btn_save_template, self.btn_manage_templates):
+            setup_standard_secondary_button(button)
+            template_actions_layout.addWidget(button)
+        self.template_actions.hide()
+        actions_layout.addWidget(self.template_actions)
 
         self._add_operations_page(
             self._wrap_operations_page(rename_card, "rename_page", actions),
@@ -492,9 +526,8 @@ class OperationsTabLayoutMixin:
         self.merge_format_hint_label.setWordWrap(True)
         merge_layout.addWidget(self.merge_format_hint_label)
 
-        self.btn_merge = QPushButton("Объединить")
+        self.btn_merge = IconButton("Объединить")
         setup_standard_primary_button(self.btn_merge)
-        self._make_action_button_fill_width(self.btn_merge)
         self.btn_merge.clicked.connect(self.merge_files)
         self.btn_merge.setEnabled(False)
         self._update_merge_button_state()
@@ -615,12 +648,12 @@ class OperationsTabLayoutMixin:
         setup_standard_line_input(self.input_image_output_path)
         image_output_path_layout.addWidget(self.input_image_output_path, 1)
 
-        self.btn_select_image_output_path = QPushButton("Выбрать папку")
+        self.btn_select_image_output_path = IconButton("Выбрать папку")
         setup_standard_secondary_button(self.btn_select_image_output_path)
         self.btn_select_image_output_path.clicked.connect(
             self.select_image_output_folder
         )
-        image_output_path_layout.addWidget(self.btn_select_image_output_path)
+        image_output_path_layout.addWidget(self.btn_select_image_output_path, 1)
 
         self.image_output_path_section = QWidget()
         image_output_section_layout = QVBoxLayout(
@@ -669,9 +702,8 @@ class OperationsTabLayoutMixin:
         self.compress_mode_stack.setFixedHeight(image_mode.sizeHint().height())
         compress_layout.addWidget(self.compress_mode_stack)
 
-        self.btn_compress = QPushButton("Сжать файлы")
+        self.btn_compress = IconButton("Сжать файлы")
         setup_standard_primary_button(self.btn_compress)
-        self._make_action_button_fill_width(self.btn_compress)
         self.btn_compress.clicked.connect(self.compress_files)
         self.btn_compress.setEnabled(False)
         compress_layout.addSpacing(SPACE_SM)
@@ -752,7 +784,7 @@ class OperationsTabLayoutMixin:
         scroll.setContentsMargins(*MARGINS_NONE)
         scroll.setViewportMargins(0, 0, 0, 0)
         scroll.setAlignment(
-            Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft
+            Qt.AlignmentFlag.AlignTop
         )
 
         content = QWidget()

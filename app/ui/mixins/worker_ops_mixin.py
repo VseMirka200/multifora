@@ -328,7 +328,7 @@ class WorkerOpsMixin:
             result,
             can_retry=request is not None and not isinstance(request, MergeRequest),
         )
-        self.operation_result_panel.undo.hide()
+        self.operation_result_panel.undo.setEnabled(False)
 
         if self._is_undo_operation:
             if (result.errors or result.cancelled) and self._pending_undo_entry:
@@ -356,7 +356,7 @@ class WorkerOpsMixin:
                             "label": f"Переименовано {len(undo_pairs)} файлов",
                         }
                     )
-                    self.operation_result_panel.undo.show()
+                    self.operation_result_panel.undo.setEnabled(True)
         self._is_undo_operation = False
 
         self.log_event(

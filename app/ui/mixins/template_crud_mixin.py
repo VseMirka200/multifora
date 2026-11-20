@@ -10,7 +10,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QMenu,
     QMessageBox,
-    QPushButton,
     QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
@@ -19,11 +18,13 @@ from PySide6.QtWidgets import (
 
 from app.core.app_utils import _log_ignored_error
 from app.ui.ui_components import (
+    IconButton,
     get_russian_text_input,
     setup_standard_dialog,
     setup_standard_primary_button,
     setup_standard_secondary_button,
 )
+from app.ui.ui_icons import ui_icon
 from app.ui.ui_styles import DIALOG_MARGINS, MARGINS_NONE, SPACE_SM, build_template_table_style
 
 
@@ -477,17 +478,18 @@ class TemplateCrudMixin:
         actions_layout.setContentsMargins(*MARGINS_NONE)
         actions_layout.setSpacing(SPACE_SM)
 
-        export_btn = QPushButton("Экспорт шаблонов")
+        mode = dialog._effective_theme_mode
+        export_btn = IconButton(ui_icon("export", mode), "Экспорт шаблонов", dialog)
         setup_standard_secondary_button(export_btn, expand=True)
         export_btn.clicked.connect(self.export_templates)
         actions_layout.addWidget(export_btn, 1)
 
-        import_btn = QPushButton("Импорт шаблонов")
+        import_btn = IconButton(ui_icon("import", mode), "Импорт шаблонов", dialog)
         setup_standard_secondary_button(import_btn, expand=True)
         import_btn.clicked.connect(lambda: self.import_templates(dialog))
         actions_layout.addWidget(import_btn, 1)
 
-        apply_btn = QPushButton("Применить")
+        apply_btn = IconButton(ui_icon("check-document", mode), "Применить", dialog)
         setup_standard_primary_button(apply_btn, expand=True)
         apply_btn.setEnabled(False)
         apply_btn.clicked.connect(lambda: self.load_selected_template(dialog))
@@ -547,6 +549,7 @@ class TemplateCrudMixin:
         header = self.templates_table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         header.setMinimumSectionSize(36)
+        header.setFixedHeight(header.fontMetrics().height() + 4)
         self.templates_table.cellDoubleClicked.connect(
             lambda *_args: self.load_selected_template(dialog)
         )
@@ -557,24 +560,10 @@ class TemplateCrudMixin:
 
         actions_layout = self._build_template_manager_action_buttons(dialog)
         layout.addLayout(actions_layout)
-        edit_layout = QHBoxLayout()
-        edit_buttons = []
-        for label, callback in (
-            ("Переименовать", self._rename_selected_template),
-            ("Удалить шаблон", self.delete_selected_template),
-        ):
-            button = QPushButton(label, dialog)
-            setup_standard_secondary_button(button, expand=True)
-            button.setEnabled(False)
-            button.clicked.connect(lambda _checked, action=callback: action(dialog))
-            edit_layout.addWidget(button, 1)
-            edit_buttons.append(button)
-        layout.addLayout(edit_layout)
 
         def sync_actions():
             selected = bool(self.templates_table.selectionModel().selectedRows())
-            for button in (self.btn_apply_template, *edit_buttons):
-                button.setEnabled(selected)
+            self.btn_apply_template.setEnabled(selected)
 
         self.templates_table.itemSelectionChanged.connect(sync_actions)
 

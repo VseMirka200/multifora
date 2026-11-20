@@ -2,7 +2,7 @@ import os
 import threading
 
 from PySide6.QtCore import QEvent, QEventLoop, Qt, QTimer
-from PySide6.QtGui import QAction, QColor, QIcon, QKeySequence, QPalette
+from PySide6.QtGui import QAction, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMainWindow,
     QMessageBox,
-    QPushButton,
     QSizePolicy,
     QSplitter,
     QVBoxLayout,
@@ -22,7 +21,8 @@ from PySide6.QtWidgets import (
 )
 from shiboken6 import isValid
 
-from app.core.app_icons import _find_bundled_icon, _get_app_icon_qt_path
+from app.ui.ui_icons import apply_window_icons, ui_icon
+from app.core.app_icons import _get_app_icon_qt_path
 from app.core.app_identity import APP_WINDOW_TITLE
 from app.core.app_ipc import _drain_queued_files
 from app.core.app_utils import _debug_log, _log_ignored_error, signals_blocked
@@ -61,8 +61,9 @@ from app.ui.operation_controller import OperationController, bind_operation_work
 from app.ui.operation_progress import OperationProgressDialog
 from app.ui.operation_result_panel import OperationResultPanel
 from app.ui.ui_components import (
+    IconButton,
     DropActionTile,
-    LeftAlignedToolButton,
+    FilterToolButton,
     LoggingStatusBar,
     ScrollableFilterMenu,
     apply_standard_field_style,
@@ -300,7 +301,7 @@ class MultiforaMainWindow(
         if not started:
             self._hide_progress_dialog()
         else:
-            self.operation_result_panel.hide()
+            self.operation_result_panel.set_pending("Выполняется операция…")
         return started
 
     def _operation_is_running(self) -> bool:
@@ -558,7 +559,7 @@ class MultiforaMainWindow(
         self._list_header_ext_label.setFixedWidth(90)
         self._list_header_ext_label.setVisible(False)
 
-        self.btn_ext_filter = LeftAlignedToolButton()
+        self.btn_ext_filter = FilterToolButton()
         self.btn_ext_filter.setObjectName("header_cell_tl")
         setup_standard_header_dropdown(self.btn_ext_filter)
         self._ext_filter_menu = ScrollableFilterMenu(self.btn_ext_filter)
@@ -623,7 +624,7 @@ class MultiforaMainWindow(
         self._list_header_type_label.setFixedWidth(90)
         self._list_header_type_label.setVisible(False)
 
-        self.btn_type_filter = LeftAlignedToolButton()
+        self.btn_type_filter = FilterToolButton()
         self.btn_type_filter.setObjectName("header_cell_tr")
         setup_standard_header_dropdown(self.btn_type_filter)
         self._type_filter_menu = ScrollableFilterMenu(self.btn_type_filter)
@@ -686,6 +687,9 @@ class MultiforaMainWindow(
         self.input_search.setObjectName("header_cell_br")
         self.input_search.setPlaceholderText("Поиск")
         self.input_search.setClearButtonEnabled(True)
+        self.search_icon_action = self.input_search.addAction(
+            QIcon(), QLineEdit.ActionPosition.LeadingPosition
+        )
         setup_standard_line_input(self.input_search)
         self.input_search.setMinimumWidth(0)
         self.input_search.textChanged.connect(self.on_search_text_changed)
@@ -737,12 +741,6 @@ class MultiforaMainWindow(
             QAbstractItemView.ScrollMode.ScrollPerPixel
         )
 
-        list_palette = self.list_files.palette()
-        list_palette.setColor(QPalette.ColorRole.Highlight, QColor("#3d74b3"))
-        list_palette.setColor(
-            QPalette.ColorRole.HighlightedText, QColor("#ffffff")
-        )
-        self.list_files.setPalette(list_palette)
         apply_standard_field_style(self.list_files)
         self.list_files.setProperty("preview_mode", True)
         self.list_files.filesDropped.connect(self.add_files)
@@ -782,9 +780,7 @@ class MultiforaMainWindow(
         drop_zone_layout = QVBoxLayout(self.drop_zone_controls)
         drop_zone_layout.setContentsMargins(*DROP_ZONE_MARGINS)
         drop_zone_layout.setSpacing(SPACE_XL)
-        drop_zone_layout.setAlignment(
-            Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
-        )
+        drop_zone_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         drop_zone_layout.addStretch()
 
         drop_buttons_row = QGridLayout()
@@ -794,14 +790,14 @@ class MultiforaMainWindow(
         drop_buttons_row.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
         self.btn_add_files = DropActionTile(
-            QIcon(_find_bundled_icon("file.svg") or ""),
+            ui_icon("add-file", "tiles"),
             "Добавить\nфайлы",
         )
         self.btn_add_files.clicked.connect(self.select_files)
         drop_buttons_row.addWidget(self.btn_add_files, 0, 0)
 
         self.btn_add_folder = DropActionTile(
-            QIcon(_find_bundled_icon("folder.svg") or ""),
+            ui_icon("add-folder", "tiles"),
             "Добавить\nпапки",
         )
         self.btn_add_folder.clicked.connect(self.select_folder)
@@ -820,14 +816,14 @@ class MultiforaMainWindow(
             0,
             Qt.AlignmentFlag.AlignHCenter,
         )
-        self.btn_reset_queue_filters = QPushButton("Сбросить фильтры")
+        self.btn_reset_queue_filters = IconButton("Сбросить фильтры")
         setup_standard_secondary_button(self.btn_reset_queue_filters)
         self.btn_reset_queue_filters.clicked.connect(self._reset_queue_filters)
-        drop_zone_layout.addWidget(self.btn_reset_queue_filters, 0, Qt.AlignmentFlag.AlignHCenter)
-        self.btn_show_all_queue_files = QPushButton("Показать общую очередь")
+        drop_zone_layout.addWidget(self.btn_reset_queue_filters)
+        self.btn_show_all_queue_files = IconButton("Показать общую очередь")
         setup_standard_secondary_button(self.btn_show_all_queue_files)
         self.btn_show_all_queue_files.clicked.connect(lambda: self.operations_tab_bar.setCurrentIndex(0))
-        drop_zone_layout.addWidget(self.btn_show_all_queue_files, 0, Qt.AlignmentFlag.AlignHCenter)
+        drop_zone_layout.addWidget(self.btn_show_all_queue_files)
         drop_zone_layout.addStretch()
 
     def _connect_drop_zone_updates(self, files_panel: QWidget) -> None:
@@ -881,12 +877,7 @@ class MultiforaMainWindow(
 
     def _create_file_info_layout(self) -> QHBoxLayout:
         info_layout = QHBoxLayout()
-        info_layout.setContentsMargins(
-            SPACE_SM,
-            SPACE_SM,
-            SPACE_SM,
-            SPACE_SM,
-        )
+        info_layout.setContentsMargins(*MARGINS_NONE)
         info_layout.setSpacing(SPACE_SM)
 
         self.label_count = self._setup_info_label(QLabel("Видно: 0 из 0"))
@@ -923,30 +914,26 @@ class MultiforaMainWindow(
         right_layout.addLayout(list_header)
         self._create_files_preview(right_layout)
         self._create_progress_dialog()
-        self.operation_scope_label = QLabel()
-        self.operation_scope_label.setWordWrap(True)
-        self.operation_scope_label.setContentsMargins(SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
-        self.operation_scope_label.setObjectName("operation_scope")
-        self.operation_scope_label.hide()
-        scope_row = QHBoxLayout()
-        scope_row.addWidget(self.operation_scope_label, 1)
-        self.btn_clear_active_filters = QPushButton("Сбросить фильтры")
-        setup_standard_secondary_button(self.btn_clear_active_filters)
-        self.btn_clear_active_filters.clicked.connect(self._reset_queue_filters)
-        self.btn_clear_active_filters.hide()
-        scope_row.addWidget(self.btn_clear_active_filters)
-        right_layout.addLayout(scope_row)
-        self._operation_scope_timer = QTimer(self)
-        self._operation_scope_timer.setSingleShot(True)
-        self._operation_scope_timer.timeout.connect(self._refresh_operation_scope)
         info_panel = QFrame()
         info_panel.setObjectName("file_info_panel")
-        info_panel.setLayout(self._create_file_info_layout())
-        right_layout.addWidget(info_panel)
+        summary_layout = QVBoxLayout(info_panel)
+        summary_layout.setContentsMargins(SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
+        summary_layout.setSpacing(SPACE_SM)
+        info_row = self._create_file_info_layout()
+        self.btn_clear_active_filters = IconButton("Сбросить фильтры")
+        setup_standard_secondary_button(self.btn_clear_active_filters, expand=False)
+        self.btn_clear_active_filters.clicked.connect(self._reset_queue_filters)
+        self.btn_clear_active_filters.hide()
+        info_row.addWidget(self.btn_clear_active_filters)
+        summary_layout.addLayout(info_row)
+        self._filter_button_timer = QTimer(self)
+        self._filter_button_timer.setSingleShot(True)
+        self._filter_button_timer.timeout.connect(self._refresh_filter_button)
         self.operation_result_panel = OperationResultPanel()
         self.operation_result_panel.retry_requested.connect(self._retry_failed_operation)
         self.operation_result_panel.undo_requested.connect(self.show_rename_history_dialog)
-        right_layout.addWidget(self.operation_result_panel)
+        summary_layout.addWidget(self.operation_result_panel)
+        right_layout.addWidget(info_panel)
         return right_widget
 
     def _configure_main_splitter(
@@ -978,9 +965,7 @@ class MultiforaMainWindow(
         self.setStatusBar(self.status_bar)
         self.status_bar.setSizeGripEnabled(False)
         self.status_bar.setContentsMargins(*MARGINS_NONE)
-        self.status_bar.messageChanged.connect(
-            lambda message: self.status_bar.setVisible(bool(message))
-        )
+        self.status_bar.hide()
         self.status_bar.showMessage(
             "Готово. Перетащите файлы/папки в список или используйте кнопки добавления."
         )
@@ -1014,7 +999,7 @@ class MultiforaMainWindow(
         self.setup_system_theme_tracking()
         self._update_header_compact_mode()
         self._connect_ui_state_autosave()
-        self._schedule_operation_scope_refresh()
+        self._schedule_filter_button_refresh()
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -1104,6 +1089,7 @@ class MultiforaMainWindow(
 
     def _apply_theme_runtime_widgets(self):
         mode = getattr(self, "_effective_theme_mode", "dark")
+        apply_window_icons(self, mode)
         try:
             if callable(
                 getattr(self, "_apply_operations_tab_bar_theme", None)
@@ -1264,73 +1250,13 @@ class MultiforaMainWindow(
         self.update_file_list()
         self.input_search.setFocus()
 
-    def _schedule_operation_scope_refresh(self):
-        timer = getattr(self, "_operation_scope_timer", None)
+    def _schedule_filter_button_refresh(self):
+        timer = getattr(self, "_filter_button_timer", None)
         if timer is not None and isValid(timer):
             timer.start(0)
 
-    def _operation_scope_details(self, operation, candidates):
-        if operation == "rename":
-            if not self.current_template:
-                return 0, "Выберите шаблон."
-            if not self.btn_apply_rename.isEnabled():
-                return 0, self.rename_validation_label.text()
-            return len(self._rename_preview_pairs()), "Имена изменятся в исходных папках."
-        if operation == "convert":
-            source, target = self.from_convert_combo, self.to_convert_combo
-            if source.currentIndex() <= 0 or target.currentIndex() <= 0:
-                return 0, "Выберите исходный и целевой форматы."
-            files, already_converted = self._collect_compatible_conversion_files(
-                self._selected_convert_category(), source.currentText(), target.currentText()
-            )
-            if self.conversion_output_mode == "custom" and not self._conversion_custom_output_path():
-                return 0, "Выберите папку сохранения."
-            if not files:
-                return 0, "Файлы уже в целевом формате." if already_converted else "Нет совместимых файлов."
-            return len(files), f"В {target.currentText()} · {self.combo_conversion_output_mode.currentText()}."
-        if operation == "compress":
-            files = self._compression_files(candidates)
-            if not files:
-                return 0, "Нет файлов выбранного типа."
-            if not self.btn_compress.isEnabled():
-                return 0, "Выберите папку сохранения."
-            pdf = self.combo_compress_type.currentText() == "PDF документы"
-            replace = self.checkbox_replace_pdf.isChecked() if pdf else self._image_output_mode() == "replace"
-            destination = "С заменой исходников." if replace else "Будут созданы отдельные файлы."
-            return len(files), f"{self.combo_compress_type.currentText()} · {destination}"
-        if operation == "merge":
-            if len(candidates) < 2:
-                return 0, "Выберите хотя бы два документа."
-            output_format = self._detect_merge_output_format(candidates)
-            if output_format is None:
-                return 0, "Для объединения нужен один формат — PDF или DOCX."
-            return len(candidates), f"Один файл {output_format.upper()} · папка и имя при запуске."
-        return 0, ""
-
-    def _refresh_operation_scope(self):
-        model = self.list_files.model()
-        visible = model.files()
-        marked = sum(model.is_checked(item) for item in self.files)
-        hidden = len(self.files) - len(visible)
-        hidden_marked = marked - sum(model.is_checked(item) for item in visible)
-        operation = self._active_operation_id()
-        candidates = self._get_operation_file_items(files_only=operation != "rename")
-        if not self.files:
-            message = ""
-        elif not candidates:
-            message = "Покажите отмеченные файлы или снимите отметки." if hidden_marked else "Нет файлов для обработки."
-        else:
-            count, details = self._operation_scope_details(operation, candidates)
-            mode = "Отмеченные" if marked else "Все подходящие"
-            message = f"{mode} · в работу {count} из {len(visible)}. {details}"
-            if count and len(candidates) > count:
-                message += f" Пропустим: {len(candidates) - count}."
-        if hidden:
-            message += f" Скрыто: {hidden}."
-        if hidden_marked:
-            message += f" Скрыто отмеченных: {hidden_marked}."
-        self.operation_scope_label.setText(message)
-        self.operation_scope_label.setVisible(bool(message))
+    def _refresh_filter_button(self):
+        visible = self.list_files.model().rowCount()
         self.btn_clear_active_filters.setVisible(bool(visible) and self._is_any_filter_active())
 
     def _update_drop_zone_controls(self):
@@ -1338,7 +1264,10 @@ class MultiforaMainWindow(
         host = getattr(self, "files_panel", None)
         if host is None or overlay is None or not isValid(host) or not isValid(overlay):
             return
-        overlay.setGeometry(host.rect())
+        viewport = self.list_files.viewport()
+        field_rect = viewport.rect()
+        field_rect.moveTopLeft(viewport.mapTo(host, field_rect.topLeft()))
+        overlay.setGeometry(field_rect)
         empty_view = not self.list_files.model().files()
         overlay.setVisible(empty_view)
         if not empty_view:
@@ -1534,7 +1463,7 @@ class MultiforaMainWindow(
             self.refresh_active_file_preview()
         elif callable(getattr(self, "refresh_preview_panel", None)):
             self.refresh_preview_panel()
-        self._schedule_operation_scope_refresh()
+        self._schedule_filter_button_refresh()
 
     def _on_highlighted_rows_changed(self, *_args):
         if not hasattr(self, "label_count") or not isValid(self.label_count):

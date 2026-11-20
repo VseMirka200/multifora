@@ -517,11 +517,11 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.status_bar.showMessage("Проверяем обновления…")
                 QApplication.processEvents()
                 settings_height_with_message = window.settings_scroll.height()
-                self.assertTrue(window.status_bar.isVisible())
+                self.assertTrue(window.status_bar.isHidden())
                 window.status_bar.clearMessage()
                 QApplication.processEvents()
                 self.assertTrue(window.status_bar.isHidden())
-                self.assertGreater(
+                self.assertEqual(
                     window.settings_scroll.height(), settings_height_with_message
                 )
                 self.assertFalse(window.btn_help.isChecked())
@@ -1251,6 +1251,11 @@ class MainWindowSmokeTests(unittest.TestCase):
                 )
 
                 number_token = "{num:03d,start=1,step=1}"
+                for mode in ("light", "dark"):
+                    window.apply_theme_mode(mode)
+                    for button in window.template_quick_insert_buttons.values():
+                        self.assertFalse(button.icon().pixmap(16, 16).isNull())
+                        self.assertEqual(button.styleSheet(), build_standard_button_style(mode, "secondary"))
                 number_button = window.template_quick_insert_buttons[
                     number_token
                 ]
@@ -1282,13 +1287,21 @@ class MainWindowSmokeTests(unittest.TestCase):
                         self.assertGreaterEqual(
                             button.width(), button.sizeHint().width()
                         )
+                previous = window.btn_open_rename_history
                 for button in (
                     window.btn_save_template,
                     window.btn_manage_templates,
                 ):
+                    self.assertTrue(button.isVisible())
+                    self.assertEqual(button.width(), previous.width())
+                    self.assertGreater(
+                        button.mapToGlobal(button.rect().topLeft()).y(),
+                        previous.mapToGlobal(previous.rect().bottomLeft()).y(),
+                    )
                     self.assertGreaterEqual(
                         button.width(), button.sizeHint().width()
                     )
+                    previous = button
                 self.assertGreaterEqual(
                     window.btn_open_rename_history.width(),
                     window.btn_open_rename_history.sizeHint().width(),
@@ -1496,7 +1509,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 }
                 self.assertEqual(
                     set(action_buttons),
-                    {"Экспорт шаблонов", "Импорт шаблонов", "Применить", "Переименовать", "Удалить шаблон"},
+                    {"Экспорт шаблонов", "Импорт шаблонов", "Применить"},
                 )
                 for button in (
                     action_buttons["Экспорт шаблонов"],
@@ -1508,6 +1521,10 @@ class MainWindowSmokeTests(unittest.TestCase):
                         QSizePolicy.Policy.Expanding,
                     )
                     self.assertTrue(button.property("buttonVariant"))
+                    self.assertFalse(button.icon().pixmap(16, 16).isNull())
+                    self.assertEqual(button.styleSheet(), build_standard_button_style(
+                        dialog._effective_theme_mode, button.property("buttonVariant")
+                    ))
 
                 self.assertFalse(window.btn_apply_template.isEnabled())
                 window.templates_table.selectRow(0)
