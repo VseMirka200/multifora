@@ -1,10 +1,15 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QDialog,
     QFrame,
+    QHeaderView,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QSizePolicy,
     QSpinBox,
+    QTreeWidget,
+    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -15,6 +20,8 @@ from app.ui.ui_components import (
     IconButton,
     MenuLikeComboBox,
     resolve_widget_theme_mode,
+    setup_standard_action_button,
+    setup_standard_dialog,
     setup_standard_dropdown,
     setup_standard_form_label,
     setup_standard_line_input,
@@ -336,20 +343,10 @@ class TemplateParamsNumberingMixin:
     def create_custom_template_params(self):
         """Создает параметры для пользовательского шаблона"""
         container = QWidget(self.template_params_widget)
-        layout = QVBoxLayout(container)
-        layout.setSpacing(SPACE_NONE)
+        layout = QHBoxLayout(container)
         layout.setContentsMargins(*MARGINS_NONE)
-
-        input_container = QWidget()
-        input_layout = QHBoxLayout(input_container)
-        input_layout.setContentsMargins(*MARGINS_NONE)
-        input_layout.setSpacing(SPACE_NONE)
-        input_container.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
-
+        layout.setSpacing(SPACE_SM)
         self.template_custom = AutoHeightTextEdit()
-        self.template_custom._auto_min_height = 44
         self.template_custom.setPlaceholderText(
             "например: фото_{num:03d,start=1,step=1}_{date}_{name}"
         )
@@ -360,57 +357,46 @@ class TemplateParamsNumberingMixin:
         self.template_custom.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
-        input_layout.addWidget(self.template_custom, 1)
+        layout.addWidget(self.template_custom, 1)
+        self.insert_token_button = IconButton("Вставить подстановку…")
+        setup_standard_action_button(self.insert_token_button, variant="command", expand=False)
+        self.insert_token_button.clicked.connect(self._choose_template_token)
+        layout.addWidget(self.insert_token_button, 0, Qt.AlignmentFlag.AlignTop)
+        self.template_params_layout.addWidget(create_param_block("Шаблон имени", container))
 
-        layout.addWidget(input_container)
-
-        quick_tokens = (
-            ("{name}", "Исходное имя файла", "rename"),
-            (
-                "{num:03d,start=1,step=1}",
-                "Порядковый номер: три цифры, начало с 1, шаг 1",
-                "number",
-            ),
+    def _choose_template_token(self):
+        dialog = QDialog(self)
+        setup_standard_dialog(dialog, title="Вставить подстановку", width=610, height=360)
+        layout = QVBoxLayout(dialog)
+        choices = QTreeWidget()
+        choices.setRootIsDecorated(False)
+        choices.setItemsExpandable(False)
+        choices.setHeaderLabels(["Что вставится", "Подстановка"])
+        choices.setAccessibleName("Подстановки для имени файла")
+        choices.header().setStretchLastSection(False)
+        choices.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        choices.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        layout.addWidget(choices)
+        mode = resolve_widget_theme_mode(self)
+        for token, description, icon in (
+            ("{name}", "Исходное имя файла без расширения", "rename"),
+            ("{num:03d,start=1,step=1}", "Порядковый номер: 001, 002, 003…", "number"),
             ("{date}", "Текущая дата", "calendar"),
             ("{ext}", "Расширение файла без точки", "details"),
             ("{created}", "Дата создания файла", "calendar"),
-            ("{modified}", "Дата изменения файла", "history"),
-            ("{exif_date}", "Дата съёмки из EXIF", "camera"),
-            ("{width}", "Ширина изображения", "width"),
-            ("{height}", "Высота изображения", "height"),
-        )
-        self.template_quick_insert_buttons = {}
-        mode = resolve_widget_theme_mode(container)
-        for token, tooltip, icon_name in quick_tokens:
-            button = IconButton(ui_icon(icon_name, mode), token, container)
-            button.setProperty("uiIcon", icon_name)
-            button.setToolTip(tooltip)
-            button.setProperty("buttonVariant", "secondary")
-            button.clicked.connect(
-                lambda _checked=False, value=token: (
-                    self._insert_custom_template_token(value)
-                )
-            )
-            self.template_quick_insert_buttons[token] = button
-
-        number_token = "{num:03d,start=1,step=1}"
-        number_button = self.template_quick_insert_buttons[number_token]
-        number_button_container, _number_button_layout = (
-            self._build_rename_action_row([number_button])
-        )
-        layout.addWidget(number_button_container)
-
-        remaining_buttons = [
-            button
-            for token, button in self.template_quick_insert_buttons.items()
-            if token != number_token
-        ]
-        for start in range(0, len(remaining_buttons), 4):
-            quick_buttons_container, _quick_buttons_layout = (
-                self._build_rename_action_row(
-                    remaining_buttons[start : start + 4]
-                )
-            )
-            layout.addWidget(quick_buttons_container)
-
-        self.template_params_layout.addWidget(container)
+            ("{modified}", "Дата последнего изменения файла", "history"),
+            ("{exif_date}", "Дата съёмки из метаданных EXIF", "camera"),
+            ("{width}", "Ширина изображения в пикселях", "width"),
+            ("{height}", "Высота изображения в пикселях", "height"),
+        ):
+            item = QTreeWidgetItem(choices, [description, token])
+            item.setIcon(0, ui_icon(icon, mode))
+        choices.itemClicked.connect(lambda *_: dialog.accept())
+        choices.itemActivated.connect(lambda *_: dialog.accept())
+        choices.setCurrentItem(choices.topLevelItem(0))
+        choices.setFocus()
+        try:
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                self._insert_custom_template_token(choices.currentItem().text(1))
+        finally:
+            dialog.deleteLater()

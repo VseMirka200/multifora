@@ -41,7 +41,7 @@ class TemplateCrudMixin:
                 template_name = self.combo_templates.currentText().strip()
             except Exception:
                 template_name = ""
-        if not template_name or template_name == "Выберите шаблон...":
+        if not template_name or template_name in ("Выбрать правило", "Выберите шаблон..."):
             return {"selected_template": "", "template_data": {}}
 
         template_data = self.get_current_template_data() or {}
@@ -56,7 +56,7 @@ class TemplateCrudMixin:
             return
 
         template_name = str(state.get("selected_template") or "").strip()
-        if not template_name or template_name == "Выберите шаблон...":
+        if not template_name or template_name in ("Выбрать правило", "Выберите шаблон..."):
             return
         if (
             not hasattr(self, "combo_templates")
@@ -600,7 +600,7 @@ class TemplateCrudMixin:
         self.combo_templates.clear()
 
         standard_templates = [
-            "Выберите шаблон...",
+            "Выбрать правило",
             "Добавить текст в начало",
             "Добавить текст в конец",
             "Удалить символы с начала",
@@ -615,3 +615,5 @@ class TemplateCrudMixin:
         ]
 
         self.combo_templates.addItems(standard_templates)
+        metrics = self.combo_templates.fontMetrics()
+        self.combo_templates.setFixedWidth(max(metrics.horizontalAdvance(name) for name in standard_templates) + 44)

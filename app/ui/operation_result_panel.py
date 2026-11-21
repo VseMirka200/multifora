@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QPlainTextEdit,
     QPushButton,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -37,7 +38,6 @@ _TITLES = {
 
 class OperationResultPanel(QFrame):
     retry_requested = Signal(object)
-    undo_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -52,25 +52,21 @@ class OperationResultPanel(QFrame):
         layout.addWidget(self.summary)
 
         actions = QHBoxLayout()
-        self.actions = actions
         actions.setSpacing(10)
         self.open_result = IconButton("Открыть")
         self.open_folder = IconButton("Папка результата")
         for button in (self.open_result, self.open_folder):
             button.clicked.connect(lambda _checked, target=button: self._open_path(target.property("resultPath")))
         self.details = IconButton("Подробности")
-        self.undo = IconButton("Отменить переименование")
-        self.undo.clicked.connect(self.undo_requested)
         self.details.clicked.connect(self._show_details)
-        self.action_buttons = (self.open_result, self.open_folder, self.details, self.undo)
+        self.action_buttons = (self.open_result, self.open_folder, self.details)
         for button in self.action_buttons:
             role = "command" if button in (self.open_result, self.open_folder) else "secondary"
             setup_standard_action_button(button, variant=role)
             button.setFixedHeight(36)
             actions.addWidget(button, 1)
-        policy = self.undo.sizePolicy()
-        policy.setRetainSizeWhenHidden(True)
-        self.undo.setSizePolicy(policy)
+        self.launch_stack = QStackedWidget()
+        actions.addWidget(self.launch_stack, 1)
         layout.addLayout(actions)
         self.set_pending("")
 
@@ -217,9 +213,6 @@ class OperationResultPanel(QFrame):
             setup_standard_action_button(button, variant="primary" if button is retry else "secondary")
             button.setFixedHeight(36)
             actions.addWidget(button, 1)
-        policy = self.undo.sizePolicy()
-        policy.setRetainSizeWhenHidden(True)
-        self.undo.setSizePolicy(policy)
         layout.addLayout(actions)
 
         def update_diagnostics():

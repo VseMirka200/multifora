@@ -917,16 +917,15 @@ class MultiforaMainWindow(
         self._filter_button_timer.timeout.connect(self._refresh_filter_button)
         self.operation_result_panel = OperationResultPanel()
         self.operation_result_panel.retry_requested.connect(self._retry_failed_operation)
-        self.operation_result_panel.undo_requested.connect(self.show_rename_history_dialog)
         self.launch_buttons = {
             "rename": self.btn_apply_rename,
             "convert": self.btn_convert,
             "compress": self.btn_compress,
             "merge": self.btn_merge,
         }
-        for operation, button in self.launch_buttons.items():
-            self.operation_result_panel.actions.addWidget(button, 1)
-            button.setVisible(operation == self._active_operation_id())
+        for button in self.launch_buttons.values():
+            self.operation_result_panel.launch_stack.addWidget(button)
+        self.operation_result_panel.launch_stack.setCurrentWidget(self.launch_buttons[self._active_operation_id()])
         summary_layout.addWidget(self.operation_result_panel)
         right_layout.addWidget(info_panel)
         return right_widget

@@ -94,6 +94,9 @@ def build_workspace_style(theme: str) -> str:
         QFrame#operation_result {{ background: {background}; }}
         QFrame#file_info_panel {{ border: none; }}
         QWidget#workspace QWidget#conversion_formats {{ background: transparent; }}
+        QWidget#workspace QWidget#template_params_widget,
+        QWidget#template_params_widget .QWidget,
+        QWidget#template_params_widget QFrame#template_numbering_card {{ background: transparent; }}
         QWidget#workspace QLabel {{ background: transparent; }}
         QWidget#operations_header_widget {{ border-bottom: 1px solid {border}; }}
         QFrame#settings_section, QFrame#support_card {{
@@ -272,6 +275,7 @@ def build_standard_field_style(theme: str, kind: str) -> str:
                 background-color: {p["hover_bg"]};
                 border-color: {p["hover_border"]};
             }}
+            AutoHeightTextEdit {{ min-height: 0px; }}
             QTextEdit::placeholder {{
                 color: {p["placeholder"]};
             }}
@@ -310,16 +314,17 @@ def build_standard_field_style(theme: str, kind: str) -> str:
             QDateEdit QLineEdit,
             QTimeEdit QLineEdit,
             QDateTimeEdit QLineEdit {{
-                background-color: {p["bg"]};
+                background-color: transparent;
                 color: {p["fg"]};
                 border: none;
-                border-radius: {STANDARD_RADIUS}px;
+                padding: 0px;
             }}
             QSpinBox::up-button,
             QSpinBox::down-button,
             QDoubleSpinBox::up-button,
             QDoubleSpinBox::down-button {{
-                background-color: {p["bg"]};
+                width: 18px;
+                background-color: transparent;
                 border: none;
             }}
             QSpinBox:disabled,
@@ -384,6 +389,14 @@ def build_standard_field_style(theme: str, kind: str) -> str:
                 border-radius: {STANDARD_RADIUS}px;
                 text-align: left;
                 padding-left: 6px;
+            }}
+            QToolButton#menu_like_combo[ruleSelector="true"] {{
+                background-color: {p["hover_bg"]};
+                border-color: {p["command_hover"]};
+                border-radius: 6px;
+            }}
+            QToolButton#menu_like_combo[ruleSelector="true"]:focus {{
+                border-color: {p["accent"]};
             }}
             QToolButton#menu_like_combo[menuOpen="true"] {{
                 border-bottom-left-radius: 0px;

@@ -198,7 +198,7 @@ class FileListModel(QAbstractTableModel):
     def rowCount(self, parent=QModelIndex()):
         if parent.isValid():
             return 0
-        return len(self._files) if self._files else 1
+        return len(self._files)
 
     def columnCount(self, parent=QModelIndex()):
         return 0 if parent.isValid() else len(self.HEADERS)
@@ -237,15 +237,8 @@ class FileListModel(QAbstractTableModel):
         return super().headerData(section, orientation, role)
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
-        if not index.isValid():
+        if not index.isValid() or index.row() >= len(self._files):
             return None
-        if not self._files:
-            if role == Qt.ItemDataRole.DisplayRole:
-                return ""
-            if role == Qt.ItemDataRole.TextAlignmentRole:
-                return int(Qt.AlignmentFlag.AlignCenter)
-            return None
-
         file_item = self._files[index.row()]
         if index.column() == self.COLUMN_CHECK:
             if role == Qt.ItemDataRole.CheckStateRole:

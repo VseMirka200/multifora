@@ -1,5 +1,4 @@
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QPushButton
 
 from app.core.app_icons import _find_bundled_icon
 
@@ -29,7 +28,6 @@ def apply_window_icons(window, mode):
         (window.operation_result_panel.open_result, "open"),
         (window.operation_result_panel.open_folder, "choose-folder"),
         (window.operation_result_panel.details, "details"),
-        (window.operation_result_panel.undo, "undo"),
     )
     for control, name in controls:
         control.setIcon(ui_icon(name, mode))
@@ -44,7 +42,3 @@ def apply_window_icons(window, mode):
     for key, label in window.support_page.icons.items():
         size = 40 if key == "guide" else 28
         label.setPixmap(ui_icon(key, mode).pixmap(size, size))
-
-    for button in window.template_params_widget.findChildren(QPushButton):
-        if name := button.property("uiIcon"):
-            button.setIcon(ui_icon(name, mode))

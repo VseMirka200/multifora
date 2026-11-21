@@ -20,7 +20,7 @@ class TemplateApplyMixin:
     def on_template_selected(self, template_name):
         """Обработчик выбора шаблона"""
         self.btn_save_template.setVisible(template_name == "Пользовательский шаблон")
-        if template_name == "Выберите шаблон...":
+        if template_name == "Выбрать правило":
             self.current_template = None
             self.template_params_widget.setVisible(False)
             self.refresh_rename_preview()

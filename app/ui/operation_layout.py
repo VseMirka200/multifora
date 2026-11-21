@@ -49,7 +49,7 @@ def create_operation_label(text: str) -> QLabel:
     return label
 
 
-def add_labeled_field(layout: QBoxLayout, label_text: str, field: QWidget) -> None:
+def add_labeled_field(layout: QBoxLayout, label_text: str, field: QWidget) -> QLabel:
     field_layout = QVBoxLayout()
     field_layout.setContentsMargins(*MARGINS_NONE)
     field_layout.setSpacing(SPACE_SM)
@@ -59,3 +59,4 @@ def add_labeled_field(layout: QBoxLayout, label_text: str, field: QWidget) -> No
     field_layout.addWidget(label)
     field_layout.addWidget(field)
     layout.addLayout(field_layout)
+    return label

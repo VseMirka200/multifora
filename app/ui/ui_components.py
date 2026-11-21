@@ -1,4 +1,5 @@
 
+from math import ceil
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import (
@@ -109,6 +110,8 @@ def apply_standard_field_style(widget):
         widget.setStyleSheet(build_standard_field_style(theme, "textedit"))
         return widget
     if isinstance(widget, QLineEdit):
+        if isinstance(widget.parentWidget(), QAbstractSpinBox):
+            return widget
         if name == "header_cell_br":
             widget.setStyleSheet(build_standard_field_style(theme, "header"))
             return widget
@@ -228,6 +231,7 @@ class AutoHeightTextEdit(QTextEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAcceptRichText(False)
+        self.document().setDocumentMargin(0)
         self.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
         self.setWordWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
         self.setHorizontalScrollBarPolicy(
@@ -238,7 +242,7 @@ class AutoHeightTextEdit(QTextEdit):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
         self.textChanged.connect(self._update_auto_height)
-        QTimer.singleShot(0, self._update_auto_height)
+        QTimer.singleShot(0, self, self._update_auto_height)
 
     def setText(self, text: str):
         self.setPlainText(str(text or "").replace("\r", "").replace("\n", ""))
@@ -258,12 +262,9 @@ class AutoHeightTextEdit(QTextEdit):
                 self.document().documentLayout().documentSize().height()
             )
             frame = self.frameWidth() * 2
-            height = int(doc_height + frame + 6)
-            min_height = getattr(self, "_auto_min_height", FIELD_HEIGHT)
-            self.setFixedHeight(max(min_height, height))
+            self.setFixedHeight(max(FIELD_HEIGHT, ceil(doc_height) + frame))
         except Exception:
-            min_height = getattr(self, "_auto_min_height", FIELD_HEIGHT)
-            self.setFixedHeight(max(min_height, self.height() or min_height))
+            self.setFixedHeight(max(FIELD_HEIGHT, self.height()))
 
 
 class ComboPopupItemDelegate(QStyledItemDelegate):
@@ -884,7 +885,8 @@ class MenuLikeComboBox(QToolButton):
 
         # В узкой панели оставляем место под стрелку меню и сокращаем только
         # отображаемый текст. Полное значение остаётся доступно в подсказке и меню.
-        text_rect = self.rect().adjusted(4, 0, -22, 0)
+        inset = 12 if self.property("ruleSelector") else 4
+        text_rect = self.rect().adjusted(inset, 0, -22, 0)
         metrics = QFontMetrics(self.font())
         painted_text = metrics.elidedText(
             text,
@@ -1021,6 +1023,17 @@ class IconButton(QPushButton):
         draw_icon_caption(painter, rect, self.icon(), self.iconSize(), self.text(),
                           self.isEnabled(), align_left=self.objectName() == "help_button",
                           text_y_offset=1)
+
+
+class MenuWidthButton(MenuLikeComboBox):
+    """Выделяет кнопке столько места, сколько нужно её выпадающему меню."""
+
+    def sizeHint(self):
+        hint = super().sizeHint()
+        menu = self.menu()
+        if menu is not None:
+            hint.setWidth(max(hint.width(), menu.sizeHint().width()))
+        return hint
 
 
 class FilterToolButton(QToolButton):

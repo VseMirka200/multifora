@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
+    QTreeWidget,
 )
 
 from app.core.app_identity import APP_VERSION, GITHUB_NEW_ISSUE_URL, GUIDE_URL
@@ -1158,52 +1159,37 @@ class MainWindowSmokeTests(unittest.TestCase):
 
             try:
                 window.on_template_selected("Пользовательский шаблон")
-                self.assertEqual(
-                    set(window.template_quick_insert_buttons),
-                    {
-                        "{name}",
-                        "{num:03d,start=1,step=1}",
-                        "{date}",
-                        "{ext}",
-                        "{created}",
-                        "{modified}",
-                        "{exif_date}",
-                        "{width}",
-                        "{height}",
-                    },
-                )
-
-                number_token = "{num:03d,start=1,step=1}"
-                for mode in ("light", "dark"):
-                    window.apply_theme_mode(mode)
-                    for button in window.template_quick_insert_buttons.values():
-                        self.assertFalse(button.icon().pixmap(16, 16).isNull())
-                        self.assertEqual(button.styleSheet(), build_standard_button_style(mode, "secondary"))
-                number_button = window.template_quick_insert_buttons[
-                    number_token
-                ]
-                self.assertEqual(number_button.text(), number_token)
-                window.template_custom.clear()
-                number_button.click()
-                self.assertEqual(window.template_custom.text(), number_token)
-
-                window.template_custom.setText("AB")
-                cursor = window.template_custom.textCursor()
-                cursor.setPosition(1)
-                window.template_custom.setTextCursor(cursor)
-                window.template_quick_insert_buttons["{name}"].click()
-
-                self.assertEqual(window.template_custom.text(), "A{name}B")
-                self.assertEqual(
-                    window.template_custom.textCursor().position(), 7
-                )
-
                 window.resize(900, 550)
                 window.show()
                 QApplication.processEvents()
                 self.assertTrue(window.template_custom.isVisible())
-                for button in window.template_quick_insert_buttons.values():
-                    self.assertGreaterEqual(button.width(), button.sizeHint().width())
+                self.assertEqual(window.template_params_widget.findChildren(QPushButton), [window.insert_token_button])
+
+                def click_name(dialog):
+                    dialog.show()
+                    QApplication.processEvents()
+                    choices = dialog.findChild(QTreeWidget)
+                    tokens = {choices.topLevelItem(i).text(1) for i in range(choices.topLevelItemCount())}
+                    self.assertEqual(tokens, {"{name}", "{num:03d,start=1,step=1}", "{date}", "{ext}",
+                                              "{created}", "{modified}", "{exif_date}", "{width}", "{height}"})
+                    item = choices.topLevelItem(0)
+                    QTest.mouseClick(choices.viewport(), Qt.MouseButton.LeftButton,
+                                     pos=choices.visualItemRect(item).center())
+                    return dialog.result()
+
+                for mode in ("light", "dark"):
+                    window.apply_theme_mode(mode)
+                    window.template_custom.setText("AB")
+                    cursor = window.template_custom.textCursor()
+                    cursor.setPosition(1)
+                    window.template_custom.setTextCursor(cursor)
+                    with patch.object(QDialog, "exec", click_name):
+                        window.insert_token_button.click()
+                    self.assertEqual(window.template_custom.text(), "A{name}B")
+                    self.assertEqual(window.template_custom.textCursor().position(), 7)
+                    with patch.object(QDialog, "exec", return_value=QDialog.DialogCode.Rejected):
+                        window.insert_token_button.click()
+                    self.assertEqual(window.template_custom.text(), "A{name}B")
                 self.assertTrue(window.btn_save_template.isVisible())
                 self.assertTrue(window.btn_manage_templates.isVisible())
             finally:

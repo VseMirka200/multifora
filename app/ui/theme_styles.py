@@ -951,11 +951,13 @@ QMenu QListWidget#scrollable_filter_list QScrollBar::sub-line:vertical {{
 QMenu QListWidget#scrollable_filter_list QScrollBar::add-line:vertical {{
     subcontrol-position: bottom;
 }}
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow,
 QMenu QListWidget#scrollable_filter_list QScrollBar::up-arrow:vertical {{
     image: url("__SCROLL_UP_URL__");
     width: 8px;
     height: 8px;
 }}
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow,
 QMenu QListWidget#scrollable_filter_list QScrollBar::down-arrow:vertical {{
     image: url("__SCROLL_DOWN_URL__");
     width: 8px;

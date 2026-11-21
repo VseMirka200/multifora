@@ -6,12 +6,9 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QCheckBox,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMenu,
-    QPushButton,
     QSizePolicy,
     QStackedWidget,
     QFrame,
@@ -30,14 +27,13 @@ from app.ui.conversion_panel import ConversionPanel
 from app.ui.operation_layout import add_labeled_field, create_operation_card, create_operation_label
 from app.ui.ui_components import (
     IconButton,
+    MenuWidthButton,
     MenuLikeComboBox,
     resolve_widget_theme_mode,
     setup_clickable_checkbox_label,
-    setup_standard_action_button,
     setup_standard_dropdown,
     setup_standard_form_label,
     setup_standard_line_input,
-    setup_standard_popup_menu,
     setup_standard_primary_button,
     setup_standard_secondary_button,
 )
@@ -62,29 +58,6 @@ class OperationsTabLayoutMixin:
             return
         effective = resolve_widget_theme_mode(self, theme)
         tab_bar.setStyleSheet(build_operations_tab_bar_style(effective))
-
-    def _build_rename_action_row(
-        self,
-        buttons: list[QPushButton],
-        margins: tuple[int, int, int, int] = (0, SPACE_SM, 0, 0),
-        spacing: int = SPACE_SM,
-    ) -> tuple[QWidget, QGridLayout]:
-        row_widget = QWidget()
-        row_widget.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
-
-        row_layout = QGridLayout(row_widget)
-        row_layout.setContentsMargins(*margins)
-        row_layout.setHorizontalSpacing(spacing)
-        row_layout.setVerticalSpacing(SPACE_NONE)
-
-        for index, button in enumerate(buttons):
-            setup_standard_action_button(button)
-            row_layout.setColumnStretch(index, 1)
-            row_layout.addWidget(button, 0, index)
-
-        return row_widget, row_layout
 
     def _create_operation_hint_label(self, text: str) -> QLabel:
         label = QLabel(text)
@@ -197,12 +170,11 @@ class OperationsTabLayoutMixin:
     def _create_rename_operation_page(self) -> None:
         """Создаёт страницу переименования."""
         self.combo_templates = MenuLikeComboBox()
-        self.combo_templates.setProperty("renameTemplateField", True)
+        self.combo_templates.setProperty("ruleSelector", True)
         self.combo_templates.currentTextChanged.connect(
             self.on_template_selected
         )
         setup_standard_dropdown(self.combo_templates)
-        self.combo_templates.setAccessibleName("Шаблон")
 
         self.template_params_widget = QWidget()
         self.template_params_widget.setObjectName("template_params_widget")
@@ -218,21 +190,20 @@ class OperationsTabLayoutMixin:
 
         setup_standard_primary_button(self.btn_apply_rename)
         page = RibbonPage("rename", "Пакетное переименование")
-        tools = IconButton("Шаблоны и история")
-        setup_standard_action_button(tools, variant="command", expand=False)
-        menu = QMenu(tools)
-        setup_standard_popup_menu(menu)
+        tools = MenuWidthButton()
+        tools.setText("Шаблоны и история")
+        setup_standard_dropdown(tools)
+        tools.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        menu = tools.menu()
         self.btn_open_rename_history = menu.addAction("История", self.show_rename_history_dialog)
         self.btn_save_template = menu.addAction("Сохранить шаблон", self.save_current_template)
         self.btn_manage_templates = menu.addAction("Управлять шаблонами", self.show_template_manager)
         self.btn_save_template.setVisible(False)
-        tools.setMenu(menu)
         page.heading_row.addWidget(tools)
         row = page.row
-        self.combo_templates.setMaximumWidth(360)
         add_labeled_field(row, "Правило", self.combo_templates)
-        row.setStretch(0, 2)
         row.addWidget(self.template_params_widget, 3)
+        row.addStretch()
         row.setAlignment(row.itemAt(0).layout(), Qt.AlignmentFlag.AlignTop)
         self._add_operations_page(page, "Переименование")
 
@@ -495,10 +466,10 @@ class OperationsTabLayoutMixin:
         # списка файлов. Обновление списка в этот момент завершило бы процесс
         # из-за исключения в слоте Qt.
         if hasattr(self, "launch_buttons"):
-            self.rename_status_group.setVisible(self.operations_tab_bar.tabData(index) == "rename")
-            self.operation_result_panel.undo.setVisible(self.operations_tab_bar.tabData(index) == "rename")
-            for operation, button in self.launch_buttons.items():
-                button.setVisible(operation == self.operations_tab_bar.tabData(index))
+            operation = self.operations_tab_bar.tabData(index)
+            self.rename_status_group.setVisible(operation == "rename")
+            if operation in self.launch_buttons:
+                self.operation_result_panel.launch_stack.setCurrentWidget(self.launch_buttons[operation])
         if not hasattr(self, "list_files"):
             if 0 <= index < self.operations_stack.count():
                 self.operations_stack.setCurrentIndex(index)

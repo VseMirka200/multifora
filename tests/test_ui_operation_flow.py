@@ -52,7 +52,25 @@ def test_all_tabs_use_application_typography(window, theme):
     assert fonts == {(FONT_FAMILY, size) for size in (CAPTION_PX, BODY_PX, SECTION_PX, TITLE_PX)}
 
 
+@pytest.mark.parametrize("width", [900, 1200])
+def test_operation_footer_buttons_stay_in_place(window, width):
+    window.resize(width, 650)
+    panel = window.operation_result_panel
+    positions = []
+    for index in range(4):
+        window.operations_tab_bar.setCurrentIndex(index)
+        QApplication.processEvents()
+        active = window.launch_buttons[window.operations_tab_bar.tabData(index)]
+        assert panel.launch_stack.currentWidget() is active
+        buttons = (*panel.action_buttons, active)
+        assert all(button.isVisible() for button in buttons)
+        positions.append([(b.mapTo(window, QPoint()), b.size()) for b in buttons])
+    assert positions == [positions[0]] * 4
+
+
 def test_empty_queue_controls_centered_in_file_viewport(window):
+    assert window.list_files.model().rowCount() == 0
+    assert not window.list_files.indexAt(QPoint(5, 5)).isValid()
     for width, height in ((900, 600), (1200, 800)):
         window.resize(width, height)
         QApplication.processEvents()
@@ -186,7 +204,6 @@ def test_merge_keyboard_order_matches_output(window, tmp_path):
     assert not window.list_files.isColumnHidden(model.COLUMN_ORDER)
     assert window.list_files.horizontalHeader().visualIndex(model.COLUMN_ORDER) == 1
     assert [model.index(row, model.COLUMN_ORDER).data() for row in range(3)] == [1, 2, 3]
-    assert not window.operation_result_panel.undo.isVisible()
     output = tmp_path / "combined.pdf"
     with (
         patch.object(window, "_select_merge_output_path_for_format", return_value=str(output)),
