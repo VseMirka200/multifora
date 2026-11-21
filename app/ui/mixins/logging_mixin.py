@@ -8,6 +8,9 @@ from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
     QLineEdit,
+    QPlainTextEdit,
+    QPushButton,
+    QVBoxLayout,
     QMessageBox,
     QSpinBox,
     QTabBar,
@@ -44,8 +47,7 @@ class LoggingMixin:
         """Возвращает путь к файлу логов."""
         return os.path.join(self.get_logs_dir(), "multifora_logs.txt")
 
-    def download_logs(self):
-        """Сохраняет полный журнал приложения в обычный TXT-файл."""
+    def _read_operation_log(self):
         logs = ""
         log_path = self._log_file_path or self.get_log_file_path()
         try:
@@ -53,6 +55,27 @@ class LoggingMixin:
                 logs = log_file.read().strip()
         except OSError:
             logs = "\n".join(getattr(self, "_log_lines", [])).strip()
+        return logs
+
+    def show_operation_log(self):
+        from app.ui.ui_components import setup_standard_dialog
+
+        dialog = QDialog(self)
+        setup_standard_dialog(dialog, title="Журнал операций", width=720, height=480)
+        layout = QVBoxLayout(dialog)
+        viewer = QPlainTextEdit()
+        viewer.setReadOnly(True)
+        viewer.setPlaceholderText("Журнал пока пуст.")
+        viewer.setPlainText(self._read_operation_log())
+        layout.addWidget(viewer)
+        save = QPushButton("Сохранить журнал…")
+        save.clicked.connect(self.download_logs)
+        layout.addWidget(save)
+        dialog.exec()
+        dialog.deleteLater()
+
+    def download_logs(self):
+        logs = self._read_operation_log()
         if not logs:
             QMessageBox.warning(self, "Логи", "Нет логов для сохранения.")
             return

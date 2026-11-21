@@ -150,7 +150,7 @@ def _restore_operations_tab_state(window, label: str, index: int | None) -> None
 
         if (
             index is None
-            or index == settings_index
+            or index in (settings_index, getattr(window, "_help_tab_index", -1))
             or not 0 <= index < operations_tab_bar.count()
         ):
             index = 0
@@ -344,7 +344,7 @@ def _collect_settings_data(window) -> dict:
     auto_update_checkbox = getattr(window, "auto_update_check_checkbox", None)
     tab_bar = getattr(window, "operations_tab_bar", None)
     tab_index = _current_widget_index(window, "operations_tab_bar")
-    if tab_index is not None and tab_index == getattr(window, "_settings_tab_index", None):
+    if tab_index is not None and tab_index in (getattr(window, "_settings_tab_index", None), getattr(window, "_help_tab_index", None)):
         tab_index = _current_widget_index(window, "operations_stack")
     valid_tab = tab_bar is not None and tab_index is not None and tab_index >= 0
 

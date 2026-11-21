@@ -4,10 +4,11 @@ import pytest
 from docx import Document
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QWidget
+from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QFrame, QPlainTextEdit, QWidget
 
+from app.ui.typography import BODY_PX, CAPTION_PX, FONT_FAMILY, SECTION_PX, TITLE_PX
 from app.ui.ui_main import MultiforaMainWindow
 from app.workers.operation_worker import OperationWorker
 from core.file_models import FileItem
@@ -37,6 +38,20 @@ def window(tmp_path, monkeypatch):
     main.deleteLater()
 
 
+@pytest.mark.parametrize("theme", ["dark", "light"])
+def test_all_tabs_use_application_typography(window, theme):
+    window.apply_theme_mode(theme)
+    fonts = set()
+    for index in range(window.operations_tab_bar.count()):
+        window.operations_tab_bar.setCurrentIndex(index)
+        QApplication.processEvents()
+        for widget in window.findChildren(QWidget):
+            if widget.isVisible():
+                font = widget.font()
+                fonts.add((font.family(), font.pixelSize()))
+    assert fonts == {(FONT_FAMILY, size) for size in (CAPTION_PX, BODY_PX, SECTION_PX, TITLE_PX)}
+
+
 def test_empty_queue_controls_centered_in_file_viewport(window):
     for width, height in ((900, 600), (1200, 800)):
         window.resize(width, height)
@@ -47,6 +62,29 @@ def test_empty_queue_controls_centered_in_file_viewport(window):
         actual = card.mapToGlobal(card.rect().center())
         assert card.width() < viewport.width()
         assert (actual - center).manhattanLength() <= 2
+
+
+@pytest.mark.parametrize("width", [900, 1200])
+def test_operation_panels_share_geometry(window, width):
+    window.resize(width, 650)
+    bounds = []
+    fields = (window.combo_templates, window.convert_file_type_combo, window.combo_compress_type)
+    field_positions = []
+    for index in range(4):
+        window.operations_tab_bar.setCurrentIndex(index)
+        QApplication.processEvents()
+        page = window.operations_stack.currentWidget()
+        card = page.findChild(QFrame, "operation_options")
+        bounds.append((card.mapTo(window, QPoint()), card.size(),
+                       window.input_search.mapTo(window, QPoint())))
+        if index < len(fields):
+            field_positions.append(fields[index].mapTo(window, QPoint()))
+    assert bounds == [bounds[0]] * 4
+    assert field_positions == [field_positions[0]] * 3
+    for index, content in ((4, window.settings_panel_widget), (5, window.support_page)):
+        window.operations_tab_bar.setCurrentIndex(index)
+        QApplication.processEvents()
+        assert content.mapTo(window, QPoint()) == bounds[0][0]
 
 
 def test_queue_distinguishes_filters_highlight_and_work_marks(window, tmp_path):
@@ -207,7 +245,9 @@ def test_ribbon_keeps_parameters_and_queue_accessible(window):
         for width in (900, 1200):
             window.resize(width, 600)
             QApplication.processEvents()
-            assert window.rename_options.isVisible()
+            assert window.template_prefix.isVisible()
+            assert window.rename_validation_label.isVisible()
+            assert window.rename_status_group.parentWidget() is window.label_total_size.parentWidget()
             assert window.template_prefix.text() == "готово_"
             assert window.btn_apply_rename.isVisible()
             assert window.queue_panel.width() == window.ribbon_panel.width()
@@ -222,24 +262,39 @@ def test_ribbon_keeps_parameters_and_queue_accessible(window):
     assert window.ribbon_panel.isVisible()
     assert window.template_prefix.text() == "готово_"
 
-def test_help_opens_in_ribbon(window):
+def test_support_and_settings_return_to_previous_queue(window):
     tabs = window.operations_tab_bar
-    index = tabs.count() - 1
-    QTest.mouseClick(tabs.group.button(index), Qt.MouseButton.LeftButton)
-    assert tabs.currentIndex() == index
-    assert window.operations_stack.currentWidget().objectName() == "help_page"
-    assert all(button.isVisible() for button in window.help_commands)
-    assert all(button.width() == button.height() == 78 for button in window.help_commands)
-    tiles = sorted(window.help_commands, key=lambda button: button.x())
-    first_tile = tiles[0].mapTo(window, tiles[0].rect().topLeft())
-    filters = window.btn_ext_filter.mapTo(window, window.btn_ext_filter.rect().topLeft())
-    assert first_tile.x() == filters.x() == 20
-    for left, right in zip(tiles, tiles[1:]):
-        assert right.x() - left.x() - left.width() == 4
+    tabs.setCurrentIndex(2)
+    QTest.mouseClick(tabs.group.button(window._help_tab_index), Qt.MouseButton.LeftButton)
+    assert window.support_page.isVisible()
+    assert all(button.isVisible() for button in window.support_page.commands.values())
+    assert not window.queue_panel.isVisible()
+    QTest.keyClick(tabs.group.button(window._help_tab_index), Qt.Key.Key_Left)
+    assert window.settings_panel_widget.isVisible()
+    QTest.mouseClick(tabs.group.button(2), Qt.MouseButton.LeftButton)
+    assert tabs.currentIndex() == 2
     assert window.queue_panel.isVisible()
-    QTest.keyClick(tabs.group.button(index), Qt.Key.Key_Left)
+    assert window.btn_compress.isVisible()
+
+
+@pytest.mark.parametrize("section", ["_settings_tab_index", "_help_tab_index"])
+def test_utility_section_has_no_queue_back_button(window, section):
+    window.operations_tab_bar.setCurrentIndex(getattr(window, section))
+    QApplication.processEvents()
     assert window.settings_panel_host.isVisible()
-    window.hide_settings_panel()
-    assert tabs.currentIndex() == index
-    tabs.setCurrentIndex(0)
-    assert window.btn_apply_rename.isVisible()
+    assert all("к очереди" not in button.text().casefold()
+               for button in window.settings_panel_host.findChildren(QAbstractButton))
+
+
+def test_help_opens_readable_operation_log(window, tmp_path):
+    log = tmp_path / "operations.txt"
+    log.write_text("Обработан файл example.pdf", encoding="utf-8")
+    window._log_file_path = str(log)
+    window.operations_tab_bar.setCurrentIndex(window._help_tab_index)
+    dialogs = []
+    with patch.object(QDialog, "exec", new=lambda dialog: dialogs.append(dialog)):
+        window.support_page.commands["save"].click()
+    dialog, = dialogs
+    viewer = dialog.findChild(QPlainTextEdit)
+    assert viewer.isReadOnly()
+    assert "Обработан файл example.pdf" in viewer.toPlainText()

@@ -4,6 +4,7 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPalette, QPen
 from PySide6.QtWidgets import QProxyStyle, QStyle
 
+from app.ui.palette import standard_palette
 from app.ui.ui_styles import CHECKBOX_SIZE
 
 
@@ -15,7 +16,9 @@ def paint_checkbox(painter, option):
     group = QPalette.ColorGroup.Active if enabled else QPalette.ColorGroup.Disabled
     border = option.palette.color(group, QPalette.ColorRole.Text)
     border.setAlpha(130)
-    accent = QColor("#3d74b3") if enabled else border
+    light = option.palette.window().color().lightness() > 128
+    colors = standard_palette("light" if light else "dark")
+    accent = QColor(colors["accent"]) if enabled else border
     center = QRectF(option.rect).center()
     box = QRectF(
         center.x() - CHECKBOX_SIZE / 2,
@@ -27,10 +30,9 @@ def paint_checkbox(painter, option):
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
     painter.setPen(QPen(accent if checked or partial or hovered else border, 1.2))
     if checked or partial:
-        fill = accent.lighter(115) if hovered else accent
+        fill = QColor(colors["accent_hover"]) if hovered else accent
     elif hovered:
-        is_light = option.palette.color(QPalette.ColorRole.Window).lightness() > 128
-        fill = QColor("#dce6f1" if is_light else "#505050")
+        fill = QColor(colors["hover_bg"])
     else:
         fill = QColor(0, 0, 0, 0)
     painter.setBrush(fill)
@@ -44,7 +46,7 @@ def paint_checkbox(painter, option):
             tick.moveTo(box.left() + 4, box.top() + 8)
             tick.lineTo(box.left() + 7, box.top() + 11)
             tick.lineTo(box.left() + 12, box.top() + 5)
-        painter.setPen(QPen(QColor("white"), 1.8, Qt.PenStyle.SolidLine,
+        painter.setPen(QPen(QColor(colors["on_accent"]), 1.8, Qt.PenStyle.SolidLine,
                             Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
         painter.drawPath(tick)
     painter.restore()

@@ -25,6 +25,7 @@ from app.core.app_icons import _get_app_icon_qt_path
 from app.core.app_identity import APP_WINDOW_TITLE
 from app.core.app_ipc import _drain_queued_files
 from app.core.app_utils import _debug_log, _log_ignored_error, signals_blocked
+from app.ui.ribbon import SectionHeading
 from app.core.conversion_formats import (
     CONVERSION_CATEGORIES,
     build_file_dialog_filter,
@@ -81,7 +82,6 @@ from app.ui.ui_styles import (
     SPACE_NONE,
     SPACE_SM,
     SPLITTER_GRIP_LABEL_STYLE,
-    TRANSPARENT_CONTAINER_STYLE,
     build_drop_zone_hint_style,
     build_drop_zone_overlay_style,
     build_drop_zone_surface_style,
@@ -437,7 +437,7 @@ class MultiforaMainWindow(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Expanding,
         )
-        self.settings_panel_host.setStyleSheet(TRANSPARENT_CONTAINER_STYLE)
+        self.settings_panel_host.setStyleSheet("QFrame#settings_panel_host { background: transparent; border: none; }")
         self.settings_panel_host_layout = QVBoxLayout(self.settings_panel_host)
         self.settings_panel_host_layout.setContentsMargins(*MARGINS_NONE)
         self.settings_panel_host_layout.setSpacing(SPACE_NONE)
@@ -446,9 +446,13 @@ class MultiforaMainWindow(
         self.ribbon_panel = self.create_operations_tab()
         main_layout.addWidget(self.operations_header_widget)
         content_layout.addWidget(self.ribbon_panel)
-        back = IconButton("Вернуться к очереди")
-        back.clicked.connect(self.hide_settings_panel)
-        self.settings_panel_host_layout.addWidget(back, 0, Qt.AlignmentFlag.AlignLeft)
+        heading = SectionHeading()
+        self.utility_heading = heading.title
+        self.settings_panel_host_layout.addLayout(heading)
+        self.settings_panel_host_layout.setSpacing(12)
+        self.support_page = self._create_support_page()
+        self.settings_panel_host_layout.addWidget(self.support_page)
+        self.support_page.hide()
         if (
             not hasattr(self, "settings_panel_widget")
             or self.settings_panel_widget is None
@@ -773,7 +777,7 @@ class MultiforaMainWindow(
         setup_standard_primary_button(self.btn_add_files)
         self.btn_add_files.clicked.connect(self.select_files)
         self.btn_add_folder = IconButton("Добавить папки")
-        setup_standard_secondary_button(self.btn_add_folder)
+        setup_standard_primary_button(self.btn_add_folder)
         self.btn_add_folder.clicked.connect(self.select_folder)
         for button in (self.btn_add_files, self.btn_add_folder):
             button.setMinimumWidth(146)
@@ -864,6 +868,24 @@ class MultiforaMainWindow(
             QLabel("Всего: 0 МБ")
         )
         info_layout.addWidget(self.label_total_size)
+
+        self.rename_status_group = QWidget()
+        status = QHBoxLayout(self.rename_status_group)
+        status.setContentsMargins(*MARGINS_NONE)
+        status.setSpacing(SPACE_SM)
+        separator = self._create_info_separator()
+        self._file_info_separators.append(separator)
+        status.addWidget(separator)
+        self.rename_validation_label = self._setup_info_label(QLabel("Нет файлов"))
+        status.addWidget(self.rename_validation_label)
+        self.btn_locate_rename_issue = IconButton("К проблеме")
+        setup_standard_secondary_button(self.btn_locate_rename_issue, expand=False)
+        self.btn_locate_rename_issue.setToolTip("Показать первую проблему с именем")
+        self.btn_locate_rename_issue.clicked.connect(self._locate_rename_issue)
+        self.btn_locate_rename_issue.hide()
+        status.addWidget(self.btn_locate_rename_issue)
+        info_layout.addWidget(self.rename_status_group)
+        self.rename_status_group.setVisible(self._active_operation_id() == "rename")
         info_layout.addStretch()
         return info_layout
 
@@ -1076,22 +1098,11 @@ class MultiforaMainWindow(
                 self.drop_zone_hint_label.setStyleSheet(
                     build_drop_zone_hint_style(mode)
                 )
-        self.rename_ok_pixmap = ui_icon("validated", mode).pixmap(20, 20)
-        if not self.rename_status_icon.text():
-            self.rename_status_icon.setPixmap(self.rename_ok_pixmap)
         self.drop_document.setPixmap(ui_icon("document", mode).pixmap(42, 42))
-        dark = mode == "dark"
         self.centralWidget().setStyleSheet(build_workspace_style(mode))
         self.list_files.horizontalHeader().setFixedHeight(32)
-        self.rename_validation_label.setStyleSheet("font-size: 14px; color: " + ("#c7cbd3" if dark else "#4b5563"))
-        self.btn_add_files.setStyleSheet(self.btn_add_files.styleSheet() + """
-            QPushButton { background: #527ff1; color: white; border-color: #527ff1; }
-            QPushButton:hover { background: #416cda; }
-        """)
-        for button in self.launch_buttons.values():
-            button.setStyleSheet(self.btn_add_files.styleSheet() + """
-                QPushButton:disabled { background: #445679; color: #b0bbd1; border-color: #445679; }
-            """)
+
+
 
     def _schedule_settings_save(self):
         if not getattr(self, "initial_load_complete", False):

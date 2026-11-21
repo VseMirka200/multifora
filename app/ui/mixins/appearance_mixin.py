@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QColor, QGuiApplication, QPalette
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 from app.core.app_utils import _log_ignored_error, signals_blocked
 from app.core.message_boxes import show_app_confirmation
 from app.ui.checkbox_style import install_checkbox_style
+from app.ui.palette import standard_palette
 from app.ui.theme_styles import APPLICATION_STYLES
 from app.ui.ui_components import (
     refresh_standard_button_styles,
@@ -66,6 +67,20 @@ class AppearanceMixin:
         app = QApplication.instance()
         if app is not None:
             install_checkbox_style(app)
+            colors = standard_palette(theme)
+            palette = app.palette()
+            roles = QPalette.ColorRole
+            for role, key in (
+                (roles.Window, "window_bg"), (roles.Base, "bg"), (roles.Button, "bg"),
+                (roles.AlternateBase, "window_bg"), (roles.Text, "fg"), (roles.WindowText, "fg"),
+                (roles.ButtonText, "fg"), (roles.Highlight, "accent"), (roles.HighlightedText, "on_accent"),
+                (roles.PlaceholderText, "placeholder"), (roles.Mid, "hover_border"),
+                (roles.Link, "accent"), (roles.ToolTipBase, "bg"), (roles.ToolTipText, "fg"),
+            ):
+                palette.setColor(role, QColor(colors[key]))
+            for role in (roles.Text, roles.ButtonText, roles.WindowText):
+                palette.setColor(QPalette.ColorGroup.Disabled, role, QColor(colors["disabled_fg"]))
+            app.setPalette(palette)
             app.setStyleSheet(style)
             self.setStyleSheet("")
         else:

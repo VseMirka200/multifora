@@ -1,7 +1,7 @@
 """Разметка карточек и подписей на страницах операций."""
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFrame, QLabel, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QBoxLayout, QFrame, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from app.ui.ui_components import setup_standard_form_label
 from app.ui.ui_styles import MARGINS_NONE, SPACE_NONE, SPACE_SM
@@ -49,7 +49,7 @@ def create_operation_label(text: str) -> QLabel:
     return label
 
 
-def add_labeled_field(layout: QVBoxLayout, label_text: str, field: QWidget) -> None:
+def add_labeled_field(layout: QBoxLayout, label_text: str, field: QWidget) -> None:
     field_layout = QVBoxLayout()
     field_layout.setContentsMargins(*MARGINS_NONE)
     field_layout.setSpacing(SPACE_SM)

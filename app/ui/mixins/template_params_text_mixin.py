@@ -1,16 +1,14 @@
 from PySide6.QtWidgets import (
     QCheckBox,
-    QLabel,
+    QHBoxLayout,
     QLineEdit,
     QSpinBox,
-    QVBoxLayout,
     QWidget,
 )
 
 from app.ui.ui_components import (
     MenuLikeComboBox,
     setup_standard_dropdown,
-    setup_standard_form_label,
     setup_standard_line_input,
     setup_standard_spin_input,
 )
@@ -82,36 +80,28 @@ class TemplateParamsTextMixin:
     def create_replace_text_params(self):
         """Создает параметры для замены текста"""
         container = QWidget()
-        layout = QVBoxLayout(container)
+        layout = QHBoxLayout(container)
         layout.setSpacing(SPACE_SM)
         layout.setContentsMargins(*MARGINS_NONE)
-
-        find_label = QLabel("Что заменить:")
-        setup_standard_form_label(find_label)
-        layout.addWidget(find_label)
 
         self.template_find = QLineEdit()
         self.template_find.setPlaceholderText("старый текст")
         self.template_find.setProperty("renameTemplateField", True)
         setup_standard_line_input(self.template_find)
-        layout.addWidget(self.template_find)
-
-        replace_label = QLabel("На что заменить:")
-        setup_standard_form_label(replace_label)
-        layout.addWidget(replace_label)
+        layout.addWidget(create_param_block("Что заменить:", self.template_find))
 
         self.template_replace = QLineEdit()
         self.template_replace.setPlaceholderText("новый текст")
         self.template_replace.setProperty("renameTemplateField", True)
         setup_standard_line_input(self.template_replace)
-        layout.addWidget(self.template_replace)
+        layout.addWidget(create_param_block("На что заменить:", self.template_replace))
 
         self.template_params_layout.addWidget(container)
 
     def create_regex_replace_params(self):
         """Создаёт поля замены по регулярному выражению."""
         container = QWidget()
-        layout = QVBoxLayout(container)
+        layout = QHBoxLayout(container)
         layout.setSpacing(SPACE_SM)
         layout.setContentsMargins(*MARGINS_NONE)
 

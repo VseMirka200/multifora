@@ -15,7 +15,6 @@ from PySide6.QtCore import (
     Signal,
 )
 from PySide6.QtGui import (
-    QColor,
     QCursor,
     QDrag,
     QFontMetrics,
@@ -245,8 +244,6 @@ class FileListModel(QAbstractTableModel):
                 return ""
             if role == Qt.ItemDataRole.TextAlignmentRole:
                 return int(Qt.AlignmentFlag.AlignCenter)
-            if role == Qt.ItemDataRole.ForegroundRole:
-                return QColor(150, 150, 150)
             return None
 
         file_item = self._files[index.row()]

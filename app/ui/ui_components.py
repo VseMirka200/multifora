@@ -447,8 +447,9 @@ def setup_standard_form_label(
 ):
     widget.setAlignment(align | Qt.AlignmentFlag.AlignVCenter)
     widget.setWordWrap(True)
-    widget.setFixedHeight(18)
     widget.setStyleSheet(STANDARD_FORM_LABEL_STYLE)
+    widget.ensurePolished()
+    widget.setFixedHeight(widget.fontMetrics().lineSpacing())
     return widget
 
 
@@ -529,7 +530,6 @@ def get_russian_text_input(
 
     label_widget = QLabel(label)
     setup_standard_form_label(label_widget)
-    label_widget.setFixedHeight(16)
     layout.addWidget(label_widget)
 
     line_edit = QLineEdit()

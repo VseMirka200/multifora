@@ -326,7 +326,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertTrue(standard_buttons)
                 large_buttons = {
                     window.btn_apply_rename, window.btn_merge,
-                    window.btn_compress, window.btn_convert,
+                    window.btn_compress, window.btn_convert, window.support_page.guide,
                 }
                 for button in standard_buttons:
                     large = button in large_buttons or button in window.operation_result_panel.action_buttons
@@ -351,21 +351,12 @@ class MainWindowSmokeTests(unittest.TestCase):
                         button.cursor().shape(), Qt.CursorShape.PointingHandCursor
                     )
                 self.assertEqual(window.help_stack.count(), 1)
-                self.assertEqual(
-                    [button.accessibleName() for button in window.help_commands],
-                    [
-                        "О программе",
-                        "Проверить обновления",
-                        "Сохранить журнал…",
-                        "Открыть руководство",
-                        "Сообщить об ошибке",
-                    ],
-                )
+                self.assertEqual(window.support_page.guide.accessibleName(), "Открыть руководство")
                 with patch(
                     "app.ui.mixins.operations_tab_layout_mixin.QDesktopServices.openUrl",
                     return_value=True,
                 ) as open_url:
-                    window.help_commands[3].click()
+                    window.support_page.guide.click()
                 open_url.assert_called_once()
                 self.assertEqual(
                     open_url.call_args.args[0].toString(),
@@ -376,7 +367,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     "app.ui.mixins.operations_tab_layout_mixin.QDesktopServices.openUrl",
                     return_value=True,
                 ) as open_url:
-                    window.help_commands[4].click()
+                    window.support_page.commands["bug"].click()
                 open_url.assert_called_once()
                 self.assertEqual(
                     open_url.call_args.args[0].toString(),
@@ -395,7 +386,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     about_texts,
                 )
                 self.assertIn(
-                    "Очищать весь список после:",
+                    "Очищать очередь после",
                     [
                         label.text()
                         for label in window.settings_scroll.widget().findChildren(QLabel)
@@ -413,7 +404,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     for label in window.settings_scroll.widget().findChildren(QLabel)
                     if label.property("settingsHint")
                 ]
-                self.assertEqual(len(settings_hints), 11)
+                self.assertEqual(len(settings_hints), 6)
                 self.assertTrue(
                     all(label.text().strip() for label in settings_hints)
                 )
@@ -502,14 +493,14 @@ class MainWindowSmokeTests(unittest.TestCase):
                     return int(QDialog.DialogCode.Rejected)
 
                 with patch.object(QDialog, "exec", new=inspect_help_dialog):
-                    window.help_commands[0].click()
+                    window.support_page.commands["help"].click()
                 self.assertIn("dialog", captured_help_dialog)
                 with patch.object(
                     QDialog,
                     "exec",
                     new=lambda dialog: int(QDialog.DialogCode.Rejected),
                 ):
-                    window.help_commands[0].click()
+                    window.support_page.commands["help"].click()
                 self.assertEqual(window.help_stack.currentIndex(), 0)
                 self.assertFalse(window.settings_panel_widget.isHidden())
                 self.assertTrue(window.help_panel_widget.isHidden())
@@ -1209,16 +1200,10 @@ class MainWindowSmokeTests(unittest.TestCase):
 
                 window.resize(900, 550)
                 window.show()
-                def inspect_template_dialog(dialog):
-                    dialog.show()
-                    QApplication.processEvents()
-                    self.assertTrue(window.template_custom.isVisible())
-                    for button in window.template_quick_insert_buttons.values():
-                        self.assertGreaterEqual(button.width(), button.sizeHint().width())
-                    return QDialog.DialogCode.Accepted
-
-                with patch.object(QDialog, "exec", new=inspect_template_dialog):
-                    window.rename_options.click()
+                QApplication.processEvents()
+                self.assertTrue(window.template_custom.isVisible())
+                for button in window.template_quick_insert_buttons.values():
+                    self.assertGreaterEqual(button.width(), button.sizeHint().width())
                 self.assertTrue(window.btn_save_template.isVisible())
                 self.assertTrue(window.btn_manage_templates.isVisible())
             finally:
@@ -1336,7 +1321,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertFalse(window.btn_apply_rename.isEnabled())
                 self.assertIn(
                     "Ошибка регулярного выражения",
-                    window.rename_validation_label.text(),
+                    window.rename_validation_label.toolTip(),
                 )
 
                 window.on_template_selected("Изменить регистр")

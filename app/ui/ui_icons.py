@@ -39,10 +39,11 @@ def apply_window_icons(window, mode):
         (window.btn_merge, "merge"),
         (window.btn_compress, "compress"),
     ):
-        button.setIcon(ui_icon(name, mode))
+        button.setIcon(ui_icon(name, "on-color" if mode == "light" else "light"))
 
-    for button in window.help_commands:
-        button.setIcon(ui_icon(button.property("uiIcon"), mode))
+    for key, label in window.support_page.icons.items():
+        size = 40 if key == "guide" else 28
+        label.setPixmap(ui_icon(key, mode).pixmap(size, size))
 
     for button in window.template_params_widget.findChildren(QPushButton):
         if name := button.property("uiIcon"):

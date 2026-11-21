@@ -51,7 +51,7 @@ class FileListPreviewMixin:
         if tab_bar is None:
             return ""
         index = tab_bar.currentIndex()
-        if index == getattr(self, "_settings_tab_index", None):
+        if index in (getattr(self, "_settings_tab_index", None), getattr(self, "_help_tab_index", None)):
             index = self.operations_stack.currentIndex()
         if index < 0:
             return ""
@@ -96,15 +96,15 @@ class FileListPreviewMixin:
 
     def refresh_rename_preview(self, show_empty_warning=False):
         """Автоматически обновляет предпросмотр переименования."""
-        status_icon = getattr(self, "rename_status_icon", None)
-        if status_icon is not None:
-            status_icon.setPixmap(self.rename_ok_pixmap)
+        label = getattr(self, "rename_validation_label", None)
+        if label is not None:
+            label.setToolTip("")
         issue_button = getattr(self, "btn_locate_rename_issue", None)
         if issue_button is not None:
             issue_button.hide()
         if not getattr(self, "files", None):
-            if hasattr(self, "rename_validation_label"):
-                self.rename_validation_label.setText("Имена проверяются перед запуском")
+            if label is not None:
+                label.setText("Нет файлов")
             if hasattr(self, "btn_apply_rename"):
                 self.btn_apply_rename.setEnabled(False)
                 self.btn_apply_rename.setText("Переименовать")
@@ -120,6 +120,8 @@ class FileListPreviewMixin:
             return
 
         if not getattr(self, "current_template", None):
+            if label is not None:
+                label.setText("Выберите правило")
             if hasattr(self, "btn_apply_rename"):
                 self.btn_apply_rename.setEnabled(False)
                 self.btn_apply_rename.setText("Переименовать")
@@ -129,14 +131,12 @@ class FileListPreviewMixin:
 
         self.apply_template_logic()
         if getattr(self, "_rename_template_error", ""):
-            if status_icon is not None:
-                status_icon.setText("!")
             self._rename_plan_issues = []
             self.btn_apply_rename.setEnabled(False)
             self.btn_apply_rename.setText("Переименовать")
-            validation_label = getattr(self, "rename_validation_label", None)
-            if validation_label is not None:
-                validation_label.setText(self._rename_template_error)
+            if label is not None:
+                label.setText("Ошибка правила")
+                label.setToolTip(self._rename_template_error)
             self.status_bar.showMessage(self._rename_template_error)
             self._refresh_list_preview()
             return
@@ -165,8 +165,6 @@ class FileListPreviewMixin:
                 blocking = True
                 self._rename_template_error = str(error)
         self.btn_apply_rename.setEnabled(has_changes and not blocking)
-        if status_icon is not None and (blocking or self._rename_plan_issues):
-            status_icon.setText("!")
         self.btn_apply_rename.setText(
             f"Переименовать ({len(changed_pairs)})" if has_changes and not blocking else "Переименовать"
         )
@@ -180,22 +178,15 @@ class FileListPreviewMixin:
             else:
                 preview.rename_status = "Новое имя" if id(item) in touched else "Без изменений"
         self._refresh_list_preview()
-        validation_label = getattr(self, "rename_validation_label", None)
-        if validation_label is not None:
+        if label is not None:
             if blocking:
-                validation_label.setText(
-                    self._rename_template_error
-                    or format_rename_plan_issues(
-                        self._rename_plan_issues, limit=3
-                    )
-                )
+                label.setText("Ошибка имени")
+                label.setToolTip(self._rename_template_error or format_rename_plan_issues(self._rename_plan_issues, limit=3))
             elif self._rename_plan_issues:
-                validation_label.setText(
-                    f"Найдено конфликтов: {len(self._rename_plan_issues)}; "
-                    "свободные имена уже показаны в предпросмотре."
-                )
+                label.setText(f"Конфликты: {len(self._rename_plan_issues)}")
+                label.setToolTip("Свободные имена показаны в предпросмотре.")
             else:
-                validation_label.setText("Конфликты не обнаружены.")
+                label.setText("Имена проверены" if has_changes else "Без изменений")
         if has_changes:
             self.status_bar.showMessage("Предпросмотр обновлен автоматически.")
         else:

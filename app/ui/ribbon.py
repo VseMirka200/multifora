@@ -1,15 +1,15 @@
 """Вкладка ленты с горизонтальными группами команд."""
 
-from PySide6.QtCore import QRect, QSize, Qt, Signal, QEvent
-from PySide6.QtGui import QIcon, QPalette
+from PySide6.QtCore import Qt, Signal, QEvent
 from PySide6.QtWidgets import (
     QButtonGroup, QDialog, QDialogButtonBox, QFrame, QHBoxLayout, QLabel, QScrollArea,
-    QSizePolicy, QStackedWidget, QStyle, QStyleOptionToolButton, QStylePainter, QToolButton,
+    QSizePolicy, QStackedWidget, QToolButton,
     QVBoxLayout, QWidget,
 )
 
-from app.ui.ui_styles import TAB_BAR_HEIGHT
-from app.ui.ui_components import IconButton, setup_standard_dialog, setup_standard_secondary_button
+from app.ui.typography import TITLE_PX
+from app.ui.ui_styles import ACTION_BUTTON_HEIGHT, TAB_BAR_HEIGHT
+from app.ui.ui_components import IconButton, setup_standard_action_button, setup_standard_dialog
 
 
 class RibbonNavigation(QWidget):
@@ -77,51 +77,17 @@ class RibbonNavigation(QWidget):
         return self.group.button(index).text()
 
 
-class RibbonTile(QToolButton):
-    def __init__(self, caption):
-        super().__init__()
-        self.setText(caption)
-        self.setFixedSize(78, 78)
-        self.setIconSize(QSize(23, 23))
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-
-    def paintEvent(self, event):
-        option = QStyleOptionToolButton()
-        self.initStyleOption(option)
-        option.icon = QIcon()
-        option.text = ""
-        painter = QStylePainter(self)
-        painter.drawComplexControl(QStyle.ComplexControl.CC_ToolButton, option)
-
-        icon_size = self.iconSize()
-        font = painter.font()
-        if font.pixelSize() > 0:
-            font.setPixelSize(max(1, round(font.pixelSize() * 0.75)))
-        else:
-            font.setPointSizeF(font.pointSizeF() * 0.75)
-        painter.setFont(font)
-        line_height = painter.fontMetrics().height()
-        gap = 5
-        top = (self.height() - icon_size.height() - gap - line_height) // 2
-        icon_rect = QRect((self.width() - icon_size.width()) // 2, top,
-                          icon_size.width(), icon_size.height())
-        mode = QIcon.Mode.Normal if self.isEnabled() else QIcon.Mode.Disabled
-        self.icon().paint(painter, icon_rect, Qt.AlignmentFlag.AlignCenter, mode)
-        text_rect = QRect(0, top + icon_size.height() + gap, self.width(), line_height)
-        painter.drawItemText(text_rect, Qt.AlignmentFlag.AlignCenter, option.palette,
-                             self.isEnabled(), self.text(), QPalette.ColorRole.ButtonText)
-
-
 class RibbonStack(QStackedWidget):
-    """Рассчитывает высоту ленты по открытой странице и доступной ширине."""
+    """Выделяет всем панелям высоту самой высокой при текущей ширине."""
 
     def heightForWidth(self, width):
-        page = self.currentWidget()
-        if page is None:
-            return 0
-        if page.hasHeightForWidth():
-            return max(page.minimumSizeHint().height(), page.heightForWidth(width))
-        return page.sizeHint().height()
+        height = 0
+        for index in range(self.count()):
+            page = self.widget(index)
+            page.ensurePolished()
+            preferred = page.heightForWidth(width) if page.hasHeightForWidth() else page.sizeHint().height()
+            height = max(height, preferred, page.minimumSizeHint().height())
+        return height
 
     def sizeHint(self):
         hint = super().sizeHint()
@@ -131,13 +97,25 @@ class RibbonStack(QStackedWidget):
     def event(self, event):
         result = super().event(event)
         if event.type() in (QEvent.Type.LayoutRequest, QEvent.Type.Resize, QEvent.Type.Show):
-            self.fit_current_page()
+            self.fit_pages()
         return result
 
-    def fit_current_page(self):
+    def fit_pages(self):
         height = self.heightForWidth(self.width())
         if height > 0 and (height != self.minimumHeight() or height != self.maximumHeight()):
             self.setFixedHeight(height)
+
+
+class SectionHeading(QHBoxLayout):
+    def __init__(self, text=""):
+        super().__init__()
+        self.title = QLabel(text)
+        self.title.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self.title.setStyleSheet(f"font-size: {TITLE_PX}px; font-weight: 700; background: transparent;")
+        self.title.ensurePolished()
+        self.title.setFixedHeight(max(ACTION_BUTTON_HEIGHT, self.title.fontMetrics().height(), 32))
+        self.addWidget(self.title)
+        self.addStretch()
 
 
 class RibbonPage(QWidget):
@@ -151,24 +129,25 @@ class RibbonPage(QWidget):
             layout = QVBoxLayout(self)
             layout.setContentsMargins(0, 0, 0, 0)
             layout.setSpacing(12)
-            heading = QLabel(title)
-            heading.setStyleSheet("font-size: 24px; font-weight: 700; background: transparent;")
-            self.heading_row = QHBoxLayout()
-            self.heading_row.addWidget(heading)
-            self.heading_row.addStretch()
+            self.heading_row = SectionHeading(title)
             layout.addLayout(self.heading_row)
             card = QFrame()
             card.setObjectName("operation_options")
-            self.row = QHBoxLayout(card)
-            self.row.setContentsMargins(16, 10, 16, 10)
-            layout.addWidget(card)
+            body = QVBoxLayout(card)
+            body.setContentsMargins(16, 10, 16, 10)
+            body.setSpacing(0)
+            body.addStretch()
+            self.row = QHBoxLayout()
+            body.addLayout(self.row)
+            body.addStretch()
+            layout.addWidget(card, 1)
         self.row.setSpacing(12)
 
     def options_button(self, title, content, text="Параметры…"):
         content.setParent(self)
         content.hide()
         button = IconButton(text)
-        setup_standard_secondary_button(button)
+        setup_standard_action_button(button, variant="command", expand=False)
         button.clicked.connect(lambda: self.show_options(title, content))
         return button
 

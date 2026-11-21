@@ -35,7 +35,7 @@ class ConversionPanel(QObject):
         self.formats = QWidget(self.card)
         self.formats.setObjectName("conversion_formats")
         formats = QHBoxLayout(self.formats)
-        formats.setSpacing(16)
+        formats.setSpacing(12)
         formats.setContentsMargins(*MARGINS_NONE)
         convert_layout.addWidget(self.formats)
 

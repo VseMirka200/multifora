@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.ui.typography import BODY_PX, SECTION_PX
 from app.core.app_icons import _get_app_icon_qt_path
 from app.core.app_identity import APP_DISPLAY_NAME, APP_VERSION, GUIDE_URL, REPO_PAGE
 from app.core.app_utils import _log_ignored_error
@@ -30,6 +31,7 @@ from app.core.message_boxes import show_app_choice
 from app.core.update_checker import (
     check_for_updates,
 )
+from app.ui.support_page import SettingsSwitch
 from app.ui.ui_components import (
     MenuLikeComboBox,
     setup_clickable_checkbox_label,
@@ -38,7 +40,6 @@ from app.ui.ui_components import (
     setup_standard_secondary_button,
 )
 from app.ui.ui_styles import (
-    CHECKBOX_SIZE,
     DIALOG_MARGINS,
     MARGINS_NONE,
     PAGE_CONTENT_MARGINS,
@@ -68,21 +69,17 @@ class SettingsPanelMixin:
         layout.setContentsMargins(*MARGINS_NONE)
         layout.setHorizontalSpacing(SPACE_SM)
         layout.setVerticalSpacing(SPACE_NONE)
-        layout.setColumnStretch(1, 1)
-
-        checkbox = QCheckBox()
-        checkbox.setFixedSize(CHECKBOX_SIZE + 2, CHECKBOX_SIZE + 2)
-        checkbox.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
-        )
-        if tooltip:
-            checkbox.setToolTip(tooltip)
-        layout.addWidget(checkbox, 0, 0, 2 if tooltip else 1, 1, Qt.AlignmentFlag.AlignVCenter)
+        layout.setColumnStretch(0, 1)
+        layout.setVerticalSpacing(3)
+        checkbox = SettingsSwitch()
+        checkbox.setAccessibleName(text)
+        checkbox.setToolTip(tooltip)
         label = QLabel(text)
+        label.setStyleSheet(f"font-size: {BODY_PX}px; font-weight: 600;")
         setup_clickable_checkbox_label(label, checkbox, tooltip=tooltip)
-        layout.addWidget(label, 0, 1, Qt.AlignmentFlag.AlignVCenter)
-        if tooltip:
-            layout.addWidget(self._create_settings_hint_label(tooltip), 1, 1)
+        layout.addWidget(label, 0, 0)
+        layout.addWidget(self._create_settings_hint_label(tooltip), 1, 0)
+        layout.addWidget(checkbox, 0, 1, 2, 1, Qt.AlignmentFlag.AlignVCenter)
         return row, checkbox
 
     def _create_settings_select_row(
@@ -110,12 +107,12 @@ class SettingsPanelMixin:
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         )
         controls_layout.addWidget(label)
-        controls_layout.addWidget(field, 0)
         controls_layout.addStretch()
+        controls_layout.addWidget(field, 0)
         layout.addWidget(controls)
         if hint:
             field.setToolTip(hint)
-            layout.addWidget(self._create_settings_hint_label(hint))
+
         return row
 
     def _create_shortcut_action_row(self, title: str, hint: str, action):
@@ -127,7 +124,6 @@ class SettingsPanelMixin:
         button = QPushButton("Создать")
         setup_standard_secondary_button(button, expand=False)
         button.clicked.connect(action)
-        layout.addWidget(button, 0, Qt.AlignmentFlag.AlignVCenter)
         text_column = QWidget(row)
         text_column.setObjectName("settings_row")
         text_layout = QVBoxLayout(text_column)
@@ -136,6 +132,7 @@ class SettingsPanelMixin:
         text_layout.addWidget(QLabel(title))
         text_layout.addWidget(self._create_settings_hint_label(hint))
         layout.addWidget(text_column, 1)
+        layout.addWidget(button, 0, Qt.AlignmentFlag.AlignVCenter)
         return row, button
 
     def _create_settings_page_card(self) -> tuple[QWidget, QVBoxLayout]:
@@ -251,7 +248,8 @@ class SettingsPanelMixin:
         return self.help_panel_widget
 
     def _show_header_panel(self, panel: QWidget) -> None:
-        for widget_name in ("settings_panel_widget", "help_panel_widget"):
+        self.utility_heading.setText("Справка" if panel is self.support_page else "Настройки")
+        for widget_name in ("settings_panel_widget", "help_panel_widget", "support_page"):
             widget = getattr(self, widget_name, None)
             if widget is not None:
                 widget.setVisible(widget is panel)
@@ -347,7 +345,7 @@ class SettingsPanelMixin:
         if was_open:
             self.queue_panel.show()
             self.ribbon_panel.setVisible(not host.property("ribbonHidden"))
-            if tab_bar.currentIndex() == self._settings_tab_index:
+            if tab_bar.currentIndex() in (self._settings_tab_index, self._help_tab_index):
                 tab_bar.setCurrentIndex(self.operations_stack.currentIndex())
 
     def _ensure_about_help_page(self):
@@ -376,7 +374,7 @@ class SettingsPanelMixin:
         )
 
         self.about_title_label = QLabel(APP_DISPLAY_NAME)
-        self.about_title_label.setStyleSheet("font-size: 14px; font-weight: 600;")
+        self.about_title_label.setStyleSheet(f"font-size: {BODY_PX}px; font-weight: 600;")
         self.about_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         about_header_layout.addWidget(
             self.about_title_label, 0, Qt.AlignmentFlag.AlignHCenter
@@ -436,15 +434,22 @@ class SettingsPanelMixin:
             links.addWidget(button, 1)
         layout.addLayout(links)
 
+    @staticmethod
+    def _add_settings_separator(layout):
+        line = QFrame()
+        line.setObjectName("section_line")
+        line.setFixedHeight(1)
+        layout.addWidget(line)
+
     def _add_settings_section(self, title: str) -> QVBoxLayout:
         section = QFrame()
         section.setObjectName("settings_section")
         layout = QVBoxLayout(section)
         layout.setContentsMargins(*PAGE_CONTENT_MARGINS)
-        layout.setSpacing(SPACE_SM)
+        layout.setSpacing(10)
         heading = QLabel(title)
         heading.setObjectName("settings_section_heading")
-        heading.setStyleSheet("font-size: 14px; font-weight: 600;")
+        heading.setStyleSheet(f"font-size: {SECTION_PX}px; font-weight: 600;")
         layout.addWidget(heading)
         layout.addSpacing(SPACE_SM)
         self.settings_content_layout.addWidget(section)
@@ -463,7 +468,7 @@ class SettingsPanelMixin:
         settings_content = QWidget()
         settings_content.setObjectName("settings_page_content")
         self.settings_content_layout = QVBoxLayout(settings_content)
-        self.settings_content_layout.setContentsMargins(*PAGE_CONTENT_MARGINS)
+        self.settings_content_layout.setContentsMargins(0, 0, 8, 0)
         self.settings_content_layout.setSpacing(PAGE_SECTION_SPACING)
         self.settings_content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.settings_scroll.setWidget(settings_content)
@@ -474,7 +479,7 @@ class SettingsPanelMixin:
         shortcuts_layout = self._add_settings_section("Интеграция Windows")
 
         self.theme_mode_combo = MenuLikeComboBox()
-        setup_standard_dropdown(self.theme_mode_combo, fixed_width=200)
+        setup_standard_dropdown(self.theme_mode_combo, fixed_width=260)
         self.theme_mode_combo.addItem("Как в системе", "system")
         self.theme_mode_combo.addItem("Темная", "dark")
         self.theme_mode_combo.addItem("Светлая", "light")
@@ -482,20 +487,17 @@ class SettingsPanelMixin:
             self._on_theme_mode_changed
         )
         theme_row = self._create_settings_select_row(
-            "Тема:",
+            "Тема",
             self.theme_mode_combo,
             label_width=40,
             hint="Определяет цветовую схему интерфейса или использует тему Windows.",
         )
         appearance_layout.addWidget(theme_row)
 
-        warning_description = (
-            "Предупреждения больше не будут открываться отдельными окнами и будут "
-            "показаны только в строке состояния."
-        )
+        warning_description = "Показывать предупреждения без всплывающих окон."
         disable_warning_row, self.disable_warning_dialogs_checkbox = (
             self._create_settings_checkbox_row(
-                "Отключить предупреждающие окна",
+                "Предупреждения в строке состояния",
                 warning_description,
             )
         )
@@ -510,26 +512,20 @@ class SettingsPanelMixin:
         auto_update_row, self.auto_update_check_checkbox = (
             self._create_settings_checkbox_row(
                 "Проверять обновления при запуске",
-                "Проверка обновлений выполняется через GitHub-репозиторий проекта.",
+                "Проверка через GitHub.",
             )
         )
         self.auto_update_check_checkbox.setChecked(False)
         self.auto_update_check_checkbox.stateChanged.connect(
             lambda _state: self._schedule_settings_save()
         )
+        self._add_settings_separator(behavior_layout)
         behavior_layout.addWidget(auto_update_row)
-
-        auto_clear_description = QLabel(
-            "После успешной операции приложение может очистить весь список. "
-            "Файлы на диске при автоочистке никогда не удаляются."
-        )
-        auto_clear_description.setWordWrap(True)
-        auto_clear_layout.addWidget(auto_clear_description)
 
         auto_clear_enabled_row, self.auto_clear_enabled_checkbox = (
             self._create_settings_checkbox_row(
-                "Включить автоочистку",
-                "Автоочистка срабатывает только после выбранных ниже операций без ошибок.",
+                "Автоочистка очереди",
+                "После успешной операции список очищается. Файлы на диске сохраняются.",
             )
         )
         self.auto_clear_enabled_checkbox.stateChanged.connect(
@@ -540,42 +536,22 @@ class SettingsPanelMixin:
         )
         auto_clear_layout.addWidget(auto_clear_enabled_row)
 
-        self.auto_clear_operations_label = QLabel("Очищать весь список после:")
+        self.auto_clear_operations_label = QLabel("Очищать очередь после")
+        self._add_settings_separator(auto_clear_layout)
         auto_clear_layout.addWidget(self.auto_clear_operations_label)
 
-        auto_clear_options = (
-            (
-                "auto_clear_rename_checkbox",
-                "Переименования",
-                "Очищает список после успешного переименования файлов.",
-            ),
-            (
-                "auto_clear_convert_checkbox",
-                "Конвертации",
-                "Очищает список после успешного преобразования файлов.",
-            ),
-            (
-                "auto_clear_merge_checkbox",
-                "Объединения",
-                "Очищает список после создания объединённого документа.",
-            ),
-            (
-                "auto_clear_compress_checkbox",
-                "Сжатия",
-                "Очищает список после успешного сжатия файлов.",
-            ),
-        )
+        options_layout = QHBoxLayout()
+        auto_clear_layout.addLayout(options_layout)
         self.auto_clear_operation_checkboxes = []
         self.auto_clear_operation_rows = []
-        for attribute_name, label, hint in auto_clear_options:
-            row, checkbox = self._create_settings_checkbox_row(label, hint)
-            setattr(self, attribute_name, checkbox)
-            checkbox.stateChanged.connect(
-                lambda _state: self._schedule_settings_save()
-            )
+        for index in range(self._settings_tab_index):
+            operation = self.operations_tab_bar.tabData(index)
+            checkbox = QCheckBox(self.operations_tab_bar.tabText(index))
+            setattr(self, f"auto_clear_{operation}_checkbox", checkbox)
+            checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
             self.auto_clear_operation_checkboxes.append(checkbox)
-            self.auto_clear_operation_rows.append(row)
-            auto_clear_layout.addWidget(row)
+            self.auto_clear_operation_rows.append(checkbox)
+            options_layout.addWidget(checkbox, 1)
         self.auto_clear_convert_checkbox.setChecked(False)
         self._sync_auto_clear_controls()
 

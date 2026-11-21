@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from app.ui.ui_components import IconButton, setup_standard_dialog, setup_standard_popup_menu, setup_standard_secondary_button
+from app.ui.ui_components import IconButton, setup_standard_action_button, setup_standard_dialog, setup_standard_popup_menu, setup_standard_secondary_button
 from app.ui.ui_styles import MARGINS_NONE, SPACE_SM
 from core.operation_result import OperationResult
 
@@ -64,7 +64,8 @@ class OperationResultPanel(QFrame):
         self.details.clicked.connect(self._show_details)
         self.action_buttons = (self.open_result, self.open_folder, self.details, self.undo)
         for button in self.action_buttons:
-            setup_standard_secondary_button(button, expand=True)
+            role = "command" if button in (self.open_result, self.open_folder) else "secondary"
+            setup_standard_action_button(button, variant=role)
             button.setFixedHeight(36)
             actions.addWidget(button, 1)
         policy = self.undo.sizePolicy()
@@ -213,7 +214,7 @@ class OperationResultPanel(QFrame):
         close = QPushButton("Закрыть")
         close.clicked.connect(dialog.reject)
         for button in (expand, copy, retry, close):
-            setup_standard_secondary_button(button, expand=True)
+            setup_standard_action_button(button, variant="primary" if button is retry else "secondary")
             button.setFixedHeight(36)
             actions.addWidget(button, 1)
         policy = self.undo.sizePolicy()

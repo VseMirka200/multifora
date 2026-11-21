@@ -157,7 +157,7 @@ class TemplateParamsNumberingMixin:
         )
 
         self.template_num_simple_widget = QWidget()
-        simple_layout = QVBoxLayout(self.template_num_simple_widget)
+        simple_layout = QHBoxLayout(self.template_num_simple_widget)
         simple_layout.setSpacing(SPACE_SM)
         simple_layout.setContentsMargins(*MARGINS_NONE)
 
@@ -194,19 +194,15 @@ class TemplateParamsNumberingMixin:
             )
         )
 
-        sep_label = QLabel("Разделитель:")
-        setup_standard_form_label(sep_label)
-        simple_layout.addWidget(sep_label)
-
         self.template_num_sep = QLineEdit()
         self.template_num_sep.setText("_")
         self.template_num_sep.setMaxLength(5)
         self.template_num_sep.setProperty("renameTemplateField", True)
         setup_standard_line_input(self.template_num_sep)
-        simple_layout.addWidget(self.template_num_sep)
+        simple_layout.addWidget(create_param_block("Разделитель:", self.template_num_sep))
 
         self.template_num_prefix_widget = QWidget()
-        prefix_layout = QVBoxLayout(self.template_num_prefix_widget)
+        prefix_layout = QHBoxLayout(self.template_num_prefix_widget)
         prefix_layout.setSpacing(SPACE_SM)
         prefix_layout.setContentsMargins(*MARGINS_NONE)
 
@@ -248,7 +244,7 @@ class TemplateParamsNumberingMixin:
         )
 
         self.template_num_date_widget = QWidget()
-        date_layout = QVBoxLayout(self.template_num_date_widget)
+        date_layout = QHBoxLayout(self.template_num_date_widget)
         date_layout.setSpacing(SPACE_SM)
         date_layout.setContentsMargins(*MARGINS_NONE)
 
@@ -409,12 +405,10 @@ class TemplateParamsNumberingMixin:
             for token, button in self.template_quick_insert_buttons.items()
             if token != number_token
         ]
-        # Даже в узкой левой панели три кнопки в ряд
-        # на такой ширине обрезают длинные токены вроде {exif_date}.
-        for start in range(0, len(remaining_buttons), 2):
+        for start in range(0, len(remaining_buttons), 4):
             quick_buttons_container, _quick_buttons_layout = (
                 self._build_rename_action_row(
-                    remaining_buttons[start : start + 2]
+                    remaining_buttons[start : start + 4]
                 )
             )
             layout.addWidget(quick_buttons_container)

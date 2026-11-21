@@ -3,6 +3,7 @@ from pathlib import Path
 
 from app.ui.mixins.appearance_mixin import AppearanceMixin
 from app.ui.theme_styles import DARK_APPLICATION_STYLE, LIGHT_APPLICATION_STYLE
+from app.ui.typography import BODY_PX
 from app.ui.ui_styles import (
     build_drop_zone_surface_style,
     build_operations_help_button_style,
@@ -76,8 +77,8 @@ class ThemeStyleAuditTests(unittest.TestCase):
     def test_settings_hints_are_small_and_theme_aware(self):
         selector = 'QFrame#settings_card QLabel[settingsHint="true"] {'
         for style, color in (
-            (DARK_APPLICATION_STYLE, "#a8a8a8"),
-            (LIGHT_APPLICATION_STYLE, "#6f7785"),
+            (DARK_APPLICATION_STYLE, standard_palette("dark")["disabled_fg"]),
+            (LIGHT_APPLICATION_STYLE, standard_palette("light")["disabled_fg"]),
         ):
             self.assertIn(selector, style)
             hint_style = style.split(selector, 1)[1].split("}", 1)[0]
@@ -104,18 +105,26 @@ class ThemeStyleAuditTests(unittest.TestCase):
                 _contrast(palette["disabled_fg"], palette["disabled_bg"]), 4.0
             )
 
+    def test_primary_and_danger_colours_remain_legible_in_both_themes(self):
+        for theme in ("dark", "light"):
+            colors = standard_palette(theme)
+            for background in ("accent", "accent_hover"):
+                self.assertGreaterEqual(_contrast(colors["on_accent"], colors[background]), 4.5)
+            self.assertGreaterEqual(_contrast(colors["danger"], colors["bg"]), 4.5)
+            self.assertGreaterEqual(_contrast(colors["disabled_fg"], colors["disabled_bg"]), 4.5)
+
     def test_menu_disabled_items_have_theme_specific_color(self):
         self.assertIn("QMenu::item:disabled", LIGHT_APPLICATION_STYLE)
-        self.assertIn("background-color: #ffffff", LIGHT_APPLICATION_STYLE)
-        self.assertIn("color: #6f7785", LIGHT_APPLICATION_STYLE)
+        self.assertIn(f"background-color: {standard_palette('light')['bg']}", LIGHT_APPLICATION_STYLE)
+        self.assertIn(f"color: {standard_palette('light')['disabled_fg']}", LIGHT_APPLICATION_STYLE)
         self.assertIn("QMenu::item:disabled", DARK_APPLICATION_STYLE)
-        self.assertIn("background-color: #383838", DARK_APPLICATION_STYLE)
-        self.assertIn("color: #a8a8a8", DARK_APPLICATION_STYLE)
+        self.assertIn(f"background-color: {standard_palette('dark')['bg']}", DARK_APPLICATION_STYLE)
+        self.assertIn(f"color: {standard_palette('dark')['disabled_fg']}", DARK_APPLICATION_STYLE)
 
     def test_menu_items_have_an_explicit_theme_background(self):
         for style, background, hover in (
-            (LIGHT_APPLICATION_STYLE, "#ffffff", "#dce6f1"),
-            (DARK_APPLICATION_STYLE, "#383838", "#505050"),
+            (LIGHT_APPLICATION_STYLE, standard_palette("light")["bg"], standard_palette("light")["hover_bg"]),
+            (DARK_APPLICATION_STYLE, standard_palette("dark")["bg"], standard_palette("dark")["hover_bg"]),
         ):
             shared_selector = "QMenu::item,\nQMenu QListWidget#scrollable_filter_list::item {"
             self.assertIn(shared_selector, style)
@@ -155,8 +164,8 @@ class ThemeStyleAuditTests(unittest.TestCase):
 
     def test_scrollable_dropdown_has_vertical_arrow_buttons(self):
         for style, track, handle in (
-            (LIGHT_APPLICATION_STYLE, "#f4f6f8", "#8f99a6"),
-            (DARK_APPLICATION_STYLE, "#2c2c2c", "#777777"),
+            (LIGHT_APPLICATION_STYLE, standard_palette("light")["window_bg"], standard_palette("light")["hover_border"]),
+            (DARK_APPLICATION_STYLE, standard_palette("dark")["window_bg"], standard_palette("dark")["hover_border"]),
         ):
             scrollbar = style.split(
                 "QMenu QListWidget#scrollable_filter_list QScrollBar:vertical {",
@@ -185,18 +194,18 @@ class ThemeStyleAuditTests(unittest.TestCase):
 
     def test_operations_tabs_have_transparent_background(self):
         for theme, active in (
-            ("light", "#3d74b3"),
-            ("dark", "#79b5f5"),
+            ("light", standard_palette("light")["accent"]),
+            ("dark", standard_palette("dark")["accent"]),
         ):
             style = build_operations_tab_bar_style(theme)
             self.assertIn("background: transparent", style)
             self.assertIn(f"color: {active}", style)
-            self.assertIn("border-bottom: 3px solid #6495ff", style)
+            self.assertIn(f"border-bottom: 3px solid {active}", style)
 
     def test_settings_navigation_uses_vertical_tab_selection_style(self):
         for theme, foreground, background, active in (
-            ("light", "#202833", "#ffffff", "#3d74b3"),
-            ("dark", "#e3e6ea", "#383838", "#79b5f5"),
+            ("light", standard_palette("light")["fg"], standard_palette("light")["bg"], standard_palette("light")["accent"]),
+            ("dark", standard_palette("dark")["fg"], standard_palette("dark")["bg"], standard_palette("dark")["accent"]),
         ):
             style = build_settings_navigation_style(theme)
             button = style.split("QPushButton#settings_nav_item {", 1)[
@@ -206,7 +215,7 @@ class ThemeStyleAuditTests(unittest.TestCase):
                 "QPushButton#settings_nav_item:checked {", 1
             )[1].split("}", 1)[0]
             self.assertIn(f"color: {foreground}", button)
-            self.assertIn("font-size: 13px", button)
+            self.assertIn(f"font-size: {BODY_PX}px", button)
             self.assertIn("font-weight: 600", button)
             self.assertIn(f"background-color: {background}", button)
             self.assertIn("border-radius: 0px", button)
@@ -222,12 +231,12 @@ class ThemeStyleAuditTests(unittest.TestCase):
                 build_template_table_style("light"),
             )
         )
-        self.assertNotIn("#383838", light)
-        self.assertIn("alternate-background-color: #f4f6f8", light)
+        self.assertNotIn(standard_palette("dark")["bg"], light)
+        self.assertIn(f"alternate-background-color: {standard_palette('light')['window_bg']}", light)
 
     def test_template_manager_light_alternating_rows_are_light(self):
         light_style = build_template_table_style("light")
-        self.assertIn("alternate-background-color: #f4f6f8", light_style)
+        self.assertIn(f"alternate-background-color: {standard_palette('light')['window_bg']}", light_style)
         self.assertNotIn("alternate-background-color: #454545", light_style)
 
     def test_runtime_refreshes_buttons_and_operation_tabs(self):
@@ -236,7 +245,7 @@ class ThemeStyleAuditTests(unittest.TestCase):
         self.assertIn("self._apply_operations_tab_bar_theme(mode)", source)
 
     def test_light_menu_popup_uses_white_surface(self):
-        self.assertIn("background-color: #ffffff", LIGHT_APPLICATION_STYLE)
+        self.assertIn(f"background-color: {standard_palette('light')['bg']}", LIGHT_APPLICATION_STYLE)
 
     def test_dropdown_styles_are_global_instead_of_assigned_to_each_menu(self):
         components = Path("app/ui/ui_components.py").read_text(
@@ -270,7 +279,7 @@ class ThemeStyleAuditTests(unittest.TestCase):
     def test_light_file_panel_and_list_surface_stay_white(self):
         ui_main = Path("app/ui/ui_main.py").read_text(encoding="utf-8")
         self.assertIn(
-            "background-color: #ffffff", build_drop_zone_surface_style("light")
+            f"background-color: {standard_palette('light')['bg']}", build_drop_zone_surface_style("light")
         )
         self.assertNotIn(
             "background-color: #f3f3f3", build_drop_zone_surface_style("light")

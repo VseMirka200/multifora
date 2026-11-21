@@ -15,12 +15,14 @@ from app.core.app_ipc import (
 )
 from app.core.app_utils import _debug_log
 from app.core.runtime_logging import install_runtime_logging
+from app.ui.typography import BODY_PX, FONT_FAMILY
 from app.ui.ui_main import MultiforaMainWindow
 
 
 def _configure_application_font(application: QApplication) -> None:
     font = application.font()
-    font.setFamily("Segoe UI")
+    font.setFamily(FONT_FAMILY)
+    font.setPixelSize(BODY_PX)
     application.setFont(font)
 
 
