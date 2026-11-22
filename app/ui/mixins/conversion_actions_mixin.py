@@ -141,7 +141,7 @@ class ConversionActionsMixin:
                         "secondary",
                     ),
                     ("custom", "Выбрать папку…", "secondary"),
-                    ("cancel", "Отмена", "secondary"),
+                    ("cancel", "Отмена", "danger"),
                 ),
                 icon=QMessageBox.Icon.Question,
                 default_key="alongside",
@@ -282,16 +282,6 @@ class ConversionActionsMixin:
         )
 
         button.setEnabled(bool(files) and output_ready)
-        panel = getattr(self, "conversion_panel", None)
-        if panel is not None:
-            sample_files = [item for item in files if matches_format(item.path, "DOCX")] if (
-                target_selected and target_combo.currentText() == "PDF"
-            ) else []
-            panel.sample_hint.setVisible(bool(sample_files))
-            panel.btn_sample.setVisible(bool(sample_files))
-            panel.btn_sample.setEnabled(bool(self._sample_pdf_input(sample_files)) and output_ready)
-            panel.btn_sample.setToolTip("Выделите одну строку DOCX в таблице.")
-
         refresh_preview = getattr(self, "refresh_conversion_preview", None)
         if callable(refresh_preview):
             refresh_preview(show_empty_warning=False)
@@ -380,13 +370,7 @@ class ConversionActionsMixin:
             f"Среди файлов для обработки нет совместимых с режимом «{source_label}».",
         )
 
-    def _sample_pdf_input(self, files):
-        if len(files) == 1:
-            return files[0]
-        highlighted = self.list_files.highlighted_file_items()
-        return highlighted[0] if len(highlighted) == 1 and highlighted[0] in files else None
-
-    def convert_files_dual_combo(self, *, sample=False) -> None:
+    def convert_files_dual_combo(self) -> None:
         """Конвертирует один или несколько исходных форматов в общий целевой."""
         if not self._ensure_operation_can_start():
             return
@@ -425,12 +409,6 @@ class ConversionActionsMixin:
                 skipped_same_target=skipped_same_target,
             )
             return
-        if sample:
-            file = self._sample_pdf_input([item for item in files if matches_format(item.path, "DOCX")])
-            if file is None or target_label != "PDF":
-                return
-            files = [file]
-
         accepted, output_mode, output_dir = (
             self._resolve_conversion_output_destination(
                 file_count=len(files),
@@ -454,7 +432,6 @@ class ConversionActionsMixin:
             target_label,
             output_mode=output_mode,
             output_dir=output_dir,
-            sample=sample,
         )
         if not self._start_operation(request, files):
             return

@@ -1,6 +1,8 @@
 """Объединение упорядоченных исходных файлов в документ без зависимости от Qt."""
 
 import os
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from collections.abc import Callable, Sequence
 from copy import deepcopy
 
@@ -17,6 +19,7 @@ def merge_documents(
     status: Callable[[str], None],
     progress: Callable[[int], None],
     unique_path: Callable[[str], str] = get_unique_path,
+    page_order=(),
 ) -> str:
     files = [file for file in sources if file.is_file]
     if len(files) < 2:
@@ -27,7 +30,7 @@ def merge_documents(
         file.path.lower().endswith(".docx") for file in files
     ):
         raise Exception("Объединение в DOCX поддерживает только файлы DOCX.")
-    if output_format == "pdf" and not all(
+    if output_format == "pdf" and not (page_order and all(file.path.lower().endswith(".docx") for file in files)) and not all(
         file.path.lower().endswith(".pdf") for file in files
     ):
         raise Exception("Объединение в PDF поддерживает только файлы PDF.")
@@ -50,9 +53,25 @@ def merge_documents(
     from core.pdf_engine.merge import combine_pdfs
 
     status("Объединение PDF")
-    combine_pdfs([file.path for file in files], destination, should_cancel)
+    paths = [file.path for file in files]
+    if page_order:
+        with TemporaryDirectory() as staging:
+            sources_pdf = [paged_source(path, staging, i, should_cancel) for i, path in enumerate(paths)]
+            combine_pdfs(sources_pdf, destination, should_cancel, page_order=page_order)
+    else:
+        combine_pdfs(paths, destination, should_cancel)
     progress(100)
     return destination
+
+
+def paged_source(path, staging, index, should_cancel):
+    if Path(path).suffix.lower() == ".pdf":
+        return path
+    from core.document_engine.office import run_office
+
+    output = Path(staging) / f"{index}.pdf"
+    run_office(path, output, "PDF", should_cancel)
+    return output
 
 
 def _merge_output_path(first_path: str, extension: str, output_path: str) -> str:

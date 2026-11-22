@@ -22,12 +22,7 @@ class FileListContextMixin:
         context_items = getattr(self, "_context_file_items", None)
         if context_items is not None:
             return context_items
-        highlighted = self.list_files.highlighted_file_items()
-        if highlighted:
-            return highlighted
-        marked = selected_file_items(self.list_files)
-        current = self.list_files.currentIndex().data(Qt.ItemDataRole.UserRole)
-        return marked or ([current] if current is not None else [])
+        return selected_file_items(self.list_files)
 
     def show_file_context_menu(self, pos: QPoint):
         if not self.files:

@@ -15,6 +15,8 @@ OFFICE_ROUTES = {
     "HTML": {"DOCX": "html_docx", "PDF": "rich_pdf", "ODT": "odt", "RTF": "rtf", "TXT": "text"},
 }
 
+PRESENTATION_FORMATS = ("PPT", "PPTX", "ODP")
+
 IMAGE_SOURCE_FORMATS = (
     "JPG",
     "JPEG",
@@ -44,6 +46,7 @@ IMAGE_SOURCE_FORMATS = (
 
 
 FORMAT_EXTENSIONS: dict[str, tuple[str, ...]] = {
+    **{label: ("." + label.lower(),) for label in PRESENTATION_FORMATS},
     "DOC": (".doc",),
     "DOCX": (".docx",),
     "PDF": (".pdf",),

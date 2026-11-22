@@ -1192,6 +1192,10 @@ class MainWindowSmokeTests(unittest.TestCase):
                     self.assertEqual(window.template_custom.text(), "A{name}B")
                 self.assertTrue(window.btn_save_template.isVisible())
                 self.assertTrue(window.btn_manage_templates.isVisible())
+                for rule in ("Нумерация", "Выбрать правило", "Пользовательский шаблон"):
+                    window.combo_templates.setCurrentText(rule)
+                    for button in (window.btn_insert_token, window.btn_save_template, window.btn_manage_templates):
+                        self.assertEqual(button.isVisible(), rule == "Пользовательский шаблон")
             finally:
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()

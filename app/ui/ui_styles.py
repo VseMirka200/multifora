@@ -20,6 +20,7 @@ PAGE_SECTION_SPACING = 12
 OPERATIONS_PAGE_MARGINS = (0, 0, 0, 0)
 
 CONTROL_HEIGHT = 28
+FILE_PANEL_RADIUS = 7
 FIELD_HEIGHT = CONTROL_HEIGHT
 HEADER_FIELD_HEIGHT = CONTROL_HEIGHT
 ACTION_BUTTON_HEIGHT = FIELD_HEIGHT
@@ -95,7 +96,8 @@ def build_workspace_style(theme: str) -> str:
         QFrame#file_info_panel {{ border: none; }}
         QWidget#workspace QWidget#conversion_formats {{ background: transparent; }}
         QWidget#workspace QWidget#compress_page QStackedWidget,
-        QWidget#workspace QWidget#compress_page QStackedWidget .QWidget {{ background: transparent; }}
+        QWidget#workspace QWidget#compress_page QStackedWidget .QWidget,
+        QWidget#workspace QWidget#compress_page QCheckBox {{ background: transparent; }}
         QWidget#workspace QWidget#template_params_widget,
         QWidget#template_params_widget .QWidget,
         QWidget#template_params_widget QFrame#template_numbering_card {{ background: transparent; }}
@@ -124,7 +126,7 @@ def build_drop_zone_surface_style(theme: str) -> str:
         QWidget#drop_zone_surface {{
             background-color: {background};
             border: 1px solid {border};
-            border-radius: 7px;
+            border-radius: {FILE_PANEL_RADIUS}px;
         }}
     """
 
@@ -137,8 +139,8 @@ def build_drop_zone_overlay_style(theme: str) -> str:
     return f"""
         QWidget#drop_zone_overlay {{
             background-color: transparent;
-            border: 1px dashed {drop_zone_muted_color(theme)};
-            border-radius: 12px;
+            border: none;
+            color: {drop_zone_muted_color(theme)};
         }}
         QWidget#drop_zone_overlay QLabel {{
             background-color: transparent;
@@ -186,7 +188,8 @@ def build_standard_button_style(theme: str, role: str) -> str:
         bg, hover, pressed = p["hover_bg"], p["command_hover"], p["progress"]
         border = p["command_hover"]
     elif role == "danger":
-        border, fg = (p["danger"], p["danger"])
+        bg = border = p["danger"]
+        fg, hover, pressed = p["on_accent"], p["danger_hover"], p["danger_pressed"]
     focus = p["fg"] if role == "primary" else p["accent"]
     return f"""
         QAbstractButton {{
@@ -277,7 +280,10 @@ def build_standard_field_style(theme: str, kind: str) -> str:
                 background-color: {p["hover_bg"]};
                 border-color: {p["hover_border"]};
             }}
-            AutoHeightTextEdit {{ min-height: 0px; }}
+            AutoHeightTextEdit {{
+                min-height: 0px;
+                padding: {SPACE_SM}px {SPACE_LG}px;
+            }}
             QTextEdit::placeholder {{
                 color: {p["placeholder"]};
             }}

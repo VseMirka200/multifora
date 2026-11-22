@@ -18,7 +18,7 @@ class FileListActionsMixin:
     # Добавляет и удаляет файлы, сохраняя согласованность списка и предпросмотра.
     _ASYNC_METADATA_THRESHOLD = 500
     _FILTERABLE_FILE_TYPES = frozenset(
-        ("document", "image", "archive", "folder", "other")
+        ("document", "presentation", "image", "archive", "folder", "other")
     )
     _MERGE_EXTENSIONS = frozenset((".pdf", ".docx"))
 
@@ -155,7 +155,7 @@ class FileListActionsMixin:
             (
                 ("folder", "Добавить папку", "secondary"),
                 ("contents", "Добавить содержимое папок", "secondary"),
-                ("cancel", "Отмена", "secondary"),
+                ("cancel", "Отмена", "danger"),
             ),
             icon=QMessageBox.Icon.Question,
             default_key="folder",
@@ -369,15 +369,15 @@ class FileListActionsMixin:
             )
 
     def update_file_info(self):
-        """Обновляет счётчики очереди и размер выделенных строк."""
+        """Обновляет счётчики очереди и размер отмеченных файлов."""
         total_files = len(self.files)
         total_size = sum(f.size for f in self.files) / (1024 * 1024)
-        selected = self.list_files.highlighted_file_items()
+        selected = self.list_files.selected_file_items()
         selected_size = sum(item.size for item in selected) / (1024 * 1024)
         visible = len(self.list_files.model().files())
 
         self.label_count.setText(f"Файлов: {total_files}" if visible == total_files else f"Видно: {visible} из {total_files}")
-        self.label_item_size.setText(f"Выделено: {len(selected)} · {selected_size:.2f} МБ" if selected else "Выделено: 0")
+        self.label_item_size.setText(f"Отмечено: {len(selected)} · {selected_size:.2f} МБ" if selected else "Отмечено: 0")
         self.label_total_size.setVisible(bool(total_files))
         self._file_info_separators[-1].setVisible(bool(total_files))
         self.label_total_size.setText(f"Всего: {total_size:.2f} МБ")

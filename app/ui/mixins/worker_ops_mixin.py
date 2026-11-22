@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from app.core.app_utils import _debug_log
 from app.ui.file_table import operation_file_items
+from app.ui.merge_pages import choose_merge_pages
 from core.file_models import FileItem, OperationFile, OperationSource
 from core.filesystem import normalized_path_key
 from core.operation_requests import CompressionRequest, ConversionRequest, MergeRequest, RenameRequest
@@ -280,6 +281,21 @@ class WorkerOpsMixin:
                 return
             format_label = "PDF"
 
+        page_order = choose_merge_pages(self, files, output_format)
+        if page_order is None:
+            return
+        if page_order:
+            document_order = list(dict.fromkeys(source for source, _ in page_order))
+            rank = {source: index for index, source in enumerate(document_order)}
+            if len(document_order) == len(files) and list(page_order) == sorted(
+                page_order, key=lambda entry: (rank[entry[0]], entry[1])
+            ):
+                files = [files[index] for index in document_order]
+                page_order = ()
+            else:
+                output_format = "pdf"
+                format_label = "PDF"
+
         output_path = self._select_merge_output_path_for_format(
             output_format, files
         )
@@ -298,7 +314,7 @@ class WorkerOpsMixin:
         show_starting = getattr(self, "_show_operation_starting", None)
         if callable(show_starting):
             show_starting(f"Подготовка объединения {len(files)} документов...")
-        if not self._start_operation(MergeRequest(output_format, output_path), files):
+        if not self._start_operation(MergeRequest(output_format, output_path, page_order), files):
             return
         self.log_event(
             f"Объединение: {len(files)} документов в {format_label}"

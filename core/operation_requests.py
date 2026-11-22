@@ -51,6 +51,7 @@ class MergeRequest:
     kind: ClassVar[str] = "merge"
     output_format: str
     output_path: str
+    page_order: tuple[tuple[int, int], ...] = ()
 
 
 OperationRequest = RenameRequest | ConversionRequest | CompressionRequest | MergeRequest

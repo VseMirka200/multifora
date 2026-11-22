@@ -28,7 +28,6 @@ def apply_window_icons(window, mode):
         (window.btn_manage_templates, "templates"),
         (window.btn_select_image_output_path, "choose-folder"),
         (window.btn_select_conversion_output_folder, "choose-folder"),
-        (window.conversion_panel.btn_sample, "check-document"),
         (window.operation_result_panel.open_result, "open"),
         (window.operation_result_panel.open_folder, "choose-folder"),
         (window.operation_result_panel.details, "details"),

@@ -6,6 +6,7 @@ from PySide6.QtCore import (
     QEasingCurve,
     QPropertyAnimation,
     QRect,
+    QRectF,
     QSize,
     Qt,
     QEvent,
@@ -18,6 +19,7 @@ from PySide6.QtGui import (
     QPainter,
     QPainterPath,
     QPalette,
+    QPen,
     QTextOption,
 )
 from PySide6.QtWidgets import (
@@ -226,6 +228,19 @@ def _refresh_widget_style(widget: QWidget) -> None:
         widget.update()
     except Exception as error:
         _log_ignored_error("_refresh_widget_style", error)
+
+
+class DropZoneOverlay(QWidget):
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pen = QPen(self.palette().color(QPalette.ColorRole.WindowText))
+        pen.setWidthF(1.25)
+        pen.setDashPattern([4, 3])
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 12, 12)
 
 
 class AutoHeightTextEdit(QTextEdit):

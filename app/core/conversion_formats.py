@@ -18,21 +18,25 @@ from core.conversion_formats import PDF_IMAGE_TARGETS as PDF_IMAGE_TARGETS
 from core.conversion_formats import format_for_path as format_for_path
 from core.conversion_formats import matches_format as matches_format
 from core.conversion_formats import suffix_for_format as suffix_for_format
-from core.file_types import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS
+from core.conversion_formats import PRESENTATION_FORMATS
+from core.file_types import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PRESENTATION_EXTENSIONS
 from core.file_types import FILE_TYPE_EXTENSIONS as FILE_TYPE_EXTENSIONS
 from core.file_types import KNOWN_FILE_EXTENSIONS as KNOWN_FILE_EXTENSIONS
 
 DOCUMENT_CATEGORY = "Документы"
 IMAGE_CATEGORY = "Изображения"
-CONVERSION_CATEGORIES = (DOCUMENT_CATEGORY, IMAGE_CATEGORY)
+PRESENTATION_CATEGORY = "Презентации"
+CONVERSION_CATEGORIES = (DOCUMENT_CATEGORY, IMAGE_CATEGORY, PRESENTATION_CATEGORY)
 
 CATEGORY_FILE_TYPES: dict[str, str] = {
+    PRESENTATION_CATEGORY: "presentation",
     DOCUMENT_CATEGORY: "document",
     IMAGE_CATEGORY: "image",
 }
 _FILE_TYPE_CATEGORIES = {file_type: category for category, file_type in CATEGORY_FILE_TYPES.items()}
 
 MIXED_SOURCE_LABELS: dict[str, str] = {
+    PRESENTATION_CATEGORY: "Любая поддерживаемая презентация",
     DOCUMENT_CATEGORY: "Любой поддерживаемый документ",
     IMAGE_CATEGORY: "Любое поддерживаемое изображение",
 }
@@ -46,6 +50,8 @@ _OPTIMIZED_DOCUMENT_ROUTES: dict[tuple[str, str], str] = {
 
 
 def conversion_type_for_formats(category: str, source: str, target: str) -> str:
+    if category == PRESENTATION_CATEGORY:
+        return "presentation"
     if category != DOCUMENT_CATEGORY:
         return "auto_image"
     return _OPTIMIZED_DOCUMENT_ROUTES.get((source, target), "auto_document")
@@ -53,6 +59,7 @@ def conversion_type_for_formats(category: str, source: str, target: str) -> str:
 
 CATEGORY_SOURCE_FORMATS: dict[str, tuple[str, ...]] = {
     DOCUMENT_CATEGORY: DOCUMENT_FORMATS,
+    PRESENTATION_CATEGORY: PRESENTATION_FORMATS,
     IMAGE_CATEGORY: IMAGE_SOURCE_FORMATS,
 }
 
@@ -61,6 +68,7 @@ CATEGORY_SOURCE_FORMATS: dict[str, tuple[str, ...]] = {
 # сохранить в отдельный PDF, в том числе при обработке смешанного набора.
 CATEGORY_TARGET_FORMATS: dict[str, tuple[str, ...]] = {
     DOCUMENT_CATEGORY: DOCUMENT_FORMATS,
+    PRESENTATION_CATEGORY: ("PDF", *PRESENTATION_FORMATS),
     IMAGE_CATEGORY: (
         "JPG",
         "JPEG",
@@ -151,4 +159,5 @@ def build_file_dialog_filter() -> str:
     supported = " ".join(f"*{extension}" for extension in sorted(KNOWN_FILE_EXTENSIONS))
     documents = " ".join(f"*{extension}" for extension in DOCUMENT_EXTENSIONS)
     images = " ".join(f"*{extension}" for extension in IMAGE_EXTENSIONS)
-    return f"Поддерживаемые файлы ({supported});;Документы ({documents});;Изображения ({images})"
+    presentations = " ".join(f"*{extension}" for extension in PRESENTATION_EXTENSIONS)
+    return f"Поддерживаемые файлы ({supported});;Документы ({documents});;Изображения ({images});;Презентации ({presentations})"

@@ -38,6 +38,21 @@ def render_page_image(document, index):
             page.close()
 
 
+def page_thumbnails(source, should_cancel, side=140):
+    with open_pdf_renderer(source) as document:
+        with _PDFIUM_LOCK:
+            count = len(document)
+        for index in range(count):
+            if should_cancel():
+                raise InterruptedError()
+            with _PDFIUM_LOCK, closing(document[index]) as page:
+                scale = side / max(page.get_size())
+                with closing(page.render(scale=scale)) as bitmap:
+                    with bitmap.to_pil().convert("RGB") as image:
+                        preview = (image.width, image.height, image.tobytes())
+            yield preview
+
+
 def render_pdf_pages(source, output_dir, should_cancel):
     """Отрисовывает страницы с разрешением 200 DPI и удаляет частичный результат при ошибке."""
     return list(render_selected_pages(source, output_dir, should_cancel).values())

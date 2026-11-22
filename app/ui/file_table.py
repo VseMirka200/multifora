@@ -9,6 +9,7 @@ from PySide6.QtCore import (
     QItemSelectionModel,
     QMimeData,
     QModelIndex,
+    QRectF,
     QSize,
     Qt,
     QTimer,
@@ -19,6 +20,8 @@ from PySide6.QtGui import (
     QDrag,
     QFontMetrics,
     QKeySequence,
+    QPainterPath,
+    QRegion,
 )
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -37,6 +40,7 @@ from app.ui.ui_components import apply_standard_field_style
 from app.ui.ui_styles import (
     FILE_LIST_DRAG_ACTIVE_STYLE,
     FILE_LIST_HEADER_STYLE,
+    FILE_PANEL_RADIUS,
 )
 from core.file_models import FileItem, file_item_source_folder, file_item_type_label
 
@@ -318,7 +322,7 @@ class FileListModel(QAbstractTableModel):
         if not self._files or not index.isValid():
             return Qt.ItemFlag.ItemIsEnabled
         flags = (
-            Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
+            Qt.ItemFlag.ItemIsEnabled
             | Qt.ItemFlag.ItemIsDragEnabled | Qt.ItemFlag.ItemIsDropEnabled
         )
         if index.column() == self.COLUMN_CHECK:
@@ -414,6 +418,8 @@ class FileListItemDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):
         view_option = QStyleOptionViewItem(option)
         self.initStyleOption(view_option, index)
+        if index.column() != index.model().COLUMN_CHECK:
+            view_option.state &= ~QStyle.StateFlag.State_HasFocus
         checked = index.data(Qt.ItemDataRole.CheckStateRole)
         if checked is not None:
             view_option.features &= ~QStyleOptionViewItem.ViewItemFeature.HasCheckIndicator
@@ -571,12 +577,6 @@ class FileListWidget(QTableView):
     def selected_file_items(self, *, files_only: bool = False) -> list:
         return selected_file_items(self, files_only=files_only)
 
-    def highlighted_file_items(self) -> list:
-        return [
-            item for index in self.selectionModel().selectedRows()
-            if (item := index.data(Qt.ItemDataRole.UserRole)) is not None
-        ]
-
     def clearSelection(self):
         self._set_checks(False)
 
@@ -592,6 +592,14 @@ class FileListWidget(QTableView):
         if changed:
             self.viewport().update()
             self.itemSelectionChanged.emit()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        # Заголовок и viewport рисуются отдельно от скруглённой внешней рамки.
+        inner_radius = FILE_PANEL_RADIUS - 1
+        clip = QPainterPath()
+        clip.addRoundedRect(QRectF(self.rect()), inner_radius, inner_radius)
+        self.setMask(QRegion(clip.toFillPolygon().toPolygon()))
 
     def mousePressEvent(self, event):
         self._drag_start = event.position().toPoint()

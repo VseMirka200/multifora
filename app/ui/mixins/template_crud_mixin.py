@@ -417,6 +417,9 @@ class TemplateCrudMixin:
             f"Удалить шаблон '{template_name}'?",
             QMessageBox.Icon.Question,
             True,
+            yes_text="Удалить",
+            no_text="Отмена",
+            destructive=True,
         )
 
         if reply:

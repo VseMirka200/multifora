@@ -25,7 +25,6 @@ from app.core.app_icons import _get_app_icon_qt_path
 from app.core.app_identity import APP_WINDOW_TITLE
 from app.core.app_ipc import _drain_queued_files
 from app.core.app_utils import _debug_log, _log_ignored_error, signals_blocked
-from app.ui.ribbon import SectionHeading
 from app.core.conversion_formats import (
     CONVERSION_CATEGORIES,
     build_file_dialog_filter,
@@ -61,6 +60,7 @@ from app.ui.operation_controller import OperationController, bind_operation_work
 from app.ui.operation_progress import OperationProgressDialog
 from app.ui.operation_result_panel import OperationResultPanel
 from app.ui.ui_components import (
+    DropZoneOverlay,
     IconButton,
     FilterToolButton,
     LoggingStatusBar,
@@ -446,10 +446,6 @@ class MultiforaMainWindow(
         self.ribbon_panel = self.create_operations_tab()
         main_layout.addWidget(self.operations_header_widget)
         content_layout.addWidget(self.ribbon_panel)
-        heading = SectionHeading()
-        self.utility_heading = heading.title
-        self.settings_panel_host_layout.addLayout(heading)
-        self.settings_panel_host_layout.setSpacing(12)
         self.support_page = self._create_support_page()
         self.settings_panel_host_layout.addWidget(self.support_page)
         self.support_page.hide()
@@ -623,6 +619,7 @@ class MultiforaMainWindow(
 
         options = (
             ("Документы", "document"),
+            ("Презентации", "presentation"),
             ("Изображения", "image"),
             ("Архивы", "archive"),
             ("Папки", "folder"),
@@ -714,8 +711,6 @@ class MultiforaMainWindow(
         self.list_files.setObjectName("files_list")
         self.list_files.setAccessibleName("Очередь файлов")
         self.list_files.model().full_path_tooltip = True
-        self.list_files.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        self.list_files.selectionModel().selectionChanged.connect(self._on_highlighted_rows_changed)
         self.list_files.setFrameShape(QFrame.Shape.NoFrame)
         self.list_files.setWordWrap(False)
         self.list_files.setTextElideMode(Qt.TextElideMode.ElideRight)
@@ -753,7 +748,7 @@ class MultiforaMainWindow(
         files_panel_layout.addWidget(self.list_files, 1)
 
     def _create_drop_zone(self, files_panel: QWidget) -> None:
-        self.drop_zone_controls = QWidget(files_panel)
+        self.drop_zone_controls = DropZoneOverlay(files_panel)
         self.drop_zone_controls.setObjectName("drop_zone_overlay")
         self.drop_zone_controls.setAcceptDrops(True)
         self.drop_zone_controls.installEventFilter(self)
@@ -777,7 +772,7 @@ class MultiforaMainWindow(
         setup_standard_primary_button(self.btn_add_files)
         self.btn_add_files.clicked.connect(self.select_files)
         self.btn_add_folder = IconButton("Добавить папки")
-        setup_standard_primary_button(self.btn_add_folder)
+        setup_standard_secondary_button(self.btn_add_folder)
         self.btn_add_folder.clicked.connect(self.select_folder)
         for button in (self.btn_add_files, self.btn_add_folder):
             button.setMinimumWidth(146)
@@ -854,7 +849,7 @@ class MultiforaMainWindow(
         count_size_separator = self._create_info_separator()
         info_layout.addWidget(count_size_separator)
 
-        self.label_item_size = self._setup_info_label(QLabel("Выделено: 0"))
+        self.label_item_size = self._setup_info_label(QLabel("Отмечено: 0"))
         info_layout.addWidget(self.label_item_size)
 
         size_total_separator = self._create_info_separator()
@@ -1417,13 +1412,6 @@ class MultiforaMainWindow(
         elif callable(getattr(self, "refresh_preview_panel", None)):
             self.refresh_preview_panel()
         self._schedule_filter_button_refresh()
-
-    def _on_highlighted_rows_changed(self, *_args):
-        if not hasattr(self, "label_count") or not isValid(self.label_count):
-            return
-        self.update_file_info()
-        if self._active_operation_id() == "convert":
-            self.update_convert_button_state()
 
     def select_files(self):
         """Выбор файлов для обработки"""

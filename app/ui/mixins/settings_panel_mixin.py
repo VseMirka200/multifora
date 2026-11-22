@@ -248,7 +248,6 @@ class SettingsPanelMixin:
         return self.help_panel_widget
 
     def _show_header_panel(self, panel: QWidget) -> None:
-        self.utility_heading.setText("Справка" if panel is self.support_page else "Настройки")
         for widget_name in ("settings_panel_widget", "help_panel_widget", "support_page"):
             widget = getattr(self, widget_name, None)
             if widget is not None:

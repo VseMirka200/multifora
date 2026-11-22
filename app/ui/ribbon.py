@@ -2,13 +2,12 @@
 
 from PySide6.QtCore import Qt, Signal, QEvent
 from PySide6.QtWidgets import (
-    QButtonGroup, QDialog, QDialogButtonBox, QFrame, QHBoxLayout, QLabel, QScrollArea,
+    QButtonGroup, QDialog, QDialogButtonBox, QFrame, QHBoxLayout, QScrollArea,
     QSizePolicy, QStackedWidget, QToolButton,
     QVBoxLayout, QWidget,
 )
 
-from app.ui.typography import TITLE_PX
-from app.ui.ui_styles import ACTION_BUTTON_HEIGHT, TAB_BAR_HEIGHT
+from app.ui.ui_styles import TAB_BAR_HEIGHT
 from app.ui.ui_components import IconButton, setup_standard_action_button, setup_standard_dialog
 
 
@@ -105,31 +104,16 @@ class RibbonStack(QStackedWidget):
             self.setFixedHeight(height)
 
 
-class SectionHeading(QHBoxLayout):
-    def __init__(self, text=""):
-        super().__init__()
-        self.title = QLabel(text)
-        self.title.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-        self.title.setStyleSheet(f"font-size: {TITLE_PX}px; font-weight: 700; background: transparent;")
-        self.title.ensurePolished()
-        self.title.setFixedHeight(max(ACTION_BUTTON_HEIGHT, self.title.fontMetrics().height(), 32))
-        self.addWidget(self.title)
-        self.addStretch()
-
-
 class RibbonPage(QWidget):
-    def __init__(self, operation, title=None):
+    def __init__(self, operation, *, with_card=False):
         super().__init__()
         self.setObjectName(f"{operation}_page")
-        if title is None:
+        if not with_card:
             self.row = QHBoxLayout(self)
             self.row.setContentsMargins(8, 2, 8, 4)
         else:
             layout = QVBoxLayout(self)
             layout.setContentsMargins(0, 0, 0, 0)
-            layout.setSpacing(12)
-            self.heading_row = SectionHeading(title)
-            layout.addLayout(self.heading_row)
             card = QFrame()
             card.setObjectName("operation_options")
             body = QVBoxLayout(card)

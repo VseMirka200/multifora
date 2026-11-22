@@ -16,6 +16,7 @@ from PySide6.QtWidgets import QMessageBox
 from app.core.app_icons import _get_shortcut_icon_path
 from app.core.app_identity import APP_DISPLAY_NAME
 from app.core.app_utils import _debug_log, _log_ignored_error
+from app.ui.ui_components import setup_standard_action_button
 
 
 def _gui_python_executable() -> str:
@@ -330,7 +331,9 @@ class WindowsIntegrationMixin:
         if button is None:
             return
         button.setEnabled(os.name == "nt" and winreg is not None)
-        button.setText("Удалить" if self.context_menu_installed() else "Создать")
+        installed = self.context_menu_installed()
+        button.setText("Удалить" if installed else "Создать")
+        setup_standard_action_button(button, variant="danger" if installed else "secondary", expand=False)
 
     def toggle_context_menu_entry(self):
         if self.context_menu_installed():

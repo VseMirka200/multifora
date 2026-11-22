@@ -1,7 +1,7 @@
 """Панель параметров конвертации и сигналы действий пользователя."""
 
 from PySide6.QtCore import QObject, Signal
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLineEdit, QVBoxLayout, QWidget
 
 from app.core.conversion_formats import CONVERSION_CATEGORIES
 from app.ui.operation_layout import add_labeled_field, create_operation_card, create_operation_label
@@ -25,7 +25,6 @@ class ConversionPanel(QObject):
     output_mode_changed = Signal()
     output_folder_requested = Signal()
     conversion_requested = Signal()
-    sample_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -145,14 +144,3 @@ class ConversionPanel(QObject):
         self.btn_convert.clicked.connect(self.conversion_requested)
         self.btn_convert.setEnabled(False)
         convert_layout.addWidget(self.btn_convert)
-        self.sample_hint = QLabel(
-            "Сложное оформление DOCX может измениться. Проверьте один файл перед запуском пакета."
-        )
-        self.sample_hint.setWordWrap(True)
-        self.sample_hint.hide()
-        convert_layout.addWidget(self.sample_hint)
-        self.btn_sample = IconButton("Проверить один DOCX")
-        setup_standard_secondary_button(self.btn_sample, expand=True)
-        self.btn_sample.clicked.connect(self.sample_requested)
-        self.btn_sample.hide()
-        convert_layout.addWidget(self.btn_sample)

@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 
-from PySide6.QtCore import QStringListModel, QUrl, Signal
+from PySide6.QtCore import QStringListModel, Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -23,7 +23,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from app.ui.ui_components import IconButton, setup_standard_action_button, setup_standard_dialog, setup_standard_popup_menu, setup_standard_secondary_button
+from app.ui.ui_components import (
+    IconButton, setup_standard_action_button, setup_standard_dialog,
+    setup_standard_popup_menu, setup_standard_secondary_button, sync_standard_menu_width,
+)
 from app.ui.ui_styles import MARGINS_NONE, SPACE_SM
 from core.operation_result import OperationResult
 
@@ -113,6 +116,7 @@ class OperationResultPanel(QFrame):
         if len(paths) <= 1:
             return
         menu = QMenu(button)
+        menu.setObjectName("menu_like_combo_popup")
         setup_standard_popup_menu(menu)
         menu.setToolTipsVisible(True)
         visible_paths = paths[:12]
@@ -126,11 +130,24 @@ class OperationResultPanel(QFrame):
                     if all(other[-depth:] != suffix for i, other in enumerate(parts) if i != index):
                         break
             action = menu.addAction(label.replace("&", "&&"))
+            action.setData(label)
             action.setToolTip(path)
             action.triggered.connect(lambda _checked, value=path: self._open_path(value))
         if len(paths) > 12:
             all_results = menu.addAction("Показать все…")
             all_results.triggered.connect(lambda: self._show_paths(paths))
+
+        def fit_menu():
+            sync_standard_menu_width(menu, button)
+            metrics = menu.fontMetrics()
+            available = max(0, menu.width() - 24)
+            for action in menu.actions():
+                label = action.data()
+                if label:
+                    caption = metrics.elidedText(label, Qt.TextElideMode.ElideMiddle, available)
+                    action.setText(caption.replace("&", "&&"))
+
+        menu.aboutToShow.connect(fit_menu)
         button.setMenu(menu)
 
     @staticmethod

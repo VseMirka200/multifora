@@ -15,6 +15,7 @@ from core.conversion_formats import (
 from core.document_engine.office import OFFICE_INPUTS, OFFICE_OUTPUTS, OfficeUnavailableError, run_office
 from core.file_models import FileItem, OperationSource
 from core.filesystem import conversion_directory, converted_name
+from core.presentation_conversion import convert_presentation
 from core.image_dependencies import (
     HAS_PIL as HAS_PIL,
 )
@@ -118,9 +119,18 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
             "image_to_pdf": self._convert_image_to_pdf,
             "image_to_image": lambda file: self._convert_image_to_image(file, self.conversion_format),
             "auto_image": lambda file: self._convert_image_auto(file, self.conversion_format),
+            "presentation": self._convert_presentation,
             "auto_document": lambda file: self._convert_document_auto(file, self.conversion_format),
         }
         return handlers.get(self.conversion_type)
+
+    def _convert_presentation(self, file: OperationSource) -> str:
+        output = self._conversion_output_path(file, suffix_for_format(self.conversion_format))
+        try:
+            convert_presentation(file.path, output, self._should_cancel)
+            return output
+        finally:
+            self._release_conversion_output_path(output)
 
     def _convert_text_document(
         self, file: OperationSource, target_format: str, *, output_reference: OperationSource | None = None

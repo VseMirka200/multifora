@@ -10,6 +10,8 @@ DOCUMENT_EXTENSIONS = (
     ".htm",
 )
 
+PRESENTATION_EXTENSIONS = (".ppt", ".pptx", ".odp")
+
 IMAGE_EXTENSIONS = (
     ".jpg",
     ".jpe",
@@ -52,6 +54,7 @@ IMAGE_EXTENSIONS = (
 
 FILE_TYPE_EXTENSIONS = {
     "document": frozenset(DOCUMENT_EXTENSIONS),
+    "presentation": frozenset(PRESENTATION_EXTENSIONS),
     "image": frozenset(IMAGE_EXTENSIONS),
     "archive": frozenset((".zip", ".rar", ".7z", ".tar", ".gz")),
 }

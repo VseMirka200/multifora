@@ -28,6 +28,8 @@ def standard_palette(theme):
         "window_bg": window, "bg": surface, "fg": text,
         "accent": accent, "on_accent": base, "danger": danger,
         "accent_hover": _mix(accent, text, 0.18),
+        "danger_hover": _mix(danger, text, 0.15),
+        "danger_pressed": _mix(danger, text, 0.30),
         "border": border, "disabled_border": border, "separator": border,
         "hover_border": _mix(surface, text, 0.50),
         "command_hover": _mix(surface, accent, 0.30),

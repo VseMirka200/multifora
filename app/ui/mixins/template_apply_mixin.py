@@ -18,8 +18,7 @@ class TemplateApplyMixin:
     # Применяет параметры шаблона к именам для предпросмотра и последующего переименования.
     def on_template_selected(self, template_name):
         """Обработчик выбора шаблона"""
-        self.btn_insert_token.setEnabled(template_name == "Пользовательский шаблон")
-        self.btn_save_template.setEnabled(template_name == "Пользовательский шаблон")
+        self.custom_template_commands.setVisible(template_name == "Пользовательский шаблон")
         if template_name == "Выбрать правило":
             self.current_template = None
             self.template_params_widget.setVisible(False)

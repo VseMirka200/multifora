@@ -46,6 +46,7 @@ class MergeMixin:
             status=self.status.emit,
             progress=self.progress.emit,
             unique_path=self._get_unique_path,
+            page_order=getattr(self, "page_order", ()),
         )
 
 
@@ -57,11 +58,13 @@ class MergeWorker(MergeMixin, OperationWorker):
         files: Sequence[OperationSource],
         output_format: str,
         output_path: str,
+        page_order=(),
     ) -> None:
         super().__init__()
         self.files = list(files)
         self.merge_output_format = output_format
         self.merge_output_path = output_path
+        self.page_order = page_order
 
     def run(self) -> None:
         self._merge_files()

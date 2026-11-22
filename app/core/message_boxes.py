@@ -234,7 +234,7 @@ def show_app_confirmation(
         text,
         (
             ("yes", yes_text, "danger" if destructive else "secondary"),
-            ("no", no_text, "secondary"),
+            ("no", no_text, "danger" if no_text == "Отмена" else "secondary"),
         ),
         icon=icon,
         default_key="no" if default_no else "yes",
@@ -271,7 +271,7 @@ def show_app_confirmation_with_checkbox(
         text,
         (
             ("yes", yes_text, "danger" if destructive else "secondary"),
-            ("no", no_text, "secondary"),
+            ("no", no_text, "danger" if no_text == "Отмена" else "secondary"),
         ),
         icon=icon,
         default_key="no" if default_no else "yes",

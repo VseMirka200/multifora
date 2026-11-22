@@ -454,7 +454,6 @@ class FileListPreviewMixin:
         model = table.model()
         for row, item in enumerate(model.files()):
             if item.path == issue.source:
-                table.selectRow(row)
                 table.scrollTo(model.index(row, model.COLUMN_NEW_NAME))
                 table.setFocus()
                 break

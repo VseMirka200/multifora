@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 from app.core.app_utils import signals_blocked
 from app.ui.ui_components import (
     AutoHeightTextEdit,
+    apply_standard_field_style,
     MenuLikeComboBox,
     resolve_widget_theme_mode,
     setup_standard_dialog,
@@ -149,7 +150,7 @@ class TemplateParamsNumberingMixin:
         container.setObjectName("template_numbering_card")
         layout = QVBoxLayout(container)
         layout.setSpacing(SPACE_SM)
-        layout.setContentsMargins(SPACE_NONE, SPACE_SM, SPACE_NONE, SPACE_SM)
+        layout.setContentsMargins(SPACE_NONE, SPACE_NONE, SPACE_NONE, SPACE_SM)
 
         self.template_numbering_mode = MenuLikeComboBox()
         self.template_numbering_mode.addItems(self._numbering_mode_items())
@@ -344,7 +345,7 @@ class TemplateParamsNumberingMixin:
         layout = QHBoxLayout(container)
         layout.setContentsMargins(*MARGINS_NONE)
         layout.setSpacing(SPACE_SM)
-        self.template_custom = AutoHeightTextEdit()
+        self.template_custom = AutoHeightTextEdit(self.template_params_widget)
         self.template_custom.setPlaceholderText(
             "например: фото_{num:03d,start=1,step=1}_{date}_{name}"
         )
@@ -352,6 +353,7 @@ class TemplateParamsNumberingMixin:
             "фото_{num:03d,start=1,step=1}_{date}_{name}"
         )
         self.template_custom.setProperty("renameTemplateField", True)
+        apply_standard_field_style(self.template_custom)
         self.template_custom.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )

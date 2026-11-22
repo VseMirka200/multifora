@@ -14,7 +14,7 @@ def create_worker_for_request(request: OperationRequest, sources: Sequence[Opera
     if isinstance(request, MergeRequest):
         from .merge_worker import MergeWorker
 
-        return MergeWorker(sources, request.output_format, request.output_path)
+        return MergeWorker(sources, request.output_format, request.output_path, request.page_order)
     if isinstance(request, RenameRequest):
         names = dict(request.pairs)
         if (

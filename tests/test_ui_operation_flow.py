@@ -113,7 +113,7 @@ def test_operation_panels_share_geometry(window, width):
         assert content.mapTo(window, QPoint()) == bounds[0][0]
 
 
-def test_queue_distinguishes_filters_highlight_and_work_marks(window, tmp_path):
+def test_queue_uses_only_checkmarks_and_respects_filters(window, tmp_path):
     assert window._list_header_layout.count() == 3
     panel = window.operation_result_panel
     assert not panel.isHidden()
@@ -127,8 +127,14 @@ def test_queue_distinguishes_filters_highlight_and_work_marks(window, tmp_path):
     assert window.drop_zone_controls.isHidden()
     QApplication.processEvents()
 
-    window.list_files.selectRow(1)
+    table = window.list_files
+    name_index = table.model().index(1, table.model().COLUMN_NAME)
+    QTest.mouseClick(table.viewport(), Qt.MouseButton.LeftButton, pos=table.visualRect(name_index).center())
+    assert not table.selectionModel().selectedIndexes()
+    assert window.label_item_size.text() == "Отмечено: 0"
+    table.select_paths([str(other)])
     assert "2.00 МБ" in window.label_item_size.text()
+    table.clearSelection()
     assert len(window._get_operation_file_items()) == 2
     model = window.list_files.model()
     model.setData(model.index(0, model.COLUMN_CHECK), Qt.CheckState.Checked, Qt.ItemDataRole.CheckStateRole)
@@ -164,7 +170,7 @@ def test_cancelled_result_keeps_queue_and_published_file(window, tmp_path):
     assert window.operation_result_panel.result.outcome == "cancelled"
 
 
-def test_conversion_sample_uses_highlighted_docx_and_keeps_queue(window, tmp_path):
+def test_conversion_uses_checked_docx_and_keeps_queue(window, tmp_path):
     sources = [tmp_path / f"{name}.docx" for name in ("first", "second")]
     for source in sources:
         document = Document()
@@ -179,12 +185,10 @@ def test_conversion_sample_uses_highlighted_docx_and_keeps_queue(window, tmp_pat
     window.to_convert_combo.setCurrentText("PDF")
     mode = window.combo_conversion_output_mode
     mode.setCurrentIndex(mode.findData("alongside"))
-    window.auto_clear_enabled_checkbox.setChecked(True)
-    window.auto_clear_convert_checkbox.setChecked(True)
-    assert not window.conversion_panel.btn_sample.isEnabled()
-    window.list_files.selectRow(1)
-    assert window.conversion_panel.btn_sample.isEnabled()
-    window.conversion_panel.btn_sample.click()
+    window.auto_clear_enabled_checkbox.setChecked(False)
+    window.list_files.select_paths([str(sources[1])])
+    assert window.btn_convert.isEnabled()
+    window.btn_convert.click()
     assert window.file_worker.wait(5000)
     QApplication.processEvents()
 
@@ -206,7 +210,7 @@ def test_merge_keyboard_order_matches_output(window, tmp_path):
         window.operations_stack.findChild(QWidget, "merge_page")
     ))
     assert window.list_files.verticalHeader().isHidden()
-    window.list_files.selectRow(2)
+    window.list_files.setCurrentIndex(window.list_files.model().index(2, 0))
     QTest.keyClick(window.list_files, Qt.Key.Key_Up, Qt.KeyboardModifier.AltModifier)
     model = window.list_files.model()
     assert not window.list_files.isColumnHidden(model.COLUMN_ORDER)
@@ -214,6 +218,7 @@ def test_merge_keyboard_order_matches_output(window, tmp_path):
     assert [model.index(row, model.COLUMN_ORDER).data() for row in range(3)] == [1, 2, 3]
     output = tmp_path / "combined.pdf"
     with (
+        patch("app.ui.mixins.worker_ops_mixin.choose_merge_pages", return_value=()),
         patch.object(window, "_select_merge_output_path_for_format", return_value=str(output)),
         patch.object(window, "show_russian_message_box", return_value=True),
     ):
