@@ -1,5 +1,4 @@
 import os
-import re
 from datetime import datetime
 
 from PySide6.QtWidgets import (
@@ -19,7 +18,8 @@ class TemplateApplyMixin:
     # Применяет параметры шаблона к именам для предпросмотра и последующего переименования.
     def on_template_selected(self, template_name):
         """Обработчик выбора шаблона"""
-        self.btn_save_template.setVisible(template_name == "Пользовательский шаблон")
+        self.btn_insert_token.setEnabled(template_name == "Пользовательский шаблон")
+        self.btn_save_template.setEnabled(template_name == "Пользовательский шаблон")
         if template_name == "Выбрать правило":
             self.current_template = None
             self.template_params_widget.setVisible(False)
@@ -47,8 +47,6 @@ class TemplateApplyMixin:
             self.create_remove_text_params()
         elif template_name == "Заменить текст другим":
             self.create_replace_text_params()
-        elif template_name == "Регулярное выражение":
-            self.create_regex_replace_params()
         elif template_name == "Изменить регистр":
             self.create_case_params()
         elif template_name == "Нумерация":
@@ -202,34 +200,6 @@ class TemplateApplyMixin:
                     if find_text
                     else old_name
                 )
-
-            elif self.current_template == "Регулярное выражение":
-                pattern = getattr(
-                    self, "template_regex_pattern", QLineEdit("")
-                ).text()
-                replacement = getattr(
-                    self, "template_regex_replace", QLineEdit("")
-                ).text()
-                ignore_case = bool(
-                    getattr(
-                        getattr(self, "template_regex_ignore_case", None),
-                        "isChecked",
-                        lambda: False,
-                    )()
-                )
-                if pattern:
-                    try:
-                        new_stem = rt.regex_replace(
-                            name_without_ext,
-                            pattern,
-                            replacement,
-                            ignore_case=ignore_case,
-                        )
-                        new_name = f"{new_stem}{ext}"
-                    except re.error as error:
-                        self._rename_template_error = (
-                            f"Ошибка регулярного выражения: {error}"
-                        )
 
             elif self.current_template == "Изменить регистр":
                 mode_widget = getattr(self, "template_case_mode", None)

@@ -1,6 +1,10 @@
+from PySide6.QtCore import QSize
 from PySide6.QtGui import QIcon
 
 from app.core.app_icons import _find_bundled_icon
+
+
+UI_ICON_SIZE = QSize(22, 22)
 
 
 def ui_icon(name, variant):
@@ -33,6 +37,7 @@ def apply_window_icons(window, mode):
         control.setIcon(ui_icon(name, mode))
 
     for button, name in (
+        (window.btn_apply_rename, "rename"),
         (window.btn_convert, "convert"),
         (window.btn_merge, "merge"),
         (window.btn_compress, "compress"),
@@ -40,5 +45,5 @@ def apply_window_icons(window, mode):
         button.setIcon(ui_icon(name, "on-color" if mode == "light" else "light"))
 
     for key, label in window.support_page.icons.items():
-        size = 40 if key == "guide" else 28
-        label.setPixmap(ui_icon(key, mode).pixmap(size, size))
+
+        label.setPixmap(ui_icon(key, mode).pixmap(UI_ICON_SIZE))

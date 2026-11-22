@@ -1,5 +1,4 @@
 from PySide6.QtWidgets import (
-    QCheckBox,
     QHBoxLayout,
     QLineEdit,
     QSpinBox,
@@ -96,37 +95,6 @@ class TemplateParamsTextMixin:
         setup_standard_line_input(self.template_replace)
         layout.addWidget(create_param_block("На что заменить:", self.template_replace))
 
-        self.template_params_layout.addWidget(container)
-
-    def create_regex_replace_params(self):
-        """Создаёт поля замены по регулярному выражению."""
-        container = QWidget()
-        layout = QHBoxLayout(container)
-        layout.setSpacing(SPACE_SM)
-        layout.setContentsMargins(*MARGINS_NONE)
-
-        self.template_regex_pattern = QLineEdit()
-        self.template_regex_pattern.setPlaceholderText(
-            r"например: ^IMG_(\d+)$"
-        )
-        self.template_regex_pattern.setProperty("renameTemplateField", True)
-        setup_standard_line_input(self.template_regex_pattern)
-        layout.addWidget(
-            create_param_block(
-                "Регулярное выражение:", self.template_regex_pattern
-            )
-        )
-
-        self.template_regex_replace = QLineEdit()
-        self.template_regex_replace.setPlaceholderText(r"например: Фото_\1")
-        self.template_regex_replace.setProperty("renameTemplateField", True)
-        setup_standard_line_input(self.template_regex_replace)
-        layout.addWidget(
-            create_param_block("Заменить на:", self.template_regex_replace)
-        )
-
-        self.template_regex_ignore_case = QCheckBox("Не учитывать регистр")
-        layout.addWidget(self.template_regex_ignore_case)
         self.template_params_layout.addWidget(container)
 
     def create_case_params(self):

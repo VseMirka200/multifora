@@ -78,16 +78,15 @@ class RibbonNavigation(QWidget):
 
 
 class RibbonStack(QStackedWidget):
-    """Выделяет всем панелям высоту самой высокой при текущей ширине."""
+    """Подбирает высоту панели по содержимому открытой вкладки."""
 
     def heightForWidth(self, width):
-        height = 0
-        for index in range(self.count()):
-            page = self.widget(index)
-            page.ensurePolished()
-            preferred = page.heightForWidth(width) if page.hasHeightForWidth() else page.sizeHint().height()
-            height = max(height, preferred, page.minimumSizeHint().height())
-        return height
+        page = self.currentWidget()
+        if page is None:
+            return 0
+        page.ensurePolished()
+        preferred = page.heightForWidth(width) if page.hasHeightForWidth() else page.sizeHint().height()
+        return max(0, preferred, page.minimumSizeHint().height())
 
     def sizeHint(self):
         hint = super().sizeHint()
@@ -136,7 +135,6 @@ class RibbonPage(QWidget):
             body = QVBoxLayout(card)
             body.setContentsMargins(16, 10, 16, 10)
             body.setSpacing(0)
-            body.addStretch()
             self.row = QHBoxLayout()
             body.addLayout(self.row)
             body.addStretch()

@@ -94,6 +94,8 @@ def build_workspace_style(theme: str) -> str:
         QFrame#operation_result {{ background: {background}; }}
         QFrame#file_info_panel {{ border: none; }}
         QWidget#workspace QWidget#conversion_formats {{ background: transparent; }}
+        QWidget#workspace QWidget#compress_page QStackedWidget,
+        QWidget#workspace QWidget#compress_page QStackedWidget .QWidget {{ background: transparent; }}
         QWidget#workspace QWidget#template_params_widget,
         QWidget#template_params_widget .QWidget,
         QWidget#template_params_widget QFrame#template_numbering_card {{ background: transparent; }}
@@ -187,15 +189,15 @@ def build_standard_button_style(theme: str, role: str) -> str:
         border, fg = (p["danger"], p["danger"])
     focus = p["fg"] if role == "primary" else p["accent"]
     return f"""
-        QPushButton {{
+        QAbstractButton {{
             background-color: {bg}; color: {fg}; border: 1px solid {border};
             border-radius: 7px; padding: 2px 9px; text-align: center;
             font-weight: 500; font-size: {BODY_PX}px;
         }}
-        QPushButton:hover {{ background-color: {hover}; border-color: {border}; }}
-        QPushButton:pressed {{ background-color: {pressed}; border-color: {border}; }}
-        QPushButton:focus {{ border: 2px solid {focus}; padding: 1px 8px; }}
-        QPushButton:disabled {{
+        QAbstractButton:hover {{ background-color: {hover}; border-color: {border}; }}
+        QAbstractButton:pressed {{ background-color: {pressed}; border-color: {border}; }}
+        QAbstractButton:focus {{ border: 2px solid {focus}; padding: 1px 8px; }}
+        QAbstractButton:disabled {{
             background-color: {disabled_bg}; color: {disabled_fg};
             border: 1px solid {disabled_border};
         }}

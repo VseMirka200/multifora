@@ -1,5 +1,5 @@
 from PySide6.QtCore import (
-    QSize,
+
     Qt,
     QUrl,
 )
@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QSizePolicy,
     QStackedWidget,
-    QFrame,
     QVBoxLayout,
     QWidget,
 )
@@ -24,10 +23,9 @@ from app.core.app_identity import (
 from app.ui.support_page import SupportPage
 from app.ui.ribbon import RibbonNavigation, RibbonPage, RibbonStack
 from app.ui.conversion_panel import ConversionPanel
-from app.ui.operation_layout import add_labeled_field, create_operation_card, create_operation_label
+from app.ui.operation_layout import add_labeled_field, create_operation_label
 from app.ui.ui_components import (
     IconButton,
-    MenuWidthButton,
     MenuLikeComboBox,
     resolve_widget_theme_mode,
     setup_clickable_checkbox_label,
@@ -41,7 +39,6 @@ from app.ui.ui_styles import (
     CHECKBOX_SIZE,
     CONTROL_HEIGHT,
     MARGINS_NONE,
-    OPERATIONS_PAGE_MARGINS,
     SPACE_NONE,
     SPACE_SM,
     TAB_BAR_HEIGHT,
@@ -143,9 +140,9 @@ class OperationsTabLayoutMixin:
         self._create_conversion_operation_page()
         self._create_compression_operation_page()
         self._create_merge_operation_page()
-        for button in (self.btn_apply_rename, self.btn_convert, self.btn_compress, self.btn_merge):
+        for button in (self.btn_open_rename_history, self.btn_convert, self.btn_compress, self.btn_merge):
             button.setFixedHeight(36)
-            button.setIconSize(QSize(22, 22))
+
         self.operations_tab_bar.layout().addStretch(1)
         self._settings_tab_index = self.operations_stack.count()
         self._add_operations_page(RibbonPage("settings"), "Настройки")
@@ -185,25 +182,45 @@ class OperationsTabLayoutMixin:
         self.template_params_layout.setSpacing(SPACE_SM)
 
         self.btn_apply_rename = IconButton("Переименовать")
+        self.btn_apply_rename.setAccessibleName("Переименовать")
+        self.btn_apply_rename.setToolTip("Переименовать")
         self.btn_apply_rename.clicked.connect(self.apply_rename)
         self.btn_apply_rename.setEnabled(False)
 
-        setup_standard_primary_button(self.btn_apply_rename)
+        setup_standard_primary_button(self.btn_apply_rename, expand=False)
         page = RibbonPage("rename", "Пакетное переименование")
-        tools = MenuWidthButton()
-        tools.setText("Шаблоны и история")
-        setup_standard_dropdown(tools)
-        tools.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        menu = tools.menu()
-        self.btn_open_rename_history = menu.addAction("История", self.show_rename_history_dialog)
-        self.btn_save_template = menu.addAction("Сохранить шаблон", self.save_current_template)
-        self.btn_manage_templates = menu.addAction("Управлять шаблонами", self.show_template_manager)
-        self.btn_save_template.setVisible(False)
-        page.heading_row.addWidget(tools)
+        commands = QHBoxLayout()
+        commands.setSpacing(SPACE_SM)
+        self.btn_insert_token = IconButton("Подстановки")
+        self.btn_save_template = IconButton("Сохранить")
+        self.btn_manage_templates = IconButton("Мои шаблоны")
+        for button, handler in (
+            (self.btn_insert_token, self._choose_template_token),
+            (self.btn_save_template, self.save_current_template),
+            (self.btn_manage_templates, self.show_template_manager),
+        ):
+            setup_standard_secondary_button(button, expand=True)
+            button.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
+            button.clicked.connect(handler)
+            commands.addWidget(button, 1)
+        self.btn_insert_token.setEnabled(False)
+        self.btn_save_template.setEnabled(False)
+        self.btn_open_rename_history = IconButton("История")
+        setup_standard_secondary_button(self.btn_open_rename_history)
+        self.btn_open_rename_history.clicked.connect(self.show_rename_history_dialog)
+
         row = page.row
-        add_labeled_field(row, "Правило", self.combo_templates)
-        row.addWidget(self.template_params_widget, 3)
-        row.addStretch()
+        rule_label = add_labeled_field(row, "Правило", self.combo_templates)
+        parameters = QVBoxLayout()
+        parameters.setSpacing(SPACE_SM)
+        parameters.addWidget(self.template_params_widget)
+        parameters.addLayout(commands)
+        row.addLayout(parameters, 3)
+        action = QVBoxLayout()
+        action.setContentsMargins(0, rule_label.height() + SPACE_SM, 0, 0)
+        action.addWidget(self.btn_apply_rename)
+        action.addStretch()
+        row.addLayout(action)
         row.setAlignment(row.itemAt(0).layout(), Qt.AlignmentFlag.AlignTop)
         self._add_operations_page(page, "Переименование")
 
@@ -229,12 +246,9 @@ class OperationsTabLayoutMixin:
         self.on_conversion_output_mode_changed()
         self.btn_convert = panel.btn_convert
         page = RibbonPage("convert", "Конвертация файлов")
-        options = page.options_button("Параметры сохранения", panel.card, "Сохранение")
+        panel.card.setParent(page)
+        panel.card.hide()
         page.row.addWidget(panel.formats, 1)
-        divider = QFrame()
-        divider.setFrameShape(QFrame.Shape.VLine)
-        page.row.addWidget(divider)
-        page.row.addWidget(options, 0, Qt.AlignmentFlag.AlignBottom)
         page.row.addWidget(panel.btn_sample, 0, Qt.AlignmentFlag.AlignBottom)
         self._add_operations_page(page, "Конвертация")
 
@@ -338,7 +352,10 @@ class OperationsTabLayoutMixin:
             "Уровень сжатия PNG/JPG:",
             self.combo_compression_level,
         )
-        image_mode_layout.addWidget(self.compression_level_widget)
+        fields = QHBoxLayout()
+        fields.setSpacing(12)
+        fields.addWidget(self.compression_level_widget, 1)
+        image_mode_layout.addLayout(fields)
 
         self.combo_image_output_mode = MenuLikeComboBox()
         self.combo_image_output_mode.addItem(
@@ -354,10 +371,11 @@ class OperationsTabLayoutMixin:
             self.on_image_output_mode_changed
         )
         add_labeled_field(
-            image_mode_layout,
+            fields,
             "Способ сохранения:",
             self.combo_image_output_mode,
         )
+        fields.setStretch(1, 1)
 
         self.image_output_path_widget = QWidget()
         image_output_path_layout = QHBoxLayout(self.image_output_path_widget)
@@ -395,10 +413,8 @@ class OperationsTabLayoutMixin:
 
     def _create_compression_operation_page(self) -> None:
         """Создаёт страницу сжатия."""
-        compress_card, compress_layout = create_operation_card(
-            align_top=True
-        )
-        compress_layout.setContentsMargins(*OPERATIONS_PAGE_MARGINS)
+        compress_layout = QVBoxLayout()
+        compress_layout.setSpacing(SPACE_SM)
 
         self.combo_compress_type = MenuLikeComboBox()
         self.combo_compress_type.addItems(["Изображения", "PDF документы"])
@@ -427,7 +443,6 @@ class OperationsTabLayoutMixin:
         setup_standard_primary_button(self.btn_compress)
         self.btn_compress.clicked.connect(self.compress_files)
         self.btn_compress.setEnabled(False)
-        compress_layout.addSpacing(SPACE_SM)
 
         self.compress_tips_label = self._create_operation_hint_label("")
         self.compress_tips_label.setWordWrap(True)
@@ -444,10 +459,9 @@ class OperationsTabLayoutMixin:
         page = RibbonPage("compress", "Сжатие файлов")
         self.combo_compress_type.setMaximumWidth(360)
         add_labeled_field(page.row, "Тип файлов", self.combo_compress_type)
-        options = page.options_button("Параметры сжатия", compress_card, "Параметры сжатия")
-        page.row.setStretch(0, 2)
-        page.row.addWidget(options, 0, Qt.AlignmentFlag.AlignBottom)
-        page.row.addStretch(1)
+        page.row.setStretch(0, 1)
+        page.row.setAlignment(page.row.itemAt(0).layout(), Qt.AlignmentFlag.AlignTop)
+        page.row.addLayout(compress_layout, 2)
         self._add_operations_page(page, "Сжатие")
 
     def _add_operations_page(self, page: QWidget, label: str) -> None:

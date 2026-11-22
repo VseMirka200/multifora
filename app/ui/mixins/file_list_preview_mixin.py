@@ -107,7 +107,7 @@ class FileListPreviewMixin:
                 label.setText("Нет файлов")
             if hasattr(self, "btn_apply_rename"):
                 self.btn_apply_rename.setEnabled(False)
-                self.btn_apply_rename.setText("Переименовать")
+                self.btn_apply_rename.setToolTip("Переименовать")
             self._set_preview_names_to_original()
             self._refresh_list_preview()
             if show_empty_warning:
@@ -124,7 +124,7 @@ class FileListPreviewMixin:
                 label.setText("Выберите правило")
             if hasattr(self, "btn_apply_rename"):
                 self.btn_apply_rename.setEnabled(False)
-                self.btn_apply_rename.setText("Переименовать")
+                self.btn_apply_rename.setToolTip("Переименовать")
             self._set_preview_names_to_original()
             self._refresh_list_preview()
             return
@@ -133,7 +133,7 @@ class FileListPreviewMixin:
         if getattr(self, "_rename_template_error", ""):
             self._rename_plan_issues = []
             self.btn_apply_rename.setEnabled(False)
-            self.btn_apply_rename.setText("Переименовать")
+            self.btn_apply_rename.setToolTip("Переименовать")
             if label is not None:
                 label.setText("Ошибка правила")
                 label.setToolTip(self._rename_template_error)
@@ -165,7 +165,7 @@ class FileListPreviewMixin:
                 blocking = True
                 self._rename_template_error = str(error)
         self.btn_apply_rename.setEnabled(has_changes and not blocking)
-        self.btn_apply_rename.setText(
+        self.btn_apply_rename.setToolTip(
             f"Переименовать ({len(changed_pairs)})" if has_changes and not blocking else "Переименовать"
         )
         model = self.list_files.model()

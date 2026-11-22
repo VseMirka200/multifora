@@ -85,7 +85,10 @@ def test_empty_queue_controls_centered_in_file_viewport(window):
 @pytest.mark.parametrize("width", [900, 1200])
 def test_operation_panels_share_geometry(window, width):
     window.resize(width, 650)
+    window.combo_templates.setCurrentText("Пользовательский шаблон")
+    window.template_custom.setFixedHeight(140)
     bounds = []
+    heights = []
     fields = (window.combo_templates, window.convert_file_type_combo, window.combo_compress_type)
     field_positions = []
     for index in range(4):
@@ -93,11 +96,16 @@ def test_operation_panels_share_geometry(window, width):
         QApplication.processEvents()
         page = window.operations_stack.currentWidget()
         card = page.findChild(QFrame, "operation_options")
-        bounds.append((card.mapTo(window, QPoint()), card.size(),
-                       window.input_search.mapTo(window, QPoint())))
+        bounds.append((card.mapTo(window, QPoint()), card.width()))
+        heights.append(window.operations_stack.height())
         if index < len(fields):
             field_positions.append(fields[index].mapTo(window, QPoint()))
     assert bounds == [bounds[0]] * 4
+    assert all(height < heights[0] for height in heights[1:])
+    window.operations_tab_bar.setCurrentIndex(0)
+    QApplication.processEvents()
+    assert window.template_custom.height() == 140
+    assert window.operations_stack.height() > max(heights[1:])
     assert field_positions == [field_positions[0]] * 3
     for index, content in ((4, window.settings_panel_widget), (5, window.support_page)):
         window.operations_tab_bar.setCurrentIndex(index)
@@ -267,6 +275,10 @@ def test_ribbon_keeps_parameters_and_queue_accessible(window):
             assert window.rename_status_group.parentWidget() is window.label_total_size.parentWidget()
             assert window.template_prefix.text() == "готово_"
             assert window.btn_apply_rename.isVisible()
+            QApplication.processEvents()
+            assert len({field.mapTo(window, QPoint()).y() for field in (
+                window.combo_templates, window.template_prefix, window.btn_apply_rename
+            )}) == 1
             assert window.queue_panel.width() == window.ribbon_panel.width()
             assert window.queue_panel.height() > window.ribbon_panel.height()
 

@@ -326,7 +326,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 ]
                 self.assertTrue(standard_buttons)
                 large_buttons = {
-                    window.btn_apply_rename, window.btn_merge,
+                    window.btn_open_rename_history, window.btn_merge,
                     window.btn_compress, window.btn_convert, window.support_page.guide,
                 }
                 for button in standard_buttons:
@@ -653,7 +653,7 @@ class MainWindowSmokeTests(unittest.TestCase):
 
             try:
                 with patch.object(QDialog, "exec", new=inspect_dialog):
-                    window.btn_open_rename_history.trigger()
+                    window.btn_open_rename_history.click()
                 self.assertIn("dialog", captured)
                 self.assertIsNone(window.rename_history_list)
                 self.assertIsNone(window.btn_history_undo)
@@ -1163,7 +1163,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.show()
                 QApplication.processEvents()
                 self.assertTrue(window.template_custom.isVisible())
-                self.assertEqual(window.template_params_widget.findChildren(QPushButton), [window.insert_token_button])
+                self.assertTrue(window.btn_insert_token.isEnabled())
 
                 def click_name(dialog):
                     dialog.show()
@@ -1184,11 +1184,11 @@ class MainWindowSmokeTests(unittest.TestCase):
                     cursor.setPosition(1)
                     window.template_custom.setTextCursor(cursor)
                     with patch.object(QDialog, "exec", click_name):
-                        window.insert_token_button.click()
+                        window.btn_insert_token.click()
                     self.assertEqual(window.template_custom.text(), "A{name}B")
                     self.assertEqual(window.template_custom.textCursor().position(), 7)
                     with patch.object(QDialog, "exec", return_value=QDialog.DialogCode.Rejected):
-                        window.insert_token_button.click()
+                        window.btn_insert_token.click()
                     self.assertEqual(window.template_custom.text(), "A{name}B")
                 self.assertTrue(window.btn_save_template.isVisible())
                 self.assertTrue(window.btn_manage_templates.isVisible())
@@ -1262,7 +1262,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window._settings_save_timer.stop()
                 window.deleteLater()
 
-    def test_regex_and_case_controls_exist_without_advanced_rename_options(
+    def test_removed_regex_rule_and_remaining_case_controls(
         self,
     ):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -1295,20 +1295,11 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.files = [FileItem(source)]
                 window.update_file_list()
 
-                window.on_template_selected("Регулярное выражение")
-                window.template_regex_pattern.setText(r"^img_(\d+)$")
-                window.template_regex_replace.setText(r"Фото_\1")
-                window.template_regex_ignore_case.setChecked(True)
-                window.refresh_rename_preview()
-                self.assertEqual(window.list_files.model().preview_for(window.files[0]).preview_name, "Фото_0042.JPG")
-
-                window.template_regex_pattern.setText("[")
-                window.refresh_rename_preview()
-                self.assertFalse(window.btn_apply_rename.isEnabled())
-                self.assertIn(
-                    "Ошибка регулярного выражения",
-                    window.rename_validation_label.toolTip(),
-                )
+                removed_rule = "Регулярное выражение"
+                self.assertEqual(window.combo_templates.findText(removed_rule), -1)
+                previous_rule = window.combo_templates.currentText()
+                window.restore_template_session_state({"selected_template": removed_rule})
+                self.assertEqual(window.combo_templates.currentText(), previous_rule)
 
                 window.on_template_selected("Изменить регистр")
                 window.template_case_mode.setCurrentIndex(

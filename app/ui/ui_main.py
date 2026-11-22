@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 from shiboken6 import isValid
 
-from app.ui.ui_icons import apply_window_icons, ui_icon
+from app.ui.ui_icons import UI_ICON_SIZE, apply_window_icons, ui_icon
 from app.core.app_icons import _get_app_icon_qt_path
 from app.core.app_identity import APP_WINDOW_TITLE
 from app.core.app_ipc import _drain_queued_files
@@ -918,7 +918,7 @@ class MultiforaMainWindow(
         self.operation_result_panel = OperationResultPanel()
         self.operation_result_panel.retry_requested.connect(self._retry_failed_operation)
         self.launch_buttons = {
-            "rename": self.btn_apply_rename,
+            "rename": self.btn_open_rename_history,
             "convert": self.btn_convert,
             "compress": self.btn_compress,
             "merge": self.btn_merge,
@@ -1097,7 +1097,7 @@ class MultiforaMainWindow(
                 self.drop_zone_hint_label.setStyleSheet(
                     build_drop_zone_hint_style(mode)
                 )
-        self.drop_document.setPixmap(ui_icon("document", mode).pixmap(42, 42))
+        self.drop_document.setPixmap(ui_icon("document", mode).pixmap(UI_ICON_SIZE))
         self.centralWidget().setStyleSheet(build_workspace_style(mode))
         self.list_files.horizontalHeader().setFixedHeight(32)
 

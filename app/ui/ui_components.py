@@ -1,5 +1,4 @@
 
-from math import ceil
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import (
@@ -9,7 +8,7 @@ from PySide6.QtCore import (
     QRect,
     QSize,
     Qt,
-    QTimer,
+    QEvent,
     Signal,
 )
 from PySide6.QtGui import (
@@ -44,6 +43,7 @@ from PySide6.QtWidgets import (
     QStyleOptionToolButton,
     QStylePainter,
     QTextEdit,
+    QAbstractButton,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -51,6 +51,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.core.app_utils import _log_ignored_error
+from app.ui.ui_icons import UI_ICON_SIZE
 from app.ui.ui_styles import (
     ACTION_BUTTON_HEIGHT,
     FIELD_HEIGHT,
@@ -160,7 +161,7 @@ def refresh_standard_button_styles(root: QWidget):
     if root is None:
         return root
     try:
-        for widget in root.findChildren(QPushButton):
+        for widget in root.findChildren(QAbstractButton):
             role = widget.property("buttonVariant")
             if not role:
                 continue
@@ -232,7 +233,7 @@ class AutoHeightTextEdit(QTextEdit):
         super().__init__(parent)
         self.setAcceptRichText(False)
         self.document().setDocumentMargin(0)
-        self.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+        self.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
         self.setWordWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
         self.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff
@@ -241,30 +242,42 @@ class AutoHeightTextEdit(QTextEdit):
         self.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
-        self.textChanged.connect(self._update_auto_height)
-        QTimer.singleShot(0, self, self._update_auto_height)
+        self._resize_grip = QWidget(self)
+        self._resize_grip.setStyleSheet("background: transparent;")
+        self._resize_grip.setCursor(Qt.CursorShape.SizeVerCursor)
+        self._resize_grip.setToolTip("Потяните нижний край, чтобы изменить высоту поля")
+        self._drag_start = None
+        self._resize_grip.installEventFilter(self)
+        self.setFixedHeight(FIELD_HEIGHT)
 
     def setText(self, text: str):
         self.setPlainText(str(text or "").replace("\r", "").replace("\n", ""))
-        self._update_auto_height()
 
     def text(self) -> str:
         return self.toPlainText().replace("\r", "").replace("\n", "")
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self._update_auto_height()
+        self._resize_grip.setGeometry(1, self.height() - 5, self.width() - 2, 5)
+        self._resize_grip.raise_()
 
-    def _update_auto_height(self):
-        try:
-            self.document().setTextWidth(max(0, self.viewport().width()))
-            doc_height = (
-                self.document().documentLayout().documentSize().height()
-            )
-            frame = self.frameWidth() * 2
-            self.setFixedHeight(max(FIELD_HEIGHT, ceil(doc_height) + frame))
-        except Exception:
-            self.setFixedHeight(max(FIELD_HEIGHT, self.height()))
+    def eventFilter(self, watched, event):
+        if watched is getattr(self, "_resize_grip", None):
+            if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
+                self._drag_start = (event.globalPosition().y(), self.height())
+                return True
+            if event.type() == QEvent.Type.MouseMove and self._drag_start is not None:
+                start_y, start_height = self._drag_start
+                height = max(FIELD_HEIGHT, round(start_height + event.globalPosition().y() - start_y))
+                self.setFixedHeight(min(height, max(FIELD_HEIGHT, self.window().height() // 2)))
+                expanded = self.height() > FIELD_HEIGHT
+                self.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth if expanded else QTextEdit.LineWrapMode.NoWrap)
+                self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded if expanded else Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+                return True
+            if event.type() == QEvent.Type.MouseButtonRelease:
+                self._drag_start = None
+                return True
+        return super().eventFilter(watched, event)
 
 
 class ComboPopupItemDelegate(QStyledItemDelegate):
@@ -403,7 +416,8 @@ def setup_standard_action_button(
         widget.setObjectName("convert_btn")
     elif variant == "danger" and not widget.objectName():
         widget.setObjectName("cancel_operation_btn")
-    widget.setFlat(False)
+    if isinstance(widget, QPushButton):
+        widget.setFlat(False)
     widget.setStyleSheet(
         build_standard_button_style(resolve_widget_theme_mode(widget), role)
     )
@@ -994,6 +1008,10 @@ def draw_icon_caption(painter, rect, icon, icon_size, text, enabled, *,
 
 
 class IconButton(QPushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setIconSize(UI_ICON_SIZE)
+
     def sizeHint(self):
         hint = super().sizeHint()
         if self.icon().isNull():
@@ -1073,7 +1091,7 @@ class DropActionTile(QFrame):
         if not icon.isNull():
             icon_label = QLabel()
             icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            icon_label.setPixmap(icon.pixmap(QSize(48, 48)))
+            icon_label.setPixmap(icon.pixmap(UI_ICON_SIZE))
             icon_label.setAttribute(
                 Qt.WidgetAttribute.WA_TransparentForMouseEvents, True
             )

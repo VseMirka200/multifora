@@ -4,6 +4,7 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPalette, QPen
 from PySide6.QtWidgets import QProxyStyle, QStyle
 
+from app.ui.ui_icons import UI_ICON_SIZE
 from app.ui.palette import standard_palette
 from app.ui.ui_styles import CHECKBOX_SIZE
 
@@ -64,6 +65,8 @@ class CheckboxStyle(QProxyStyle):
         super().drawPrimitive(element, option, painter, widget)
 
     def pixelMetric(self, metric, option=None, widget=None):
+        if metric in (QStyle.PixelMetric.PM_SmallIconSize, QStyle.PixelMetric.PM_ButtonIconSize, QStyle.PixelMetric.PM_ToolBarIconSize):
+            return UI_ICON_SIZE.width()
         if metric in (
             QStyle.PixelMetric.PM_IndicatorWidth,
             QStyle.PixelMetric.PM_IndicatorHeight,

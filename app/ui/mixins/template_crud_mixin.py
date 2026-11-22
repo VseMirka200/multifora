@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from PySide6.QtCore import QModelIndex, QSize, Qt, QTimer
+from PySide6.QtCore import QModelIndex, Qt, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -24,7 +24,7 @@ from app.ui.ui_components import (
     setup_standard_primary_button,
     setup_standard_secondary_button,
 )
-from app.ui.ui_icons import ui_icon
+from app.ui.ui_icons import UI_ICON_SIZE, ui_icon
 from app.ui.ui_styles import DIALOG_MARGINS, MARGINS_NONE, SPACE_SM, build_template_table_style
 
 
@@ -284,18 +284,6 @@ class TemplateCrudMixin:
             else:
                 return None
 
-        elif self.current_template == "Регулярное выражение":
-            if hasattr(self, "template_regex_pattern"):
-                template_data["pattern"] = self.template_regex_pattern.text()
-                template_data["replacement"] = (
-                    self.template_regex_replace.text()
-                )
-                template_data["ignore_case"] = (
-                    self.template_regex_ignore_case.isChecked()
-                )
-            else:
-                return None
-
         elif self.current_template == "Изменить регистр":
             if hasattr(self, "template_case_mode"):
                 template_data["case_mode"] = (
@@ -540,7 +528,7 @@ class TemplateCrudMixin:
         self.templates_table.setAlternatingRowColors(True)
         self.templates_table.setShowGrid(False)
         self.templates_table.setAutoFillBackground(False)
-        self.templates_table.setIconSize(QSize(16, 16))
+        self.templates_table.setIconSize(UI_ICON_SIZE)
         self.templates_table.verticalHeader().setVisible(False)
         self.templates_table.setContextMenuPolicy(
             Qt.ContextMenuPolicy.CustomContextMenu
@@ -607,7 +595,6 @@ class TemplateCrudMixin:
             "Удалить символы с конца",
             "Удалить определенный текст",
             "Заменить текст другим",
-            "Регулярное выражение",
             "Изменить регистр",
             "Нумерация",
             "Дата в начале названия",

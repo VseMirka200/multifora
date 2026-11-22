@@ -17,10 +17,8 @@ from PySide6.QtWidgets import (
 from app.core.app_utils import signals_blocked
 from app.ui.ui_components import (
     AutoHeightTextEdit,
-    IconButton,
     MenuLikeComboBox,
     resolve_widget_theme_mode,
-    setup_standard_action_button,
     setup_standard_dialog,
     setup_standard_dropdown,
     setup_standard_form_label,
@@ -358,10 +356,6 @@ class TemplateParamsNumberingMixin:
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
         )
         layout.addWidget(self.template_custom, 1)
-        self.insert_token_button = IconButton("Вставить подстановку…")
-        setup_standard_action_button(self.insert_token_button, variant="command", expand=False)
-        self.insert_token_button.clicked.connect(self._choose_template_token)
-        layout.addWidget(self.insert_token_button, 0, Qt.AlignmentFlag.AlignTop)
         self.template_params_layout.addWidget(create_param_block("Шаблон имени", container))
 
     def _choose_template_token(self):
