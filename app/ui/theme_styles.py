@@ -868,38 +868,19 @@ QMenu {{
 QMenu#menu_like_combo_popup,
 QMenu#header_dropdown_popup,
 QMenu#help_menu_popup {{
-    border-top-left-radius: 0px;
-    border-top-right-radius: 0px;
-    border-bottom-left-radius: 4px;
-    border-bottom-right-radius: 4px;
-    padding-bottom: 0px;
-}}
-QMenu#header_dropdown_popup,
-QMenu#menu_like_combo_popup {{
-    border-top-color: {background};
+    border-radius: 4px;
+    menu-scrollable: 1;
+    icon-size: 18px;
 }}
 QMenu::item,
 QMenu QListWidget#scrollable_filter_list::item {{
-    padding: 4px 8px;
+    min-height: 28px;
+    max-height: 28px;
+    padding: 0px 8px;
     margin: 0px;
     border: 0px;
     background-color: {background};
     color: {foreground};
-}}
-QMenu#header_dropdown_popup::item {{
-    padding-left: 4px;
-    padding-right: 4px;
-}}
-QMenu#menu_like_combo_popup::item {{
-    padding-left: 3px;
-    padding-right: 4px;
-}}
-QMenu#help_menu_popup::item {{
-    min-height: 18px;
-    max-height: 18px;
-    padding: 0px 4px;
-    font-size: {CAPTION_PX}px;
-    font-weight: 500;
 }}
 QMenu::item:hover,
 QMenu::item:selected,

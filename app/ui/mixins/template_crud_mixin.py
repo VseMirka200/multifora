@@ -8,7 +8,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QMenu,
     QMessageBox,
     QSizePolicy,
     QTableWidget,
@@ -19,12 +18,13 @@ from PySide6.QtWidgets import (
 from app.core.app_utils import _log_ignored_error
 from app.ui.ui_components import (
     IconButton,
+    StandardPopupMenu,
     get_russian_text_input,
     setup_standard_dialog,
     setup_standard_primary_button,
     setup_standard_secondary_button,
 )
-from app.ui.ui_icons import UI_ICON_SIZE, ui_icon
+from app.ui.ui_icons import UI_ICON_SIZE
 from app.ui.ui_styles import DIALOG_MARGINS, MARGINS_NONE, SPACE_SM, build_template_table_style
 
 
@@ -193,10 +193,10 @@ class TemplateCrudMixin:
         if not template_name:
             return
 
-        menu = QMenu(self.templates_table)
-        action_apply = menu.addAction("Применить")
-        action_rename = menu.addAction("Переименовать")
-        action_delete = menu.addAction("Удалить")
+        menu = StandardPopupMenu(theme_widget=self)
+        action_apply = menu.add_command("Применить", icon_name="check-document")
+        action_rename = menu.add_command("Переименовать", icon_name="rename")
+        action_delete = menu.add_command("Удалить", icon_name="remove")
 
         selected_action = menu.exec(
             self.templates_table.viewport().mapToGlobal(pos)
@@ -418,6 +418,7 @@ class TemplateCrudMixin:
             QMessageBox.Icon.Question,
             True,
             yes_text="Удалить",
+            yes_icon="remove",
             no_text="Отмена",
             destructive=True,
         )
@@ -469,19 +470,18 @@ class TemplateCrudMixin:
         actions_layout.setContentsMargins(*MARGINS_NONE)
         actions_layout.setSpacing(SPACE_SM)
 
-        mode = dialog._effective_theme_mode
-        export_btn = IconButton(ui_icon("export", mode), "Экспорт шаблонов", dialog)
-        setup_standard_secondary_button(export_btn, expand=True)
+        export_btn = IconButton("Экспорт шаблонов", dialog)
+        setup_standard_secondary_button(export_btn, expand=True, icon_name="export")
         export_btn.clicked.connect(self.export_templates)
         actions_layout.addWidget(export_btn, 1)
 
-        import_btn = IconButton(ui_icon("import", mode), "Импорт шаблонов", dialog)
-        setup_standard_secondary_button(import_btn, expand=True)
+        import_btn = IconButton("Импорт шаблонов", dialog)
+        setup_standard_secondary_button(import_btn, expand=True, icon_name="import")
         import_btn.clicked.connect(lambda: self.import_templates(dialog))
         actions_layout.addWidget(import_btn, 1)
 
-        apply_btn = IconButton(ui_icon("check-document", mode), "Применить", dialog)
-        setup_standard_primary_button(apply_btn, expand=True)
+        apply_btn = IconButton("Применить", dialog)
+        setup_standard_primary_button(apply_btn, expand=True, icon_name="check-document")
         apply_btn.setEnabled(False)
         apply_btn.clicked.connect(lambda: self.load_selected_template(dialog))
         actions_layout.addWidget(apply_btn, 1)

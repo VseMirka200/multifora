@@ -215,6 +215,8 @@ def build_standard_button_style(theme: str, role: str) -> str:
             font-weight: 500; font-size: {BODY_PX}px;
         }}
         QAbstractButton:hover {{ background-color: {hover}; border-color: {border}; }}
+        QAbstractButton[menuOpen="true"] {{ border-color: {p["accent"]}; }}
+        QPushButton::menu-indicator {{ image: none; width: 0px; }}
         QAbstractButton:checked {{ background-color: {p["progress"]}; color: {p["fg"]}; border-color: {p["accent"]}; }}
         QAbstractButton:checked:hover {{ background-color: {p["command_hover"]}; }}
         QAbstractButton:pressed {{ background-color: {pressed}; border-color: {border}; }}
@@ -382,8 +384,7 @@ def build_standard_field_style(theme: str, kind: str) -> str:
                 border-bottom-right-radius: {STANDARD_RADIUS}px;
             }}
             QComboBox:on {{
-                border-bottom-left-radius: 0px;
-                border-bottom-right-radius: 0px;
+                border-color: {p["accent"]};
             }}
             QComboBox:on::drop-down {{
                 border-bottom-right-radius: 0px;
@@ -426,13 +427,11 @@ def build_standard_field_style(theme: str, kind: str) -> str:
                 border-color: {p["accent"]};
             }}
             QToolButton#menu_like_combo[menuOpen="true"] {{
-                border-bottom-left-radius: 0px;
-                border-bottom-right-radius: 0px;
+                border-color: {p["accent"]};
             }}
             QToolButton#menu_like_combo::menu-indicator {{
-                subcontrol-origin: padding;
-                subcontrol-position: right center;
-                right: 6px;
+                image: none;
+                width: 0px;
             }}
             QToolButton#menu_like_combo:hover:enabled {{
                 border: 1px solid {p["hover_border"]};
@@ -464,8 +463,7 @@ def build_standard_field_style(theme: str, kind: str) -> str:
             }}
             QToolButton#header_cell_tl[menuOpen="true"],
             QToolButton#header_cell_tr[menuOpen="true"] {{
-                border-bottom-left-radius: 0px;
-                border-bottom-right-radius: 0px;
+                border-color: {p["accent"]};
             }}
             QLineEdit#header_cell_br {{
                 font-size: {BODY_PX}px;
@@ -477,9 +475,8 @@ def build_standard_field_style(theme: str, kind: str) -> str:
             }}
             QToolButton#header_cell_tl::menu-indicator,
             QToolButton#header_cell_tr::menu-indicator {{
-                subcontrol-origin: padding;
-                subcontrol-position: right center;
-                right: 6px;
+                image: none;
+                width: 0px;
             }}
             QToolButton#header_cell_tl:pressed,
             QToolButton#header_cell_tr:pressed {{

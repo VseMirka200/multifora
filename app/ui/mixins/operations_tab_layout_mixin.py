@@ -196,6 +196,7 @@ class OperationsTabLayoutMixin:
         commands.setContentsMargins(*MARGINS_NONE)
         commands.setSpacing(SPACE_SM)
         self.btn_insert_token = IconButton("Подстановки")
+        self.btn_insert_token.setProperty("hasPopup", True)
         self.btn_save_template = IconButton("Сохранить")
         self.btn_manage_templates = IconButton("Мои шаблоны")
         for button, handler in (

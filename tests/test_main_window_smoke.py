@@ -7,7 +7,7 @@ from uuid import uuid4
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QEventLoop, QProcess, Qt, QTimer
+from PySide6.QtCore import QEventLoop, QPoint, QProcess, Qt, QTimer
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import (
     QApplication,
@@ -18,7 +18,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
-    QTreeWidget,
 )
 
 from app.core.app_identity import APP_VERSION, GITHUB_NEW_ISSUE_URL, GUIDE_URL
@@ -1165,30 +1164,45 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertTrue(window.template_custom.isVisible())
                 self.assertTrue(window.btn_insert_token.isEnabled())
 
-                def click_name(dialog):
-                    dialog.show()
+                def click_name(menu):
                     QApplication.processEvents()
-                    choices = dialog.findChild(QTreeWidget)
-                    tokens = {choices.topLevelItem(i).text(1) for i in range(choices.topLevelItemCount())}
+                    tokens = {action.data() for action in menu.actions()}
                     self.assertEqual(tokens, {"{name}", "{num:03d,start=1,step=1}", "{date}", "{ext}",
                                               "{created}", "{modified}", "{exif_date}", "{width}", "{height}"})
-                    item = choices.topLevelItem(0)
-                    QTest.mouseClick(choices.viewport(), Qt.MouseButton.LeftButton,
-                                     pos=choices.visualItemRect(item).center())
-                    return dialog.result()
+                    self.assertTrue(all(not action.icon().isNull() for action in menu.actions()))
+                    QTest.mouseClick(menu, Qt.MouseButton.LeftButton,
+                                     pos=menu.actionGeometry(menu.actions()[0]).center())
 
                 for mode in ("light", "dark"):
                     window.apply_theme_mode(mode)
+                    field = window.template_custom
+                    field.setText("hello world")
+                    field.setFocus()
+                    field.setCursorPosition(0)
+                    QApplication.processEvents()
+                    QTest.mouseDClick(field, Qt.MouseButton.LeftButton,
+                                      pos=QPoint(20, field.height() // 2))
+                    self.assertEqual(field.selectedText(), "hello")
+                    QTest.keyClick(field, Qt.Key.Key_C, Qt.KeyboardModifier.ControlModifier)
+                    self.assertEqual(QApplication.clipboard().text(), "hello")
+                    QTest.keyClick(field, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier)
+                    self.assertEqual(field.selectedText(), "hello world")
+                    QTest.keyClick(field, Qt.Key.Key_X, Qt.KeyboardModifier.ControlModifier)
+                    self.assertEqual(field.text(), "")
+                    QTest.keyClick(field, Qt.Key.Key_V, Qt.KeyboardModifier.ControlModifier)
+                    self.assertEqual(field.text(), "hello world")
+                    QTest.keyClick(field, Qt.Key.Key_Z, Qt.KeyboardModifier.ControlModifier)
+                    self.assertEqual(field.text(), "")
+                    QTest.keyClick(field, Qt.Key.Key_Y, Qt.KeyboardModifier.ControlModifier)
+                    self.assertEqual(field.text(), "hello world")
                     window.template_custom.setText("AB")
-                    cursor = window.template_custom.textCursor()
-                    cursor.setPosition(1)
-                    window.template_custom.setTextCursor(cursor)
-                    with patch.object(QDialog, "exec", click_name):
-                        window.btn_insert_token.click()
+                    window.template_custom.setCursorPosition(1)
+                    window.btn_insert_token.click()
+                    click_name(window._template_token_menu)
                     self.assertEqual(window.template_custom.text(), "A{name}B")
-                    self.assertEqual(window.template_custom.textCursor().position(), 7)
-                    with patch.object(QDialog, "exec", return_value=QDialog.DialogCode.Rejected):
-                        window.btn_insert_token.click()
+                    self.assertEqual(window.template_custom.cursorPosition(), 7)
+                    window.btn_insert_token.click()
+                    QTest.keyClick(window._template_token_menu, Qt.Key.Key_Escape)
                     self.assertEqual(window.template_custom.text(), "A{name}B")
                 self.assertTrue(window.btn_save_template.isVisible())
                 self.assertTrue(window.btn_manage_templates.isVisible())

@@ -34,8 +34,9 @@ def _setup_message_box_button(
     button: QPushButton,
     *,
     variant: str = "secondary",
+    icon_name: str | None = None,
 ) -> QPushButton:
-    setup_standard_action_button(button, variant=variant, expand=True)
+    setup_standard_action_button(button, variant=variant, expand=True, icon_name=icon_name)
     try:
         button.ensurePolished()
         button.updateGeometry()
@@ -80,6 +81,7 @@ def show_app_choice(
     cancel_key: str | None = None,
     extra_widget=None,
     confirmation_shortcuts: bool = True,
+    button_icons: dict[str, str] | None = None,
 ) -> str | None:
     """Показывает единый диалог приложения и возвращает ключ выбранной кнопки."""
     choices = tuple(choices)
@@ -162,7 +164,8 @@ def show_app_choice(
     for key, label, variant in choices:
         button = QPushButton(label, dialog)
         button.setObjectName(f"appMessageButton_{key}")
-        button = _setup_message_box_button(button, variant=variant)
+        icon_name = (button_icons or {}).get(key, "close" if key in {"cancel", "no"} else None)
+        button = _setup_message_box_button(button, variant=variant, icon_name=icon_name)
         button.clicked.connect(
             lambda _checked=False, choice_key=key: select(choice_key)
         )
@@ -227,6 +230,7 @@ def show_app_confirmation(
     yes_text: str = "Да",
     no_text: str = "Нет",
     destructive: bool = False,
+    yes_icon: str | None = None,
 ) -> bool:
     result = show_app_choice(
         parent,
@@ -240,6 +244,7 @@ def show_app_confirmation(
         default_key="no" if default_no else "yes",
         cancel_key="no",
         confirmation_shortcuts=not destructive,
+        button_icons={"yes": yes_icon} if yes_icon else None,
     )
     return result == "yes"
 
@@ -256,6 +261,7 @@ def show_app_confirmation_with_checkbox(
     yes_text: str = "Удалить",
     no_text: str = "Отмена",
     destructive: bool = True,
+    yes_icon: str | None = None,
 ) -> tuple[bool, bool]:
     """Показывает подтверждение с дополнительным безопасно выключенным флажком."""
     checkbox = QCheckBox(str(checkbox_text), parent)
@@ -278,6 +284,7 @@ def show_app_confirmation_with_checkbox(
         cancel_key="no",
         extra_widget=checkbox,
         confirmation_shortcuts=not destructive,
+        button_icons={"yes": yes_icon} if yes_icon else None,
     )
     return result == "yes", checked_state["value"]
 

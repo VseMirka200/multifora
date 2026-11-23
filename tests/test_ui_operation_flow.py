@@ -1,3 +1,4 @@
+import time
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -7,11 +8,12 @@ from PIL import Image
 from pypdf import PdfReader, PdfWriter
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QFrame, QPlainTextEdit, QWidget
+from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QFrame, QPlainTextEdit, QStyle, QStyleOptionButton, QWidget
 
 from app.ui.operation_progress import OperationProgressDialog
 from app.ui.typography import BODY_PX, CAPTION_PX, FONT_FAMILY, SECTION_PX, TITLE_PX
 from app.ui.ui_components import setup_standard_action_button
+from app.ui.ui_icons import UI_ICON_SIZE, ui_icon
 from app.ui.ui_main import MultiforaMainWindow
 from app.workers.operation_worker import OperationWorker
 from core.file_models import FileItem
@@ -71,6 +73,57 @@ def test_operation_footer_buttons_stay_in_place(window, width):
         positions.append([(b.mapTo(window, QPoint()), b.size()) for b in buttons])
     assert positions == [positions[0]] * 4
 
+
+def test_merge_empty_queue_drop_zone_mentions_supported_formats(window):
+    merge_index = next(
+        index
+        for index in range(window.operations_tab_bar.count())
+        if window.operations_tab_bar.tabData(index) == "merge"
+    )
+    window.operations_tab_bar.setCurrentIndex(merge_index)
+    QApplication.processEvents()
+    assert window.drop_zone_controls.isVisible()
+    assert window.drop_zone_hint_label.text() == "Перетащите PDF или DOCX сюда"
+
+
+
+
+def test_merge_empty_queue_drop_zone_centered_in_visible_merge_panel(window):
+    merge_index = next(
+        index
+        for index in range(window.operations_tab_bar.count())
+        if window.operations_tab_bar.tabData(index) == "merge"
+    )
+    window.operations_tab_bar.setCurrentIndex(merge_index)
+    QApplication.processEvents()
+    surface = window.merge_pages_panel
+    center = surface.mapToGlobal(surface.rect().center())
+    card = window.drop_zone_controls
+    actual = card.mapToGlobal(card.rect().center())
+    assert card.width() < surface.width()
+    assert (actual - center).manhattanLength() <= 2
+    # Внешние документы можно бросать по всей панели, не только в оверлей.
+    assert surface.acceptDrops()
+    assert window.merge_pages_panel.pages.acceptDrops()
+    assert window.merge_pages_panel.pages.viewport().acceptDrops()
+    # Проверяем фактическую область отрисовки, а не абстрактную ширину:
+    # сначала загружаются иконки, потом Qt считает доступную ширину подписи.
+    for theme in ("dark", "light"):
+        window.apply_theme_mode(theme)
+        QApplication.processEvents()
+        for button in (window.btn_add_files, window.btn_add_folder):
+            option = QStyleOptionButton()
+            button.initStyleOption(option)
+            content = button.style().subElementRect(
+                QStyle.SubElement.SE_PushButtonContents, option, button
+            )
+            icon_width = button.icon().actualSize(button.iconSize()).width()
+            needed = button.fontMetrics().horizontalAdvance(button.text()) + 5
+            if icon_width:
+                needed += icon_width + 5
+            assert content.width() >= needed
+            assert not button.icon().isNull()
+            assert button.width() < 240
 
 def test_empty_queue_controls_centered_in_file_viewport(window):
     assert window.list_files.model().rowCount() == 0
@@ -223,8 +276,9 @@ def test_merge_keyboard_order_matches_output(window, tmp_path):
     for _ in range(500):
         if window.btn_merge.isEnabled():
             break
-        QTest.qWait(10)
-    assert window.btn_merge.isEnabled()
+        QApplication.processEvents()
+        time.sleep(0.01)
+    assert window.btn_merge.isEnabled(), window.merge_pages_panel.hint.text()
     output = tmp_path / "combined.pdf"
     with (
         patch("app.ui.mixins.worker_ops_mixin.choose_merge_pages", return_value=()),
@@ -420,7 +474,8 @@ def test_merge_preview_and_dispatch_use_same_marked_scope(window, tmp_path):
     for _ in range(500):
         if window.btn_merge.isEnabled():
             break
-        QTest.qWait(10)
+        QApplication.processEvents()
+        time.sleep(0.01)
     assert window.btn_merge.isEnabled()
     assert [file.path for file in window.merge_pages_panel.files] == sources[:2]
     with (
@@ -433,3 +488,37 @@ def test_merge_preview_and_dispatch_use_same_marked_scope(window, tmp_path):
     window.input_search.setText("source2")
     assert window.merge_pages_panel.files == []
     assert not window.btn_merge.isEnabled()
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_main_command_icons_and_log_symbol(window, theme):
+    window.apply_theme_mode(theme)
+    for button, name in (
+        (window.btn_add_files, "add-file"),
+        (window.btn_add_folder, "add-folder"),
+        (window.support_page.guide, "guide"),
+        (window.btn_save_template, "save"),
+        (window.btn_convert, "convert"),
+    ):
+        assert button.property("buttonIconName") == name
+        assert not button.icon().pixmap(UI_ICON_SIZE).isNull()
+    assert window.support_page.icons["save"].pixmap().toImage() == ui_icon(
+        "document", theme
+    ).pixmap(UI_ICON_SIZE).toImage()
+
+
+def test_result_detail_actions_have_explicit_icons(window):
+    window.operation_result_panel.set_result(OperationResult(
+        errors=[{"path": "source.pdf", "message": "locked", "retryable": True}]
+    ), can_retry=True)
+    seen = []
+
+    def inspect(dialog):
+        seen.extend(button.property("buttonIconName") for button in dialog.findChildren(QAbstractButton)
+                    if button.property("buttonIconName"))
+        assert all(not button.icon().isNull() for button in dialog.findChildren(QAbstractButton)
+                   if button.property("buttonIconName"))
+
+    with patch.object(QDialog, "exec", new=inspect):
+        window.operation_result_panel.details.click()
+    assert set(seen) == {"details", "copy", "retry", "close"}

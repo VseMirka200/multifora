@@ -140,22 +140,20 @@ class ThemeStyleAuditTests(unittest.TestCase):
 
     def test_header_dropdown_commands_use_compact_horizontal_padding(self):
         for style in (LIGHT_APPLICATION_STYLE, DARK_APPLICATION_STYLE):
-            selector = "QMenu#header_dropdown_popup::item {"
+            selector = "QMenu QListWidget#scrollable_filter_list::item {"
             self.assertIn(selector, style)
             menu_items = style.split(selector, 1)[1].split("}", 1)[0]
-            self.assertIn("padding-left: 4px", menu_items)
-            self.assertIn("padding-right: 4px", menu_items)
+            self.assertIn("padding: 0px 8px", menu_items)
+            self.assertIn("min-height: 28px", menu_items)
 
     def test_help_menu_matches_compact_help_button(self):
         for style in (LIGHT_APPLICATION_STYLE, DARK_APPLICATION_STYLE):
-            selector = "QMenu#help_menu_popup::item {"
+            selector = "QMenu QListWidget#scrollable_filter_list::item {"
             self.assertIn(selector, style)
             menu_items = style.split(selector, 1)[1].split("}", 1)[0]
-            self.assertIn("min-height: 18px", menu_items)
-            self.assertIn("max-height: 18px", menu_items)
-            self.assertIn("padding: 0px 4px", menu_items)
-            self.assertIn("font-size: 12px", menu_items)
-            self.assertIn("font-weight: 500", menu_items)
+            self.assertIn("min-height: 28px", menu_items)
+            self.assertIn("max-height: 28px", menu_items)
+            self.assertIn("padding: 0px 8px", menu_items)
 
     def test_help_button_uses_larger_text(self):
         for theme in ("light", "dark"):
@@ -273,9 +271,9 @@ class ThemeStyleAuditTests(unittest.TestCase):
                 "}", 1
             )[0]
             self.assertIn("QMenu#header_dropdown_popup", popup)
-            self.assertIn("border-bottom-left-radius: 4px", popup)
-            self.assertIn("border-bottom-right-radius: 4px", popup)
-            self.assertIn("padding-bottom: 0px", popup)
+            self.assertIn("border-radius: 4px", popup)
+            self.assertIn("menu-scrollable: 1", popup)
+            self.assertIn("icon-size: 18px", popup)
 
     def test_light_file_panel_and_list_surface_stay_white(self):
         ui_main = Path("app/ui/ui_main.py").read_text(encoding="utf-8")

@@ -1,26 +1,19 @@
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QDialog,
     QFrame,
-    QHeaderView,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QSizePolicy,
     QSpinBox,
-    QTreeWidget,
-    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 from app.core.app_utils import signals_blocked
 from app.ui.ui_components import (
-    AutoHeightTextEdit,
-    apply_standard_field_style,
     MenuLikeComboBox,
-    resolve_widget_theme_mode,
-    setup_standard_dialog,
+    StandardPopupMenu,
+    apply_standard_field_style,
     setup_standard_dropdown,
     setup_standard_form_label,
     setup_standard_line_input,
@@ -30,7 +23,6 @@ from app.ui.ui_helpers import (
     create_param_block,
     create_spin_param_block,
 )
-from app.ui.ui_icons import ui_icon
 from app.ui.ui_styles import (
     MARGINS_NONE,
     SPACE_NONE,
@@ -334,9 +326,7 @@ class TemplateParamsNumberingMixin:
         if field is None:
             return
 
-        cursor = field.textCursor()
-        cursor.insertText(token)
-        field.setTextCursor(cursor)
+        field.insert(token)
         field.setFocus()
 
     def create_custom_template_params(self):
@@ -345,7 +335,8 @@ class TemplateParamsNumberingMixin:
         layout = QHBoxLayout(container)
         layout.setContentsMargins(*MARGINS_NONE)
         layout.setSpacing(SPACE_SM)
-        self.template_custom = AutoHeightTextEdit(self.template_params_widget)
+        self.template_custom = QLineEdit(self.template_params_widget)
+        setup_standard_line_input(self.template_custom)
         self.template_custom.setPlaceholderText(
             "например: фото_{num:03d,start=1,step=1}_{date}_{name}"
         )
@@ -361,19 +352,13 @@ class TemplateParamsNumberingMixin:
         self.template_params_layout.addWidget(create_param_block("Шаблон имени", container))
 
     def _choose_template_token(self):
-        dialog = QDialog(self)
-        setup_standard_dialog(dialog, title="Вставить подстановку", width=610, height=360)
-        layout = QVBoxLayout(dialog)
-        choices = QTreeWidget()
-        choices.setRootIsDecorated(False)
-        choices.setItemsExpandable(False)
-        choices.setHeaderLabels(["Что вставится", "Подстановка"])
-        choices.setAccessibleName("Подстановки для имени файла")
-        choices.header().setStretchLastSection(False)
-        choices.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        choices.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        layout.addWidget(choices)
-        mode = resolve_widget_theme_mode(self)
+        previous = getattr(self, "_template_token_menu", None)
+        if previous is not None:
+            previous.close()
+            previous.deleteLater()
+        menu = StandardPopupMenu(self.btn_insert_token)
+        menu.setAccessibleName("Подстановки для имени файла")
+        self._template_token_menu = menu
         for token, description, icon in (
             ("{name}", "Исходное имя файла без расширения", "rename"),
             ("{num:03d,start=1,step=1}", "Порядковый номер: 001, 002, 003…", "number"),
@@ -385,14 +370,7 @@ class TemplateParamsNumberingMixin:
             ("{width}", "Ширина изображения в пикселях", "width"),
             ("{height}", "Высота изображения в пикселях", "height"),
         ):
-            item = QTreeWidgetItem(choices, [description, token])
-            item.setIcon(0, ui_icon(icon, mode))
-        choices.itemClicked.connect(lambda *_: dialog.accept())
-        choices.itemActivated.connect(lambda *_: dialog.accept())
-        choices.setCurrentItem(choices.topLevelItem(0))
-        choices.setFocus()
-        try:
-            if dialog.exec() == QDialog.DialogCode.Accepted:
-                self._insert_custom_template_token(choices.currentItem().text(1))
-        finally:
-            dialog.deleteLater()
+            action = menu.add_command(f"{description} — {token}", icon_name=icon)
+            action.setData(token)
+            action.triggered.connect(lambda _checked=False, value=token: self._insert_custom_template_token(value))
+        menu.popup(self.btn_insert_token.mapToGlobal(self.btn_insert_token.rect().bottomLeft()))

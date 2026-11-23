@@ -15,6 +15,8 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QSizePolicy,
+    QStyle,
+    QStyleOptionButton,
     QVBoxLayout,
     QWidget,
 )
@@ -535,6 +537,8 @@ class MultiforaMainWindow(
         self, menu, actions: dict, changed_callback
     ):
         clear_action = QAction("Снять все отметки", menu)
+        clear_action.setProperty("keepOpen", True)
+        clear_action.setProperty("menuIconName", "clear-selection")
         clear_action.triggered.connect(
             lambda _checked=False: self._set_filter_actions_checked(
                 menu,
@@ -546,6 +550,8 @@ class MultiforaMainWindow(
         menu.addAction(clear_action)
 
         select_all_action = QAction("Вернуть все отметки", menu)
+        select_all_action.setProperty("keepOpen", True)
+        select_all_action.setProperty("menuIconName", "select-all")
         select_all_action.triggered.connect(
             lambda _checked=False: self._set_filter_actions_checked(
                 menu,
@@ -801,16 +807,19 @@ class MultiforaMainWindow(
         self.drop_zone_hint_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         drop_zone_layout.addWidget(self.drop_zone_hint_label)
         drop_buttons_row = QHBoxLayout()
+        self.drop_buttons_layout = drop_buttons_row
         drop_buttons_row.setSpacing(12)
         drop_buttons_row.addStretch()
         self.btn_add_files = IconButton("Добавить файлы")
-        setup_standard_primary_button(self.btn_add_files)
+        setup_standard_primary_button(self.btn_add_files, expand=False)
         self.btn_add_files.clicked.connect(self.select_files)
         self.btn_add_folder = IconButton("Добавить папки")
-        setup_standard_secondary_button(self.btn_add_folder)
+        setup_standard_secondary_button(self.btn_add_folder, expand=False)
         self.btn_add_folder.clicked.connect(self.select_folder)
         for button in (self.btn_add_files, self.btn_add_folder):
-            button.setMinimumWidth(146)
+            # Иконки присваиваются позже через apply_window_icons(). Пока
+            # не фиксируем ширину: иначе текст измерится без иконки и обрежется.
+            button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             drop_buttons_row.addWidget(button)
         drop_buttons_row.addStretch()
         drop_zone_layout.addLayout(drop_buttons_row)
@@ -838,6 +847,18 @@ class MultiforaMainWindow(
         files_panel.installEventFilter(self)
         self.list_files.installEventFilter(self)
         self.list_files.viewport().installEventFilter(self)
+        # Во вкладке объединения список файлов скрыт, а рабочую область
+        # занимает MergePagesPanel. Следим за его геометрией отдельно:
+        # иначе оверлей рассчитывается по скрытому viewport списка и
+        # смещается влево относительно видимой рабочей области.
+        if hasattr(self, "merge_pages_panel"):
+            merge_panel = self.merge_pages_panel
+            # В режиме объединения принимать внешние файлы на всей площади
+            # панели и на дочерних виджетах (подсказка, список, viewport и т.д.).
+            # Так QLabel и другие дочерние элементы не перехватывают drag&drop.
+            for target in (merge_panel, *merge_panel.findChildren(QWidget)):
+                target.setAcceptDrops(True)
+                target.installEventFilter(self)
         self._update_drop_zone_controls()
         QTimer.singleShot(0, self._update_drop_zone_controls)
 
@@ -1066,9 +1087,33 @@ class MultiforaMainWindow(
             self._restoring_window_geometry = False
             self.initial_load_complete = True
 
+    def _fit_drop_zone_button_labels(self):
+        """Подгоняет кнопки после загрузки иконок, по реальной области Qt."""
+        for button in (self.btn_add_files, self.btn_add_folder):
+            button.ensurePolished()
+            icon_width = button.icon().actualSize(button.iconSize()).width()
+            # draw_icon_caption() использует интервал 5px и рисует глифы
+            # через QPainterPath. Небольшой запас учитывает края глифов.
+            needed = button.fontMetrics().horizontalAdvance(button.text()) + 5
+            if icon_width:
+                needed += icon_width + 5
+            width = max(1, button.sizeHint().width())
+            for _ in range(40):
+                option = QStyleOptionButton()
+                button.initStyleOption(option)
+                option.rect.setWidth(width)
+                content_rect = button.style().subElementRect(
+                    QStyle.SubElement.SE_PushButtonContents, option, button
+                )
+                if content_rect.width() >= needed:
+                    break
+                width += max(4, needed - content_rect.width())
+            button.setFixedWidth(width)
+
     def _apply_theme_runtime_widgets(self):
         mode = getattr(self, "_effective_theme_mode", "dark")
         apply_window_icons(self, mode)
+        self._fit_drop_zone_button_labels()
         try:
             if callable(
                 getattr(self, "_apply_operations_tab_bar_theme", None)
@@ -1242,11 +1287,27 @@ class MultiforaMainWindow(
         host = getattr(self, "files_panel", None)
         if host is None or overlay is None or not isValid(host) or not isValid(overlay):
             return
-        viewport = self.list_files.viewport()
-        field_rect = viewport.rect()
-        field_rect.moveTopLeft(viewport.mapTo(host, field_rect.topLeft()))
+        if self._active_operation_id() == "merge" and hasattr(self, "merge_pages_panel"):
+            # В режиме объединения list_files скрыт. Его viewport может иметь
+            # другую ширину/позицию, поэтому геометрию берём у видимой панели.
+            active_surface = self.merge_pages_panel
+        else:
+            active_surface = self.list_files.viewport()
+        field_rect = active_surface.rect()
+        field_rect.moveTopLeft(active_surface.mapTo(host, field_rect.topLeft()))
         card = field_rect.adjusted(8, 6, -8, -6)
-        card.setWidth(min(card.width(), 510))
+        buttons_width = (
+            self.btn_add_files.sizeHint().width()
+            + self.btn_add_folder.sizeHint().width()
+            + self.drop_buttons_layout.spacing()
+            + 20
+        )
+        card.setWidth(min(card.width(), max(510, buttons_width)))
+        self.drop_buttons_layout.setDirection(
+            QHBoxLayout.Direction.TopToBottom
+            if card.width() < buttons_width
+            else QHBoxLayout.Direction.LeftToRight
+        )
         card.setHeight(min(card.height(), 196))
         card.moveCenter(field_rect.center())
         overlay.setGeometry(card)
@@ -1262,7 +1323,11 @@ class MultiforaMainWindow(
         self.btn_reset_queue_filters.setVisible(not empty_queue and not unsupported)
         self.btn_show_all_queue_files.setVisible(unsupported)
         if empty_queue:
-            message = "Перетащите файлы или папки сюда"
+            # На вкладке объединения явно подсказываем допустимые форматы.
+            if self._active_operation_id() == "merge":
+                message = "Перетащите PDF или DOCX сюда"
+            else:
+                message = "Перетащите файлы или папки сюда"
         elif unsupported:
             message = "Нет документов PDF или DOCX для объединения"
         else:
@@ -1285,8 +1350,11 @@ class MultiforaMainWindow(
             self._update_drop_zone_controls()
         if hasattr(self, "list_files") and isValid(self.list_files):
             viewport = self.list_files.viewport()
+            merge_panel = getattr(self, "merge_pages_panel", None)
+            merge_pages = getattr(merge_panel, "pages", None)
             if (
                 obj is self.list_files or obj is viewport
+                or obj is merge_panel or obj is merge_pages
             ) and event.type() in (
                 QEvent.Type.Resize,
                 QEvent.Type.Show,
@@ -1294,28 +1362,37 @@ class MultiforaMainWindow(
                 QEvent.Type.LayoutRequest,
             ):
                 self._update_drop_zone_controls()
-        if (
-            hasattr(self, "drop_zone_controls")
-            and obj is self.drop_zone_controls
+        merge_panel = getattr(self, "merge_pages_panel", None)
+        is_overlay = obj is getattr(self, "drop_zone_controls", None)
+        is_merge_surface = (
+            self._active_operation_id() == "merge"
+            and merge_panel is not None
+            and (
+                obj is merge_panel
+                or (isinstance(obj, QWidget) and merge_panel.isAncestorOf(obj))
+            )
+        )
+        if (is_overlay or is_merge_surface) and event.type() in (
+            QEvent.Type.DragEnter,
+            QEvent.Type.DragMove,
         ):
-            if event.type() in (QEvent.Type.DragEnter, QEvent.Type.DragMove):
-                if event.mimeData().hasUrls():
+            if event.mimeData().hasUrls():
+                event.acceptProposedAction()
+                return True
+        elif (is_overlay or is_merge_surface) and event.type() == QEvent.Type.Drop:
+            if event.mimeData().hasUrls():
+                paths = []
+                for url in event.mimeData().urls():
+                    file_path = url.toLocalFile()
+                    if file_path and os.path.exists(file_path):
+                        paths.append(file_path)
+                if paths:
+                    self.add_files(paths)
                     event.acceptProposedAction()
                     return True
-            elif event.type() == QEvent.Type.Drop:
-                if event.mimeData().hasUrls():
-                    paths = []
-                    for url in event.mimeData().urls():
-                        file_path = url.toLocalFile()
-                        if os.path.exists(file_path):
-                            paths.append(file_path)
-                    if paths:
-                        self.add_files(paths)
-                        event.acceptProposedAction()
-                        return True
-            elif event.type() == QEvent.Type.DragLeave:
-                event.accept()
-                return True
+        elif (is_overlay or is_merge_surface) and event.type() == QEvent.Type.DragLeave:
+            event.accept()
+            return True
         return super().eventFilter(obj, event)
 
     def keyPressEvent(self, event):

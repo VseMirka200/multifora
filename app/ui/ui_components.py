@@ -4,16 +4,18 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import (
     QAbstractAnimation,
     QEasingCurve,
+    QEvent,
     QPropertyAnimation,
     QRect,
     QRectF,
     QSize,
     Qt,
-    QEvent,
     Signal,
 )
 from PySide6.QtGui import (
     QAction,
+    QActionGroup,
+    QColor,
     QFontMetrics,
     QIcon,
     QPainter,
@@ -23,6 +25,7 @@ from PySide6.QtGui import (
     QTextOption,
 )
 from PySide6.QtWidgets import (
+    QAbstractButton,
     QAbstractItemView,
     QAbstractSpinBox,
     QComboBox,
@@ -35,6 +38,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMenu,
+    QPlainTextEdit,
     QPushButton,
     QSizePolicy,
     QStatusBar,
@@ -45,7 +49,6 @@ from PySide6.QtWidgets import (
     QStyleOptionToolButton,
     QStylePainter,
     QTextEdit,
-    QAbstractButton,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -53,7 +56,8 @@ from PySide6.QtWidgets import (
 )
 
 from app.core.app_utils import _log_ignored_error
-from app.ui.ui_icons import UI_ICON_SIZE, ui_icon
+from app.ui.palette import standard_palette
+from app.ui.ui_icons import UI_ICON_SIZE, apply_button_icon, button_icon
 from app.ui.ui_styles import (
     ACTION_BUTTON_HEIGHT,
     FIELD_HEIGHT,
@@ -91,6 +95,11 @@ def __getattr__(name: str):
 
 def apply_standard_field_style(widget):
     theme = resolve_widget_theme_mode(widget)
+    # В приложении не используется стандартное контекстное меню редактирования
+    # Qt (Undo/Redo/Cut/Copy/Paste). Контекстные меню приложения остаются
+    # доступны на списках и таблицах.
+    if isinstance(widget, (QLineEdit, QTextEdit, QPlainTextEdit, QAbstractSpinBox)):
+        widget.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
     name = widget.objectName() if hasattr(widget, "objectName") else ""
     if isinstance(widget, MenuLikeComboBox):
         widget.setStyleSheet(build_standard_field_style(theme, "menu"))
@@ -140,6 +149,8 @@ def refresh_standard_field_styles(root: QWidget):
             apply_standard_field_style(widget)
         for widget in root.findChildren(QTextEdit):
             apply_standard_field_style(widget)
+        for widget in root.findChildren(QPlainTextEdit):
+            apply_standard_field_style(widget)
         for widget in root.findChildren(QAbstractSpinBox):
             apply_standard_field_style(widget)
         for widget in root.findChildren(QComboBox):
@@ -162,6 +173,7 @@ def refresh_standard_field_styles(root: QWidget):
 def refresh_standard_button_styles(root: QWidget):
     if root is None:
         return root
+    mode = resolve_widget_theme_mode(root)
     try:
         for widget in root.findChildren(QAbstractButton):
             role = widget.property("buttonVariant")
@@ -169,10 +181,10 @@ def refresh_standard_button_styles(root: QWidget):
                 continue
             widget.setStyleSheet(
                 build_standard_button_style(
-                    resolve_widget_theme_mode(widget), str(role)
+                    mode, str(role)
                 )
             )
-            _apply_standard_action_icon(widget, str(role))
+            apply_button_icon(widget, mode)
             _refresh_widget_style(widget)
     except Exception as error:
         _log_ignored_error("refresh_standard_button_styles", error)
@@ -412,28 +424,12 @@ def setup_standard_header_dropdown(widget):
     return widget
 
 
-def _apply_standard_action_icon(widget, role):
-    text = widget.text().replace("&", "").strip().casefold()
-    name = {"сохранить": "save", "отмена": "close", "отменить": "close"}.get(text)
-    if text == "удалить" or text.startswith("удалить "):
-        name = "remove"
-    if name is None:
-        return
-    mode = resolve_widget_theme_mode(widget)
-    variant = mode
-    if role == "danger" or (role == "primary" and mode == "light"):
-        variant = "on-color"
-    elif role == "primary":
-        variant = "light"
-    widget.setIcon(ui_icon(name, variant))
-    widget.setIconSize(UI_ICON_SIZE)
-
-
 def setup_standard_action_button(
     widget,
     *,
     variant: str | None = None,
     expand: bool = True,
+    icon_name: str | None = None,
 ):
     role = variant or widget.property("buttonVariant") or "secondary"
     widget.setFixedHeight(ACTION_BUTTON_HEIGHT)
@@ -444,6 +440,8 @@ def setup_standard_action_button(
         QSizePolicy.Policy.Fixed,
     )
     widget.setProperty("buttonVariant", role)
+    if icon_name is not None:
+        widget.setProperty("buttonIconName", icon_name)
     widget.setCursor(Qt.CursorShape.PointingHandCursor)
     if role == "primary" and not widget.objectName():
         widget.setObjectName("convert_btn")
@@ -454,7 +452,7 @@ def setup_standard_action_button(
     widget.setStyleSheet(
         build_standard_button_style(resolve_widget_theme_mode(widget), role)
     )
-    _apply_standard_action_icon(widget, role)
+    apply_button_icon(widget, resolve_widget_theme_mode(widget))
     _refresh_widget_style(widget)
     return widget
 
@@ -463,11 +461,13 @@ def setup_standard_primary_button(
     widget,
     *,
     expand: bool = True,
+    icon_name: str | None = None,
 ):
     return setup_standard_action_button(
         widget,
         variant="primary",
         expand=expand,
+        icon_name=icon_name,
     )
 
 
@@ -475,11 +475,13 @@ def setup_standard_danger_button(
     widget,
     *,
     expand: bool = True,
+    icon_name: str | None = None,
 ):
     return setup_standard_action_button(
         widget,
         variant="danger",
         expand=expand,
+        icon_name=icon_name,
     )
 
 
@@ -487,8 +489,9 @@ def setup_standard_secondary_button(
     widget,
     *,
     expand: bool = True,
+    icon_name: str | None = None,
 ):
-    return setup_standard_action_button(widget, expand=expand)
+    return setup_standard_action_button(widget, expand=expand, icon_name=icon_name)
 
 
 def setup_standard_form_label(
@@ -593,10 +596,10 @@ def get_russian_text_input(
     buttons_layout = QHBoxLayout(buttons_row)
     buttons_layout.setContentsMargins(*MARGINS_NONE)
     buttons_layout.setSpacing(SPACE_SM)
-    ok_button = QPushButton("Сохранить")
-    setup_standard_primary_button(ok_button, expand=True)
-    cancel_button = QPushButton("Отмена")
-    setup_standard_secondary_button(cancel_button, expand=True)
+    ok_button = QPushButton("Сохранить", dialog)
+    setup_standard_primary_button(ok_button, expand=True, icon_name="save")
+    cancel_button = QPushButton("Отмена", dialog)
+    setup_standard_secondary_button(cancel_button, expand=True, icon_name="close")
     buttons_layout.addWidget(ok_button, 1)
     buttons_layout.addWidget(cancel_button, 1)
     layout.addWidget(buttons_row)
@@ -621,13 +624,17 @@ def sync_standard_menu_width(menu: QMenu, anchor_widget: QWidget):
     if width <= 0:
         width = anchor_widget.sizeHint().width()
     filter_list = getattr(menu, "filter_list", None)
+    metrics = menu.fontMetrics()
+    for action in menu.actions():
+        if action.text() and not isinstance(action, QWidgetAction):
+            text = action.property("fullText") or action.text().replace("&&", "&")
+            width = max(width, metrics.horizontalAdvance(text) + 64)
     if filter_list is not None:
-        metrics = menu.fontMetrics()
-        icon_width = menu.style().pixelMetric(QStyle.PixelMetric.PM_SmallIconSize, None, menu)
-        for action in menu.actions():
-            if action.text() and not isinstance(action, QWidgetAction):
-                # Оставляем место для значка, промежутка и полей с обеих сторон.
-                width = max(width, metrics.horizontalAdvance(action.text()) + icon_width + 24)
+        for row in range(filter_list.count()):
+            width = max(width, metrics.horizontalAdvance(filter_list.item(row).text()) + 64)
+    screen = anchor_widget.screen()
+    if screen is not None:
+        width = min(width, max(1, screen.availableGeometry().width() - 16))
     menu.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
     menu.setMinimumWidth(width)
     menu.setMaximumWidth(width)
@@ -646,7 +653,139 @@ def setup_standard_popup_menu(menu: QMenu):
         # компонуются только без системной прямоугольной рамки.
         menu.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
         menu.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        menu.setToolTipsVisible(True)
     return menu
+
+
+class StandardPopupMenu(QMenu):
+    """Общие геометрия, отметки, иконки и раскрытие меню по кнопке."""
+
+    ICON_SIZE = QSize(18, 18)
+
+    def __init__(self, anchor: QWidget | None = None, *, theme_widget: QWidget | None = None):
+        super().__init__(anchor)
+        self.anchor = anchor
+        self.theme_widget = theme_widget or anchor
+        self.setObjectName("menu_like_combo_popup")
+        self._pressed_action = None
+        setup_standard_popup_menu(self)
+        self.aboutToShow.connect(self._prepare_popup)
+        self.aboutToHide.connect(lambda: self._set_open(False))
+
+    def add_command(self, text: str, *, icon_name: str = "", tooltip: str = "") -> QAction:
+        action = self.addAction(text.replace("&", "&&"))
+        action.setProperty("fullText", text)
+        action.setProperty("menuIconName", icon_name)
+        action.setToolTip(tooltip or text)
+        return action
+
+    def _set_open(self, value: bool) -> None:
+        if self.anchor is None:
+            return
+        self.anchor.setProperty("menuOpen", value)
+        _refresh_widget_style(self.anchor)
+
+    def _prepare_popup(self) -> None:
+        mode = resolve_widget_theme_mode(self.theme_widget)
+        for action in self.actions():
+            name = action.property("menuIconName")
+            if name:
+                action.setIcon(button_icon(str(name), mode, "secondary"))
+        sync_standard_menu_width(self, self.anchor)
+        self._set_open(True)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if self.anchor is None:
+            return
+        screen = self.anchor.screen()
+        if screen is None:
+            return
+        available = screen.availableGeometry().adjusted(8, 8, -8, -8)
+        origin = self.anchor.mapToGlobal(self.anchor.rect().topLeft())
+        below = origin.y() + self.anchor.height()
+        height = min(self.height(), available.height())
+        self.resize(min(self.width(), available.width()), height)
+        y = below if below + height <= available.bottom() + 1 else origin.y() - height
+        y = max(available.top(), min(y, available.bottom() + 1 - height))
+        x = max(available.left(), min(origin.x(), available.right() + 1 - self.width()))
+        self.move(x, y)
+
+    def mousePressEvent(self, event):
+        self._pressed_action = self.actionAt(event.position().toPoint())
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        action = self.actionAt(event.position().toPoint())
+        if (event.button() == Qt.MouseButton.LeftButton and action is not None
+                and action is self._pressed_action and action.isEnabled() and action.property("keepOpen")):
+            action.trigger()
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def keyPressEvent(self, event):
+        action = self.activeAction()
+        if (event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space)
+                and action is not None and action.isEnabled() and action.property("keepOpen")):
+            action.trigger()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QStylePainter(self)
+        palette = standard_palette(resolve_widget_theme_mode(self.theme_widget))
+        actions = self.actions()
+        has_checks = any(action.isCheckable() for action in actions)
+        has_icons = any(not action.icon().isNull() for action in actions)
+        for action in actions:
+            row = self.actionGeometry(action)
+            if isinstance(action, QWidgetAction) or action.isSeparator() or not row.intersects(event.rect()):
+                continue
+            option = QStyleOptionMenuItem()
+            self.initStyleOption(option, action)
+            option.rect = row
+            option.text = ""
+            option.icon = QIcon()
+            option.checkType = QStyleOptionMenuItem.CheckType.NotCheckable
+            option.checked = False
+            painter.drawControl(QStyle.ControlElement.CE_MenuItem, option)
+            painter.setFont(option.font)
+            painter.setPen(QColor(palette["fg"] if action.isEnabled() else palette["disabled_fg"]))
+            left = row.left() + 8
+            if has_checks:
+                if action.isChecked():
+                    painter.save()
+                    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+                    painter.setPen(QPen(painter.pen().color(), 1.65))
+                    y = row.center().y()
+                    painter.drawLine(left + 2, y, left + 6, y + 4)
+                    painter.drawLine(left + 6, y + 4, left + 13, y - 4)
+                    painter.restore()
+                left += 22
+            if has_icons:
+                icon_rect = QRect(left, row.center().y() - 8, 18, 18)
+                action.icon().paint(painter, icon_rect, Qt.AlignmentFlag.AlignCenter,
+                                    QIcon.Mode.Normal if action.isEnabled() else QIcon.Mode.Disabled)
+                left += 24
+            text_rect = row.adjusted(left - row.left(), 0, -8, 0)
+            text = action.property("fullText") or action.text().replace("&&", "&")
+            label, separator, shortcut = str(text).partition("\t")
+            shortcut_width = painter.fontMetrics().horizontalAdvance(shortcut) if separator else 0
+            label_rect = text_rect.adjusted(0, 0, -(shortcut_width + (16 if separator else 0)), 0)
+            label = painter.fontMetrics().elidedText(
+                label, Qt.TextElideMode.ElideRight, max(0, label_rect.width())
+            )
+            painter.drawText(
+                label_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, label
+            )
+            if separator:
+                painter.setPen(QColor(palette["disabled_fg"]))
+                painter.drawText(
+                    text_rect, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, shortcut
+                )
 
 
 class SmoothScrollListWidget(QListWidget):
@@ -689,7 +828,7 @@ class SmoothScrollListWidget(QListWidget):
         event.accept()
 
 
-class ScrollableFilterMenu(QMenu):
+class ScrollableFilterMenu(StandardPopupMenu):
     """Компактное меню с прокручиваемым списком переключаемых действий."""
 
     def __init__(self, parent=None, *, max_visible_items: int = 8):
@@ -699,29 +838,6 @@ class ScrollableFilterMenu(QMenu):
         self._filter_actions: list[QAction] = []
         self._filter_items: dict[QAction, QListWidgetItem] = {}
         self._filter_list: SmoothScrollListWidget | None = None
-
-    def paintEvent(self, event):
-        super().paintEvent(event)
-        painter = QStylePainter(self)
-        icon_size = self.style().pixelMetric(QStyle.PixelMetric.PM_SmallIconSize, None, self)
-        for action in self.actions():
-            row = self.actionGeometry(action)
-            if action.icon().isNull() or not row.intersects(event.rect()):
-                continue
-            option = QStyleOptionMenuItem()
-            self.initStyleOption(option, action)
-            option.rect = row
-            option.icon = QIcon()
-            option.text = ""
-            painter.drawControl(QStyle.ControlElement.CE_MenuItem, option)
-            painter.setFont(option.font)
-            group = option.palette.currentColorGroup() if action.isEnabled() else QPalette.ColorGroup.Disabled
-            role = (QPalette.ColorRole.HighlightedText if option.state & QStyle.StateFlag.State_Selected
-                    else QPalette.ColorRole.Text)
-            painter.setPen(option.palette.color(group, role))
-            draw_icon_caption(painter, row.adjusted(4, 0, -4, 0), action.icon(),
-                              QSize(icon_size, icon_size), action.text(), action.isEnabled(),
-                              align_left=True)
 
     def _ensure_filter_list(self) -> SmoothScrollListWidget:
         if self._filter_list is not None:
@@ -888,7 +1004,9 @@ class MenuLikeComboBox(QToolButton):
         )
         self._items = []
         self._current_index = -1
-        self._menu = QMenu(self)
+        self._menu = StandardPopupMenu(self)
+        self._action_group = QActionGroup(self)
+        self._action_group.setExclusive(True)
         setup_standard_popup_menu(self._menu)
         self._menu.setObjectName("menu_like_combo_popup")
         self._menu.aboutToShow.connect(self._sync_popup_width)
@@ -949,21 +1067,24 @@ class MenuLikeComboBox(QToolButton):
             painted_text,
             self.foregroundRole(),
         )
+        draw_dropdown_arrow(painter, self)
 
     def clear(self):
         self._items = []
         self._current_index = -1
         self._menu.clear()
         self.setText("")
+        self.setToolTip("")
 
-    def addItem(self, text: str, user_data=None):
+    def addItem(self, text: str, user_data=None, *, icon_name: str = ""):
         idx = len(self._items)
         self._items.append((text, user_data))
-        action = QAction(text, self._menu)
+        action = self._menu.add_command(text, icon_name=icon_name)
+        action.setCheckable(True)
+        self._action_group.addAction(action)
         action.triggered.connect(
             lambda _checked=False, i=idx: self.setCurrentIndex(i)
         )
-        self._menu.addAction(action)
         if self._current_index < 0:
             self.setCurrentIndex(0)
 
@@ -1004,6 +1125,7 @@ class MenuLikeComboBox(QToolButton):
         if self._current_index == index:
             return
         self._current_index = index
+        self._menu.actions()[index].setChecked(True)
         text = self._items[index][0]
         self.setText(text)
         self.setToolTip(text)
@@ -1014,6 +1136,19 @@ class MenuLikeComboBox(QToolButton):
         idx = self.findText(text)
         if idx >= 0:
             self.setCurrentIndex(idx)
+
+
+def draw_dropdown_arrow(painter, widget):
+    """Одинаковый индикатор раскрытия для полей, фильтров и кнопок."""
+    palette = standard_palette(resolve_widget_theme_mode(widget))
+    painter.save()
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(QPen(QColor(palette["fg"] if widget.isEnabled() else palette["disabled_fg"]), 1.4))
+    x, y = widget.width() - 12, widget.height() // 2
+    direction = -1 if widget.property("menuOpen") else 1
+    painter.drawLine(x - 3, y - direction, x, y + direction * 2)
+    painter.drawLine(x, y + direction * 2, x + 3, y - direction)
+    painter.restore()
 
 
 def draw_icon_caption(painter, rect, icon, icon_size, text, enabled, *,
@@ -1062,7 +1197,8 @@ class IconButton(QPushButton):
         return hint
 
     def paintEvent(self, event):
-        if self.icon().isNull():
+        has_popup = self.menu() is not None or self.property("hasPopup")
+        if self.icon().isNull() and not has_popup:
             return super().paintEvent(event)
         option = QStyleOptionButton()
         self.initStyleOption(option)
@@ -1072,9 +1208,13 @@ class IconButton(QPushButton):
         painter.drawControl(QStyle.ControlElement.CE_PushButton, option)
         painter.setPen(option.palette.buttonText().color())
         rect = self.style().subElementRect(QStyle.SubElement.SE_PushButtonContents, option, self)
+        if has_popup:
+            rect.adjust(0, 0, -18, 0)
         draw_icon_caption(painter, rect, self.icon(), self.iconSize(), self.text(),
                           self.isEnabled(), align_left=self.objectName() == "help_button",
                           text_y_offset=1)
+        if has_popup:
+            draw_dropdown_arrow(painter, self)
 
 
 class MenuWidthButton(MenuLikeComboBox):
@@ -1105,6 +1245,7 @@ class FilterToolButton(QToolButton):
         painter.setPen(option.palette.buttonText().color())
         draw_icon_caption(painter, self.rect().adjusted(12, 0, -22, 0), icon,
                           option.iconSize, text, self.isEnabled(), align_left=True, text_y_offset=1)
+        draw_dropdown_arrow(painter, self)
 
 
 class DropActionTile(QFrame):

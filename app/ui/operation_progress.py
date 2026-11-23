@@ -46,8 +46,8 @@ class OperationProgressDialog(QDialog):
         self.progress_bar.setValue(0)
         layout.addWidget(self.progress_bar)
 
-        self.cancel_button = QPushButton("Отмена")
-        setup_standard_secondary_button(self.cancel_button, expand=True)
+        self.cancel_button = QPushButton("Отмена", self)
+        setup_standard_secondary_button(self.cancel_button, expand=True, icon_name="close")
         self.cancel_button.clicked.connect(self._request_cancel)
         layout.addWidget(self.cancel_button)
 

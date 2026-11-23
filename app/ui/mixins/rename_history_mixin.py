@@ -91,7 +91,7 @@ class RenameHistoryMixin:
         layout.addWidget(history_list, 1)
 
         undo_button = QPushButton("Откатить выбранное", dialog)
-        setup_standard_danger_button(undo_button, expand=True)
+        setup_standard_danger_button(undo_button, expand=True, icon_name="undo")
         undo_button.clicked.connect(self.undo_last_rename)
         layout.addWidget(undo_button)
 

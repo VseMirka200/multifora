@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QAbstractButton,
     QCheckBox,
@@ -58,17 +59,19 @@ class LoggingMixin:
         return logs
 
     def show_operation_log(self):
-        from app.ui.ui_components import setup_standard_dialog
+        from app.ui.ui_components import setup_standard_dialog, setup_standard_secondary_button
 
         dialog = QDialog(self)
         setup_standard_dialog(dialog, title="Журнал операций", width=720, height=480)
         layout = QVBoxLayout(dialog)
         viewer = QPlainTextEdit()
+        viewer.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
         viewer.setReadOnly(True)
         viewer.setPlaceholderText("Журнал пока пуст.")
         viewer.setPlainText(self._read_operation_log())
         layout.addWidget(viewer)
-        save = QPushButton("Сохранить журнал…")
+        save = QPushButton("Сохранить журнал…", dialog)
+        setup_standard_secondary_button(save, icon_name="save")
         save.clicked.connect(self.download_logs)
         layout.addWidget(save)
         dialog.exec()

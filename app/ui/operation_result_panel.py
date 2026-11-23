@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 
-from PySide6.QtCore import QStringListModel, Qt, QUrl, Signal
+from PySide6.QtCore import Qt, QStringListModel, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QListView,
-    QMenu,
     QPlainTextEdit,
     QPushButton,
     QStackedWidget,
@@ -25,11 +24,11 @@ from PySide6.QtWidgets import (
 
 from app.ui.ui_components import (
     IconButton,
+    StandardPopupMenu,
     setup_standard_action_button,
     setup_standard_dialog,
     setup_standard_popup_menu,
     setup_standard_secondary_button,
-    sync_standard_menu_width,
 )
 from app.ui.ui_styles import MAIN_BUTTON_HEIGHT, MARGINS_NONE, SPACE_SM
 from core.operation_result import OperationResult
@@ -119,7 +118,7 @@ class OperationResultPanel(QFrame):
         button.setProperty("resultPath", paths[0] if len(paths) == 1 else "")
         if len(paths) <= 1:
             return
-        menu = QMenu(button)
+        menu = StandardPopupMenu(button)
         menu.setObjectName("menu_like_combo_popup")
         setup_standard_popup_menu(menu)
         menu.setToolTipsVisible(True)
@@ -133,25 +132,14 @@ class OperationResultPanel(QFrame):
                     label = os.path.join(*suffix)
                     if all(other[-depth:] != suffix for i, other in enumerate(parts) if i != index):
                         break
-            action = menu.addAction(label.replace("&", "&&"))
+            action = menu.add_command(label, icon_name="choose-folder" if folders else "document", tooltip=path)
             action.setData(label)
             action.setToolTip(path)
             action.triggered.connect(lambda _checked, value=path: self._open_path(value))
         if len(paths) > 12:
-            all_results = menu.addAction("Показать все…")
+            all_results = menu.add_command("Показать все…", icon_name="queue")
             all_results.triggered.connect(lambda: self._show_paths(paths))
 
-        def fit_menu():
-            sync_standard_menu_width(menu, button)
-            metrics = menu.fontMetrics()
-            available = max(0, menu.width() - 24)
-            for action in menu.actions():
-                label = action.data()
-                if label:
-                    caption = metrics.elidedText(label, Qt.TextElideMode.ElideMiddle, available)
-                    action.setText(caption.replace("&", "&&"))
-
-        menu.aboutToShow.connect(fit_menu)
         button.setMenu(menu)
 
     @staticmethod
@@ -169,8 +157,8 @@ class OperationResultPanel(QFrame):
         view.setAccessibleName("Пути к результатам")
         view.activated.connect(lambda index: self._open_path(index.data()))
         layout.addWidget(view)
-        close = QPushButton("Закрыть")
-        setup_standard_secondary_button(close, expand=True)
+        close = QPushButton("Закрыть", dialog)
+        setup_standard_secondary_button(close, expand=True, icon_name="close")
         close.clicked.connect(dialog.reject)
         layout.addWidget(close)
         dialog.exec()
@@ -215,23 +203,26 @@ class OperationResultPanel(QFrame):
                 table.setItem(index, column, item)
         layout.addWidget(table)
         diagnostics = QPlainTextEdit(dialog)
+        diagnostics.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
         diagnostics.setReadOnly(True)
         diagnostics.setAccessibleName("Технические сведения выбранной строки")
         diagnostics.hide()
         layout.addWidget(diagnostics)
 
         actions = QHBoxLayout()
-        expand = QPushButton("Технические сведения")
+        expand = QPushButton("Технические сведения", dialog)
         expand.setCheckable(True)
         expand.toggled.connect(diagnostics.setVisible)
-        copy = QPushButton("Скопировать сведения")
+        copy = QPushButton("Скопировать сведения", dialog)
         copy.clicked.connect(lambda: QApplication.clipboard().setText(diagnostics.toPlainText()))
-        retry = QPushButton(f"Повторить для {len(self.retryable)}")
+        retry = QPushButton(f"Повторить для {len(self.retryable)}", dialog)
         retry.setVisible(bool(self.retryable))
-        close = QPushButton("Закрыть")
+        close = QPushButton("Закрыть", dialog)
         close.clicked.connect(dialog.reject)
-        for button in (expand, copy, retry, close):
-            setup_standard_action_button(button, variant="primary" if button is retry else "secondary")
+        for button, icon_name in ((expand, "details"), (copy, "copy"), (retry, "retry"), (close, "close")):
+            setup_standard_action_button(
+                button, variant="primary" if button is retry else "secondary", icon_name=icon_name
+            )
             button.setFixedHeight(MAIN_BUTTON_HEIGHT)
             actions.addWidget(button, 1)
         layout.addLayout(actions)
