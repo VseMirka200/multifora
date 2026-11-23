@@ -25,6 +25,7 @@ class _AsyncAddHost(QObject, FileListActionsMixin):
         self.update_file_list = Mock()
         self.update_file_info = Mock()
         self.refresh_active_file_preview = Mock()
+        self._refresh_launch_button_states = Mock()
         self.log_event = Mock()
         self._column_sort_section = None
 

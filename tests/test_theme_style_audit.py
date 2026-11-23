@@ -93,7 +93,7 @@ class ThemeStyleAuditTests(unittest.TestCase):
             }
             self.assertEqual(len(styles), 3)
             for style in styles:
-                self.assertIn("QPushButton:focus", style)
+                self.assertIn("QAbstractButton:focus", style)
 
     def test_standard_field_text_contrast(self):
         for theme in ("light", "dark"):
@@ -108,9 +108,10 @@ class ThemeStyleAuditTests(unittest.TestCase):
     def test_primary_and_danger_colours_remain_legible_in_both_themes(self):
         for theme in ("dark", "light"):
             colors = standard_palette(theme)
-            for background in ("accent", "accent_hover"):
+            for background in ("accent", "accent_hover", "accent_pressed"):
                 self.assertGreaterEqual(_contrast(colors["on_accent"], colors[background]), 4.5)
-            self.assertGreaterEqual(_contrast(colors["danger"], colors["bg"]), 4.5)
+            for background in ("danger", "danger_hover", "danger_pressed"):
+                self.assertGreaterEqual(_contrast(colors["on_danger"], colors[background]), 4.5)
             self.assertGreaterEqual(_contrast(colors["disabled_fg"], colors["disabled_bg"]), 4.5)
 
     def test_menu_disabled_items_have_theme_specific_color(self):

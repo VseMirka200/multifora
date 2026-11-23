@@ -1,14 +1,22 @@
 """Карточки справки и переключатель настроек."""
 
-from PySide6.QtCore import Qt, QRectF
+from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
-    QCheckBox, QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget,
+    QCheckBox,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
 
 from app.ui.palette import standard_palette
 from app.ui.typography import SECTION_PX, TITLE_PX
 from app.ui.ui_components import IconButton, resolve_widget_theme_mode, setup_standard_primary_button
+from app.ui.ui_styles import MAIN_BUTTON_HEIGHT
 
 
 class SettingsSwitch(QCheckBox):
@@ -55,7 +63,7 @@ class SupportPage(QScrollArea):
                               "Как настроить операции и обработать файлы.", featured=True)
         self.guide = IconButton("Открыть руководство")
         setup_standard_primary_button(self.guide, expand=False)
-        self.guide.setFixedHeight(36)
+        self.guide.setFixedHeight(MAIN_BUTTON_HEIGHT)
         self.guide.setCursor(Qt.CursorShape.PointingHandCursor)
         self.guide.setAccessibleName(self.guide.text())
         self.guide.setObjectName("guide_action")
@@ -64,7 +72,7 @@ class SupportPage(QScrollArea):
         card = QFrame()
         card.setObjectName("support_card")
         rows = QVBoxLayout(card)
-        rows.setContentsMargins(1, 1, 1, 1)
+        rows.setContentsMargins(0, 0, 0, 0)
         rows.setSpacing(0)
         layout.addWidget(card)
         layout.addStretch()
@@ -82,6 +90,8 @@ class SupportPage(QScrollArea):
                 rows.addWidget(line)
             button = QPushButton()
             button.setObjectName("support_action")
+            button.setProperty("firstSupportAction", key == "updates")
+            button.setProperty("lastSupportAction", key == "help")
             button.setFocusPolicy(Qt.FocusPolicy.TabFocus)
             button.setAccessibleName(title)
             button.setAccessibleDescription(description)

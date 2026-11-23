@@ -260,13 +260,13 @@ class MainWindowSmokeTests(unittest.TestCase):
                 )
                 self.assertEqual(
                     window.progress_dialog.cancel_button.property("buttonVariant"),
-                    "danger",
+                    "secondary",
                 )
                 self.assertEqual(
                     window.progress_dialog.cancel_button.styleSheet(),
                     build_standard_button_style(
                         window._effective_theme_mode,
-                        "danger",
+                        "secondary",
                     ),
                 )
                 tab_labels = [

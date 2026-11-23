@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QDialog, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QWidget,
 )
 
-from app.ui.ui_components import setup_standard_dialog, setup_standard_primary_button, setup_standard_danger_button
+from app.ui.ui_components import setup_standard_dialog, setup_standard_primary_button, setup_standard_secondary_button
 from core.merge_documents import paged_source
 
 
@@ -177,7 +177,7 @@ def choose_merge_pages(parent, files, source_format):
     layout.addLayout(controls)
     buttons = QHBoxLayout()
     cancel = QPushButton("Отмена")
-    setup_standard_danger_button(cancel)
+    setup_standard_secondary_button(cancel)
     cancel.clicked.connect(dialog.reject)
     buttons.addWidget(cancel)
     proceed = QPushButton("Продолжить")

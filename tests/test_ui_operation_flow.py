@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -8,7 +9,9 @@ from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QFrame, QPlainTextEdit, QWidget
 
+from app.ui.operation_progress import OperationProgressDialog
 from app.ui.typography import BODY_PX, CAPTION_PX, FONT_FAMILY, SECTION_PX, TITLE_PX
+from app.ui.ui_components import setup_standard_action_button
 from app.ui.ui_main import MultiforaMainWindow
 from app.workers.operation_worker import OperationWorker
 from core.file_models import FileItem
@@ -35,6 +38,7 @@ def window(tmp_path, monkeypatch):
     if main.file_worker and main.file_worker.isRunning():
         main.file_worker.request_cancel()
         assert main.file_worker.wait(5000)
+    main.merge_pages_panel.stop()
     main.deleteLater()
 
 
@@ -216,6 +220,11 @@ def test_merge_keyboard_order_matches_output(window, tmp_path):
     assert not window.list_files.isColumnHidden(model.COLUMN_ORDER)
     assert window.list_files.horizontalHeader().visualIndex(model.COLUMN_ORDER) == 1
     assert [model.index(row, model.COLUMN_ORDER).data() for row in range(3)] == [1, 2, 3]
+    for _ in range(500):
+        if window.btn_merge.isEnabled():
+            break
+        QTest.qWait(10)
+    assert window.btn_merge.isEnabled()
     output = tmp_path / "combined.pdf"
     with (
         patch("app.ui.mixins.worker_ops_mixin.choose_merge_pages", return_value=()),
@@ -332,3 +341,95 @@ def test_help_opens_readable_operation_log(window, tmp_path):
     viewer = dialog.findChild(QPlainTextEdit)
     assert viewer.isReadOnly()
     assert "Обработан файл example.pdf" in viewer.toPlainText()
+
+
+@pytest.mark.parametrize("trigger", ["escape", "button", "close"])
+def test_progress_cancellation_keeps_dialog_until_completion(window, trigger):
+    dialog = OperationProgressDialog(window, "dark")
+    requests = []
+    dialog.cancel_requested.connect(lambda: requests.append(True))
+    dialog.show_progress()
+    if trigger == "escape":
+        QTest.keyClick(dialog, Qt.Key.Key_Escape)
+    elif trigger == "button":
+        dialog.cancel_button.click()
+    else:
+        dialog.close()
+    assert dialog.isVisible()
+    assert requests == [True]
+    assert not dialog.cancel_button.isEnabled()
+    assert "Отмена" in dialog.status_label.text()
+    QTest.keyClick(dialog, Qt.Key.Key_Escape)
+    assert requests == [True]
+    dialog.reset()
+    assert not dialog.isVisible()
+    dialog.show_progress()
+    assert dialog.cancel_button.isEnabled()
+    dialog.reset()
+    dialog.deleteLater()
+
+
+def test_cancel_button_respects_explicit_role(window):
+    button = window.progress_dialog.cancel_button
+    setup_standard_action_button(button, variant="secondary")
+    assert button.property("buttonVariant") == "secondary"
+    setup_standard_action_button(button, variant="danger")
+    assert button.property("buttonVariant") == "danger"
+
+
+@pytest.mark.parametrize("busy_kind", ["operation", "metadata"])
+def test_launch_buttons_block_and_restore_after_busy_state(window, tmp_path, busy_kind):
+    source = tmp_path / "source.jpg"
+    Image.new("RGB", (10, 10)).save(source)
+    window.add_files([str(source)])
+    window.combo_templates.setCurrentText("Добавить текст в начало")
+    window.template_prefix.setText("new_")
+    window._refresh_launch_button_states()
+    buttons = (window.btn_apply_rename, window.btn_convert, window.btn_compress, window.btn_merge)
+    before = [button.isEnabled() for button in buttons]
+    assert before[0] and before[2]
+    context = (
+        patch.object(window, "_operation_is_running", return_value=True)
+        if busy_kind == "operation" else
+        patch.object(window, "_file_metadata_worker", SimpleNamespace(isRunning=lambda: True), create=True)
+    )
+    with context:
+        window._refresh_launch_button_states()
+        window.on_file_selection_changed()
+        assert all(not button.isEnabled() for button in buttons)
+        assert all("Дождитесь" in button.toolTip() for button in buttons)
+    QTest.qWait(150)
+    assert [button.isEnabled() for button in buttons] == before
+
+
+def test_merge_preview_and_dispatch_use_same_marked_scope(window, tmp_path):
+    sources = []
+    for index in range(3):
+        source = tmp_path / f"source{index}.pdf"
+        with PdfWriter() as writer:
+            writer.add_blank_page(width=100 + index, height=100)
+            writer.write(source)
+        sources.append(str(source))
+    other = tmp_path / "other.docx"
+    Document().save(other)
+    window.add_files([*sources, str(other)])
+    window.list_files.select_paths(sources[:2])
+    window.operations_tab_bar.setCurrentIndex(window.operations_stack.indexOf(
+        window.operations_stack.findChild(QWidget, "merge_page")
+    ))
+    for _ in range(500):
+        if window.btn_merge.isEnabled():
+            break
+        QTest.qWait(10)
+    assert window.btn_merge.isEnabled()
+    assert [file.path for file in window.merge_pages_panel.files] == sources[:2]
+    with (
+        patch.object(window, "_select_merge_output_path_for_format", return_value=str(tmp_path / "out.pdf")),
+        patch.object(window, "show_russian_message_box", return_value=True),
+        patch.object(window, "_start_operation", return_value=False) as start,
+    ):
+        window.btn_merge.click()
+    assert [file.path for file in start.call_args.args[1]] == sources[:2]
+    window.input_search.setText("source2")
+    assert window.merge_pages_panel.files == []
+    assert not window.btn_merge.isEnabled()

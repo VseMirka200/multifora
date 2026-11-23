@@ -1,5 +1,4 @@
 from PySide6.QtCore import (
-
     Qt,
     QUrl,
 )
@@ -15,15 +14,15 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.ui.typography import BODY_PX
 from app.core.app_identity import (
     GITHUB_NEW_ISSUE_URL,
     GUIDE_URL,
 )
-from app.ui.support_page import SupportPage
-from app.ui.ribbon import RibbonNavigation, RibbonPage, RibbonStack
 from app.ui.conversion_panel import ConversionPanel
 from app.ui.operation_layout import add_labeled_field, create_operation_label
+from app.ui.ribbon import RibbonNavigation, RibbonPage, RibbonStack
+from app.ui.support_page import SupportPage
+from app.ui.typography import BODY_PX
 from app.ui.ui_components import (
     IconButton,
     MenuLikeComboBox,
@@ -38,6 +37,7 @@ from app.ui.ui_components import (
 from app.ui.ui_styles import (
     CHECKBOX_SIZE,
     CONTROL_HEIGHT,
+    MAIN_BUTTON_HEIGHT,
     MARGINS_NONE,
     SPACE_NONE,
     SPACE_SM,
@@ -141,7 +141,7 @@ class OperationsTabLayoutMixin:
         self._create_compression_operation_page()
         self._create_merge_operation_page()
         for button in (self.btn_open_rename_history, self.btn_convert, self.btn_compress, self.btn_merge):
-            button.setFixedHeight(36)
+            button.setFixedHeight(MAIN_BUTTON_HEIGHT)
 
         self.operations_tab_bar.layout().addStretch(1)
         self._settings_tab_index = self.operations_stack.count()

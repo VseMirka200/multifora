@@ -3,7 +3,7 @@
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QDialog, QFrame, QLabel, QProgressBar, QPushButton, QScrollArea, QVBoxLayout
 
-from app.ui.ui_components import setup_standard_danger_button, setup_standard_dialog
+from app.ui.ui_components import setup_standard_dialog, setup_standard_secondary_button
 from app.ui.ui_styles import DIALOG_MARGINS, PROGRESS_HEIGHT, SPACE_LG
 
 _DEFAULT_STATUS = "Выполняется операция..."
@@ -47,9 +47,22 @@ class OperationProgressDialog(QDialog):
         layout.addWidget(self.progress_bar)
 
         self.cancel_button = QPushButton("Отмена")
-        setup_standard_danger_button(self.cancel_button, expand=True)
-        self.cancel_button.clicked.connect(self.cancel_requested)
+        setup_standard_secondary_button(self.cancel_button, expand=True)
+        self.cancel_button.clicked.connect(self._request_cancel)
         layout.addWidget(self.cancel_button)
+
+    def _request_cancel(self) -> None:
+        if self.cancel_button.isEnabled():
+            self.cancel_button.setEnabled(False)
+            self.set_status("Отмена операции…")
+            self.cancel_requested.emit()
+
+    def reject(self) -> None:
+        self._request_cancel()
+
+    def closeEvent(self, event) -> None:
+        self._request_cancel()
+        event.ignore()
 
     def _width_for_screen(self) -> int:
         screen = self.parentWidget().screen() if self.parentWidget() else self.screen()

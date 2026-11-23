@@ -164,9 +164,10 @@ class FileListPreviewMixin:
             except ValueError as error:
                 blocking = True
                 self._rename_template_error = str(error)
-        self.btn_apply_rename.setEnabled(has_changes and not blocking)
+        reason = self._operation_start_block_reason()
+        self.btn_apply_rename.setEnabled(has_changes and not blocking and not reason)
         self.btn_apply_rename.setToolTip(
-            f"Переименовать ({len(changed_pairs)})" if has_changes and not blocking else "Переименовать"
+            reason or (f"Переименовать ({len(changed_pairs)})" if has_changes and not blocking else "Переименовать")
         )
         model = self.list_files.model()
         touched = {id(item) for item, _ in changed_pairs}

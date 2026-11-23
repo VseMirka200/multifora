@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 from shiboken6 import isValid
 
-from app.ui.ui_icons import UI_ICON_SIZE, apply_window_icons, ui_icon
+from app.ui.ui_icons import apply_window_icons, ui_icon
 from app.core.app_icons import _get_app_icon_qt_path
 from app.core.app_identity import APP_WINDOW_TITLE
 from app.core.app_ipc import _drain_queued_files
@@ -301,7 +301,36 @@ class MultiforaMainWindow(
             self._hide_progress_dialog()
         else:
             self.operation_result_panel.set_pending("Выполняется операция…")
+            self._refresh_launch_button_states()
         return started
+
+    def _operation_start_block_reason(self) -> str:
+        metadata = getattr(self, "_file_metadata_worker", None)
+        if metadata is not None and metadata.isRunning():
+            return "Дождитесь завершения чтения метаданных файлов"
+        if self._operation_is_running():
+            return "Дождитесь завершения текущей операции"
+        return ""
+
+    def _refresh_launch_button_states(self) -> None:
+        reason = self._operation_start_block_reason()
+        if reason:
+            for button in (self.btn_apply_rename, self.btn_convert, self.btn_compress, self.btn_merge):
+                button.setEnabled(False)
+                button.setToolTip(reason)
+            if not getattr(self, "_launch_refresh_pending", False):
+                self._launch_refresh_pending = True
+                QTimer.singleShot(100, self, self._poll_launch_button_states)
+            return
+        self.refresh_rename_preview()
+        self.update_convert_button_state()
+        self._update_compress_button()
+        self._update_merge_button_state()
+        self.refresh_active_file_preview()
+
+    def _poll_launch_button_states(self) -> None:
+        self._launch_refresh_pending = False
+        self._refresh_launch_button_states()
 
     def _operation_is_running(self) -> bool:
         worker = getattr(self, "file_worker", None)
@@ -1098,7 +1127,7 @@ class MultiforaMainWindow(
                 self.drop_zone_hint_label.setStyleSheet(
                     build_drop_zone_hint_style(mode)
                 )
-        self.drop_document.setPixmap(ui_icon("document", mode).pixmap(UI_ICON_SIZE))
+        self.drop_document.setPixmap(ui_icon("document", mode).pixmap(36, 36))
         self.centralWidget().setStyleSheet(build_workspace_style(mode))
         self.list_files.horizontalHeader().setFixedHeight(32)
 

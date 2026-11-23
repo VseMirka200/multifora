@@ -96,10 +96,14 @@ class WorkerOpsMixin:
         valid_files = len(files) >= 2 and output_format is not None
         panel = getattr(self, "merge_pages_panel", None)
         if panel is not None and self._active_operation_id() == "merge":
-            sources = [f for f in self.files if f.is_file and f.path.lower().endswith((".pdf", ".docx"))]
+            sources = files
             panel.set_files(sources)
             valid_files = panel.ready and len(sources) >= 2 and self._detect_merge_output_format(sources) is not None
-        button.setEnabled(valid_files)
+        button.setEnabled(valid_files and not self._operation_start_block_reason())
+        button.setToolTip(self._operation_start_block_reason() or (
+            "Объединить выбранные документы" if valid_files
+            else "Выберите минимум два документа одного формата и дождитесь загрузки страниц"
+        ))
 
     def _compression_files(self, candidates):
         if self.combo_compress_type.currentText() == "Изображения":
@@ -338,6 +342,7 @@ class WorkerOpsMixin:
 
     def on_operation_finished(self, result):
         """Завершение операции."""
+        QTimer.singleShot(0, self, self._refresh_launch_button_states)
         if not isinstance(result, OperationResult):
             result = OperationResult(
                 new_files=result.get("new_files", []) if hasattr(result, "get") else result,

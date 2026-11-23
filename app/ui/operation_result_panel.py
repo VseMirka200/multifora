@@ -24,10 +24,14 @@ from PySide6.QtWidgets import (
 )
 
 from app.ui.ui_components import (
-    IconButton, setup_standard_action_button, setup_standard_dialog,
-    setup_standard_popup_menu, setup_standard_secondary_button, sync_standard_menu_width,
+    IconButton,
+    setup_standard_action_button,
+    setup_standard_dialog,
+    setup_standard_popup_menu,
+    setup_standard_secondary_button,
+    sync_standard_menu_width,
 )
-from app.ui.ui_styles import MARGINS_NONE, SPACE_SM
+from app.ui.ui_styles import MAIN_BUTTON_HEIGHT, MARGINS_NONE, SPACE_SM
 from core.operation_result import OperationResult
 
 _TITLES = {
@@ -66,7 +70,7 @@ class OperationResultPanel(QFrame):
         for button in self.action_buttons:
             role = "command" if button in (self.open_result, self.open_folder) else "secondary"
             setup_standard_action_button(button, variant=role)
-            button.setFixedHeight(36)
+            button.setFixedHeight(MAIN_BUTTON_HEIGHT)
             actions.addWidget(button, 1)
         self.launch_stack = QStackedWidget()
         actions.addWidget(self.launch_stack, 1)
@@ -228,7 +232,7 @@ class OperationResultPanel(QFrame):
         close.clicked.connect(dialog.reject)
         for button in (expand, copy, retry, close):
             setup_standard_action_button(button, variant="primary" if button is retry else "secondary")
-            button.setFixedHeight(36)
+            button.setFixedHeight(MAIN_BUTTON_HEIGHT)
             actions.addWidget(button, 1)
         layout.addLayout(actions)
 

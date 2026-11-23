@@ -48,6 +48,7 @@ class CheckedOperationsTests(unittest.TestCase):
         self.window.queue_timer.stop()
         self.window._settings_save_timer.stop()
         self.addCleanup(self.window.deleteLater)
+        self.addCleanup(self.window.merge_pages_panel.stop)
         self.items = []
         for name in ("first.pdf", "second.pdf", "third.docx", "fourth.docx", "image.png"):
             path = folder / name
@@ -113,6 +114,14 @@ class CheckedOperationsTests(unittest.TestCase):
 
     def test_filters_update_merge_buttons_and_previews_without_fallback(self):
         window = self.window
+        # Проверяем область операции независимо от фонового рендеринга страниц.
+        def set_files(files):
+            window.merge_pages_panel.files = list(files)
+            window.merge_pages_panel.ready = bool(files)
+
+        render = patch.object(window.merge_pages_panel, "set_files", side_effect=set_files)
+        render.start()
+        self.addCleanup(render.stop)
         self.tab("merge")
         window.input_search.setText(".pdf")
         self.assertEqual(window._get_selected_or_all_file_items(), self.items[:2])

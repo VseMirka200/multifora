@@ -3,7 +3,6 @@ from PySide6.QtGui import QIcon
 
 from app.core.app_icons import _find_bundled_icon
 
-
 UI_ICON_SIZE = QSize(22, 22)
 
 
@@ -24,6 +23,7 @@ def apply_window_icons(window, mode):
         (window.search_icon_action, "search"),
         (window.btn_locate_rename_issue, "locate-issue"),
         (window.btn_open_rename_history, "history"),
+        (window.btn_insert_token, "substitutions"),
         (window.btn_save_template, "save"),
         (window.btn_manage_templates, "templates"),
         (window.btn_select_image_output_path, "choose-folder"),

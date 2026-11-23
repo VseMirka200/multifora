@@ -63,7 +63,11 @@ class OperationsCompressUiMixin:
 
         # Не импортируем библиотеки конвертации при запуске интерфейса.
         # Наличие конкретного backend проверяется worker-ом только при старте операции.
-        self.btn_compress.setEnabled(can_compress)
+        reason = self._operation_start_block_reason()
+        self.btn_compress.setEnabled(can_compress and not reason)
+        self.btn_compress.setToolTip(reason or (
+            "Сжать файлы" if can_compress else "Выберите подходящие файлы и папку результата"
+        ))
 
     def _image_output_mode(self) -> str:
         combo = getattr(self, "combo_image_output_mode", None)

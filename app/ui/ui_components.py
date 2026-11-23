@@ -53,7 +53,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.core.app_utils import _log_ignored_error
-from app.ui.ui_icons import UI_ICON_SIZE
+from app.ui.ui_icons import UI_ICON_SIZE, ui_icon
 from app.ui.ui_styles import (
     ACTION_BUTTON_HEIGHT,
     FIELD_HEIGHT,
@@ -172,6 +172,7 @@ def refresh_standard_button_styles(root: QWidget):
                     resolve_widget_theme_mode(widget), str(role)
                 )
             )
+            _apply_standard_action_icon(widget, str(role))
             _refresh_widget_style(widget)
     except Exception as error:
         _log_ignored_error("refresh_standard_button_styles", error)
@@ -411,6 +412,23 @@ def setup_standard_header_dropdown(widget):
     return widget
 
 
+def _apply_standard_action_icon(widget, role):
+    text = widget.text().replace("&", "").strip().casefold()
+    name = {"сохранить": "save", "отмена": "close", "отменить": "close"}.get(text)
+    if text == "удалить" or text.startswith("удалить "):
+        name = "remove"
+    if name is None:
+        return
+    mode = resolve_widget_theme_mode(widget)
+    variant = mode
+    if role == "danger" or (role == "primary" and mode == "light"):
+        variant = "on-color"
+    elif role == "primary":
+        variant = "light"
+    widget.setIcon(ui_icon(name, variant))
+    widget.setIconSize(UI_ICON_SIZE)
+
+
 def setup_standard_action_button(
     widget,
     *,
@@ -427,15 +445,16 @@ def setup_standard_action_button(
     )
     widget.setProperty("buttonVariant", role)
     widget.setCursor(Qt.CursorShape.PointingHandCursor)
-    if variant == "primary" and not widget.objectName():
+    if role == "primary" and not widget.objectName():
         widget.setObjectName("convert_btn")
-    elif variant == "danger" and not widget.objectName():
+    elif role == "danger" and not widget.objectName():
         widget.setObjectName("cancel_operation_btn")
     if isinstance(widget, QPushButton):
         widget.setFlat(False)
     widget.setStyleSheet(
         build_standard_button_style(resolve_widget_theme_mode(widget), role)
     )
+    _apply_standard_action_icon(widget, role)
     _refresh_widget_style(widget)
     return widget
 
@@ -577,7 +596,7 @@ def get_russian_text_input(
     ok_button = QPushButton("Сохранить")
     setup_standard_primary_button(ok_button, expand=True)
     cancel_button = QPushButton("Отмена")
-    setup_standard_danger_button(cancel_button, expand=True)
+    setup_standard_secondary_button(cancel_button, expand=True)
     buttons_layout.addWidget(ok_button, 1)
     buttons_layout.addWidget(cancel_button, 1)
     layout.addWidget(buttons_row)

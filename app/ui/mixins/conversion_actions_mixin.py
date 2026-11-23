@@ -141,7 +141,7 @@ class ConversionActionsMixin:
                         "secondary",
                     ),
                     ("custom", "Выбрать папку…", "secondary"),
-                    ("cancel", "Отмена", "danger"),
+                    ("cancel", "Отмена", "secondary"),
                 ),
                 icon=QMessageBox.Icon.Question,
                 default_key="alongside",
@@ -281,7 +281,12 @@ class ConversionActionsMixin:
             and not self._conversion_custom_output_path()
         )
 
-        button.setEnabled(bool(files) and output_ready)
+        reason = self._operation_start_block_reason()
+        button.setEnabled(bool(files) and output_ready and not reason)
+        button.setToolTip(reason or (
+            "Конвертировать файлы" if files and output_ready
+            else "Выберите подходящие файлы, форматы и папку результата"
+        ))
         refresh_preview = getattr(self, "refresh_conversion_preview", None)
         if callable(refresh_preview):
             refresh_preview(show_empty_warning=False)

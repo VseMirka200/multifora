@@ -23,7 +23,9 @@ CONTROL_HEIGHT = 28
 FILE_PANEL_RADIUS = 7
 FIELD_HEIGHT = CONTROL_HEIGHT
 HEADER_FIELD_HEIGHT = CONTROL_HEIGHT
-ACTION_BUTTON_HEIGHT = FIELD_HEIGHT
+COMPACT_BUTTON_HEIGHT = CONTROL_HEIGHT
+MAIN_BUTTON_HEIGHT = 36
+ACTION_BUTTON_HEIGHT = COMPACT_BUTTON_HEIGHT
 PROGRESS_HEIGHT = 22
 TAB_BAR_HEIGHT = 40
 CHECKBOX_SIZE = 16
@@ -108,7 +110,16 @@ def build_workspace_style(theme: str) -> str:
         }}
         QWidget#workspace QWidget#settings_row {{ background: transparent; }}
         QFrame#section_line {{ border: none; background: {border}; }}
-        QPushButton#support_action {{ background: transparent; border: 1px solid transparent; border-radius: 5px; }}
+        QPushButton#support_action {{
+            background: transparent; border: 1px solid transparent; border-radius: 0;
+            margin: 0; padding: 0;
+        }}
+        QPushButton#support_action[firstSupportAction="true"] {{
+            border-top-left-radius: 6px; border-top-right-radius: 6px;
+        }}
+        QPushButton#support_action[lastSupportAction="true"] {{
+            border-bottom-left-radius: 6px; border-bottom-right-radius: 6px;
+        }}
         QPushButton#support_action:hover {{
             background: {p["inactive_accent"]}; border-color: {p["hover_bg"]};
         }}
@@ -188,7 +199,7 @@ def build_standard_button_style(theme: str, role: str) -> str:
     disabled_bg, disabled_border, disabled_fg = p["window_bg"], p["disabled_border"], p["disabled_fg"]
     if role == "primary":
         bg = border = p["accent"]
-        fg, hover, pressed = p["on_accent"], p["accent_hover"], p["accent_hover"]
+        fg, hover, pressed = p["on_accent"], p["accent_hover"], p["accent_pressed"]
         disabled_bg = p["inactive_accent"]
     elif role == "command":
         bg, hover, pressed = p["hover_bg"], p["command_hover"], p["progress"]
@@ -204,6 +215,8 @@ def build_standard_button_style(theme: str, role: str) -> str:
             font-weight: 500; font-size: {BODY_PX}px;
         }}
         QAbstractButton:hover {{ background-color: {hover}; border-color: {border}; }}
+        QAbstractButton:checked {{ background-color: {p["progress"]}; color: {p["fg"]}; border-color: {p["accent"]}; }}
+        QAbstractButton:checked:hover {{ background-color: {p["command_hover"]}; }}
         QAbstractButton:pressed {{ background-color: {pressed}; border-color: {border}; }}
         QAbstractButton:focus {{ border: 2px solid {focus}; padding: 1px 8px; }}
         QAbstractButton:disabled {{

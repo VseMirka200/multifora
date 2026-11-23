@@ -155,7 +155,7 @@ class FileListActionsMixin:
             (
                 ("folder", "Добавить папку", "secondary"),
                 ("contents", "Добавить содержимое папок", "secondary"),
-                ("cancel", "Отмена", "danger"),
+                ("cancel", "Отмена", "secondary"),
             ),
             icon=QMessageBox.Icon.Question,
             default_key="folder",
@@ -295,6 +295,7 @@ class FileListActionsMixin:
         worker.finished.connect(self._on_file_metadata_finished)
         self.status_bar.showMessage(status)
         worker.start()
+        self._refresh_launch_button_states()
 
     def _on_file_metadata_batch(self, items: list[FileItem]) -> None:
         worker = getattr(self, "_file_metadata_worker", None)
@@ -321,6 +322,7 @@ class FileListActionsMixin:
         duplicates += getattr(worker, "duplicates", 0)
         worker.deleteLater()
         self._file_metadata_worker = None
+        self._refresh_launch_button_states()
 
         if errors and not getattr(self, "_pending_metadata_close", False):
             first_path, first_error = errors[0]

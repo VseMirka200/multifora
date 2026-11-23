@@ -29,6 +29,7 @@ def standard_palette(theme):
         "accent": accent, "on_accent": base, "danger": danger,
         "on_danger": "#ffffff",
         "accent_hover": _mix(accent, text, 0.18),
+        "accent_pressed": _mix(accent, text, 0.30),
         "danger_hover": _mix(danger, "#000000", 0.12),
         "danger_pressed": _mix(danger, "#000000", 0.24),
         "border": border, "disabled_border": border, "separator": border,

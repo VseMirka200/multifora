@@ -112,6 +112,6 @@ def test_merge_uses_the_same_controller_entry_point():
 
     with patch("app.workers.merge_worker.MergeWorker") as create:
         assert controller.start(request, [source], can_start=lambda: True, connect=connect)
-    create.assert_called_once_with([OperationFile.from_item(source)], "pdf", "out.pdf")
+    create.assert_called_once_with([OperationFile.from_item(source)], "pdf", "out.pdf", ())
     connect.assert_called_once_with(create.return_value)
     create.return_value.start.assert_called_once_with()
