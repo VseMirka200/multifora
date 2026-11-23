@@ -43,3 +43,12 @@ def test_invalid_pdf_does_not_replace_output(tmp_path):
     with pytest.raises(PdfReadError):
         combine_pdfs([source], output, lambda: False)
     assert output.read_bytes() == b"original"
+
+def test_combine_interleaved_pages(tmp_path):
+    first, second = tmp_path / 'a.pdf', tmp_path / 'b.pdf'
+    _pdf(first, [100, 200])
+    _pdf(second, [300, 400])
+    output = tmp_path / 'out.pdf'
+    combine_pdfs([first, second], output, lambda: False,
+                 page_order=((1, 1), (0, 0), (1, 0), (0, 1)))
+    assert [int(page.mediabox.width) for page in PdfReader(output).pages] == [400, 100, 300, 200]

@@ -1,4 +1,4 @@
-import concurrent.futures
+from concurrent.futures.thread import ThreadPoolExecutor
 
 from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QIcon
@@ -637,7 +637,7 @@ class SettingsPanelMixin:
             return
 
         if not hasattr(self, "_update_executor"):
-            self._update_executor = concurrent.futures.ThreadPoolExecutor(
+            self._update_executor = ThreadPoolExecutor(
                 max_workers=1
             )
         if not hasattr(self, "_update_poll_timer"):

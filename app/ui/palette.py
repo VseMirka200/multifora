@@ -18,7 +18,7 @@ def standard_palette(theme):
     if light:
         base, text, accent, danger = "#ffffff", "#20242b", "#245fb8", "#a52b38"
     else:
-        base, text, accent, danger = "#202125", "#f0f2f5", "#8bb7ff", "#ff9ba5"
+        base, text, accent, danger = "#202125", "#f0f2f5", "#8bb7ff", "#a52b38"
 
     surface = base if light else _mix(base, text, 0.05)
     window = _mix(base, text, 0.04) if light else base
@@ -27,9 +27,10 @@ def standard_palette(theme):
     return MappingProxyType({
         "window_bg": window, "bg": surface, "fg": text,
         "accent": accent, "on_accent": base, "danger": danger,
+        "on_danger": "#ffffff",
         "accent_hover": _mix(accent, text, 0.18),
-        "danger_hover": _mix(danger, text, 0.15),
-        "danger_pressed": _mix(danger, text, 0.30),
+        "danger_hover": _mix(danger, "#000000", 0.12),
+        "danger_pressed": _mix(danger, "#000000", 0.24),
         "border": border, "disabled_border": border, "separator": border,
         "hover_border": _mix(surface, text, 0.50),
         "command_hover": _mix(surface, accent, 0.30),

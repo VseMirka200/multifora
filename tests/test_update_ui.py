@@ -25,6 +25,23 @@ class UpdateUiTests(unittest.TestCase):
     def tearDown(self):
         self.host.deleteLater()
 
+    def test_update_check_creates_real_executor(self):
+        result = {"comparison": 0}
+        with patch(
+            "app.ui.mixins.settings_panel_mixin.check_for_updates",
+            return_value=result,
+        ) as check:
+            try:
+                SettingsPanelMixin._start_update_check(self.host, silent=False)
+                self.assertEqual(self.host._update_future.result(timeout=5), result)
+                check.assert_called_once_with()
+                self.assertFalse(self.host.check_updates_action.isEnabled())
+                self.host._update_poll_timer.start.assert_called_once()
+            finally:
+                executor = getattr(self.host, "_update_executor", None)
+                if executor is not None:
+                    executor.shutdown(wait=True)
+
     def test_manual_update_check_shows_result(self):
         check_future = concurrent.futures.Future()
         check_future.set_result(

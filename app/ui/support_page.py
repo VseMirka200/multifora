@@ -82,6 +82,7 @@ class SupportPage(QScrollArea):
                 rows.addWidget(line)
             button = QPushButton()
             button.setObjectName("support_action")
+            button.setFocusPolicy(Qt.FocusPolicy.TabFocus)
             button.setAccessibleName(title)
             button.setAccessibleDescription(description)
             button.setCursor(Qt.CursorShape.PointingHandCursor)

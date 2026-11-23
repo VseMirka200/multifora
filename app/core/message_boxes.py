@@ -233,7 +233,7 @@ def show_app_confirmation(
         title,
         text,
         (
-            ("yes", yes_text, "danger" if destructive else "secondary"),
+            ("yes", yes_text, "primary" if yes_text == "Переименовать" else "danger" if destructive else "secondary"),
             ("no", no_text, "danger" if no_text == "Отмена" else "secondary"),
         ),
         icon=icon,

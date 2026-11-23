@@ -108,8 +108,14 @@ def build_workspace_style(theme: str) -> str:
         }}
         QWidget#workspace QWidget#settings_row {{ background: transparent; }}
         QFrame#section_line {{ border: none; background: {border}; }}
-        QPushButton#support_action {{ background: transparent; border: none; border-radius: 5px; }}
-        QPushButton#support_action:hover, QPushButton#support_action:focus {{ background: {border}; }}
+        QPushButton#support_action {{ background: transparent; border: 1px solid transparent; border-radius: 5px; }}
+        QPushButton#support_action:hover {{
+            background: {p["inactive_accent"]}; border-color: {p["hover_bg"]};
+        }}
+        QPushButton#support_action:pressed {{
+            background: {p["hover_bg"]}; border-color: {p["command_hover"]};
+        }}
+        QPushButton#support_action:focus {{ border: 1px solid {p["accent"]}; }}
         QLabel[sectionHint="true"], QLabel[settingsHint="true"] {{
             font-size: {CAPTION_PX}px; color: {p["disabled_fg"]};
         }}
@@ -189,7 +195,7 @@ def build_standard_button_style(theme: str, role: str) -> str:
         border = p["command_hover"]
     elif role == "danger":
         bg = border = p["danger"]
-        fg, hover, pressed = p["on_accent"], p["danger_hover"], p["danger_pressed"]
+        fg, hover, pressed = p["on_danger"], p["danger_hover"], p["danger_pressed"]
     focus = p["fg"] if role == "primary" else p["accent"]
     return f"""
         QAbstractButton {{

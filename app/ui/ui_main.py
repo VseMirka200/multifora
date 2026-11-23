@@ -746,6 +746,12 @@ class MultiforaMainWindow(
             self.show_file_context_menu
         )
         files_panel_layout.addWidget(self.list_files, 1)
+        from app.ui.merge_pages import MergePagesPanel
+        self.merge_pages_panel = MergePagesPanel(self)
+        self.merge_pages_panel.hide()
+        self.merge_pages_panel.ready_changed.connect(self._update_merge_button_state)
+        QApplication.instance().aboutToQuit.connect(self.merge_pages_panel.stop)
+        files_panel_layout.addWidget(self.merge_pages_panel, 1)
 
     def _create_drop_zone(self, files_panel: QWidget) -> None:
         self.drop_zone_controls = DropZoneOverlay(files_panel)

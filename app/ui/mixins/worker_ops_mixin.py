@@ -94,6 +94,11 @@ class WorkerOpsMixin:
         )
         output_format = self._detect_merge_output_format(files)
         valid_files = len(files) >= 2 and output_format is not None
+        panel = getattr(self, "merge_pages_panel", None)
+        if panel is not None and self._active_operation_id() == "merge":
+            sources = [f for f in self.files if f.is_file and f.path.lower().endswith((".pdf", ".docx"))]
+            panel.set_files(sources)
+            valid_files = panel.ready and len(sources) >= 2 and self._detect_merge_output_format(sources) is not None
         button.setEnabled(valid_files)
 
     def _compression_files(self, candidates):
@@ -227,6 +232,12 @@ class WorkerOpsMixin:
         if not self._ensure_operation_can_start():
             return
         files = self._get_selected_or_all_file_items()
+        panel = getattr(self, "merge_pages_panel", None)
+        if panel is not None:
+            self._update_merge_button_state()
+            if not panel.ready:
+                return
+            files = list(panel.files)
         if len(files) < 2:
             QMessageBox.warning(
                 self,
@@ -281,7 +292,7 @@ class WorkerOpsMixin:
                 return
             format_label = "PDF"
 
-        page_order = choose_merge_pages(self, files, output_format)
+        page_order = panel.page_order() if panel is not None else choose_merge_pages(self, files, output_format)
         if page_order is None:
             return
         if page_order:

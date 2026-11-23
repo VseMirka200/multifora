@@ -151,6 +151,9 @@ class LifecycleMixin:
             event.ignore()
             return
 
+        panel = getattr(self, "merge_pages_panel", None)
+        if panel is not None:
+            panel.stop()
         _delete_ipc_token()
         if (
             hasattr(self, "_settings_save_timer")

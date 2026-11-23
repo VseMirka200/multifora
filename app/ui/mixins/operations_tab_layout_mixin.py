@@ -272,7 +272,7 @@ class OperationsTabLayoutMixin:
         instructions.setSpacing(3)
         self.merge_format_hint_label.setStyleSheet(f"font-size: {BODY_PX}px;")
         instructions.addWidget(self.merge_format_hint_label)
-        instructions.addWidget(QLabel("Порядок в очереди определяет порядок в результате"))
+        instructions.addWidget(QLabel("Расставьте миниатюры страниц в нужном порядке и нажмите «Объединить»"))
         page.row.addLayout(instructions)
         self._add_operations_page(page, "Объединение")
 
@@ -498,6 +498,11 @@ class OperationsTabLayoutMixin:
         if callable(getattr(self, "sync_file_preview_columns", None)):
             self.sync_file_preview_columns()
         merge = self._active_operation_id() == "merge"
+        if hasattr(self, "merge_pages_panel"):
+            self.list_files.setVisible(not merge)
+            self.merge_pages_panel.setVisible(merge)
+            if merge:
+                self._update_merge_button_state()
         self.list_files.keyboard_reordering_enabled = merge
         if merge:
             self.list_files.set_manual_sorting(True)
