@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QStringListModel, QUrl, Signal
+from PySide6.QtCore import QStringListModel, Qt, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -34,7 +34,6 @@ from app.ui.ui_styles import MAIN_BUTTON_HEIGHT, MARGINS_NONE, SPACE_SM
 from core.operation_result import OperationResult
 
 _TITLES = {
-    "success": "Готово",
     "warning": "Завершено с замечаниями",
     "partial": "Обработана часть файлов",
     "failed": "Не удалось выполнить операцию",
@@ -83,7 +82,6 @@ class OperationResultPanel(QFrame):
             button.setEnabled(False)
 
     def set_result(self, result: OperationResult, *, can_retry: bool):
-        self.summary.show()
         self.result = result
         self.retryable = [
             issue for issue in result.errors if can_retry and issue.get("retryable") and issue.get("path")
@@ -91,10 +89,8 @@ class OperationResultPanel(QFrame):
         outputs = list(dict.fromkeys(
             [item.path for item in result.new_files] + [path for _, path in result.updated_files]
         ))
-        summary = [
-            f"Создано {len(result.new_files)}",
-            f"Изменено {len(result.updated_files)}",
-        ]
+        title = _TITLES.get(result.outcome)
+        summary = [title] if title else []
         if result.warnings:
             summary.append(f"Предупреждений {len(result.warnings)}")
         if result.errors:
@@ -102,7 +98,8 @@ class OperationResultPanel(QFrame):
         if result.compression_sizes:
             saved = sum(size.before - size.after for size in result.compression_sizes)
             summary.append(f"Экономия {saved:,} Б".replace(",", " "))
-        self.summary.setText(f"{_TITLES[result.outcome]} · {' · '.join(summary)}")
+        self.summary.setText(" · ".join(summary))
+        self.summary.setVisible(bool(summary))
         self._set_path_menu(self.open_result, outputs)
         folders = list(dict.fromkeys(os.path.dirname(path) for path in outputs))
         self._set_path_menu(self.open_folder, folders, folders=True)

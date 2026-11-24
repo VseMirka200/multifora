@@ -25,6 +25,25 @@ def test_unique_path_skips_occupied_names(tmp_path):
     assert get_unique_path(str(tmp_path / "result.pdf")) == str(tmp_path / "result_2.pdf")
 
 
+@pytest.mark.parametrize("with_swap", [False, True])
+def test_rename_changes_case_on_disk(tmp_path, with_swap):
+    sources = [tmp_path / "report.txt"]
+    targets = [tmp_path / "REPORT.txt"]
+    if with_swap:
+        sources.extend([tmp_path / "a.txt", tmp_path / "b.txt"])
+        targets.extend([tmp_path / "b.txt", tmp_path / "a.txt"])
+    for index, path in enumerate(sources):
+        path.write_bytes(bytes([index]))
+
+    successes, errors = rename_batch(list(map(str, sources)), list(map(str, targets)))
+
+    assert not errors
+    assert len(successes) == len(targets)
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == {
+        target.name: bytes([index]) for index, target in enumerate(targets)
+    }
+
+
 def test_rename_rolls_back_after_first_target_is_placed(tmp_path):
     first, second = tmp_path / "a.txt", tmp_path / "b.txt"
     first.write_text("first")

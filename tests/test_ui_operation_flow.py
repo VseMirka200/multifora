@@ -265,6 +265,10 @@ def test_conversion_uses_checked_docx_and_keeps_queue(window, tmp_path):
     assert len(window.files) == 3
     assert window.from_convert_combo.currentText() == "DOCX"
     assert window.to_convert_combo.currentText() == "PDF"
+    panel = window.operation_result_panel
+    assert panel.result.outcome == "success"
+    assert panel.summary.isHidden()
+    assert panel.open_result.isEnabled()
 
 
 def test_merge_keyboard_order_matches_output(window, tmp_path):

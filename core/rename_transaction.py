@@ -74,7 +74,7 @@ def rename_batch(
             current_index = index
             if cancelled():
                 raise InterruptedError("Операция отменена пользователем")
-            if path_key(source) == path_key(targets[index]):
+            if os.path.normpath(source) == os.path.normpath(targets[index]):
                 continue
             temp = _temp_path(source)
             _move_without_overwriting(source, temp)

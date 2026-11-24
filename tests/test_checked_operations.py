@@ -150,6 +150,28 @@ class CheckedOperationsTests(unittest.TestCase):
         window.template_remove_count.setValue(5)
         self.assertEqual(preview.preview_name, "first.pdf")
 
+    def test_case_modes_update_preview_without_changing_extension(self):
+        window = self.window
+        self.tab("rename")
+        path = Path(self.tmp.name, "__оФОРМЛЕНИЕ ПР и ЁлКА.DOCX")
+        path.write_bytes(b"test")
+        item = FileItem(str(path))
+        window.files = [item]
+        window.update_file_list()
+        window.combo_templates.setCurrentText("Изменить регистр")
+
+        for mode, preview in (
+            ("upper", "__ОФОРМЛЕНИЕ ПР И ЁЛКА.DOCX"),
+            ("title", "__Оформление Пр И Ёлка.DOCX"),
+            ("sentence", "__Оформление пр и ёлка.DOCX"),
+            ("swap", "__Оформление пр И ёЛка.DOCX"),
+            ("lower", "__оформление пр и ёлка.DOCX"),
+        ):
+            with self.subTest(mode=mode):
+                window.template_case_mode.setCurrentIndex(window.template_case_mode.findData(mode))
+                self.assertEqual(window.list_files.model().preview_for(item).preview_name, preview)
+                self.assertTrue(window.btn_apply_rename.isEnabled())
+
     def test_rename_numbers_and_dispatches_only_checked_files(self):
         window = self.window
         self.tab("rename")

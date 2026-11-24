@@ -17,14 +17,17 @@ from app.ui.ui_styles import MARGINS_NONE, PAGE_SECTION_SPACING
 
 class TemplateParamsTextMixin:
     # Настраивает текстовые части имени: замену, префикс, суффикс и расширение.
+    def _setup_text_rule_dropdown(self, selector: MenuLikeComboBox, label: str) -> None:
+        selector.setAccessibleName(label)
+        setup_standard_dropdown(selector)
+        selector.currentIndexChanged.connect(lambda _index: self.refresh_rename_preview())
+        selector.currentIndexChanged.connect(self._schedule_settings_save)
+
     def _create_text_position_selector(self, start_label: str, end_label: str) -> MenuLikeComboBox:
         selector = MenuLikeComboBox()
         selector.addItem(start_label, "start")
         selector.addItem(end_label, "end")
-        selector.setAccessibleName("Позиция")
-        setup_standard_dropdown(selector)
-        selector.currentIndexChanged.connect(lambda _index: self.refresh_rename_preview())
-        selector.currentIndexChanged.connect(self._schedule_settings_save)
+        self._setup_text_rule_dropdown(selector, "Позиция")
         return selector
 
     def create_add_text_params(self):
@@ -103,7 +106,7 @@ class TemplateParamsTextMixin:
             ("swap", "иНВЕРТИРОВАТЬ РЕГИСТР"),
         ):
             self.template_case_mode.addItem(label, mode)
-        setup_standard_dropdown(self.template_case_mode)
+        self._setup_text_rule_dropdown(self.template_case_mode, "Преобразование")
         self.template_params_layout.addWidget(
             create_param_block("Преобразование:", self.template_case_mode)
         )

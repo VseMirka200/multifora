@@ -21,7 +21,9 @@ def apply_case_mode(value: str, mode: str) -> str:
     if mode == "title":
         return text.title()
     if mode == "sentence":
-        return text[:1].upper() + text[1:].lower()
+        for index, char in enumerate(text):
+            if char.lower() != char.upper():
+                return text[:index] + text[index:].capitalize()
     if mode == "swap":
         return text.swapcase()
     return text
