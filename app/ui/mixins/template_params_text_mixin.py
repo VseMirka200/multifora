@@ -12,57 +12,52 @@ from app.ui.ui_components import (
     setup_standard_spin_input,
 )
 from app.ui.ui_helpers import create_param_block, create_spin_param_block
-from app.ui.ui_styles import MARGINS_NONE, SPACE_SM
+from app.ui.ui_styles import MARGINS_NONE, PAGE_SECTION_SPACING
 
 
 class TemplateParamsTextMixin:
     # Настраивает текстовые части имени: замену, префикс, суффикс и расширение.
-    def create_add_prefix_params(self):
-        """Создает параметры для добавления префикса"""
-        self.template_prefix = QLineEdit()
-        self.template_prefix.setPlaceholderText("префикс_")
-        self.template_prefix.setText("префикс_")
-        self.template_prefix.setProperty("renameTemplateField", True)
-        setup_standard_line_input(self.template_prefix)
-        container = create_param_block(
-            "Добавить в начало:", self.template_prefix
-        )
+    def _create_text_position_selector(self, start_label: str, end_label: str) -> MenuLikeComboBox:
+        selector = MenuLikeComboBox()
+        selector.addItem(start_label, "start")
+        selector.addItem(end_label, "end")
+        selector.setAccessibleName("Позиция")
+        setup_standard_dropdown(selector)
+        selector.currentIndexChanged.connect(lambda _index: self.refresh_rename_preview())
+        selector.currentIndexChanged.connect(self._schedule_settings_save)
+        return selector
+
+    def create_add_text_params(self):
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(*MARGINS_NONE)
+        layout.setSpacing(PAGE_SECTION_SPACING)
+
+        self.template_add_position = self._create_text_position_selector("В начало", "В конец")
+        layout.addWidget(create_param_block("Позиция", self.template_add_position), 1)
+
+        self.template_add_text = QLineEdit("префикс_")
+        self.template_add_text.setPlaceholderText("Текст")
+        self.template_add_text.setAccessibleName("Добавляемый текст")
+        self.template_add_text.setProperty("renameTemplateField", True)
+        setup_standard_line_input(self.template_add_text)
+        layout.addWidget(create_param_block("Текст", self.template_add_text), 2)
         self.template_params_layout.addWidget(container)
 
-    def create_add_suffix_params(self):
-        """Создает параметры для добавления суффикса"""
-        self.template_suffix = QLineEdit()
-        self.template_suffix.setPlaceholderText("_суффикс")
-        self.template_suffix.setText("_суффикс")
-        self.template_suffix.setProperty("renameTemplateField", True)
-        setup_standard_line_input(self.template_suffix)
-        container = create_param_block(
-            "Добавить в конец:", self.template_suffix
-        )
-        self.template_params_layout.addWidget(container)
+    def create_remove_chars_params(self):
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(*MARGINS_NONE)
+        layout.setSpacing(PAGE_SECTION_SPACING)
 
-    def create_remove_start_params(self):
-        """Создает параметры для удаления первых N символов"""
-        self.template_remove_start = QSpinBox()
-        self.template_remove_start.setMinimum(1)
-        self.template_remove_start.setMaximum(100)
-        self.template_remove_start.setValue(1)
-        setup_standard_spin_input(self.template_remove_start)
-        container = create_spin_param_block(
-            "Удалить сначала:", self.template_remove_start
-        )
-        self.template_params_layout.addWidget(container)
+        self.template_remove_position = self._create_text_position_selector("С начала", "С конца")
+        layout.addWidget(create_param_block("Позиция", self.template_remove_position), 1)
 
-    def create_remove_end_params(self):
-        """Создает параметры для удаления последних N символов"""
-        self.template_remove_end = QSpinBox()
-        self.template_remove_end.setMinimum(1)
-        self.template_remove_end.setMaximum(100)
-        self.template_remove_end.setValue(1)
-        setup_standard_spin_input(self.template_remove_end)
-        container = create_spin_param_block(
-            "Удалить с конца:", self.template_remove_end
-        )
+        self.template_remove_count = QSpinBox()
+        self.template_remove_count.setRange(1, 100)
+        self.template_remove_count.setAccessibleName("Количество символов")
+        setup_standard_spin_input(self.template_remove_count)
+        layout.addWidget(create_spin_param_block("Символов", self.template_remove_count), 2)
         self.template_params_layout.addWidget(container)
 
     def create_remove_text_params(self):
@@ -80,7 +75,7 @@ class TemplateParamsTextMixin:
         """Создает параметры для замены текста"""
         container = QWidget()
         layout = QHBoxLayout(container)
-        layout.setSpacing(12)
+        layout.setSpacing(PAGE_SECTION_SPACING)
         layout.setContentsMargins(*MARGINS_NONE)
 
         self.template_find = QLineEdit()

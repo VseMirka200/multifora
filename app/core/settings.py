@@ -218,8 +218,6 @@ def _apply_settings_data(window, data: dict) -> None:
 
 
 def _apply_settings(window, values: SavedSettings) -> None:
-    if values.custom_templates is not None:
-        window.custom_templates = values.custom_templates
 
     for operation, checkbox_name in _AUTO_CLEAR_CHECKBOXES.items():
         _set_checkbox_state(getattr(window, checkbox_name, None), values.auto_clear_by_operation[operation])
@@ -349,7 +347,6 @@ def _collect_settings_data(window) -> dict:
     valid_tab = tab_bar is not None and tab_index is not None and tab_index >= 0
 
     return {
-        "custom_templates": window.custom_templates,
         "auto_clear_enabled": bool(
             getattr(window, "auto_clear_enabled_checkbox", None)
             and window.auto_clear_enabled_checkbox.isChecked()

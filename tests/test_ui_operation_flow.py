@@ -8,12 +8,21 @@ from PIL import Image
 from pypdf import PdfReader, PdfWriter
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QAbstractButton, QApplication, QDialog, QFrame, QPlainTextEdit, QStyle, QStyleOptionButton, QWidget
+from PySide6.QtWidgets import (
+    QAbstractButton,
+    QApplication,
+    QDialog,
+    QFrame,
+    QPlainTextEdit,
+    QStyle,
+    QStyleOptionButton,
+    QWidget,
+)
 
 from app.ui.operation_progress import OperationProgressDialog
 from app.ui.typography import BODY_PX, CAPTION_PX, FONT_FAMILY, SECTION_PX, TITLE_PX
 from app.ui.ui_components import setup_standard_action_button
-from app.ui.ui_icons import UI_ICON_SIZE, ui_icon
+from app.ui.ui_icons import SUPPORT_ICON_SIZE, UI_ICON_SIZE, ui_icon
 from app.ui.ui_main import MultiforaMainWindow
 from app.workers.operation_worker import OperationWorker
 from core.file_models import FileItem
@@ -123,7 +132,8 @@ def test_merge_empty_queue_drop_zone_centered_in_visible_merge_panel(window):
                 needed += icon_width + 5
             assert content.width() >= needed
             assert not button.icon().isNull()
-            assert button.width() < 240
+            assert card.rect().contains(button.geometry())
+        assert not window.btn_add_files.geometry().intersects(window.btn_add_folder.geometry())
 
 def test_empty_queue_controls_centered_in_file_viewport(window):
     assert window.list_files.model().rowCount() == 0
@@ -142,8 +152,9 @@ def test_empty_queue_controls_centered_in_file_viewport(window):
 @pytest.mark.parametrize("width", [900, 1200])
 def test_operation_panels_share_geometry(window, width):
     window.resize(width, 650)
-    window.combo_templates.setCurrentText("Пользовательский шаблон")
-    window.template_custom.setFixedHeight(140)
+    window.combo_templates.setCurrentText("Добавить текст")
+    window.template_add_text.setFixedHeight(140)
+    QTest.qWait(30)
     bounds = []
     heights = []
     fields = (window.combo_templates, window.convert_file_type_combo, window.combo_compress_type)
@@ -158,10 +169,10 @@ def test_operation_panels_share_geometry(window, width):
         if index < len(fields):
             field_positions.append(fields[index].mapTo(window, QPoint()))
     assert bounds == [bounds[0]] * 4
-    assert all(height < heights[0] for height in heights[1:])
+    assert all(height < heights[0] for height in heights[1:]), heights
     window.operations_tab_bar.setCurrentIndex(0)
     QApplication.processEvents()
-    assert window.template_custom.height() == 140
+    assert window.template_add_text.height() == 140
     assert window.operations_stack.height() > max(heights[1:])
     assert field_positions == [field_positions[0]] * 3
     for index, content in ((4, window.settings_panel_widget), (5, window.support_page)):
@@ -331,22 +342,27 @@ def test_compression_result_reports_measured_sizes(window, tmp_path):
 def test_ribbon_keeps_parameters_and_queue_accessible(window):
     tabs = window.operations_tab_bar
     tabs.setCurrentIndex(0)
-    window.combo_templates.setCurrentText("Добавить текст в начало")
-    window.template_prefix.setText("готово_")
+    window.combo_templates.setCurrentText("Добавить текст")
+    window.template_add_text.setText("готово_")
     for theme in ("dark", "light"):
         window.apply_theme_mode(theme)
         for width in (900, 1200):
             window.resize(width, 600)
             QApplication.processEvents()
-            assert window.template_prefix.isVisible()
+            assert window.template_add_text.isVisible()
             assert window.rename_validation_label.isVisible()
             assert window.rename_status_group.parentWidget() is window.label_total_size.parentWidget()
-            assert window.template_prefix.text() == "готово_"
+            assert window.template_add_text.text() == "готово_"
             assert window.btn_apply_rename.isVisible()
             QApplication.processEvents()
-            assert len({field.mapTo(window, QPoint()).y() for field in (
-                window.combo_templates, window.template_prefix, window.btn_apply_rename
-            )}) == 1
+            ribbon = window.ribbon_panel
+            for field in (window.combo_templates, window.template_add_text, window.btn_apply_rename):
+                corners = (field.mapTo(ribbon, point) for point in (field.rect().topLeft(), field.rect().bottomRight()))
+                assert all(ribbon.rect().contains(point) for point in corners)
+            rule, action = (field.mapTo(ribbon, field.rect().center()) for field in (
+                window.combo_templates, window.btn_apply_rename
+            ))
+            assert abs(rule.y() - action.y()) <= 2
             assert window.queue_panel.width() == window.ribbon_panel.width()
             assert window.queue_panel.height() > window.ribbon_panel.height()
 
@@ -357,7 +373,7 @@ def test_ribbon_keeps_parameters_and_queue_accessible(window):
     assert window.ribbon_panel.isHidden()
     QTest.mouseDClick(tabs.group.button(0), Qt.MouseButton.LeftButton)
     assert window.ribbon_panel.isVisible()
-    assert window.template_prefix.text() == "готово_"
+    assert window.template_add_text.text() == "готово_"
 
 def test_support_and_settings_return_to_previous_queue(window):
     tabs = window.operations_tab_bar
@@ -436,8 +452,8 @@ def test_launch_buttons_block_and_restore_after_busy_state(window, tmp_path, bus
     source = tmp_path / "source.jpg"
     Image.new("RGB", (10, 10)).save(source)
     window.add_files([str(source)])
-    window.combo_templates.setCurrentText("Добавить текст в начало")
-    window.template_prefix.setText("new_")
+    window.combo_templates.setCurrentText("Добавить текст")
+    window.template_add_text.setText("new_")
     window._refresh_launch_button_states()
     buttons = (window.btn_apply_rename, window.btn_convert, window.btn_compress, window.btn_merge)
     before = [button.isEnabled() for button in buttons]
@@ -497,14 +513,13 @@ def test_main_command_icons_and_log_symbol(window, theme):
         (window.btn_add_files, "add-file"),
         (window.btn_add_folder, "add-folder"),
         (window.support_page.guide, "guide"),
-        (window.btn_save_template, "save"),
         (window.btn_convert, "convert"),
     ):
         assert button.property("buttonIconName") == name
         assert not button.icon().pixmap(UI_ICON_SIZE).isNull()
     assert window.support_page.icons["save"].pixmap().toImage() == ui_icon(
         "document", theme
-    ).pixmap(UI_ICON_SIZE).toImage()
+    ).pixmap(SUPPORT_ICON_SIZE, window.support_page.icons["save"].devicePixelRatioF()).toImage()
 
 
 def test_result_detail_actions_have_explicit_icons(window):

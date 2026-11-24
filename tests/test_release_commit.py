@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scripts.verify_release_commit import verify_release_commit
+from scripts.release.verify_release_commit import verify_release_commit
 
 
 def _git(cwd: Path, *arguments: str) -> str:
@@ -107,7 +107,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
             / "workflows"
             / "release.yml"
         ).read_text(encoding="utf-8")
-        gate = 'python scripts/verify_release_commit.py --tag "$GITHUB_REF_NAME"'
+        gate = 'python scripts/release/verify_release_commit.py --tag "$GITHUB_REF_NAME"'
         self.assertIn(gate, workflow)
         self.assertLess(workflow.index(gate), workflow.index("  build-windows:"))
         self.assertIn("needs: prepare-release", workflow)

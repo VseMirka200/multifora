@@ -11,7 +11,6 @@ _LEGACY_TAB_LABELS = {0: "Переименование", 1: "Конвертац�
 
 @dataclass(frozen=True, slots=True)
 class SavedSettings:
-    custom_templates: dict | None
     auto_clear_enabled: bool
     auto_clear_by_operation: dict[str, bool]
     disable_warning_dialogs: bool
@@ -85,7 +84,6 @@ def normalize_settings(data: dict) -> SavedSettings:
     encoded_geometry = data.get("window_geometry")
     sort = _mapping(data.get("file_list_view_state")) or {}
     return SavedSettings(
-        custom_templates=_mapping(data.get("custom_templates")),
         auto_clear_enabled=bool(data.get("auto_clear_enabled", auto_clear_enabled)),
         auto_clear_by_operation=auto_clear_by_operation,
         disable_warning_dialogs=bool(data.get("disable_warning_dialogs")),

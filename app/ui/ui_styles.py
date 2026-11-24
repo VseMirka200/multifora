@@ -229,41 +229,6 @@ def build_standard_button_style(theme: str, role: str) -> str:
     """
 
 
-def build_template_table_style(theme: str) -> str:
-    palette = standard_palette(theme)
-    foreground = palette["fg"]
-    background = palette["bg"]
-    border = palette["border"]
-    alternate = palette["window_bg"]
-    hover = selected = palette["hover_bg"]
-    header = alternate
-    return f"""
-        QTableWidget {{
-            background-color: {background}; alternate-background-color: {alternate};
-            color: {foreground}; border: 1px solid {border}; border-radius: 4px;
-            selection-background-color: {selected};
-            selection-color: {foreground}; show-decoration-selected: 1;
-        }}
-        QTableWidget:focus, QTableWidget::item:focus {{ outline: none; border: none; }}
-        QTableWidget::item {{
-            padding: 2px 4px; min-height: 22px; background-color: transparent;
-            color: {foreground};
-        }}
-        QTableWidget::item:alternate {{ background-color: {alternate}; color: {foreground}; }}
-        QTableWidget::item:hover {{ background-color: {hover}; color: {foreground}; }}
-        QTableWidget::item:selected,
-        QTableWidget::item:selected:active,
-        QTableWidget::item:selected:!active {{
-            background-color: {selected}; color: {foreground}; selection-color: {foreground};
-        }}
-        QTableWidget::item:selected:focus {{
-            outline: none; border: none; background-color: {selected};
-        }}
-        QHeaderView::section {{ background-color: {header}; color: {foreground}; padding: 1px 4px; }}
-        QTableCornerButton::section {{ background-color: {header}; border: none; }}
-    """
-
-
 def build_standard_field_style(theme: str, kind: str) -> str:
     p = standard_palette(theme)
     if kind == "line":
@@ -301,10 +266,6 @@ def build_standard_field_style(theme: str, kind: str) -> str:
             QTextEdit:hover:enabled {{
                 background-color: {p["hover_bg"]};
                 border-color: {p["hover_border"]};
-            }}
-            AutoHeightTextEdit {{
-                min-height: 0px;
-                padding: {SPACE_SM}px {SPACE_LG}px;
             }}
             QTextEdit::placeholder {{
                 color: {p["placeholder"]};

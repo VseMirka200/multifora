@@ -30,7 +30,6 @@ class FileListPreviewMixin:
             preview = self.list_files.model().preview_for(file_item)
             preview.rename_status = ""
             preview.preview_name = file_item.name
-            preview.estimated_compressed_size = None
             preview.conversion_target_format = ""
             preview.preview_folder = str(
                 getattr(file_item, "folder", "")
@@ -182,7 +181,9 @@ class FileListPreviewMixin:
         if label is not None:
             if blocking:
                 label.setText("Ошибка имени")
-                label.setToolTip(self._rename_template_error or format_rename_plan_issues(self._rename_plan_issues, limit=3))
+                label.setToolTip(
+                    self._rename_template_error or format_rename_plan_issues(self._rename_plan_issues, limit=3)
+                )
             elif self._rename_plan_issues:
                 label.setText(f"Конфликты: {len(self._rename_plan_issues)}")
                 label.setToolTip("Свободные имена показаны в предпросмотре.")
@@ -192,7 +193,7 @@ class FileListPreviewMixin:
             self.status_bar.showMessage("Предпросмотр обновлен автоматически.")
         else:
             self.status_bar.showMessage(
-                "Шаблон не изменяет текущие имена файлов."
+                "Правило не изменяет текущие имена файлов."
             )
 
     def _build_conversion_preview_name(
@@ -279,7 +280,6 @@ class FileListPreviewMixin:
         for file_item in self.files:
             preview = self.list_files.model().preview_for(file_item)
             preview.preview_name = file_item.name
-            preview.estimated_compressed_size = None
             preview.conversion_target_format = ""
             preview.preview_folder = str(
                 getattr(file_item, "folder", "")
@@ -292,56 +292,6 @@ class FileListPreviewMixin:
             preview.preview_folder = self._conversion_preview_folder(file_item)
 
         self._refresh_list_preview()
-
-    def _estimate_image_reduction_percent(self, file_item) -> int:
-        level_combo = getattr(self, "combo_compression_level", None)
-        level = 85
-        if level_combo is not None:
-            try:
-                selected_level = level_combo.currentData()
-                if isinstance(selected_level, int):
-                    level = selected_level
-            except Exception:
-                level = 85
-
-        ext = ""
-        try:
-            ext = (
-                file_item.name.rsplit(".", 1)[1].lower()
-                if "." in file_item.name
-                else ""
-            )
-        except Exception:
-            ext = ""
-
-        # Грубая оценка: JPEG/WebP обычно сжимаются сильнее PNG.
-        mapping = (
-            {40: 55, 65: 35, 85: 18, 95: 8}
-            if ext in ("jpg", "jpeg", "webp")
-            else {40: 35, 65: 22, 85: 12, 95: 5}
-        )
-        return int(mapping.get(level, 18))
-
-    def _estimate_pdf_reduction_percent(self) -> int:
-        method_combo = getattr(self, "combo_pdf_method", None)
-        method_text = ""
-        if method_combo is not None:
-            try:
-                method_text = str(method_combo.currentText() or "")
-            except Exception:
-                method_text = ""
-
-        if "Максимальное сжатие" in method_text:
-            return 55
-        if "Сохранить качество" in method_text:
-            return 18
-        if "Только оптимизация" in method_text:
-            return 10
-        return 30
-
-    @staticmethod
-    def _with_reduction_label(name: str, reduction_percent: int) -> str:
-        return f"{name} (≈-{max(0, int(reduction_percent))}%)"
 
     def refresh_compression_preview(self, show_empty_warning=False):
         """Обновляет предпросмотр имени файла для режима сжатия."""
@@ -390,52 +340,25 @@ class FileListPreviewMixin:
                 getattr(file_item, "folder", "")
                 or os.path.dirname(str(getattr(file_item, "path", "")))
             )
-            preview.estimated_compressed_size = None
             if id(file_item) not in active_ids or not getattr(file_item, "is_file", False):
                 continue
 
             if "PDF" in compress_type and str(
                 getattr(file_item, "path", "")
             ).lower().endswith(".pdf"):
-                reduction = self._estimate_pdf_reduction_percent()
-                preview.estimated_compressed_size = round(
-                    max(0, getattr(file_item, "size", 0)) * (100 - reduction) / 100
-                )
                 if not replace_pdf:
-                    new_name = compressed_name(file_item.name, ".pdf")
-                    preview.preview_name = self._with_reduction_label(
-                        new_name, reduction
-                    )
-                else:
-                    preview.preview_name = self._with_reduction_label(
-                        file_item.name, reduction
-                    )
+                    preview.preview_name = compressed_name(file_item.name, ".pdf")
                 continue
 
             if (
                 "Изображения" in compress_type
                 and getattr(file_item, "file_type", "") == "image"
+                and not replace_image
             ):
-                reduction = self._estimate_image_reduction_percent(file_item)
-                preview.estimated_compressed_size = round(
-                    max(0, getattr(file_item, "size", 0)) * (100 - reduction) / 100
-                )
-                if not replace_image:
-                    ext = (
-                        file_item.name.rsplit(".", 1)[1]
-                        if "." in file_item.name
-                        else ""
-                    )
-                    new_name = compressed_name(file_item.name, ext)
-                    preview.preview_name = self._with_reduction_label(
-                        new_name, reduction
-                    )
-                    if image_output_folder:
-                        preview.preview_folder = image_output_folder
-                else:
-                    preview.preview_name = self._with_reduction_label(
-                        file_item.name, reduction
-                    )
+                _, extension = os.path.splitext(file_item.name)
+                preview.preview_name = compressed_name(file_item.name, extension)
+                if image_output_folder:
+                    preview.preview_folder = image_output_folder
 
         self._refresh_list_preview()
 

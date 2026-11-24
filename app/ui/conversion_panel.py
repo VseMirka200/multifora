@@ -71,6 +71,11 @@ class ConversionPanel(QObject):
             formats, "Целевой формат", self.to_convert_combo
         )
 
+        self.format_hint = create_operation_label("")
+        self.format_hint.setWordWrap(True)
+        self.format_hint.hide()
+        convert_layout.addWidget(self.format_hint)
+
         self.combo_conversion_output_mode = MenuLikeComboBox()
         self.combo_conversion_output_mode.addItem(
             "Спрашивать каждый раз", "ask"

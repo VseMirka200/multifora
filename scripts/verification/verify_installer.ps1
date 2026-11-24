@@ -1,7 +1,7 @@
 param([string]$SetupDirectory)
 
 $ErrorActionPreference = 'Stop'
-$root = Split-Path -Parent $PSScriptRoot
+$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 if (-not $SetupDirectory) { $SetupDirectory = Join-Path $root 'dist\installer' }
 $installers = @(Get-ChildItem -LiteralPath $setupDirectory -Filter 'Multifora-Setup-*.exe')
 if ($installers.Count -ne 1) { throw 'Expected exactly one installer.' }

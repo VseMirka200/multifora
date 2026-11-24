@@ -3,10 +3,10 @@
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.measure_bundle import collect_bundle_metrics
-from scripts.measure_bundle import main as measure_bundle
-from scripts.verify_build_environment import check_packages, check_python
-from scripts.verify_windows_bundle import check_bundle
+from scripts.maintenance.measure_bundle import collect_bundle_metrics
+from scripts.maintenance.measure_bundle import main as measure_bundle
+from scripts.verification.verify_build_environment import check_packages, check_python
+from scripts.verification.verify_windows_bundle import check_bundle
 
 
 def test_bundle_validator_reports_missing_files(tmp_path: Path):
@@ -52,8 +52,8 @@ def test_release_build_uses_spec_with_docxcompose_resources():
     spec = (root / "Multifora.spec").read_text(encoding="utf-8")
     assert "scripts\\build_app.bat --no-pause" in workflow
     assert 'PyInstaller --noconfirm --clean "Multifora.spec"' in build
-    assert '"scripts\\verify_windows_bundle.py"' in build
-    assert '"scripts\\measure_bundle.py"' in build
+    assert '"scripts\\verification\\verify_windows_bundle.py"' in build
+    assert '"scripts\\maintenance\\measure_bundle.py"' in build
     assert "dist/bundle-metrics.json" in workflow
     assert "dist/runtime-metrics.json" in workflow
     assert "verify_windows_runtime.ps1" in workflow
@@ -120,9 +120,9 @@ def test_bundle_metrics_fail_a_regressed_budget_but_write_artifact(
 
 def test_build_environment_rejects_wrong_python_before_packaging():
     with (
-        patch("scripts.verify_build_environment.sys.version_info", (3, 14)),
-        patch("scripts.verify_build_environment.sys.platform", "win32"),
-        patch("scripts.verify_build_environment.struct.calcsize", return_value=8),
+        patch("scripts.verification.verify_build_environment.sys.version_info", (3, 14)),
+        patch("scripts.verification.verify_build_environment.sys.platform", "win32"),
+        patch("scripts.verification.verify_build_environment.struct.calcsize", return_value=8),
     ):
         assert len(check_python()) == 1
         assert "Python 3.15 is required" in check_python()[0]
@@ -130,18 +130,18 @@ def test_build_environment_rejects_wrong_python_before_packaging():
 
 def test_build_environment_accepts_supported_python():
     with (
-        patch("scripts.verify_build_environment.sys.version_info", (3, 15)),
-        patch("scripts.verify_build_environment.sys.platform", "win32"),
-        patch("scripts.verify_build_environment.struct.calcsize", return_value=8),
+        patch("scripts.verification.verify_build_environment.sys.version_info", (3, 15)),
+        patch("scripts.verification.verify_build_environment.sys.platform", "win32"),
+        patch("scripts.verification.verify_build_environment.struct.calcsize", return_value=8),
     ):
         assert check_python() == []
 
 
 def test_build_environment_rejects_32_bit_python():
     with (
-        patch("scripts.verify_build_environment.sys.version_info", (3, 15)),
-        patch("scripts.verify_build_environment.sys.platform", "win32"),
-        patch("scripts.verify_build_environment.struct.calcsize", return_value=4),
+        patch("scripts.verification.verify_build_environment.sys.version_info", (3, 15)),
+        patch("scripts.verification.verify_build_environment.sys.platform", "win32"),
+        patch("scripts.verification.verify_build_environment.struct.calcsize", return_value=4),
     ):
         assert check_python() == ["64-bit Python is required."]
 
@@ -154,7 +154,7 @@ def test_build_environment_detects_missing_and_changed_packages(tmp_path: Path):
     shared.write_text("first==1.0\n", encoding="utf-8")
     requirements.write_text("# Lock\n-r shared-fixture.txt\nsecond==2.0\nthird==3.0\n")
     with patch(
-        "scripts.verify_build_environment.version",
+        "scripts.verification.verify_build_environment.version",
         side_effect=["1.0", "2.1", PackageNotFoundError("third")],
     ):
         assert check_packages(requirements) == [

@@ -3,8 +3,96 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from app.workers.compression_worker import CompressionMixin
+import pytest
+from PIL import Image
+
+from app.workers.compression_worker import CompressionMixin, CompressionWorker
 from core.file_models import FileItem
+
+
+@pytest.mark.parametrize("extension", [".gif", ".webp", ".png", ".tiff"])
+@pytest.mark.parametrize("mode", ["alongside", "replace"])
+def test_compression_worker_preserves_multiframe_images(tmp_path, extension, mode):
+    source = tmp_path / f"source{extension}"
+    with Image.new("RGBA", (96, 96)) as first, Image.new("RGBA", (96, 96)) as second:
+        first.paste("red", (15, 15, 65, 65))
+        second.paste("blue", (20, 20, 70, 70))
+        options = {"disposal": 2} if extension == ".gif" else {}
+        first.save(source, save_all=True, append_images=[second], duration=[80, 120], loop=2, **options)
+    with source.open("ab") as stream:
+        stream.write(bytes(100_000))
+    original = source.read_bytes()
+
+    worker = CompressionWorker()
+    worker.set_compression([FileItem(str(source))], 65, image_output_mode=mode)
+    results = []
+    worker.finished.connect(results.append)
+    worker.run()
+
+    result = results[0]
+    assert not result.errors
+    assert not result.warnings
+    destination = source if mode == "replace" else Path(result.new_files[0].path)
+    if mode == "alongside":
+        assert source.read_bytes() == original
+    assert destination.read_bytes() != original
+    with Image.open(destination) as image:
+        assert image.n_frames == 2
+        if extension != ".tiff":
+            assert image.info["loop"] == 2
+        for index, duration in enumerate((80, 120)):
+            image.seek(index)
+            with image.convert("RGBA") as frame:
+                red, _, blue, alpha = frame.getpixel((40, 40))
+                assert (red > blue) == (index == 0)
+                assert alpha == 255
+                assert frame.getpixel((0, 0))[3] == 0
+            if extension != ".tiff":
+                assert image.info["duration"] == duration
+
+
+def test_compression_worker_preserves_apng_default_image(tmp_path):
+    source = tmp_path / "source.png"
+    with (
+        Image.new("RGBA", (32, 32), "red") as poster,
+        Image.new("RGBA", (32, 32), "blue") as first,
+        Image.new("RGBA", (32, 32), "green") as second,
+    ):
+        poster.save(source, save_all=True, default_image=True, append_images=[first, second], duration=[80, 120])
+    with source.open("ab") as stream:
+        stream.write(bytes(100_000))
+    worker = CompressionWorker()
+    worker.set_compression([FileItem(str(source))], 65)
+    results = []
+    worker.finished.connect(results.append)
+    worker.run()
+    with Image.open(results[0].new_files[0].path) as result:
+        assert result.info["default_image"]
+        assert result.n_frames == 3
+        assert result.getpixel((0, 0)) == (255, 0, 0, 255)
+        result.seek(1)
+        assert result.info["duration"] == 80
+
+
+def test_compression_worker_rejects_single_frame_output_in_replace_mode(tmp_path):
+    source = tmp_path / "source.tiff"
+    with Image.new("RGB", (96, 96), "red") as first, Image.new("RGB", (96, 96), "blue") as second:
+        first.save(source, save_all=True, append_images=[second])
+    original = source.read_bytes()
+
+    def omit_pages(image, path, *_args, **_kwargs):
+        image.save(path, format="TIFF")
+
+    worker = CompressionWorker()
+    worker.set_compression([FileItem(str(source))], 65, image_output_mode="replace")
+    results = []
+    worker.finished.connect(results.append)
+    with patch("core.compress_files.save_optimized_image", side_effect=omit_pages):
+        worker.run()
+    assert source.read_bytes() == original
+    assert results[0].warnings
+    assert not results[0].updated_files
+    assert list(tmp_path.iterdir()) == [source]
 
 
 class _DummyCompressionWorker(CompressionMixin):

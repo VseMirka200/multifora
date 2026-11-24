@@ -1,6 +1,4 @@
-import json
-
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QMessageBox
 
 import app.core.settings as app_settings
 from app.core.app_ipc import _delete_ipc_token
@@ -33,82 +31,6 @@ class LifecycleMixin:
     def save_settings(self):
         """Сохранение настроек в файл."""
         app_settings.save_settings(self)
-
-    def export_templates(self):
-        """Экспорт шаблонов в файл."""
-        if not self.custom_templates:
-            QMessageBox.warning(self, "Ошибка", "Нет шаблонов для экспорта!")
-            return
-        file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Экспорт шаблонов",
-            "шаблоны_мультифора.json",
-            "JSON файлы (*.json)",
-        )
-        if file_path:
-            try:
-                with open(file_path, "w", encoding="utf-8") as f:
-                    json.dump(
-                        self.custom_templates, f, ensure_ascii=False, indent=2
-                    )
-                QMessageBox.information(
-                    self, "Успех", f"Шаблоны экспортированы в {file_path}"
-                )
-            except Exception as exc:
-                QMessageBox.critical(
-                    self,
-                    "Ошибка",
-                    f"Не удалось экспортировать шаблоны: {exc!s}",
-                )
-
-    def import_templates(self, parent_window):
-        """Импорт шаблонов из файла."""
-        file_path, _ = QFileDialog.getOpenFileName(
-            parent_window if parent_window else self,
-            "Импорт шаблонов",
-            "",
-            "JSON файлы (*.json)",
-        )
-        if file_path:
-            try:
-                with open(file_path, encoding="utf-8") as f:
-                    imported_templates = json.load(f)
-                if not isinstance(imported_templates, dict):
-                    raise ValueError("В файле должен быть список именованных шаблонов.")
-                added = renamed = invalid = 0
-                for name, template_data in imported_templates.items():
-                    if (
-                        not name.strip()
-                        or not isinstance(template_data, dict)
-                        or not isinstance(template_data.get("type"), str)
-                        or not isinstance(template_data.get("data"), dict)
-                    ):
-                        invalid += 1
-                        continue
-                    if name in self.custom_templates:
-                        counter = 1
-                        new_name = f"{name}_{counter}"
-                        while new_name in self.custom_templates:
-                            counter += 1
-                            new_name = f"{name}_{counter}"
-                        self.custom_templates[new_name] = template_data
-                        renamed += 1
-                    else:
-                        self.custom_templates[name] = template_data
-                    added += 1
-                self.update_templates_table(parent_window)
-                self.save_settings()
-                QMessageBox.information(
-                    parent_window if parent_window else self,
-                    "Импорт шаблонов",
-                    f"Добавлено: {added}. Переименовано при совпадении: {renamed}. Пропущено: {invalid}.",
-                )
-            except Exception as exc:
-                QMessageBox.critical(
-                    parent_window if parent_window else self,
-                    "Ошибка",
-                    f"Не удалось импортировать шаблоны: {exc!s}",
-                )
 
     def closeEvent(self, event):
         """Обработчик закрытия окна."""

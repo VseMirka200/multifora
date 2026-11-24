@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$root = Split-Path -Parent $PSScriptRoot
+$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $dist = Join-Path $root 'dist'
 $versionLine = Select-String -LiteralPath (Join-Path $root 'app\core\app_identity.py') -Pattern '^APP_VERSION = "([^"]+)"$'
 if (-not $versionLine) { throw 'Application version not found.' }

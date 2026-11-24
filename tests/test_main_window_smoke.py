@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import tempfile
@@ -7,12 +8,11 @@ from uuid import uuid4
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QEventLoop, QPoint, QProcess, Qt, QTimer
+from PySide6.QtCore import QEventLoop, QProcess, Qt, QTimer
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
-    QHeaderView,
     QLabel,
     QListWidget,
     QPushButton,
@@ -25,7 +25,14 @@ from app.core.ipc_server import LocalFileServer
 from app.core.settings import _collect_settings_data
 from app.ui.ui_components import ScrollableFilterMenu
 from app.ui.ui_main import MultiforaMainWindow
-from app.ui.ui_styles import DIALOG_MARGINS, FIELD_HEIGHT, build_standard_button_style
+from app.ui.ui_styles import (
+    ACTION_BUTTON_HEIGHT,
+    DIALOG_MARGINS,
+    DROPDOWN_HEIGHT,
+    FIELD_HEIGHT,
+    MAIN_BUTTON_HEIGHT,
+    build_standard_button_style,
+)
 from core.file_models import FileItem
 
 
@@ -105,6 +112,9 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertEqual(app_margins.left(), app_margins.right())
                 self.assertEqual(app_margins.left(), 0)
                 self.assertEqual(window.windowTitle(), "Мультифора")
+                self.assertEqual(window.combo_templates.currentText(), "Добавить текст")
+                self.assertEqual(window.template_add_position.currentText(), "В начало")
+                self.assertFalse(window.template_add_text.isHidden())
                 self.assertFalse(hasattr(window, "tabs"))
                 self.assertIsNotNone(window.operations_stack)
                 self.assertEqual(window.operations_stack.count(), 6)
@@ -329,8 +339,12 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window.btn_compress, window.btn_convert, window.support_page.guide,
                 }
                 for button in standard_buttons:
-                    large = button in large_buttons or button in window.operation_result_panel.action_buttons
-                    self.assertEqual(button.height(), 36 if large else FIELD_HEIGHT)
+                    expected_height = ACTION_BUTTON_HEIGHT
+                    if button in large_buttons or button in window.operation_result_panel.action_buttons:
+                        expected_height = MAIN_BUTTON_HEIGHT
+                    elif button is window.btn_apply_rename:
+                        expected_height = DROPDOWN_HEIGHT
+                    self.assertEqual(button.height(), expected_height, button.text())
                 self.assertEqual(
                     window.settings_scroll.objectName(), "settings_page_scroll"
                 )
@@ -1126,92 +1140,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window._settings_save_timer.stop()
                 window.deleteLater()
 
-    def test_custom_template_quick_commands_insert_at_cursor(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            settings_path = os.path.join(tmp_dir, "settings.json")
-            with (
-                patch(
-                    "app.core.settings.get_settings_file_path",
-                    return_value=settings_path,
-                ),
-                patch.object(
-                    MultiforaMainWindow,
-                    "apply_shortcut_settings",
-                    return_value=None,
-                ),
-                patch.object(
-                    MultiforaMainWindow, "create_ipc_server", return_value=None
-                ),
-                patch.object(
-                    MultiforaMainWindow,
-                    "create_file_worker",
-                    return_value=True,
-                ),
-            ):
-                window = MultiforaMainWindow()
-
-            try:
-                window.on_template_selected("Пользовательский шаблон")
-                window.resize(900, 550)
-                window.show()
-                QApplication.processEvents()
-                self.assertTrue(window.template_custom.isVisible())
-                self.assertTrue(window.btn_insert_token.isEnabled())
-
-                def click_name(menu):
-                    QApplication.processEvents()
-                    tokens = {action.data() for action in menu.actions()}
-                    self.assertEqual(tokens, {"{name}", "{num:03d,start=1,step=1}", "{date}", "{ext}",
-                                              "{created}", "{modified}", "{exif_date}", "{width}", "{height}"})
-                    self.assertTrue(all(not action.icon().isNull() for action in menu.actions()))
-                    QTest.mouseClick(menu, Qt.MouseButton.LeftButton,
-                                     pos=menu.actionGeometry(menu.actions()[0]).center())
-
-                for mode in ("light", "dark"):
-                    window.apply_theme_mode(mode)
-                    field = window.template_custom
-                    field.setText("hello world")
-                    field.setFocus()
-                    field.setCursorPosition(0)
-                    QApplication.processEvents()
-                    QTest.mouseDClick(field, Qt.MouseButton.LeftButton,
-                                      pos=QPoint(20, field.height() // 2))
-                    self.assertEqual(field.selectedText(), "hello")
-                    QTest.keyClick(field, Qt.Key.Key_C, Qt.KeyboardModifier.ControlModifier)
-                    self.assertEqual(QApplication.clipboard().text(), "hello")
-                    QTest.keyClick(field, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier)
-                    self.assertEqual(field.selectedText(), "hello world")
-                    QTest.keyClick(field, Qt.Key.Key_X, Qt.KeyboardModifier.ControlModifier)
-                    self.assertEqual(field.text(), "")
-                    QTest.keyClick(field, Qt.Key.Key_V, Qt.KeyboardModifier.ControlModifier)
-                    self.assertEqual(field.text(), "hello world")
-                    QTest.keyClick(field, Qt.Key.Key_Z, Qt.KeyboardModifier.ControlModifier)
-                    self.assertEqual(field.text(), "")
-                    QTest.keyClick(field, Qt.Key.Key_Y, Qt.KeyboardModifier.ControlModifier)
-                    self.assertEqual(field.text(), "hello world")
-                    window.template_custom.setText("AB")
-                    window.template_custom.setCursorPosition(1)
-                    window.btn_insert_token.click()
-                    click_name(window._template_token_menu)
-                    self.assertEqual(window.template_custom.text(), "A{name}B")
-                    self.assertEqual(window.template_custom.cursorPosition(), 7)
-                    window.btn_insert_token.click()
-                    QTest.keyClick(window._template_token_menu, Qt.Key.Key_Escape)
-                    self.assertEqual(window.template_custom.text(), "A{name}B")
-                self.assertTrue(window.btn_save_template.isVisible())
-                self.assertTrue(window.btn_manage_templates.isVisible())
-                for rule in ("Нумерация", "Выбрать правило", "Пользовательский шаблон"):
-                    window.combo_templates.setCurrentText(rule)
-                    for button in (window.btn_insert_token, window.btn_save_template, window.btn_manage_templates):
-                        self.assertEqual(button.isVisible(), rule == "Пользовательский шаблон")
-            finally:
-                if hasattr(window, "queue_timer"):
-                    window.queue_timer.stop()
-                if hasattr(window, "_settings_save_timer"):
-                    window._settings_save_timer.stop()
-                window.deleteLater()
-
-    def test_custom_numbering_continues_across_folders(self):
+    def test_numbering_continues_across_folders(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             folders = [
                 os.path.join(tmp_dir, name) for name in ("first", "second")
@@ -1251,16 +1180,10 @@ class MainWindowSmokeTests(unittest.TestCase):
             try:
                 window.files = [FileItem(path) for path in paths]
                 window.update_file_list()
-                window.on_template_selected("Пользовательский шаблон")
-                repeated = "{num:03d,start=1,step=1}_{date}_{name}"
-                window.template_custom.setText(f"{repeated} {repeated}")
-                window.refresh_rename_preview()
-                for index, item in enumerate(window.files, 1):
-                    name = window.list_files.model().preview_for(item).preview_name
-                    first, second = name.removesuffix(".docx").split(" ")
-                    self.assertEqual(first, second)
-                    self.assertTrue(first.startswith(f"{index:03d}_"))
-                window.template_custom.setText("ПР {num:1d,start=1,step=1}")
+                window.combo_templates.setCurrentText("Нумерация")
+                window.set_numbering_mode("Нумерация с префиксом")
+                window.template_prefix_text.setText("ПР ")
+                window.template_prefix_digits.setValue(1)
                 window.refresh_rename_preview()
 
                 self.assertEqual(
@@ -1274,11 +1197,16 @@ class MainWindowSmokeTests(unittest.TestCase):
                     window._settings_save_timer.stop()
                 window.deleteLater()
 
-    def test_removed_regex_rule_and_remaining_case_controls(
+    def test_removed_rules_and_remaining_case_controls(
         self,
     ):
         with tempfile.TemporaryDirectory() as tmp_dir:
             settings_path = os.path.join(tmp_dir, "settings.json")
+            with open(settings_path, "w", encoding="utf-8") as stream:
+                json.dump({
+                    "template_session": {"selected_template": "Пользовательский шаблон"},
+                    "custom_templates": {"Старый шаблон": {"data": {"template": "{name}"}}},
+                }, stream, ensure_ascii=False)
             with (
                 patch(
                     "app.core.settings.get_settings_file_path",
@@ -1301,19 +1229,43 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window = MultiforaMainWindow()
 
             try:
+                self.assertEqual(window.combo_templates.currentText(), "Добавить текст")
+                self.assertFalse(window.template_add_text.isHidden())
+                self.assertFalse(window.btn_apply_rename.isEnabled())
                 source = os.path.join(tmp_dir, "IMG_0042.JPG")
                 with open(source, "wb") as stream:
                     stream.write(b"not-an-image")
                 window.files = [FileItem(source)]
                 window.update_file_list()
 
-                removed_rule = "Регулярное выражение"
-                self.assertEqual(window.combo_templates.findText(removed_rule), -1)
                 previous_rule = window.combo_templates.currentText()
-                window.restore_template_session_state({"selected_template": removed_rule})
-                self.assertEqual(window.combo_templates.currentText(), previous_rule)
+                for removed_rule in ("Выбрать правило", "Регулярное выражение", "Пользовательский шаблон"):
+                    with self.subTest(rule=removed_rule):
+                        self.assertEqual(window.combo_templates.findText(removed_rule), -1)
+                        window.restore_template_session_state({"selected_template": removed_rule})
+                        self.assertEqual(window.combo_templates.currentText(), previous_rule)
 
-                window.on_template_selected("Изменить регистр")
+                for old_rule, key, position, preview in (
+                    ("Добавить текст в начало", "prefix", "start", "_готовоIMG_0042.JPG"),
+                    ("Добавить текст в конец", "suffix", "end", "IMG_0042_готово.JPG"),
+                ):
+                    with self.subTest(rule=old_rule):
+                        self.assertEqual(window.combo_templates.findText(old_rule), -1)
+                        window.restore_template_session_state({
+                            "selected_template": old_rule, "template_data": {key: "_готово"},
+                        })
+                        self.assertEqual(window.get_template_session_state(), {
+                            "selected_template": "Добавить текст",
+                            "template_data": {"position": position, "text": "_готово"},
+                        })
+                        self.assertEqual(window.list_files.model().preview_for(window.files[0]).preview_name, preview)
+
+                window.template_add_position.setCurrentText("В начало")
+                self.assertEqual(
+                    window.list_files.model().preview_for(window.files[0]).preview_name, "_готовоIMG_0042.JPG",
+                )
+
+                window.combo_templates.setCurrentText("Изменить регистр")
                 window.template_case_mode.setCurrentIndex(
                     window.template_case_mode.findData("lower")
                 )
@@ -1328,106 +1280,6 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertIsNotNone(window.rename_validation_label)
                 self.assertFalse(hasattr(window, "operation_profile_combo"))
             finally:
-                if hasattr(window, "queue_timer"):
-                    window.queue_timer.stop()
-                if hasattr(window, "_settings_save_timer"):
-                    window._settings_save_timer.stop()
-                window.deleteLater()
-
-    def test_template_manager_actions_are_full_width_and_apply_selection(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            settings_path = os.path.join(tmp_dir, "settings.json")
-            with (
-                patch(
-                    "app.core.settings.get_settings_file_path",
-                    return_value=settings_path,
-                ),
-                patch.object(
-                    MultiforaMainWindow,
-                    "apply_shortcut_settings",
-                    return_value=None,
-                ),
-                patch.object(
-                    MultiforaMainWindow, "create_ipc_server", return_value=None
-                ),
-                patch.object(
-                    MultiforaMainWindow,
-                    "create_file_worker",
-                    return_value=True,
-                ),
-            ):
-                window = MultiforaMainWindow()
-
-            dialog = None
-            try:
-                window.custom_templates["Тест"] = {
-                    "type": "Изменить регистр",
-                    "data": {"case_mode": "upper"},
-                }
-                with patch.object(QDialog, "exec", return_value=0):
-                    window.show_template_manager()
-
-                dialog = window.templates_table.window()
-                dialog_margins = dialog.layout().contentsMargins()
-                self.assertEqual(
-                    (
-                        dialog_margins.left(),
-                        dialog_margins.top(),
-                        dialog_margins.right(),
-                        dialog_margins.bottom(),
-                    ),
-                    DIALOG_MARGINS,
-                )
-                self.assertGreaterEqual(dialog.minimumWidth(), 520)
-                self.assertGreaterEqual(dialog.minimumHeight(), 320)
-                self.assertEqual(
-                    window.templates_table.objectName(),
-                    "template_manager_table",
-                )
-                self.assertIs(window.templates_table.parentWidget(), dialog)
-                self.assertEqual(
-                    window.templates_table.horizontalHeader().sectionResizeMode(
-                        0
-                    ),
-                    QHeaderView.ResizeMode.Stretch,
-                )
-
-                action_buttons = {
-                    button.text(): button
-                    for button in dialog.findChildren(QPushButton)
-                }
-                self.assertEqual(
-                    set(action_buttons),
-                    {"Экспорт шаблонов", "Импорт шаблонов", "Применить"},
-                )
-                for button in (
-                    action_buttons["Экспорт шаблонов"],
-                    action_buttons["Импорт шаблонов"],
-                    window.btn_apply_template,
-                ):
-                    self.assertEqual(
-                        button.sizePolicy().horizontalPolicy(),
-                        QSizePolicy.Policy.Expanding,
-                    )
-                    self.assertTrue(button.property("buttonVariant"))
-                    self.assertFalse(button.icon().pixmap(16, 16).isNull())
-                    self.assertEqual(button.styleSheet(), build_standard_button_style(
-                        dialog._effective_theme_mode, button.property("buttonVariant")
-                    ))
-
-                self.assertFalse(window.btn_apply_template.isEnabled())
-                window.templates_table.selectRow(0)
-                self.app.processEvents()
-                self.assertTrue(window.btn_apply_template.isEnabled())
-
-                with patch.object(
-                    window, "load_selected_template"
-                ) as apply_template:
-                    window.btn_apply_template.click()
-                    apply_template.assert_called_once_with(dialog)
-            finally:
-                if dialog is not None:
-                    dialog.deleteLater()
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()
                 if hasattr(window, "_settings_save_timer"):

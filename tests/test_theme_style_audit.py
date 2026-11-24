@@ -11,7 +11,6 @@ from app.ui.ui_styles import (
     build_settings_navigation_style,
     build_standard_button_style,
     build_standard_field_style,
-    build_template_table_style,
     standard_palette,
 )
 
@@ -227,16 +226,9 @@ class ThemeStyleAuditTests(unittest.TestCase):
             (
                 LIGHT_APPLICATION_STYLE,
                 build_standard_field_style("light", "surface"),
-                build_template_table_style("light"),
             )
         )
         self.assertNotIn(standard_palette("dark")["bg"], light)
-        self.assertIn(f"alternate-background-color: {standard_palette('light')['window_bg']}", light)
-
-    def test_template_manager_light_alternating_rows_are_light(self):
-        light_style = build_template_table_style("light")
-        self.assertIn(f"alternate-background-color: {standard_palette('light')['window_bg']}", light_style)
-        self.assertNotIn("alternate-background-color: #454545", light_style)
 
     def test_runtime_refreshes_buttons_and_operation_tabs(self):
         source = Path("app/ui/ui_main.py").read_text(encoding="utf-8")

@@ -59,7 +59,6 @@ class SettingsResilienceTests(unittest.TestCase):
     def test_invalid_fields_do_not_prevent_other_settings_from_loading(self):
         window = _DummyWindow()
         settings._initialize_settings_defaults(window)
-        window.custom_templates = {}
         settings._apply_settings_data(window, {
             "custom_templates": ["invalid"],
             "main_splitter_sizes": ["broken", 2**50],
@@ -73,7 +72,7 @@ class SettingsResilienceTests(unittest.TestCase):
             "theme_mode": "light",
         })
 
-        self.assertEqual(window.custom_templates, {})
+        self.assertFalse(hasattr(window, "custom_templates"))
         self.assertIsNone(window._pending_window_pos)
         self.assertIsNone(window._pending_window_size)
         self.assertEqual(window.conversion_output_mode, "ask")
@@ -141,7 +140,6 @@ class SettingsResilienceTests(unittest.TestCase):
     def test_collected_settings_exclude_rename_history(self):
         window = _DummyWindow()
         settings._initialize_settings_defaults(window)
-        window.custom_templates = {}
         window._rename_history = [{"pairs": [["new.txt", "old.txt"]]}]
 
         data = settings._collect_settings_data(window)
@@ -161,7 +159,6 @@ class SettingsResilienceTests(unittest.TestCase):
         self.assertEqual(window.image_compression_output_mode, "custom")
         self.assertEqual(window.image_compression_output_path, r"C:\output")
 
-        window.custom_templates = {}
         data = settings._collect_settings_data(window)
         self.assertEqual(data["image_compression_output_mode"], "custom")
         self.assertEqual(data["image_compression_output_path"], r"C:\output")
@@ -215,7 +212,6 @@ class SettingsResilienceTests(unittest.TestCase):
                 },
             },
         )
-        window.custom_templates = {}
 
         data = settings._collect_settings_data(window)
 
@@ -246,7 +242,6 @@ class SettingsResilienceTests(unittest.TestCase):
         self.assertFalse(window.auto_update_check_checkbox.isChecked())
         self.assertFalse(hasattr(window, "auto_update_check_enabled"))
 
-        window.custom_templates = {}
         data = settings._collect_settings_data(window)
 
         self.assertFalse(data["auto_check_updates"])
@@ -265,7 +260,6 @@ class SettingsResilienceTests(unittest.TestCase):
         self.assertEqual(window.conversion_output_mode, "custom")
         self.assertEqual(window.conversion_output_path, r"C:\converted")
 
-        window.custom_templates = {}
         data = settings._collect_settings_data(window)
         self.assertEqual(data["conversion_output_mode"], "custom")
         self.assertEqual(data["conversion_output_path"], r"C:\converted")
@@ -284,7 +278,6 @@ class SettingsResilienceTests(unittest.TestCase):
         self.assertFalse(hasattr(window, "rename_folder_mode"))
         self.assertFalse(hasattr(window, "rename_numbering_scope"))
 
-        window.custom_templates = {}
         data = settings._collect_settings_data(window)
         self.assertNotIn("rename_folder_mode", data)
         self.assertNotIn("rename_numbering_scope", data)
@@ -306,7 +299,6 @@ class SettingsResilienceTests(unittest.TestCase):
             window._column_sort_order, Qt.SortOrder.DescendingOrder
         )
 
-        window.custom_templates = {}
         data = settings._collect_settings_data(window)
         self.assertEqual(
             data["file_list_view_state"],

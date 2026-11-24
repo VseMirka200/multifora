@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QAbstractButton
 from app.core.app_icons import _find_bundled_icon
 
 UI_ICON_SIZE = QSize(22, 22)
+SUPPORT_ICON_SIZE = QSize(34, 34)
 
 
 def ui_icon(name, variant):
@@ -53,9 +54,6 @@ def apply_window_icons(window, mode):
         (window.search_icon_action, "search"),
         (window.btn_locate_rename_issue, "locate-issue"),
         (window.btn_open_rename_history, "history"),
-        (window.btn_insert_token, "substitutions"),
-        (window.btn_save_template, "save"),
-        (window.btn_manage_templates, "templates"),
         (window.btn_select_image_output_path, "choose-folder"),
         (window.btn_select_conversion_output_folder, "choose-folder"),
         (window.operation_result_panel.open_result, "open"),
@@ -77,4 +75,5 @@ def apply_window_icons(window, mode):
             control.setIcon(ui_icon(name, mode))
 
     for key, label in window.support_page.icons.items():
-        label.setPixmap(ui_icon("document" if key == "save" else key, mode).pixmap(UI_ICON_SIZE))
+        icon = ui_icon("document" if key == "save" else key, mode)
+        label.setPixmap(icon.pixmap(SUPPORT_ICON_SIZE, label.devicePixelRatioF()))

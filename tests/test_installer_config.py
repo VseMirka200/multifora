@@ -34,7 +34,7 @@ class InstallerConfigTests(unittest.TestCase):
         self.assertIn('#define MyAppSource "..\\dist\\Multifora"', installer)
         self.assertIn('Source: "{#MyAppSource}\\*"', installer)
         self.assertIn("recursesubdirs", installer)
-        bundle_check = (root / "scripts" / "verify_windows_bundle.py").read_text(encoding="utf-8")
+        bundle_check = (root / "scripts" / "verification" / "verify_windows_bundle.py").read_text(encoding="utf-8")
         self.assertNotIn('"bin/wordcraft/wordcraft-cli.exe"', bundle_check)
         self.assertIn("_internal/pypdfium2_raw/pdfium.dll", bundle_check)
 

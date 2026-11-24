@@ -87,7 +87,6 @@ class FilePreview:
     preview_name: str
     preview_folder: str
     conversion_target_format: str = ""
-    estimated_compressed_size: int | None = None
     checked: bool = False
     rename_status: str = ""
 
@@ -174,10 +173,7 @@ class FileListModel(QAbstractTableModel):
     def _compression_size_label(self, file_item) -> str:
         if not getattr(file_item, "is_file", False):
             return "—"
-        current = self._format_file_size(getattr(file_item, "size", 0))
-        estimated = getattr(self.preview_for(file_item), "estimated_compressed_size", None)
-        after = f"≈{self._format_file_size(estimated)}" if estimated is not None else "—"
-        return f"{current} → {after}"
+        return self._format_file_size(getattr(file_item, "size", 0))
 
     def set_folder_header(self, text: str) -> None:
         """Меняет заголовок папки в соответствии с предпросмотром операции."""
@@ -218,9 +214,9 @@ class FileListModel(QAbstractTableModel):
             return "В работу: отметить все файлы текущего списка или снять отметки"
         if orientation == Qt.Orientation.Horizontal and section == self.COLUMN_TYPE and self.compression_sizes_visible:
             if role == Qt.ItemDataRole.DisplayRole:
-                return "Размер → оценка"
+                return "Размер"
             if role == Qt.ItemDataRole.ToolTipRole:
-                return "Текущий размер и приблизительный размер после сжатия. Сортировка по текущему размеру."
+                return "Текущий размер файла. Итоговый размер появится в сводке сжатия."
         if orientation == Qt.Orientation.Horizontal and section == self.COLUMN_TYPE and self.conversion_formats_visible:
             if role == Qt.ItemDataRole.DisplayRole:
                 return "Формат → результат"

@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
-from app.ui.ui_styles import TAB_BAR_HEIGHT
+from app.ui.ui_styles import PAGE_SECTION_SPACING, TAB_BAR_HEIGHT
 from app.ui.ui_components import IconButton, setup_standard_action_button, setup_standard_dialog
 
 
@@ -120,10 +120,9 @@ class RibbonPage(QWidget):
             body.setContentsMargins(12, 12, 12, 12)
             body.setSpacing(0)
             self.row = QHBoxLayout()
-            body.addLayout(self.row)
-            body.addStretch()
+            body.addLayout(self.row, 1)
             layout.addWidget(card, 1)
-        self.row.setSpacing(12)
+        self.row.setSpacing(PAGE_SECTION_SPACING)
 
     def options_button(self, title, content, text="Параметры…"):
         content.setParent(self)

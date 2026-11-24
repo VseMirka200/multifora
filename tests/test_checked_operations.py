@@ -7,10 +7,12 @@ from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QDeadlineTimer, QEventLoop
+from PySide6.QtWidgets import QApplication, QLabel
 
 from app.ui.file_table import operation_file_items
 from app.ui.ui_main import MultiforaMainWindow
+from app.ui.ui_styles import PAGE_SECTION_SPACING
 from core.file_models import FileItem, OperationFile
 
 
@@ -79,6 +81,75 @@ class CheckedOperationsTests(unittest.TestCase):
                 self.assertFalse(self.window.list_files.selectionModel().hasSelection())
                 self.window.list_files.clearSelection()
 
+    def test_numbering_fields_fit_at_minimum_window_width(self):
+        window = self.window
+        self.tab("rename")
+        window.resize(window.minimumWidth(), window.minimumHeight())
+        window.show()
+        QApplication.processEvents(QEventLoop.ProcessEventsFlag.AllEvents, QDeadlineTimer(100))
+        window.combo_templates.setCurrentText("Нумерация")
+        modes = (
+            (window.template_num_sep, window.template_num_simple_widget),
+            (window.template_prefix_text, window.template_num_prefix_widget),
+            (window.template_date_format, window.template_num_date_widget),
+        )
+        for index, (mode_field, fields) in enumerate(modes):
+            with self.subTest(mode=index):
+                window.template_numbering_mode.setCurrentIndex(index)
+                QApplication.processEvents(QEventLoop.ProcessEventsFlag.AllEvents, QDeadlineTimer(100))
+                self.assertTrue(fields.isVisible())
+                selector = window.template_numbering_mode
+                for field, _ in modes:
+                    self.assertEqual(field.isVisible(), field is mode_field)
+                mode_position = mode_field.mapTo(window, mode_field.rect().topLeft())
+                selector_position = selector.mapTo(window, selector.rect().topLeft())
+                self.assertEqual(mode_position.y(), selector_position.y())
+                self.assertEqual(mode_field.visibleRegion().boundingRect().height(), mode_field.height())
+                self.assertEqual(mode_position.x() - selector_position.x() - selector.width(), PAGE_SECTION_SPACING)
+                self.assertGreater(fields.mapTo(window, fields.rect().topLeft()).y(), mode_position.y())
+                field_tops = set()
+                field_gaps = []
+                previous_field = None
+                for label in fields.findChildren(QLabel):
+                    self.assertGreaterEqual(label.height(), label.heightForWidth(label.width()), label.text())
+                    field = label.buddy()
+                    self.assertEqual(field.visibleRegion().boundingRect().height(), field.height())
+                    field_tops.add(field.y())
+                    if previous_field is not None:
+                        field_gaps.append(field.x() - previous_field.x() - previous_field.width())
+                    previous_field = field
+                self.assertEqual(len(field_tops), 1)
+                self.assertEqual(field_gaps, [PAGE_SECTION_SPACING, PAGE_SECTION_SPACING])
+
+    def test_remove_chars_combines_directions_and_restores_old_settings(self):
+        window = self.window
+        self.tab("rename")
+        window.combo_templates.setCurrentText("Удалить символы")
+        self.assertEqual(window.template_remove_position.currentText(), "С начала")
+        self.assertEqual(window.template_remove_count.value(), 1)
+        preview = window.list_files.model().preview_for(self.items[0])
+
+        for old_rule, key, position, name in (
+            ("Удалить символы с начала", "remove_start", "start", "rst.pdf"),
+            ("Удалить символы с конца", "remove_end", "end", "fir.pdf"),
+        ):
+            with self.subTest(rule=old_rule):
+                self.assertEqual(window.combo_templates.findText(old_rule), -1)
+                window.restore_template_session_state({
+                    "selected_template": old_rule,
+                    "template_data": {key: 2},
+                })
+                self.assertEqual(window.get_template_session_state(), {
+                    "selected_template": "Удалить символы",
+                    "template_data": {"position": position, "count": 2},
+                })
+                self.assertEqual(preview.preview_name, name)
+
+        window.template_remove_position.setCurrentText("С начала")
+        self.assertEqual(preview.preview_name, "rst.pdf")
+        window.template_remove_count.setValue(5)
+        self.assertEqual(preview.preview_name, "first.pdf")
+
     def test_rename_numbers_and_dispatches_only_checked_files(self):
         window = self.window
         self.tab("rename")
@@ -118,6 +189,9 @@ class CheckedOperationsTests(unittest.TestCase):
         def set_files(files):
             window.merge_pages_panel.files = list(files)
             window.merge_pages_panel.ready = bool(files)
+            window.merge_pages_panel.pages.clear()
+            for file in files:
+                window.merge_pages_panel.pages.addItem(file.name)
 
         render = patch.object(window.merge_pages_panel, "set_files", side_effect=set_files)
         render.start()
@@ -132,8 +206,8 @@ class CheckedOperationsTests(unittest.TestCase):
         self.assertEqual(window._get_selected_or_all_file_items(), [])
         self.assertFalse(window.btn_merge.isEnabled())
         self.tab("rename")
-        window.on_template_selected("Добавить текст в начало")
-        window.template_prefix.setText("prefix_")
+        window.combo_templates.setCurrentText("Добавить текст")
+        window.template_add_text.setText("prefix_")
         preview_for = self.window.list_files.model().preview_for
         self.assertTrue(all(preview_for(item).preview_name == item.name for item in self.items))
         self.assertFalse(window.btn_apply_rename.isEnabled())
@@ -147,7 +221,7 @@ class CheckedOperationsTests(unittest.TestCase):
         window.on_list_order_changed()
         self.assertEqual(window.files, [*reversed(self.items[:4]), self.items[4]])
 
-    def test_compression_column_shows_sizes_and_updates_with_options_and_marks(self):
+    def test_compression_column_shows_current_sizes(self):
         from PySide6.QtCore import Qt
 
         window = self.window
@@ -159,35 +233,49 @@ class CheckedOperationsTests(unittest.TestCase):
         window.refresh_compression_preview()
         model = window.list_files.model()
         column = model.COLUMN_TYPE
-        self.assertEqual(model.headerData(column, Qt.Orientation.Horizontal), "Размер → оценка")
-        self.assertEqual(model.index(0, column).data(), "10,0 МБ → ≈7,0 МБ")
+        self.assertEqual(model.headerData(column, Qt.Orientation.Horizontal), "Размер")
+        self.assertEqual(model.index(0, column).data(), "10,0 МБ")
         window.combo_pdf_method.setCurrentText("Максимальное сжатие")
-        self.assertEqual(model.index(0, column).data(), "10,0 МБ → ≈4,5 МБ")
+        self.assertEqual(model.index(0, column).data(), "10,0 МБ")
         window.list_files.select_paths([self.items[1].path])
-        self.assertEqual(model.index(0, column).data(), "10,0 МБ → —")
-        self.assertEqual(model.index(1, column).data(), "2,0 МБ → ≈921,6 КБ")
+        self.assertEqual(model.index(0, column).data(), "10,0 МБ")
+        self.assertEqual(model.index(1, column).data(), "2,0 МБ")
         window.sort_files_by_column(column)
         self.assertLessEqual(window.files[0].size, window.files[-1].size)
         self.tab("rename")
         self.assertEqual(model.headerData(column, Qt.Orientation.Horizontal), "Тип файла")
-        preview_for = self.window.list_files.model().preview_for
-        self.assertTrue(all(preview_for(item).estimated_compressed_size is None for item in self.items))
 
-    def test_image_size_estimate_changes_with_quality_and_clears_pdf_estimates(self):
+    def test_png_compression_shows_size_and_hides_quality(self):
         window = self.window
         self.items[4].size = 8 * 1024 * 1024
         self.tab("compress")
         window.combo_compress_type.setCurrentText("PDF документы")
         window.refresh_compression_preview()
-        self.assertIsNotNone(self.window.list_files.model().preview_for(self.items[0]).estimated_compressed_size)
         window.list_files.select_paths([self.items[4].path])
         window.combo_compress_type.setCurrentText("Изображения")
-        window.combo_compression_level.setCurrentIndex(window.combo_compression_level.findData(40))
         model = window.list_files.model()
-        self.assertEqual(model.index(4, model.COLUMN_TYPE).data(), "8,0 МБ → ≈5,2 МБ")
-        self.assertIsNone(self.window.list_files.model().preview_for(self.items[0]).estimated_compressed_size)
-        window.combo_compression_level.setCurrentIndex(window.combo_compression_level.findData(85))
-        self.assertEqual(model.index(4, model.COLUMN_TYPE).data(), "8,0 МБ → ≈7,0 МБ")
+        self.assertEqual(model.index(4, model.COLUMN_TYPE).data(), "8,0 МБ")
+        self.assertTrue(window.compression_level_widget.isHidden())
+        jpeg = Path(self.tmp.name) / "photo.jpg"
+        jpeg.write_bytes(b"test")
+        window.files.append(FileItem(str(jpeg)))
+        window.update_file_list()
+        window.list_files.select_paths([str(jpeg)])
+        self.assertFalse(window.compression_level_widget.isHidden())
+
+    def test_conversion_shows_pdf_and_presentation_requirements(self):
+        window = self.window
+        self.tab("convert")
+        window.convert_file_type_combo.setCurrentText("Документы")
+        window.from_convert_combo.setCurrentText("PDF")
+        window.to_convert_combo.setCurrentText("DOCX")
+        hint = window.conversion_panel.format_hint
+        self.assertIn("без текстового слоя", hint.text())
+        self.assertFalse(hint.isHidden())
+        window.convert_file_type_combo.setCurrentText("Презентации")
+        self.assertIn("LibreOffice Impress", hint.text())
+        window.convert_file_type_combo.setCurrentText("Изображения")
+        self.assertTrue(hint.isHidden())
 
     def test_conversion_column_shows_current_and_target_formats(self):
         from PySide6.QtCore import Qt
@@ -213,15 +301,12 @@ class CheckedOperationsTests(unittest.TestCase):
         self.assertEqual(model.index(3, column).data(), "DOCX")
 
     def test_removed_files_can_be_changed_without_closing_window(self):
-        from app.core.rename_templates import build_file_token_values
-
         window = self.window
         paths = [Path(item.path) for item in self.items]
         window.files = []
         window.update_file_list()
         window.add_files([str(path) for path in paths])
         for path in paths:
-            build_file_token_values(str(path))
             moved = path.with_name("check_" + path.name)
             path.rename(moved)
             moved.rename(path)

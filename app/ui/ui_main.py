@@ -51,7 +51,6 @@ from app.ui.mixins import (
     RenameHistoryMixin,
     SettingsPanelMixin,
     TemplateApplyMixin,
-    TemplateCrudMixin,
     TemplateParamsBaseMixin,
     TemplateParamsNumberingMixin,
     TemplateParamsTextMixin,
@@ -99,7 +98,6 @@ class MultiforaMainWindow(
     RenameHistoryMixin,
     WorkerOpsMixin,
     WindowsIntegrationMixin,
-    TemplateCrudMixin,
     TemplateParamsBaseMixin,
     TemplateParamsTextMixin,
     TemplateParamsNumberingMixin,
@@ -127,7 +125,6 @@ class MultiforaMainWindow(
         self.files = []
         self._operations = OperationController()
         self.current_template = ""
-        self.custom_templates = {}
         self.windows_context_menu_enabled = False
         self.desktop_shortcut_enabled = False
         self.start_menu_shortcut_enabled = False
@@ -174,8 +171,6 @@ class MultiforaMainWindow(
                 self.restore_template_session_state(pending_template_session)
             except Exception as e:
                 _debug_log(f"Ошибка восстановления шаблона сессии: {e}")
-        else:
-            self.combo_templates.setCurrentText("Добавить текст в конец")
         self._update_undo_button()
         self.update_file_info()
 

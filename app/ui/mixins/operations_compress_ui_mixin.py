@@ -1,8 +1,10 @@
 import os
+from pathlib import Path
 
 from PySide6.QtWidgets import QFileDialog
 
 from app.core.app_utils import _log_ignored_error, signals_blocked
+from core.image_optimizer import QUALITY_EXTENSIONS
 
 
 class OperationsCompressUiMixin:
@@ -43,16 +45,22 @@ class OperationsCompressUiMixin:
             self.combo_compress_type.setCurrentText(target_text)
         self.on_compress_type_changed(target_text)
 
-    def _has_selected_files_for_current_compress_type(self) -> bool:
-        if not hasattr(self, "list_files"):
-            return False
-        return bool(self._compression_files(self._get_selected_or_all_file_items()))
+    @staticmethod
+    def _image_quality_applies(files) -> bool:
+        return any(Path(file.path).suffix.lower() in QUALITY_EXTENSIONS for file in files)
 
     def _update_compress_button(self):
         if not hasattr(self, "btn_compress"):
             return
 
-        can_compress = self._has_selected_files_for_current_compress_type()
+        files = self._compression_files(self._get_selected_or_all_file_items()) if hasattr(self, "list_files") else []
+        can_compress = bool(files)
+        level = getattr(self, "compression_level_widget", None)
+        if level is not None:
+            show_quality = self._image_quality_applies(files)
+            if level.isHidden() == show_quality:
+                level.setVisible(show_quality)
+                self._sync_compress_mode_stack_height()
 
         if (
             hasattr(self, "combo_compress_type")

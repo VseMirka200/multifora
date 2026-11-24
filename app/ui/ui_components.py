@@ -16,13 +16,11 @@ from PySide6.QtGui import (
     QAction,
     QActionGroup,
     QColor,
-    QFontMetrics,
     QIcon,
     QPainter,
     QPainterPath,
     QPalette,
     QPen,
-    QTextOption,
 )
 from PySide6.QtWidgets import (
     QAbstractButton,
@@ -257,58 +255,6 @@ class DropZoneOverlay(QWidget):
         painter.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 12, 12)
 
 
-class AutoHeightTextEdit(QTextEdit):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setAcceptRichText(False)
-        self.document().setDocumentMargin(0)
-        self.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
-        self.setWordWrapMode(QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere)
-        self.setHorizontalScrollBarPolicy(
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
-        )
-        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
-        )
-        self._resize_grip = QWidget(self)
-        self._resize_grip.setStyleSheet("background: transparent;")
-        self._resize_grip.setCursor(Qt.CursorShape.SizeVerCursor)
-        self._resize_grip.setToolTip("Потяните нижний край, чтобы изменить высоту поля")
-        self._drag_start = None
-        self._resize_grip.installEventFilter(self)
-        self.setFixedHeight(FIELD_HEIGHT)
-
-    def setText(self, text: str):
-        self.setPlainText(str(text or "").replace("\r", "").replace("\n", ""))
-
-    def text(self) -> str:
-        return self.toPlainText().replace("\r", "").replace("\n", "")
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._resize_grip.setGeometry(1, self.height() - 5, self.width() - 2, 5)
-        self._resize_grip.raise_()
-
-    def eventFilter(self, watched, event):
-        if watched is getattr(self, "_resize_grip", None):
-            if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
-                self._drag_start = (event.globalPosition().y(), self.height())
-                return True
-            if event.type() == QEvent.Type.MouseMove and self._drag_start is not None:
-                start_y, start_height = self._drag_start
-                height = max(FIELD_HEIGHT, round(start_height + event.globalPosition().y() - start_y))
-                self.setFixedHeight(min(height, max(FIELD_HEIGHT, self.window().height() // 2)))
-                expanded = self.height() > FIELD_HEIGHT
-                self.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth if expanded else QTextEdit.LineWrapMode.NoWrap)
-                self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded if expanded else Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-                return True
-            if event.type() == QEvent.Type.MouseButtonRelease:
-                self._drag_start = None
-                return True
-        return super().eventFilter(watched, event)
-
-
 class ComboPopupItemDelegate(QStyledItemDelegate):
     def __init__(self, combo: QComboBox):
         super().__init__(combo)
@@ -502,8 +448,6 @@ def setup_standard_form_label(
     widget.setAlignment(align | Qt.AlignmentFlag.AlignVCenter)
     widget.setWordWrap(True)
     widget.setStyleSheet(STANDARD_FORM_LABEL_STYLE)
-    widget.ensurePolished()
-    widget.setFixedHeight(widget.fontMetrics().lineSpacing())
     return widget
 
 
@@ -670,6 +614,9 @@ class StandardPopupMenu(QMenu):
         self.theme_widget = theme_widget or anchor
         self.setObjectName("menu_like_combo_popup")
         self._pressed_action = None
+        self._anchor_press_timestamp = None
+        if anchor is not None:
+            anchor.installEventFilter(self)
         setup_standard_popup_menu(self)
         self.aboutToShow.connect(self._prepare_popup)
         self.aboutToHide.connect(lambda: self._set_open(False))
@@ -713,7 +660,28 @@ class StandardPopupMenu(QMenu):
         x = max(available.left(), min(origin.x(), available.right() + 1 - self.width()))
         self.move(x, y)
 
+    def eventFilter(self, watched, event):
+        if watched is self.anchor and event.type() in (
+            QEvent.Type.MouseButtonPress, QEvent.Type.MouseButtonDblClick
+        ):
+            timestamp = self._anchor_press_timestamp
+            self._anchor_press_timestamp = None
+            if event.button() == Qt.MouseButton.LeftButton and event.timestamp() == timestamp:
+                event.accept()
+                return True
+        return super().eventFilter(watched, event)
+
     def mousePressEvent(self, event):
+        if (
+            event.button() == Qt.MouseButton.LeftButton
+            and self.anchor is not None
+            and self.anchor.rect().contains(self.anchor.mapFromGlobal(event.globalPosition().toPoint()))
+        ):
+            # Qt can replay this press to the anchor after the popup closes.
+            self._anchor_press_timestamp = event.timestamp()
+            event.accept()
+            self.close()
+            return
         self._pressed_action = self.actionAt(event.position().toPoint())
         super().mousePressEvent(event)
 
@@ -1177,13 +1145,16 @@ def draw_icon_caption(painter, rect, icon, icon_size, text, enabled, *,
 
 
 class IconButton(QPushButton):
+    _ARROW_SPACE = 18
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setIconSize(UI_ICON_SIZE)
 
     def sizeHint(self):
         hint = super().sizeHint()
-        if self.icon().isNull():
+        has_popup = self.menu() is not None
+        if self.icon().isNull() and not has_popup:
             return hint
         option = QStyleOptionButton()
         self.initStyleOption(option)
@@ -1192,12 +1163,17 @@ class IconButton(QPushButton):
             QStyle.SubElement.SE_PushButtonContents, option, self
         )
         caption_width = self.fontMetrics().horizontalAdvance(self.text())
-        required = self.icon().actualSize(self.iconSize()).width() + 5 + caption_width
+        icon_width = self.icon().actualSize(self.iconSize()).width()
+        required = caption_width
+        if icon_width:
+            required += icon_width + 5
+        if has_popup:
+            required += self._ARROW_SPACE
         hint.setWidth(hint.width() + max(0, required - content.width()))
         return hint
 
     def paintEvent(self, event):
-        has_popup = self.menu() is not None or self.property("hasPopup")
+        has_popup = self.menu() is not None
         if self.icon().isNull() and not has_popup:
             return super().paintEvent(event)
         option = QStyleOptionButton()
@@ -1209,7 +1185,7 @@ class IconButton(QPushButton):
         painter.setPen(option.palette.buttonText().color())
         rect = self.style().subElementRect(QStyle.SubElement.SE_PushButtonContents, option, self)
         if has_popup:
-            rect.adjust(0, 0, -18, 0)
+            rect.adjust(0, 0, -self._ARROW_SPACE, 0)
         draw_icon_caption(painter, rect, self.icon(), self.iconSize(), self.text(),
                           self.isEnabled(), align_left=self.objectName() == "help_button",
                           text_y_offset=1)

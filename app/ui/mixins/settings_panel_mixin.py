@@ -362,7 +362,7 @@ class SettingsPanelMixin:
         layout.addWidget(separator)
 
         capabilities = QLabel(
-            "Переименование по шаблонам · Конвертация · "
+            "Пакетное переименование · Конвертация · "
             "Объединение PDF/DOCX · Сжатие изображений и PDF"
         )
         capabilities.setWordWrap(True)

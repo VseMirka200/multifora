@@ -10,6 +10,8 @@ from core.operation_result import OperationResult
 
 def test_merge_selected_docx_pages_keeps_editable_content(tmp_path):
     from docx import Document
+    from docx.enum.section import WD_ORIENT
+    from docx.shared import Inches
     from PIL import Image
 
     first = tmp_path / "first.docx"
@@ -19,6 +21,10 @@ def test_merge_selected_docx_pages_keeps_editable_content(tmp_path):
     Image.new("RGB", (20, 20), "blue").save(picture)
 
     document = Document()
+    section = document.sections[0]
+    section.orientation = WD_ORIENT.LANDSCAPE
+    section.page_width, section.page_height = Inches(11), Inches(8.5)
+    section.header.paragraphs[0].text = "Landscape header"
     document.add_paragraph("Excluded")
     paragraph = document.add_paragraph("Selected ")
     paragraph.paragraph_format.page_break_before = True
@@ -42,6 +48,9 @@ def test_merge_selected_docx_pages_keeps_editable_content(tmp_path):
     assert any(run.bold and run.text == "bold" for run in paragraphs[-1].runs)
     assert merged.tables[0].cell(0, 0).text == "Editable cell"
     assert len(merged.inline_shapes) == 1
+    assert merged.sections[0].orientation == WD_ORIENT.PORTRAIT
+    assert merged.sections[1].orientation == WD_ORIENT.LANDSCAPE
+    assert merged.sections[1].header.paragraphs[0].text == "Landscape header"
 
 
 class _SignalStub:
@@ -82,6 +91,83 @@ class _DummyMergeWorker(MergeMixin):
             return path
         base, ext = os.path.splitext(path)
         return f"{base}_1{ext}"
+
+
+def test_merge_worker_preserves_sections_and_header_relationships(tmp_path):
+    from docx import Document
+    from docx.enum.section import WD_ORIENT, WD_SECTION_START
+    from docx.shared import Inches
+    from PIL import Image
+
+    picture = tmp_path / "image.png"
+    with Image.new("RGB", (8, 8), "blue") as image:
+        image.save(picture)
+    first, second, third = (tmp_path / f"{name}.docx" for name in ("first", "second", "third"))
+    document = Document()
+    document.sections[0].header.paragraphs[0].text = "First header"
+    document.add_paragraph("First body")
+    document.save(first)
+
+    document = Document()
+    document.settings.odd_and_even_pages_header_footer = True
+    section = document.sections[0]
+    section.orientation = WD_ORIENT.LANDSCAPE
+    section.page_width, section.page_height = Inches(11), Inches(8.5)
+    section.header.paragraphs[0].text = "Second header"
+    section.header.paragraphs[0].add_run().add_picture(str(picture))
+    section.even_page_header.paragraphs[0].text = "Second even header"
+    section.footer.paragraphs[0].text = "Second footer"
+    document.add_paragraph("Second body")
+    document.add_section(WD_SECTION_START.CONTINUOUS)
+    document.add_paragraph("Next section of second body")
+    document.save(second)
+
+    document = Document()
+    document.add_paragraph("Third body")
+    document.save(third)
+
+    output = tmp_path / "merged.docx"
+    worker = MergeWorker([FileItem(str(path)) for path in (first, second, third)], "docx", str(output))
+    worker.run()
+    merged = Document(output)
+    first_section, second_section, continuation, third_section = merged.sections
+    assert first_section.header.paragraphs[0].text == "First header"
+    assert first_section.even_page_header.paragraphs[0].text == "First header"
+    assert second_section.header.paragraphs[0].text == "Second header"
+    assert second_section.even_page_header.paragraphs[0].text == "Second even header"
+    assert second_section.footer.paragraphs[0].text == "Second footer"
+    assert second_section.orientation == WD_ORIENT.LANDSCAPE
+    assert continuation.start_type == WD_SECTION_START.CONTINUOUS
+    assert continuation.header.is_linked_to_previous
+    assert any(rel.reltype.endswith("/image") for rel in second_section.header.part.rels.values())
+    assert third_section.header.paragraphs[0].text == ""
+
+
+def test_merge_worker_cancellation_during_docx_write_keeps_destination_absent(tmp_path):
+    from docx import Document
+    from docx.document import Document as DocumentType
+
+    sources = [tmp_path / "first.docx", tmp_path / "second.docx"]
+    for source in sources:
+        Document().save(source)
+    original = [source.read_bytes() for source in sources]
+    output = tmp_path / "merged.docx"
+    worker = MergeWorker([FileItem(str(path)) for path in sources], "docx", str(output))
+    results, progress = [], []
+    worker.finished.connect(results.append)
+    worker.progress.connect(progress.append)
+    save = DocumentType.save
+
+    def cancel_after_write(document, path):
+        save(document, path)
+        worker.request_cancel()
+
+    with patch.object(DocumentType, "save", cancel_after_write):
+        worker.run()
+    assert results[0].cancelled
+    assert 100 not in progress
+    assert sorted(tmp_path.iterdir()) == sources
+    assert [source.read_bytes() for source in sources] == original
 
 
 class MergeMixinTests(unittest.TestCase):

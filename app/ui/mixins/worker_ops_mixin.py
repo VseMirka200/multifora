@@ -203,7 +203,8 @@ class WorkerOpsMixin:
                 "alongside": "рядом с исходниками",
                 "custom": f"в папку {image_output_dir}",
             }
-            details = f" (уровень: {compression_level}%, {destination_labels[image_output_mode]})"
+            quality = f"качество JPEG/WebP: {compression_level}%, " if self._image_quality_applies(files) else ""
+            details = f" ({quality}{destination_labels[image_output_mode]})"
         reply = self.show_russian_message_box(
             "Подтверждение",
             f"Сжать {len(files)} {file_type}{details}?",

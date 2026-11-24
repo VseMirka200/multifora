@@ -2,12 +2,13 @@
 
 import os
 from collections.abc import Callable
+from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from core import image_dependencies as deps
 from core.filesystem import publish_new_file
-from core.image_optimizer import save_optimized_image
+from core.image_optimizer import ImageCompressionSkipped, image_structure, save_optimized_image
 
 _LARGE_PDF_THRESHOLD_BYTES = 10 * 1024 * 1024
 
@@ -75,8 +76,10 @@ def compress_image(
     original_size = os.path.getsize(source)
     with TemporaryDirectory(dir=os.path.dirname(os.path.abspath(destination))) as folder:
         staged = Path(folder, "image" + extension)
-        with deps.Image.open(source) as image:
-            save_optimized_image(image, staged, extension, quality)
+        with closing(deps.Image.open(source)) as image:
+            original_format = image.format
+            original_structure = image_structure(image, should_cancel)
+            save_optimized_image(image, staged, extension, quality, should_cancel=should_cancel)
         if should_cancel():
             raise InterruptedError
         size = staged.stat().st_size
@@ -84,6 +87,11 @@ def compress_image(
             raise OSError("сжатый файл пустой")
         if size >= original_size:
             return None
+        with closing(deps.Image.open(staged)) as result:
+            if result.format != original_format or image_structure(result, should_cancel) != original_structure:
+                raise ImageCompressionSkipped("проверка формата, кадров или страниц результата не пройдена")
+        if should_cancel():
+            raise InterruptedError
         _publish(staged, source, destination, replace)
         return (1 - size / original_size) * 100
 

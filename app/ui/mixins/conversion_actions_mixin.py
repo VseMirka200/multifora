@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 from app.core.app_utils import signals_blocked
 from app.core.conversion_formats import (
     CONVERSION_CATEGORIES,
+    PRESENTATION_CATEGORY,
     category_for_file_type,
     compatible_targets_for_source,
     conversion_type_for_formats,
@@ -275,6 +276,17 @@ class ConversionActionsMixin:
             files, _ = self._collect_compatible_conversion_files(
                 category_selected, source_combo.currentText(), target_combo.currentText()
             )
+        panel = getattr(self, "conversion_panel", None)
+        if panel is not None:
+            hint = ""
+            if category_selected == PRESENTATION_CATEGORY:
+                hint = "Для конвертации презентаций требуется LibreOffice Impress."
+            elif formats_ready and target_combo.currentText() == "DOCX" and (
+                source_combo.currentText() == "PDF" or any(matches_format(file.path, "PDF") for file in files)
+            ):
+                hint = "PDF → DOCX: страницы без текстового слоя вставляются как изображения."
+            panel.format_hint.setText(hint)
+            panel.format_hint.setVisible(bool(hint))
         output_ready = not (
             str(getattr(self, "conversion_output_mode", "ask") or "ask")
             == "custom"

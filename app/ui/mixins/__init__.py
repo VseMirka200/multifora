@@ -10,7 +10,6 @@ from .operations_tab_layout_mixin import OperationsTabLayoutMixin
 from .rename_history_mixin import RenameHistoryMixin
 from .settings_panel_mixin import SettingsPanelMixin
 from .template_apply_mixin import TemplateApplyMixin
-from .template_crud_mixin import TemplateCrudMixin
 from .template_params_base_mixin import TemplateParamsBaseMixin
 from .template_params_numbering_mixin import TemplateParamsNumberingMixin
 from .template_params_text_mixin import TemplateParamsTextMixin
@@ -30,7 +29,6 @@ __all__ = [
     "RenameHistoryMixin",
     "SettingsPanelMixin",
     "TemplateApplyMixin",
-    "TemplateCrudMixin",
     "TemplateParamsBaseMixin",
     "TemplateParamsNumberingMixin",
     "TemplateParamsTextMixin",

@@ -4,7 +4,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$root = Split-Path -Parent $PSScriptRoot
+$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 if (-not $BundleDirectory) { $BundleDirectory = Join-Path $root 'dist\Multifora' }
 if (-not $MetricsPath) { $MetricsPath = Join-Path $root 'dist\runtime-metrics.json' }
 $executable = Join-Path $BundleDirectory 'Multifora.exe'

@@ -14,6 +14,7 @@ from core import image_dependencies as deps
 from core.compress_files import compress_image, compress_pdf, pdf_settings
 from core.file_models import FileItem, OperationSource
 from core.filesystem import compressed_name
+from core.image_optimizer import ImageCompressionSkipped
 from core.operation_result import CompressionSize
 
 from .operation_worker import OperationWorker
@@ -71,6 +72,9 @@ class CompressionMixin:
                     self._record_sizes(file.path, file.path if replace else destination, before)
                     action = "сжато и заменено" if replace else "сжато"
                     self.status.emit(f"Изображение {action}: {file.name} (-{ratio:.1f}%)")
+            except ImageCompressionSkipped as error:
+                self._record_sizes(file.path, file.path, before)
+                self._record_warning(file, f"Сжатие пропущено для {file.name}: {error}")
             except InterruptedError:
                 if finish_if_cancelled(self, results, updated):
                     return

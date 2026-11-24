@@ -2,11 +2,9 @@ import os
 from datetime import datetime
 
 from PySide6.QtWidgets import (
-    QCheckBox,
     QComboBox,
     QLineEdit,
     QSpinBox,
-    QTextEdit,
 )
 
 import app.core.rename_templates as rt
@@ -19,30 +17,14 @@ class TemplateApplyMixin:
     # Применяет параметры шаблона к именам для предпросмотра и последующего переименования.
     def on_template_selected(self, template_name):
         """Обработчик выбора шаблона"""
-        self.custom_template_commands.setVisible(template_name == "Пользовательский шаблон")
-        if template_name == "Выбрать правило":
-            self.current_template = None
-            self.template_params_widget.setVisible(False)
-            self.refresh_rename_preview()
-            if hasattr(self, "btn_apply_rename"):
-                self.btn_apply_rename.setEnabled(False)
-            self.status_bar.showMessage("")
-            if callable(getattr(self, "_schedule_settings_save", None)):
-                self._schedule_settings_save()
-            return
-
         self.current_template = template_name
 
         self.clear_template_params_container()
 
-        if template_name == "Добавить текст в начало":
-            self.create_add_prefix_params()
-        elif template_name == "Добавить текст в конец":
-            self.create_add_suffix_params()
-        elif template_name == "Удалить символы с начала":
-            self.create_remove_start_params()
-        elif template_name == "Удалить символы с конца":
-            self.create_remove_end_params()
+        if template_name == "Добавить текст":
+            self.create_add_text_params()
+        elif template_name == "Удалить символы":
+            self.create_remove_chars_params()
         elif template_name == "Удалить определенный текст":
             self.create_remove_text_params()
         elif template_name == "Заменить текст другим":
@@ -53,8 +35,6 @@ class TemplateApplyMixin:
             self.create_numbering_params()
         elif template_name == "Дата в начале названия":
             self.create_date_original_params()
-        elif template_name == "Пользовательский шаблон":
-            self.create_custom_template_params()
 
         for spinbox in self.template_params_widget.findChildren(QSpinBox):
             spinbox.setFixedHeight(DROPDOWN_HEIGHT)
@@ -77,7 +57,6 @@ class TemplateApplyMixin:
         self._rename_template_error = ""
         current_num = 1
         step = 1
-        use_numbering = True
         num_digits = 3
 
         numbering_mode = self.current_template
@@ -136,18 +115,6 @@ class TemplateApplyMixin:
                 if hasattr(self, "template_date_digits")
                 else 3
             )
-        elif self.current_template == "Пользовательский шаблон":
-            template = (
-                self.template_custom.text()
-                if hasattr(self, "template_custom")
-                else ""
-            )
-            custom_settings = rt.parse_custom_template_settings(template)
-            use_numbering = bool(custom_settings.get("use_numbering", False))
-            current_num = int(custom_settings.get("start", 1))
-            step = int(custom_settings.get("step", 1))
-            num_digits = int(custom_settings.get("digits", 3))
-
         for file_item in self.files:
             self.list_files.model().preview_for(file_item).preview_name = file_item.name
         resolver = getattr(self, "_preview_operation_items", None)
@@ -157,33 +124,20 @@ class TemplateApplyMixin:
             name_without_ext, ext = os.path.splitext(old_name)
             new_name = old_name
 
-            if self.current_template == "Добавить текст в начало":
-                prefix = getattr(self, "template_prefix", QLineEdit("")).text()
-                new_name = f"{prefix}{old_name}"
+            if self.current_template == "Добавить текст":
+                text = self.template_add_text.text()
+                if self.template_add_position.currentData() == "end":
+                    new_name = f"{name_without_ext}{text}{ext}"
+                else:
+                    new_name = f"{text}{old_name}"
 
-            elif self.current_template == "Добавить текст в конец":
-                suffix = getattr(self, "template_suffix", QLineEdit("")).text()
-                new_name = f"{name_without_ext}{suffix}{ext}"
-
-            elif self.current_template == "Удалить символы с начала":
-                remove_chars = getattr(
-                    self, "template_remove_start", QSpinBox()
-                ).value()
-                new_name = (
-                    f"{name_without_ext[remove_chars:]}{ext}"
-                    if len(name_without_ext) > remove_chars
-                    else old_name
-                )
-
-            elif self.current_template == "Удалить символы с конца":
-                remove_chars = getattr(
-                    self, "template_remove_end", QSpinBox()
-                ).value()
-                new_name = (
-                    f"{name_without_ext[:-remove_chars]}{ext}"
-                    if len(name_without_ext) > remove_chars
-                    else old_name
-                )
+            elif self.current_template == "Удалить символы":
+                count = self.template_remove_count.value()
+                if len(name_without_ext) > count:
+                    if self.template_remove_position.currentData() == "end":
+                        new_name = f"{name_without_ext[:-count]}{ext}"
+                    else:
+                        new_name = f"{name_without_ext[count:]}{ext}"
 
             elif self.current_template == "Удалить определенный текст":
                 text_to_remove = getattr(
@@ -251,26 +205,10 @@ class TemplateApplyMixin:
                 )
                 new_name = f"{date_str}{old_name}"
 
-            elif self.current_template == "Пользовательский шаблон" and hasattr(self, "template_custom"):
-                template = self.template_custom.text()
-                if template:
-                    date_str = datetime.now().strftime("%Y-%m-%d")
-                    new_name, current_num = rt.apply_custom_template(
-                        template,
-                        name_without_ext,
-                        ext,
-                        current_num,
-                        date_str,
-                        step,
-                        use_numbering,
-                        num_digits,
-                        file_path=file_item.path,
-                    )
-
             self.list_files.model().preview_for(file_item).preview_name = new_name
 
         self.status_bar.showMessage(
-            f"Применен шаблон: {self.current_template}"
+            f"Применено правило: {self.current_template}"
         )
 
     def _connect_template_param_preview_signals(self):
@@ -286,13 +224,6 @@ class TemplateApplyMixin:
             field.textChanged.connect(
                 lambda _value, self=self: self._schedule_settings_save()
             )
-        for field in container.findChildren(QTextEdit):
-            field.textChanged.connect(
-                lambda *_args, self=self: self.refresh_rename_preview()
-            )
-            field.textChanged.connect(
-                lambda *_args, self=self: self._schedule_settings_save()
-            )
         for field in container.findChildren(QSpinBox):
             field.valueChanged.connect(
                 lambda _value, self=self: self.refresh_rename_preview()
@@ -305,13 +236,6 @@ class TemplateApplyMixin:
                 lambda _value, self=self: self.refresh_rename_preview()
             )
             field.currentIndexChanged.connect(
-                lambda _value, self=self: self._schedule_settings_save()
-            )
-        for field in container.findChildren(QCheckBox):
-            field.stateChanged.connect(
-                lambda _value, self=self: self.refresh_rename_preview()
-            )
-            field.stateChanged.connect(
                 lambda _value, self=self: self._schedule_settings_save()
             )
 

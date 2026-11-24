@@ -178,7 +178,6 @@ class OperationsTabLayoutMixin:
         self.template_params_widget.setObjectName("template_params_widget")
         self.template_params_widget.setVisible(False)
         self.template_params_layout = QVBoxLayout(self.template_params_widget)
-        self.template_params_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.template_params_layout.setContentsMargins(*MARGINS_NONE)
         self.template_params_layout.setSpacing(SPACE_SM)
 
@@ -191,26 +190,6 @@ class OperationsTabLayoutMixin:
         setup_standard_primary_button(self.btn_apply_rename, expand=False)
         self.btn_apply_rename.setFixedHeight(DROPDOWN_HEIGHT)
         page = RibbonPage("rename", with_card=True)
-        self.custom_template_commands = QWidget()
-        self.custom_template_commands.setObjectName("custom_template_commands")
-        self.custom_template_commands.setStyleSheet("#custom_template_commands { background: transparent; }")
-        commands = QHBoxLayout(self.custom_template_commands)
-        commands.setContentsMargins(*MARGINS_NONE)
-        commands.setSpacing(SPACE_SM)
-        self.btn_insert_token = IconButton("Подстановки")
-        self.btn_insert_token.setProperty("hasPopup", True)
-        self.btn_save_template = IconButton("Сохранить")
-        self.btn_manage_templates = IconButton("Мои шаблоны")
-        for button, handler in (
-            (self.btn_insert_token, self._choose_template_token),
-            (self.btn_save_template, self.save_current_template),
-            (self.btn_manage_templates, self.show_template_manager),
-        ):
-            setup_standard_secondary_button(button, expand=True)
-            button.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
-            button.clicked.connect(handler)
-            commands.addWidget(button, 1)
-        self.custom_template_commands.hide()
         self.btn_open_rename_history = IconButton("История")
         setup_standard_secondary_button(self.btn_open_rename_history)
         self.btn_open_rename_history.clicked.connect(self.show_rename_history_dialog)
@@ -220,10 +199,9 @@ class OperationsTabLayoutMixin:
         parameters = QVBoxLayout()
         parameters.setSpacing(SPACE_SM)
         parameters.addWidget(self.template_params_widget)
-        parameters.addWidget(self.custom_template_commands)
         row.addLayout(parameters, 3)
         action = QVBoxLayout()
-        action.setContentsMargins(0, rule_label.height() + SPACE_SM, 0, 0)
+        action.setContentsMargins(0, rule_label.sizeHint().height() + SPACE_SM, 0, 0)
         action.addWidget(self.btn_apply_rename)
         action.addStretch()
         row.addLayout(action)
@@ -353,7 +331,7 @@ class OperationsTabLayoutMixin:
         )
         add_labeled_field(
             level_layout,
-            "Уровень сжатия PNG/JPG:",
+            "Качество JPEG/WebP",
             self.combo_compression_level,
         )
         fields = QHBoxLayout()
