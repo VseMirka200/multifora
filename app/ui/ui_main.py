@@ -79,7 +79,6 @@ from app.ui.ui_components import (
 from app.ui.ui_styles import (
     APP_MARGINS,
     FILE_INFO_LABEL_STYLE,
-    HEADER_FIELD_HEIGHT,
     MARGINS_NONE,
     SPACE_NONE,
     SPACE_SM,
@@ -708,13 +707,6 @@ class MultiforaMainWindow(
         self.input_search.setMinimumWidth(0)
         self.input_search.textChanged.connect(self.on_search_text_changed)
 
-        for widget in (
-            self.btn_ext_filter,
-            self.btn_type_filter,
-            self.input_search,
-        ):
-            widget.setMinimumHeight(HEADER_FIELD_HEIGHT)
-
         list_header.addWidget(self.btn_ext_filter, 0, 0)
         list_header.addWidget(self.btn_type_filter, 0, 1)
         list_header.addWidget(self.input_search, 0, 2)
@@ -734,9 +726,9 @@ class MultiforaMainWindow(
         find_action.setShortcut(QKeySequence.StandardKey.Find)
         find_action.triggered.connect(self.input_search.setFocus)
         self.addAction(find_action)
-        list_header.setColumnStretch(0, 1)
-        list_header.setColumnStretch(1, 1)
-        list_header.setColumnStretch(2, 2)
+        list_header.setColumnStretch(0, 0)
+        list_header.setColumnStretch(1, 0)
+        list_header.setColumnStretch(2, 1)
         return list_header
 
     def _create_file_list_widget(
@@ -1246,9 +1238,9 @@ class MultiforaMainWindow(
         if hasattr(self, "_list_header_layout"):
             layout = self._list_header_layout
             try:
-                layout.setColumnStretch(0, 1)
-                layout.setColumnStretch(1, 1)
-                layout.setColumnStretch(2, 2)
+                layout.setColumnStretch(0, 0)
+                layout.setColumnStretch(1, 0)
+                layout.setColumnStretch(2, 1)
             except Exception as error:
                 _log_ignored_error(
                     "MultiforaMainWindow._update_header_compact_mode", error
@@ -1287,7 +1279,9 @@ class MultiforaMainWindow(
         host = getattr(self, "files_panel", None)
         if host is None or overlay is None or not isValid(host) or not isValid(overlay):
             return
+        empty_view = not self.list_files.model().files()
         if self._active_operation_id() == "merge" and hasattr(self, "merge_pages_panel"):
+            self.merge_pages_panel.pages.setVisible(not empty_view)
             # В режиме объединения list_files скрыт. Его viewport может иметь
             # другую ширину/позицию, поэтому геометрию берём у видимой панели.
             active_surface = self.merge_pages_panel
@@ -1311,7 +1305,6 @@ class MultiforaMainWindow(
         card.setHeight(min(card.height(), 196))
         card.moveCenter(field_rect.center())
         overlay.setGeometry(card)
-        empty_view = not self.list_files.model().files()
         overlay.setVisible(empty_view)
         if not empty_view:
             return

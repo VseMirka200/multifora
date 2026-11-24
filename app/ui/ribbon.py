@@ -117,7 +117,7 @@ class RibbonPage(QWidget):
             card = QFrame()
             card.setObjectName("operation_options")
             body = QVBoxLayout(card)
-            body.setContentsMargins(16, 10, 16, 10)
+            body.setContentsMargins(12, 12, 12, 12)
             body.setSpacing(0)
             self.row = QHBoxLayout()
             body.addLayout(self.row)

@@ -334,6 +334,7 @@ class WindowsIntegrationMixin:
         installed = self.context_menu_installed()
         button.setText("Удалить" if installed else "Создать")
         setup_standard_action_button(button, variant="danger" if installed else "secondary", expand=False)
+        button.setFixedWidth(104)
 
     def toggle_context_menu_entry(self):
         if self.context_menu_installed():

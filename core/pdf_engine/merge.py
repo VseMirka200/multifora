@@ -29,7 +29,7 @@ def combine_pdfs(sources, destination, should_cancel, *, page_order=()):
                 writer.append(reader)
         if page_order:
             expected = {(i, p) for i, reader in enumerate(readers) for p in range(len(reader.pages))}
-            if len(page_order) != len(expected) or set(page_order) != expected:
+            if len(page_order) != len(set(page_order)) or not set(page_order).issubset(expected):
                 raise ValueError("Состав страниц изменился. Откройте миниатюры заново.")
             for source_index, page_index in page_order:
                 if should_cancel():

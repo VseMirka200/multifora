@@ -418,7 +418,6 @@ class TemplateCrudMixin:
             QMessageBox.Icon.Question,
             True,
             yes_text="Удалить",
-            yes_icon="remove",
             no_text="Отмена",
             destructive=True,
         )
@@ -605,5 +604,5 @@ class TemplateCrudMixin:
         ]
 
         self.combo_templates.addItems(standard_templates)
-        metrics = self.combo_templates.fontMetrics()
-        self.combo_templates.setFixedWidth(max(metrics.horizontalAdvance(name) for name in standard_templates) + 44)
+        metrics = self.combo_templates.menu().fontMetrics()
+        self.combo_templates.setFixedWidth(max(metrics.horizontalAdvance(name) for name in standard_templates) + 64)

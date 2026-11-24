@@ -37,6 +37,7 @@ from app.ui.ui_components import (
 from app.ui.ui_styles import (
     CHECKBOX_SIZE,
     CONTROL_HEIGHT,
+    DROPDOWN_HEIGHT,
     MAIN_BUTTON_HEIGHT,
     MARGINS_NONE,
     SPACE_NONE,
@@ -188,6 +189,7 @@ class OperationsTabLayoutMixin:
         self.btn_apply_rename.setEnabled(False)
 
         setup_standard_primary_button(self.btn_apply_rename, expand=False)
+        self.btn_apply_rename.setFixedHeight(DROPDOWN_HEIGHT)
         page = RibbonPage("rename", with_card=True)
         self.custom_template_commands = QWidget()
         self.custom_template_commands.setObjectName("custom_template_commands")

@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 import app.core.rename_templates as rt
 from app.core.app_utils import _log_ignored_error
 from app.ui.ui_components import setup_standard_dropdown
+from app.ui.ui_styles import DROPDOWN_HEIGHT
 
 
 class TemplateApplyMixin:
@@ -54,6 +55,13 @@ class TemplateApplyMixin:
             self.create_date_original_params()
         elif template_name == "Пользовательский шаблон":
             self.create_custom_template_params()
+
+        for spinbox in self.template_params_widget.findChildren(QSpinBox):
+            spinbox.setFixedHeight(DROPDOWN_HEIGHT)
+        for field in self.template_params_widget.findChildren(QLineEdit):
+            if field.property("renameTemplateField"):
+                field.setFixedHeight(DROPDOWN_HEIGHT)
+                field.setTextMargins(5, 0, 5, 0)
 
         self.template_params_widget.setVisible(True)
         self._apply_template_params_theme()

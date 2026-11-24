@@ -175,7 +175,6 @@ class FileListContextMixin:
             "выбранные файлы будут перемещены в корзину. Папки останутся на диске.",
             "Переместить выбранные файлы в корзину",
             yes_text="Убрать из списка",
-            yes_icon="remove",
         )
         if not confirmed:
             return

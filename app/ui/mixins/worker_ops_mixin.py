@@ -4,7 +4,7 @@ from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from app.core.app_utils import _debug_log
-from app.ui.file_table import operation_file_items
+from app.ui.file_table import operation_file_items, selected_file_items
 from app.ui.merge_pages import choose_merge_pages
 from core.file_models import FileItem, OperationFile, OperationSource
 from core.filesystem import normalized_path_key
@@ -53,7 +53,7 @@ class WorkerOpsMixin:
         return None
 
     def _select_merge_output_path_for_format(
-        self, output_format: str, files: list[FileItem]
+        self, output_format: str, files: list[FileItem], *, allow_pdf=False
     ) -> str:
         extension = "docx" if output_format == "docx" else "pdf"
         filter_text = (
@@ -66,15 +66,22 @@ class WorkerOpsMixin:
             start_folder, f"Объединенный_документ.{extension}"
         )
 
-        file_path, _ = QFileDialog.getSaveFileName(
+        pdf_filter = "PDF Document (*.pdf)"
+        filters = [filter_text]
+        if allow_pdf:
+            filters.append(pdf_filter)
+        filters.append("Все файлы (*.*)")
+        file_path, selected_filter = QFileDialog.getSaveFileName(
             self,
             "Куда сохранить объединенный документ",
             default_path,
-            f"{filter_text};;Все файлы (*.*)",
+            ";;".join(filters),
         )
         if not file_path:
             return ""
 
+        if allow_pdf and selected_filter == pdf_filter:
+            extension = "pdf"
         base, ext = os.path.splitext(file_path)
         if ext.lower() != f".{extension}":
             file_path = (
@@ -92,17 +99,21 @@ class WorkerOpsMixin:
             if hasattr(self, "list_files")
             else []
         )
+        if hasattr(self, "list_files"):
+            selected = selected_file_items(self.list_files, files_only=True)
+            if selected:
+                files = selected
         output_format = self._detect_merge_output_format(files)
         valid_files = len(files) >= 2 and output_format is not None
         panel = getattr(self, "merge_pages_panel", None)
         if panel is not None and self._active_operation_id() == "merge":
             sources = files
             panel.set_files(sources)
-            valid_files = panel.ready and len(sources) >= 2 and self._detect_merge_output_format(sources) is not None
+            valid_files = panel.ready and panel.pages.count() >= 2 and output_format is not None
         button.setEnabled(valid_files and not self._operation_start_block_reason())
         button.setToolTip(self._operation_start_block_reason() or (
             "Объединить выбранные документы" if valid_files
-            else "Выберите минимум два документа одного формата и дождитесь загрузки страниц"
+            else "Добавьте документы одного формата с двумя или более страницами"
         ))
 
     def _compression_files(self, candidates):
@@ -242,7 +253,7 @@ class WorkerOpsMixin:
             if not panel.ready:
                 return
             files = list(panel.files)
-        if len(files) < 2:
+        if len(files) < 2 and (panel is None or panel.pages.count() < 2):
             QMessageBox.warning(
                 self,
                 "Ошибка",
@@ -302,24 +313,30 @@ class WorkerOpsMixin:
         if page_order:
             document_order = list(dict.fromkeys(source for source, _ in page_order))
             rank = {source: index for index, source in enumerate(document_order)}
-            if len(document_order) == len(files) and list(page_order) == sorted(
-                page_order, key=lambda entry: (rank[entry[0]], entry[1])
+            if (
+                len(files) >= 2
+                and (panel is None or len(page_order) == panel.pages.count())
+                and len(document_order) == len(files)
+                and list(page_order) == sorted(page_order, key=lambda entry: (rank[entry[0]], entry[1]))
             ):
                 files = [files[index] for index in document_order]
                 page_order = ()
-            else:
-                output_format = "pdf"
-                format_label = "PDF"
 
-        output_path = self._select_merge_output_path_for_format(
-            output_format, files
-        )
+        allow_pdf = output_format == "docx" and bool(page_order)
+        if allow_pdf:
+            output_path = self._select_merge_output_path_for_format(output_format, files, allow_pdf=True)
+        else:
+            output_path = self._select_merge_output_path_for_format(output_format, files)
         if not output_path:
             return
+        if allow_pdf and output_path.lower().endswith(".pdf"):
+            output_format = "pdf"
+            format_label = "PDF"
 
+        contents = f"{len(page_order)} стр." if page_order else f"{len(files)} документов"
         reply = self.show_russian_message_box(
             "Подтверждение",
-            f"Объединить {len(files)} документов в один {format_label}?\n\nСохранить:\n{output_path}",
+            f"Объединить {contents} в один {format_label}?\n\nСохранить:\n{output_path}",
             QMessageBox.Icon.Question,
             True,
         )
@@ -399,7 +416,9 @@ class WorkerOpsMixin:
         if callable(getattr(self, "_update_compress_button", None)):
             self._update_compress_button()
 
-        if result.outcome == "success" and self._should_auto_clear_after_operation():
+        if (result.outcome == "success"
+                and not isinstance(self._last_operation_request, MergeRequest)
+                and self._should_auto_clear_after_operation()):
             self.files.clear()
             self.list_files.clear()
             self.update_file_info()
@@ -414,7 +433,7 @@ class WorkerOpsMixin:
             self._apply_operation_updates(updated_files)
             changed = True
 
-        if new_files:
+        if new_files and not isinstance(self._last_operation_request, MergeRequest):
             _debug_log(f"Добавляю {len(new_files)} новых файлов в список")
             for file_item in new_files:
                 if file_item not in self.files:

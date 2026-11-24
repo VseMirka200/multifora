@@ -404,13 +404,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                     for label in window.settings_scroll.widget().findChildren(QLabel)
                     if label.property("settingsHint")
                 ]
-                self.assertEqual(len(settings_hints), 6)
-                self.assertTrue(
-                    all(label.text().strip() for label in settings_hints)
-                )
-                self.assertTrue(
-                    all(label.wordWrap() for label in settings_hints)
-                )
+                self.assertEqual(settings_hints, [])
                 self.assertFalse(
                     window.auto_clear_enabled_checkbox.isChecked()
                 )

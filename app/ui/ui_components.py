@@ -60,6 +60,7 @@ from app.ui.palette import standard_palette
 from app.ui.ui_icons import UI_ICON_SIZE, apply_button_icon, button_icon
 from app.ui.ui_styles import (
     ACTION_BUTTON_HEIGHT,
+    DROPDOWN_HEIGHT,
     FIELD_HEIGHT,
     HEADER_FIELD_HEIGHT,
     MARGINS_NONE,
@@ -324,7 +325,7 @@ def setup_standard_dropdown(widget, *, fixed_width: int | None = None):
     height = (
         HEADER_FIELD_HEIGHT
         if getattr(widget, "objectName", lambda: "")() in header_fields
-        else FIELD_HEIGHT
+        else DROPDOWN_HEIGHT
     )
     widget.setFixedHeight(height)
     widget.setMinimumWidth(0)
@@ -351,7 +352,7 @@ def setup_standard_dropdown(widget, *, fixed_width: int | None = None):
         line_edit = widget.lineEdit()
         if line_edit is not None:
             line_edit.setReadOnly(True)
-            line_edit.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            line_edit.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             line_edit.setFont(widget.font())
     except Exception as error:
         _log_ignored_error("setup_standard_dropdown", error)
@@ -372,7 +373,8 @@ def setup_standard_dropdown(widget, *, fixed_width: int | None = None):
 
 def setup_standard_line_input(widget, *, fixed_width: int | None = None):
     widget.setAlignment(Qt.AlignmentFlag.AlignLeft)
-    widget.setFixedHeight(FIELD_HEIGHT)
+    height = HEADER_FIELD_HEIGHT if widget.objectName() == "header_cell_br" else FIELD_HEIGHT
+    widget.setFixedHeight(height)
     widget.setMinimumWidth(0)
     if fixed_width is not None:
         widget.setFixedWidth(fixed_width)
@@ -418,7 +420,7 @@ def setup_standard_header_dropdown(widget):
     widget.setMinimumWidth(0)
     widget.setMaximumWidth(16777215)
     widget.setSizePolicy(
-        QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed
     )
     apply_standard_field_style(widget)
     return widget
@@ -597,9 +599,9 @@ def get_russian_text_input(
     buttons_layout.setContentsMargins(*MARGINS_NONE)
     buttons_layout.setSpacing(SPACE_SM)
     ok_button = QPushButton("Сохранить", dialog)
-    setup_standard_primary_button(ok_button, expand=True, icon_name="save")
+    setup_standard_primary_button(ok_button, expand=True)
     cancel_button = QPushButton("Отмена", dialog)
-    setup_standard_secondary_button(cancel_button, expand=True, icon_name="close")
+    setup_standard_secondary_button(cancel_button, expand=True)
     buttons_layout.addWidget(ok_button, 1)
     buttons_layout.addWidget(cancel_button, 1)
     layout.addWidget(buttons_row)
@@ -990,8 +992,9 @@ class MenuLikeComboBox(QToolButton):
     currentIndexChanged = Signal(int)
     currentTextChanged = Signal(str)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, show_value_tooltip=True):
         super().__init__(parent)
+        self._show_value_tooltip = show_value_tooltip
         self.setObjectName("menu_like_combo")
         self.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
@@ -1030,14 +1033,14 @@ class MenuLikeComboBox(QToolButton):
 
     def minimumSizeHint(self):
         hint = super().minimumSizeHint()
-        return QSize(0, max(FIELD_HEIGHT, hint.height()))
+        return QSize(0, max(DROPDOWN_HEIGHT, hint.height()))
 
     def sizeHint(self):
         hint = super().sizeHint()
         # Начальная ширина должна быть удобной, но не должна заставлять узкую
         # боковую панель выходить за доступные границы.
         return QSize(
-            min(max(120, hint.width()), 180), max(FIELD_HEIGHT, hint.height())
+            min(max(120, hint.width()), 180), max(DROPDOWN_HEIGHT, hint.height())
         )
 
     def paintEvent(self, event):
@@ -1051,20 +1054,16 @@ class MenuLikeComboBox(QToolButton):
 
         # В узкой панели оставляем место под стрелку меню и сокращаем только
         # отображаемый текст. Полное значение остаётся доступно в подсказке и меню.
-        inset = 12 if self.property("ruleSelector") else 4
-        text_rect = self.rect().adjusted(inset, 0, -22, 0)
-        metrics = QFontMetrics(self.font())
-        painted_text = metrics.elidedText(
-            text,
-            Qt.TextElideMode.ElideRight,
-            max(0, text_rect.width()),
+        text_rect = self.rect().adjusted(10, 0, -24, 0)
+        caption = painter.fontMetrics().elidedText(
+            text, Qt.TextElideMode.ElideRight, max(0, text_rect.width())
         )
         painter.drawItemText(
             text_rect,
             int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
-            self.palette(),
+            option.palette,
             self.isEnabled(),
-            painted_text,
+            caption,
             self.foregroundRole(),
         )
         draw_dropdown_arrow(painter, self)
@@ -1128,7 +1127,8 @@ class MenuLikeComboBox(QToolButton):
         self._menu.actions()[index].setChecked(True)
         text = self._items[index][0]
         self.setText(text)
-        self.setToolTip(text)
+        if self._show_value_tooltip:
+            self.setToolTip(text)
         self.currentIndexChanged.emit(index)
         self.currentTextChanged.emit(text)
 
@@ -1230,6 +1230,15 @@ class MenuWidthButton(MenuLikeComboBox):
 
 class FilterToolButton(QToolButton):
     """Кнопка фильтра с подписью слева и стрелкой меню справа."""
+
+    def sizeHint(self):
+        hint = super().sizeHint()
+        text_width = self.fontMetrics().horizontalAdvance(self.text())
+        hint.setWidth(max(hint.width(), text_width + 48))
+        return hint
+
+    def minimumSizeHint(self):
+        return self.sizeHint()
 
     def paintEvent(self, event):
         option = QStyleOptionToolButton()

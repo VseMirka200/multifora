@@ -22,7 +22,7 @@ def merge_documents(
     page_order=(),
 ) -> str:
     files = [file for file in sources if file.is_file]
-    if len(files) < 2:
+    if not files or (len(files) < 2 and len(page_order) < 2):
         raise Exception("Для объединения нужно выбрать минимум два файла.")
 
     output_format = str(output_format or "pdf").lower()
@@ -48,6 +48,11 @@ def merge_documents(
         )
     destination = unique_path(_merge_output_path(files[0].path, output_format, output_path))
     if output_format == "docx":
+        if page_order:
+            from core.document_engine.docx_pages import merge_docx_pages
+
+            status("Объединение страниц DOCX")
+            return merge_docx_pages([file.path for file in files], destination, page_order, should_cancel, progress)
         return _merge_docx(files, destination, should_cancel, status, progress)
 
     from core.pdf_engine.merge import combine_pdfs

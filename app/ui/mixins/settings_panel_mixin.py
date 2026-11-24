@@ -7,7 +7,6 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
     QFrame,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -52,87 +51,43 @@ from app.ui.ui_styles import (
 
 
 class SettingsPanelMixin:
-    @staticmethod
-    def _create_settings_hint_label(text: str) -> QLabel:
-        hint = QLabel(text)
-        hint.setProperty("settingsHint", True)
-        hint.setWordWrap(True)
-        hint.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse
-        )
-        return hint
-
-    def _create_settings_checkbox_row(self, text: str, tooltip: str = ""):
+    def _create_settings_control_row(
+        self, label: QLabel, control: QWidget, *, control_first: bool = False
+    ):
         row = QWidget()
         row.setObjectName("settings_row")
-        layout = QGridLayout(row)
+        layout = QHBoxLayout(row)
         layout.setContentsMargins(*MARGINS_NONE)
-        layout.setHorizontalSpacing(SPACE_SM)
-        layout.setVerticalSpacing(SPACE_NONE)
-        layout.setColumnStretch(0, 1)
-        layout.setVerticalSpacing(3)
+        layout.setSpacing(SPACE_LG)
+        for widget in (control, label) if control_first else (label, control):
+            layout.addWidget(widget, 0, Qt.AlignmentFlag.AlignVCenter)
+        layout.addStretch()
+        return row
+
+    def _create_settings_checkbox_row(self, text: str):
         checkbox = SettingsSwitch()
         checkbox.setAccessibleName(text)
-        checkbox.setToolTip(tooltip)
         label = QLabel(text)
         label.setStyleSheet(f"font-size: {BODY_PX}px; font-weight: 600;")
-        setup_clickable_checkbox_label(label, checkbox, tooltip=tooltip)
-        layout.addWidget(label, 0, 0)
-        layout.addWidget(self._create_settings_hint_label(tooltip), 1, 0)
-        layout.addWidget(checkbox, 0, 1, 2, 1, Qt.AlignmentFlag.AlignVCenter)
+        setup_clickable_checkbox_label(label, checkbox)
+        row = self._create_settings_control_row(label, checkbox)
         return row, checkbox
 
     def _create_settings_select_row(
         self,
         label_text: str,
         field: QWidget,
-        *,
-        label_width: int = 60,
-        hint: str = "",
     ):
-        row = QWidget()
-        row.setObjectName("settings_row")
-        layout = QVBoxLayout(row)
-        layout.setContentsMargins(*MARGINS_NONE)
-        layout.setSpacing(SPACE_NONE)
-
-        controls = QWidget(row)
-        controls.setObjectName("settings_row")
-        controls_layout = QHBoxLayout(controls)
-        controls_layout.setContentsMargins(*MARGINS_NONE)
-        controls_layout.setSpacing(SPACE_NONE)
         label = QLabel(label_text)
-        label.setFixedWidth(label_width)
-        label.setAlignment(
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-        )
-        controls_layout.addWidget(label)
-        controls_layout.addStretch()
-        controls_layout.addWidget(field, 0)
-        layout.addWidget(controls)
-        if hint:
-            field.setToolTip(hint)
+        label.setBuddy(field)
+        return self._create_settings_control_row(label, field)
 
-        return row
-
-    def _create_shortcut_action_row(self, title: str, hint: str, action):
-        row = QWidget()
-        row.setObjectName("settings_row")
-        layout = QHBoxLayout(row)
-        layout.setContentsMargins(*MARGINS_NONE)
-        layout.setSpacing(SPACE_SM)
+    def _create_shortcut_action_row(self, title: str, action):
         button = QPushButton("Создать")
         setup_standard_secondary_button(button, expand=False)
+        button.setFixedWidth(104)
         button.clicked.connect(action)
-        text_column = QWidget(row)
-        text_column.setObjectName("settings_row")
-        text_layout = QVBoxLayout(text_column)
-        text_layout.setContentsMargins(*MARGINS_NONE)
-        text_layout.setSpacing(SPACE_NONE)
-        text_layout.addWidget(QLabel(title))
-        text_layout.addWidget(self._create_settings_hint_label(hint))
-        layout.addWidget(text_column, 1)
-        layout.addWidget(button, 0, Qt.AlignmentFlag.AlignVCenter)
+        row = self._create_settings_control_row(QLabel(title), button, control_first=True)
         return row, button
 
     def _create_settings_page_card(self) -> tuple[QWidget, QVBoxLayout]:
@@ -477,7 +432,7 @@ class SettingsPanelMixin:
         auto_clear_layout = self._add_settings_section("Файлы и папки")
         shortcuts_layout = self._add_settings_section("Интеграция Windows")
 
-        self.theme_mode_combo = MenuLikeComboBox()
+        self.theme_mode_combo = MenuLikeComboBox(show_value_tooltip=False)
         setup_standard_dropdown(self.theme_mode_combo, fixed_width=260)
         self.theme_mode_combo.addItem("Как в системе", "system")
         self.theme_mode_combo.addItem("Темная", "dark")
@@ -488,16 +443,12 @@ class SettingsPanelMixin:
         theme_row = self._create_settings_select_row(
             "Тема",
             self.theme_mode_combo,
-            label_width=40,
-            hint="Определяет цветовую схему интерфейса или использует тему Windows.",
         )
         appearance_layout.addWidget(theme_row)
 
-        warning_description = "Показывать предупреждения без всплывающих окон."
         disable_warning_row, self.disable_warning_dialogs_checkbox = (
             self._create_settings_checkbox_row(
                 "Предупреждения в строке состояния",
-                warning_description,
             )
         )
         self.disable_warning_dialogs_checkbox.stateChanged.connect(
@@ -511,7 +462,6 @@ class SettingsPanelMixin:
         auto_update_row, self.auto_update_check_checkbox = (
             self._create_settings_checkbox_row(
                 "Проверять обновления при запуске",
-                "Проверка через GitHub.",
             )
         )
         self.auto_update_check_checkbox.setChecked(False)
@@ -524,7 +474,6 @@ class SettingsPanelMixin:
         auto_clear_enabled_row, self.auto_clear_enabled_checkbox = (
             self._create_settings_checkbox_row(
                 "Автоочистка очереди",
-                "После успешной операции список очищается. Файлы на диске сохраняются.",
             )
         )
         self.auto_clear_enabled_checkbox.stateChanged.connect(
@@ -539,7 +488,8 @@ class SettingsPanelMixin:
         self._add_settings_separator(auto_clear_layout)
         auto_clear_layout.addWidget(self.auto_clear_operations_label)
 
-        options_layout = QHBoxLayout()
+        options_layout = QVBoxLayout()
+        options_layout.setSpacing(SPACE_SM)
         auto_clear_layout.addLayout(options_layout)
         self.auto_clear_operation_checkboxes = []
         self.auto_clear_operation_rows = []
@@ -550,25 +500,26 @@ class SettingsPanelMixin:
             checkbox.stateChanged.connect(lambda _state: self._schedule_settings_save())
             self.auto_clear_operation_checkboxes.append(checkbox)
             self.auto_clear_operation_rows.append(checkbox)
-            options_layout.addWidget(checkbox, 1)
+            options_layout.addWidget(checkbox, 0, Qt.AlignmentFlag.AlignLeft)
+            if operation == "merge":
+                checkbox.hide()
         self.auto_clear_convert_checkbox.setChecked(False)
         self._sync_auto_clear_controls()
 
         desktop_shortcut_row, self.desktop_shortcut_button = self._create_shortcut_action_row(
-            "Добавить ярлык на рабочий стол", "Создает ярлык «Мультифора» на рабочем столе.",
+            "Добавить ярлык на рабочий стол",
             self.create_desktop_shortcut,
         )
         shortcuts_layout.addWidget(desktop_shortcut_row)
 
         start_row, self.start_menu_shortcut_button = self._create_shortcut_action_row(
-            "Меню Пуск", "Создает ярлык «Мультифора» в меню Пуск.",
+            "Меню Пуск",
             self.create_start_menu_shortcut,
         )
         shortcuts_layout.addWidget(start_row)
 
         context_row, self.context_menu_button = self._create_shortcut_action_row(
             "Контекстное меню Windows",
-            "Добавляет пункт «Добавить в Мультифору» в меню файлов и папок.",
             self.toggle_context_menu_entry,
         )
         shortcuts_layout.addWidget(context_row)

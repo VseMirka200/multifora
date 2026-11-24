@@ -181,6 +181,7 @@ def _pictures(node, root, width, height, should_cancel):
         if hasattr(data, "seek"):
             data.seek(0)
         image = Image(str(data) if isinstance(data, Path) else data, width=picture_width, height=picture_height)
+        image.source_data = data
         if alignment:
             image.hAlign = alignment if alignment in {"CENTER", "RIGHT"} else "LEFT"
         yield image
@@ -360,9 +361,11 @@ def _paragraph(content, *, size=11, node=None):
     ))
 
 
-def _write_body(body, layout, source, destination, should_cancel):
+def _write_body(body, layout, source, destination, should_cancel, *, capture=None):
     text = "".join((*body.itertext(), *layout.header, *layout.footer)).replace("\u00a0", " ")
     if _text_font(text + "•") is None:
+        if capture is not None:
+            raise ValueError("Для этих шрифтов редактируемое объединение страниц DOCX недоступно. Сохраните страницы в PDF.")
         from core.document_engine.qt_pdf import write_pdf
 
         _qt_page_breaks(body)
@@ -378,10 +381,17 @@ def _write_body(body, layout, source, destination, should_cancel):
     if not story:
         story.append(Spacer(1, 12))
     with atomic_output_path(destination) as temporary:
-        pdf = BaseDocTemplate(temporary, pagesize=layout.size)
+        class PageTemplateDocument(BaseDocTemplate):
+            def afterFlowable(self, flowable):
+                if capture is not None and isinstance(flowable, (Paragraph, LongTable, Image)):
+                    capture(self.page - 1, flowable)
+
+        pdf = PageTemplateDocument(temporary, pagesize=layout.size)
 
         def draw_page(canvas, _document):
             _check_cancel(should_cancel)
+            if capture is not None:
+                capture(_document.page - 1, None)
             canvas.saveState()
             canvas.setFont(_FONT_NAME, 9)
             for index, line in enumerate(layout.header):
@@ -396,7 +406,7 @@ def _write_body(body, layout, source, destination, should_cancel):
         _check_cancel(should_cancel)
 
 
-def export_pdf(source, destination, source_format, should_cancel):
+def export_pdf(source, destination, source_format, should_cancel, *, capture=None):
     if source_format != "DOCX":
         body = _read_body(source, source_format, should_cancel)
         return _write_body(body, _PageLayout(), source, destination, should_cancel)
@@ -404,20 +414,25 @@ def export_pdf(source, destination, source_format, should_cancel):
     if len(sections) == 1:
         body, layout, parity = sections[0]
         if parity != 0:
-            return _write_body(body, layout, source, destination, should_cancel)
+            hook = None if capture is None else lambda page, flowable: capture(page, layout, flowable)
+            return _write_body(body, layout, source, destination, should_cancel, capture=hook)
 
     from pypdf import PdfWriter
 
     with TemporaryDirectory(prefix="multifora_docx_sections_") as folder, PdfWriter() as writer:
-        previous_size = sections[0][1].size
+        previous_layout = sections[0][1]
         for index, (body, layout, parity) in enumerate(sections):
             _check_cancel(should_cancel)
             if parity is not None and (len(writer.pages) + 1) % 2 != parity:
-                writer.add_blank_page(*previous_size)
+                writer.add_blank_page(*previous_layout.size)
+                if capture is not None:
+                    capture(len(writer.pages) - 1, previous_layout, None)
             part = Path(folder, f"section-{index}.pdf")
-            _write_body(body, layout, source, part, should_cancel)
+            offset = len(writer.pages)
+            hook = None if capture is None else lambda page, flowable: capture(offset + page, layout, flowable)
+            _write_body(body, layout, source, part, should_cancel, capture=hook)
             writer.append(part)
-            previous_size = layout.size
+            previous_layout = layout
         with atomic_output_path(destination) as temporary:
             with open(temporary, "wb") as output:
                 writer.write(output)

@@ -4,7 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import zipfile
 
-from PySide6.QtCore import QByteArray, QMimeData, QSize, Qt, QThread, Signal
+from PySide6.QtCore import QByteArray, QEasingCurve, QItemSelectionModel, QMimeData, QSize, Qt, QThread, Signal, QVariantAnimation
 from PySide6.QtGui import QDrag, QIcon, QImage, QPixmap
 from PySide6.QtWidgets import (
     QDialog, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QPushButton, QVBoxLayout, QWidget,
@@ -64,7 +64,7 @@ class PageList(QListWidget):
         self.setFlow(QListWidget.Flow.LeftToRight)
         self.setWrapping(True)
         self.setMovement(QListWidget.Movement.Snap)
-        self.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
+        self.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
         self.viewport().setAcceptDrops(True)
@@ -74,16 +74,65 @@ class PageList(QListWidget):
         self.setDragDropOverwriteMode(False)
         self.setIconSize(QSize(140, 140))
         self.setGridSize(QSize(158, 172))
+        self._move_animation = None
+
+    def clear(self):
+        if self._move_animation is not None:
+            self._move_animation.stop()
+            self._move_animation.deleteLater()
+            self._move_animation = None
+        super().clear()
 
     def move_current(self, row):
         current = self.currentRow()
         if current < 0 or not 0 <= row < self.count() or row == current:
             return
-        item = self.takeItem(current)
-        self.insertItem(row, item)
-        self.setCurrentItem(item)
+        self._move_page(current, row)
+
+    def _move_page(self, source, destination):
+        if self._move_animation is not None:
+            self._move_animation.stop()
+            self._move_animation.deleteLater()
+            self._move_animation = None
+            self.doItemsLayout()
+        pages = [self.item(i) for i in range(self.count())]
+        positions = {id(page): self.visualItemRect(page).topLeft() for page in pages}
+        selected = [page for page in pages if page.isSelected()]
+        item = self.takeItem(source)
+        self.insertItem(destination, item)
+        self.setCurrentItem(item, QItemSelectionModel.SelectionFlag.NoUpdate)
+        for page in selected:
+            page.setSelected(True)
         self.doItemsLayout()
         self.order_changed.emit()
+        ends = [(self.item(i), self.visualItemRect(self.item(i)).topLeft())
+                for i in range(self.count())]
+        moves = [(page, positions[id(page)], end) for page, end in ends
+                 if positions[id(page)] != end]
+        if not moves:
+            return
+        animation = QVariantAnimation(self)
+        animation.setDuration(220)
+        animation.setStartValue(0.0)
+        animation.setEndValue(1.0)
+        animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        def update(value):
+            for page, start, end in moves:
+                index = self.indexFromItem(page)
+                if index.isValid():
+                    self.setPositionForIndex(start + (end - start) * value, index)
+
+        def finish():
+            self._move_animation = None
+            self.doItemsLayout()
+            animation.deleteLater()
+
+        animation.valueChanged.connect(update)
+        animation.finished.connect(finish)
+        self._move_animation = animation
+        update(0.0)
+        animation.start()
 
     def startDrag(self, supported_actions):
         row = self.currentRow()
@@ -97,7 +146,14 @@ class PageList(QListWidget):
         if item is not None and not item.icon().isNull():
             drag.setPixmap(item.icon().pixmap(96, 96))
             drag.setHotSpot(drag.pixmap().rect().center())
-        drag.exec(Qt.DropAction.MoveAction)
+        self._drag_item = item
+        self._drag_original_row = row
+        result = drag.exec(Qt.DropAction.MoveAction)
+        if result != Qt.DropAction.MoveAction and self._drag_item is not None:
+            current = self.row(self._drag_item)
+            if current >= 0 and current != self._drag_original_row:
+                self._move_page(current, self._drag_original_row)
+        self._drag_item = None
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasFormat(self._PAGE_MIME):
@@ -108,6 +164,8 @@ class PageList(QListWidget):
 
     def dragMoveEvent(self, event):
         if event.mimeData().hasFormat(self._PAGE_MIME):
+            if event.source() is self and getattr(self, "_drag_item", None) is not None:
+                self._preview_drop(event.position().toPoint())
             event.setDropAction(Qt.DropAction.MoveAction)
             event.accept()
             return
@@ -117,16 +175,18 @@ class PageList(QListWidget):
         if event.source() is not self or not event.mimeData().hasFormat(self._PAGE_MIME):
             event.ignore()
             return
-        try:
-            source_row = int(bytes(event.mimeData().data(self._PAGE_MIME)).decode("ascii"))
-        except (TypeError, ValueError, UnicodeDecodeError):
+        if getattr(self, "_drag_item", None) is None:
             event.ignore()
             return
-        if not 0 <= source_row < self.count():
-            event.ignore()
+        self._preview_drop(event.position().toPoint())
+        event.setDropAction(Qt.DropAction.MoveAction)
+        event.accept()
+
+    def _preview_drop(self, pos):
+        source_row = self.row(self._drag_item)
+        if source_row < 0:
             return
 
-        pos = event.position().toPoint()
         target_row = self.indexAt(pos).row()
         if target_row < 0:
             # При отпускании в промежутке между элементами выбираем ближайшую
@@ -158,14 +218,7 @@ class PageList(QListWidget):
             destination -= 1
         destination = max(0, min(destination, self.count() - 1))
         if destination != source_row:
-            item = self.takeItem(source_row)
-            self.insertItem(destination, item)
-            self.setCurrentItem(item)
-            self.doItemsLayout()
-            self.order_changed.emit()
-
-        event.setDropAction(Qt.DropAction.MoveAction)
-        event.accept()
+            self._move_page(source_row, destination)
 
 
 class MergePagesPanel(QWidget):
@@ -179,10 +232,13 @@ class MergePagesPanel(QWidget):
         self.ready = False
         self.generation = 0
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         self.hint = QLabel("Добавьте PDF или DOCX для объединения")
         self.hint.setWordWrap(True)
-        layout.addWidget(self.hint)
+        self.hint.hide()
         self.pages = PageList(self)
+        self.pages.setStyleSheet("QListWidget { border: none; }")
+        self.pages.setToolTip("\u0412\u044b\u0434\u0435\u043b\u0438\u0442\u0435 \u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e \u0441\u0442\u0440\u0430\u043d\u0438\u0446 \u0441 Ctrl \u0438\u043b\u0438 Shift, \u0447\u0442\u043e\u0431\u044b \u043e\u0431\u044a\u0435\u0434\u0438\u043d\u0438\u0442\u044c \u0442\u043e\u043b\u044c\u043a\u043e \u0438\u0445.")
         layout.addWidget(self.pages, 1)
         self.pages.order_changed.connect(self.renumber)
 
@@ -242,7 +298,7 @@ class MergePagesPanel(QWidget):
                 return
             self.ready = not failed and self.pages.count() > 0
             if self.ready:
-                self.hint.setText("Перетаскивайте страницы. Порядок объединения: слева направо, сверху вниз. Перестановка страниц DOCX сохраняется в PDF.")
+                self.hint.hide()
             self.ready_changed.emit()
 
         self.loader.thumbnail.connect(append, Qt.ConnectionType.QueuedConnection)
@@ -257,7 +313,13 @@ class MergePagesPanel(QWidget):
             item.setText(f"{i + 1}. {self.files[source].name}\nСтраница {page + 1}")
 
     def page_order(self):
-        return tuple(tuple(self.pages.item(i).data(Qt.ItemDataRole.UserRole)) for i in range(self.pages.count()))
+        selected = self.pages.selectedItems()
+        use_selection = len(selected) >= 2
+        return tuple(
+            tuple(self.pages.item(i).data(Qt.ItemDataRole.UserRole))
+            for i in range(self.pages.count())
+            if not use_selection or self.pages.item(i).isSelected()
+        )
 
 
 def choose_merge_pages(parent, files, source_format):
@@ -277,7 +339,7 @@ def choose_merge_pages(parent, files, source_format):
     layout.addLayout(controls)
     buttons = QHBoxLayout()
     cancel = QPushButton("Отмена", dialog)
-    setup_standard_secondary_button(cancel, icon_name="close")
+    setup_standard_secondary_button(cancel)
     cancel.clicked.connect(dialog.reject)
     buttons.addWidget(cancel)
     proceed = QPushButton("Продолжить")
@@ -310,8 +372,6 @@ def choose_merge_pages(parent, files, source_format):
     def ready():
         if pages.isEnabled():
             message = "Перетащите страницы или используйте кнопки. Порядок результата: слева направо, сверху вниз."
-            if source_format == "docx":
-                message += " При перестановке отдельных страниц результат сохранится в PDF."
             hint.setText(message)
         proceed.setEnabled(pages.isEnabled() and pages.count() > 0)
 

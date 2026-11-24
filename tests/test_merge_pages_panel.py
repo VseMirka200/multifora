@@ -58,7 +58,7 @@ def test_page_list_supports_two_dimensional_internal_drag_drop():
         assert pages.flow() == QListWidget.Flow.LeftToRight
         assert pages.isWrapping()
         assert pages.movement() == QListWidget.Movement.Snap
-        assert pages.selectionMode() == QListWidget.SelectionMode.SingleSelection
+        assert pages.selectionMode() == QListWidget.SelectionMode.ExtendedSelection
         assert pages.viewport().acceptDrops()
     finally:
         pages.close()
@@ -97,7 +97,7 @@ def test_invalid_docx_error_identifies_source_file(tmp_path):
             time.sleep(0.01)
         app.processEvents()
         assert "broken-one.docx" in panel.hint.text()
-        assert "не является корректным DOCX" in panel.hint.text()
+        assert "Ожидается настоящий документ DOCX" in panel.hint.text()
     finally:
         panel.stop()
         panel.close()

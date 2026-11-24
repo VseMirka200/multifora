@@ -80,7 +80,7 @@ class TemplateParamsTextMixin:
         """Создает параметры для замены текста"""
         container = QWidget()
         layout = QHBoxLayout(container)
-        layout.setSpacing(SPACE_SM)
+        layout.setSpacing(12)
         layout.setContentsMargins(*MARGINS_NONE)
 
         self.template_find = QLineEdit()

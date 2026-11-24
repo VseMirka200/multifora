@@ -8,6 +8,42 @@ from core.file_models import FileItem
 from core.operation_result import OperationResult
 
 
+def test_merge_selected_docx_pages_keeps_editable_content(tmp_path):
+    from docx import Document
+    from PIL import Image
+
+    first = tmp_path / "first.docx"
+    second = tmp_path / "second.docx"
+    output = tmp_path / "merged.docx"
+    picture = tmp_path / "picture.png"
+    Image.new("RGB", (20, 20), "blue").save(picture)
+
+    document = Document()
+    document.add_paragraph("Excluded")
+    paragraph = document.add_paragraph("Selected ")
+    paragraph.paragraph_format.page_break_before = True
+    paragraph.add_run("bold").bold = True
+    document.add_table(rows=1, cols=1).cell(0, 0).text = "Editable cell"
+    document.add_picture(str(picture))
+    document.save(first)
+    document = Document()
+    document.add_paragraph("First in result")
+    document.save(second)
+
+    worker = _DummyMergeWorker()
+    worker.files = [FileItem(str(first)), FileItem(str(second))]
+    worker.merge_output_path = str(output)
+    worker.page_order = ((1, 0), (0, 1))
+    worker._merge_files_to_target()
+
+    merged = Document(output)
+    paragraphs = [paragraph for paragraph in merged.paragraphs if paragraph.text]
+    assert [paragraph.text for paragraph in paragraphs] == ["First in result", "Selected bold"]
+    assert any(run.bold and run.text == "bold" for run in paragraphs[-1].runs)
+    assert merged.tables[0].cell(0, 0).text == "Editable cell"
+    assert len(merged.inline_shapes) == 1
+
+
 class _SignalStub:
     def __init__(self):
         self.emitted = []
