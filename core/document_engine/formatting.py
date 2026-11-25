@@ -1,7 +1,10 @@
 """Чтение размеров и параметров шрифта для конвертеров документов."""
 
 import re
+from copy import deepcopy
 from math import isfinite
+
+from lxml import etree
 
 _LENGTH = re.compile(r"([0-9]+(?:\.[0-9]*)?|\.[0-9]+)(pt|px|in|cm|mm|pc)?", re.I)
 _POINTS = {None: .75, "px": .75, "pt": 1, "in": 72, "cm": 72 / 2.54, "mm": 72 / 25.4, "pc": 12}
@@ -23,6 +26,30 @@ def inline_style(node):
         for key, separator, value in (declaration.partition(":"),)
         if separator
     }
+
+
+def paragraph_parts(node, *, split_pictures=False):
+    part = etree.Element(node.tag, attrib=node.attrib)
+    part.text = node.text
+    for child in node:
+        page_break = child.tag == "br" and child.get("data-page-break") == "true"
+        picture_break = split_pictures and child.tag == "img"
+        if not page_break and not picture_break:
+            part.append(deepcopy(child))
+            continue
+        if len(part) or part.text:
+            yield part
+        if page_break:
+            yield None
+        else:
+            picture = etree.Element(node.tag, attrib=node.attrib)
+            picture.append(deepcopy(child))
+            picture[-1].tail = None
+            yield picture
+        part = etree.Element(node.tag, attrib=node.attrib)
+        part.text = child.tail
+    if len(part) or part.text:
+        yield part
 
 
 def font_family(value):

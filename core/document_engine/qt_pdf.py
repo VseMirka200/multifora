@@ -1,11 +1,13 @@
 """Отрисовка документов с подбором системных шрифтов и формированием текста средствами Qt."""
 
 from pathlib import Path
+from re import fullmatch
 
 from lxml import etree
 from PySide6.QtCore import QMarginsF, QPointF, QRectF, QSizeF, QUrl
 from PySide6.QtGui import (
     QAbstractTextDocumentLayout,
+    QColor,
     QFont,
     QFontDatabase,
     QGuiApplication,
@@ -13,14 +15,16 @@ from PySide6.QtGui import (
     QPageLayout,
     QPageSize,
     QPainter,
+    QPalette,
     QPdfWriter,
     QTextDocument,
+    QTextFrameFormat,
     QTextLength,
     QTextTable,
 )
 from reportlab.lib.pagesizes import A4
 
-from core.document_engine.formatting import image_size
+from core.document_engine.formatting import image_size, inline_style, points
 from core.document_engine.rtf_export import image_data
 from core.document_engine.table_layout import table_layout
 from core.filesystem import atomic_output_path
@@ -36,6 +40,20 @@ def _qt_tables(frame):
         if isinstance(child, QTextTable):
             yield child
         yield from _qt_tables(child)
+
+
+def _format_cell(cell, css):
+    fmt = cell.format().toTableCellFormat()
+    for side in ("Top", "Right", "Bottom", "Left"):
+        edge = side.lower()
+        if (padding := css.get(f"padding-{edge}")) is not None and padding not in {"0pt", "5.4pt"}:
+            getattr(fmt, f"set{side}Padding")(points(padding) or 0)
+        border = fullmatch(r"([\d.]+pt) solid (#[0-9a-fA-F]{6})", css.get(f"border-{edge}", ""))
+        if border and (width := points(border[1])) is not None:
+            getattr(fmt, f"set{side}Border")(width)
+            getattr(fmt, f"set{side}BorderBrush")(QColor(border[2]))
+            getattr(fmt, f"set{side}BorderStyle")(QTextFrameFormat.BorderStyle.BorderStyle_Solid)
+    cell.setFormat(fmt)
 
 
 def write_pdf(body, source, destination, should_cancel, *, layout=None):
@@ -65,7 +83,7 @@ def write_pdf(body, source, destination, should_cancel, *, layout=None):
         columns, _, placements = table_layout(table, limit)
         if not columns:
             continue
-        tables.append(columns)
+        tables.append((table, columns, placements))
         for cell, _, column, across, _ in placements:
             cell_widths[cell] = max(1, sum(columns[column:column + across]) - 12)
     root = Path(source).parent.resolve()
@@ -88,13 +106,20 @@ def write_pdf(body, source, destination, should_cancel, *, layout=None):
         element.set("width", f"{display_width:g}")
         element.set("height", f"{display_height:g}")
     document.setHtml(etree.tostring(body, method="html", encoding="unicode"))
-    for table, widths in zip(_qt_tables(document.rootFrame()), tables, strict=False):
+    for table, (source_table, widths, placements) in zip(_qt_tables(document.rootFrame()), tables, strict=False):
         if table.columns() != len(widths):
             continue
         fmt = table.format()
         fixed = QTextLength.Type.FixedLength
         fmt.setWidth(QTextLength(fixed, sum(widths)))
         fmt.setColumnWidthConstraints([QTextLength(fixed, value) for value in widths])
+        if source_table.get("data-docx-table") == "true":
+            fmt.setBorderCollapse(True)
+            fmt.setCellSpacing(0)
+            for element, row, column, _, _ in placements:
+                cell = table.cellAt(row, column)
+                if cell.isValid():
+                    _format_cell(cell, inline_style(element))
         table.setFormat(fmt)
     with atomic_output_path(destination) as temporary:
         writer = QPdfWriter(temporary)
@@ -120,6 +145,7 @@ def write_pdf(body, source, destination, should_cancel, *, layout=None):
                         painter.drawText(QPointF(left, size[1] - layout.footer_distance - line * 10), text)
                 context = QAbstractTextDocumentLayout.PaintContext()
                 context.clip = QRectF(0, index * height, width, height)
+                context.palette.setColor(QPalette.ColorRole.Text, QColor("black"))
                 painter.save()
                 painter.setClipRect(QRectF(left, top, width, height))
                 painter.translate(left, top - index * height)

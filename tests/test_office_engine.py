@@ -5,13 +5,14 @@ import pypdfium2 as pdfium
 import pytest
 from docx import Document
 from docx.enum.section import WD_ORIENT, WD_SECTION_START
+from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK, WD_COLOR_INDEX
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 from PIL import Image
 from pypdf import PdfReader
-from PySide6.QtGui import QFontDatabase
+from PySide6.QtGui import QColor, QFontDatabase, QPalette
 from PySide6.QtWidgets import QApplication
 
 from core.document_engine.office import run_office
@@ -78,6 +79,181 @@ def test_unsupported_document_is_rejected(tmp_path):
     with pytest.raises(ValueError, match="DOC"):
         run_office(source, destination, "PDF", lambda: False)
     assert not destination.exists()
+
+
+def test_docx_block_content_control_keeps_cached_contents_in_pdf_and_odt(tmp_path):
+    source = tmp_path / "toc.docx"
+    document = Document()
+    entry = document.add_paragraph("Contents entry")
+    control = OxmlElement("w:sdt")
+    content = OxmlElement("w:sdtContent")
+    entry._p.addprevious(control)
+    control.append(content)
+    content.append(entry._p)
+    document.add_page_break()
+    document.add_paragraph("Chapter body")
+    document.save(source)
+
+    pdf = tmp_path / "toc.pdf"
+    odt = tmp_path / "toc.odt"
+    restored = tmp_path / "restored.docx"
+    run_office(source, pdf, "PDF", lambda: False)
+    run_office(source, odt, "ODT", lambda: False)
+    run_office(odt, restored, "DOCX", lambda: False)
+    assert [page.extract_text().strip() for page in PdfReader(pdf).pages] == ["Contents entry", "Chapter body"]
+    paragraphs = Document(restored).paragraphs
+    assert [paragraph.text for paragraph in paragraphs] == ["Contents entry", "Chapter body"]
+    assert paragraphs[1].paragraph_format.page_break_before
+
+
+def test_odt_keeps_numbered_list_distinct_from_bullets(tmp_path):
+    source = tmp_path / "list.html"
+    source.write_text("<ol><li>Numbered</li></ol><ul><li>Bullet</li></ul>", encoding="utf-8")
+    odt = tmp_path / "list.odt"
+    restored = tmp_path / "restored.docx"
+    run_office(source, odt, "ODT", lambda: False)
+    run_office(odt, restored, "DOCX", lambda: False)
+    assert [(p.text, p.style.name) for p in Document(restored).paragraphs] == [
+        ("Numbered", "List Number"), ("Bullet", "List Bullet"),
+    ]
+
+
+def test_pdf_fits_words_in_narrow_columns_when_table_has_space(tmp_path):
+    source = tmp_path / "table.docx"
+    doc = Document()
+    table = doc.add_table(rows=2, cols=2)
+    table.columns[0].width = Pt(54)
+    table.columns[1].width = Pt(170)
+    table.cell(0, 0).text = "Ответственный"
+    table.cell(1, 0).text = "Понедельник"
+    table.cell(1, 1).text = "Other column"
+    doc.save(source)
+    pdf = tmp_path / "table.pdf"
+    run_office(source, pdf, "PDF", lambda: False)
+    text = PdfReader(pdf).pages[0].extract_text()
+    assert "Ответственный" in text
+    assert "Понедельник" in text
+
+
+def test_docx_odt_round_trip_keeps_table_styles_and_page_geometry(tmp_path):
+    source = tmp_path / "layout.docx"
+    doc = Document()
+    section = doc.sections[0]
+    section.orientation = WD_ORIENT.LANDSCAPE
+    section.page_width = Pt(720)
+    section.page_height = Pt(500)
+    section.left_margin = Pt(48)
+    paragraph = doc.add_paragraph()
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    paragraph.add_run("Highlighted").font.highlight_color = WD_COLOR_INDEX.YELLOW
+    table = doc.add_table(rows=2, cols=2)
+    table.columns[0].width = Pt(75)
+    table.columns[1].width = Pt(150)
+    merged = table.cell(0, 0).merge(table.cell(1, 0))
+    merged.text = "Both rows"
+    borders = OxmlElement("w:tcBorders")
+    edge = OxmlElement("w:left")
+    for name, value in {"val": "single", "sz": "8", "color": "123456"}.items():
+        edge.set(qn(f"w:{name}"), value)
+    borders.append(edge)
+    merged._tc.get_or_add_tcPr().append(borders)
+    doc.save(source)
+
+    odt = tmp_path / "layout.odt"
+    restored = tmp_path / "restored.docx"
+    run_office(source, odt, "ODT", lambda: False)
+    run_office(odt, restored, "DOCX", lambda: False)
+
+    result = Document(restored)
+    assert result.sections[0].page_width == Pt(720)
+    assert result.sections[0].left_margin == Pt(48)
+    assert result.paragraphs[0].alignment == WD_ALIGN_PARAGRAPH.CENTER
+    assert result.paragraphs[0]._p.xpath(".//w:shd/@w:fill") == ["FFFF00"]
+    table = result.tables[0]
+    assert [col.width for col in table.columns] == [Pt(75), Pt(150)]
+    assert table.cell(0, 0)._tc is table.cell(1, 0)._tc
+    assert table.cell(0, 0)._tc.xpath("./w:tcPr/w:tcBorders/w:left/@w:color") == ["123456"]
+
+
+def test_docx_and_odt_pdf_keep_paragraph_shading_direct_bullets_and_banded_empty_rows(tmp_path):
+    source = tmp_path / "template.docx"
+    doc = Document()
+    doc.add_paragraph("Heading")
+    doc.add_paragraph()
+    item = doc.add_paragraph("List item", style="List Paragraph")
+    item.paragraph_format.left_indent = Pt(53.4)
+    item.paragraph_format.first_line_indent = Pt(-18)
+    bullet = doc.styles["List Bullet"].element.xpath("./w:pPr/w:numPr/w:numId")[0]
+    item._p.get_or_add_pPr().get_or_add_numPr().get_or_add_numId().val = bullet.val
+    fill = OxmlElement("w:shd")
+    fill.set(qn("w:fill"), "DAE9F7")
+    item._p.pPr.append(fill)
+    style = doc.styles.add_style("Banded template", WD_STYLE_TYPE.TABLE)
+    band = OxmlElement("w:tblStylePr")
+    band.set(qn("w:type"), "band1Horz")
+    properties = OxmlElement("w:tcPr")
+    fill = OxmlElement("w:shd")
+    fill.set(qn("w:fill"), "C1E4F5")
+    properties.append(fill)
+    band.append(properties)
+    style.element.append(band)
+    table = doc.add_table(rows=3, cols=2)
+    table.style = style
+    doc.save(source)
+
+    direct = tmp_path / "direct.pdf"
+    intermediate = tmp_path / "template.odt"
+    via_odt = tmp_path / "via-odt.pdf"
+    restored = tmp_path / "restored.docx"
+    run_office(source, direct, "PDF", lambda: False)
+    run_office(source, intermediate, "ODT", lambda: False)
+    run_office(intermediate, via_odt, "PDF", lambda: False)
+    run_office(intermediate, restored, "DOCX", lambda: False)
+    restored_item = Document(restored).paragraphs[2]
+    assert restored_item.style.name == "List Bullet"
+    assert restored_item.paragraph_format.left_indent == Pt(53.4)
+    assert restored_item.paragraph_format.first_line_indent == Pt(-18)
+    assert restored_item._p.xpath("./w:pPr/w:shd/@w:fill") == ["DAE9F7"]
+    assert not restored_item._p.xpath("./w:r/w:rPr/w:shd")
+
+    for path in (direct, via_odt):
+        assert "• List item" in PdfReader(path).pages[0].extract_text()
+    with pdfium.PdfDocument(direct) as first, pdfium.PdfDocument(via_odt) as second:
+        direct_page = first[0].render(scale=1).to_pil().convert("RGB")
+        odt_page = second[0].render(scale=1).to_pil().convert("RGB")
+    colors = {color: count for count, color in odt_page.getcolors(maxcolors=100_000)}
+    assert colors[(218, 233, 247)] > 100
+    assert colors[(193, 228, 245)] > 100
+    assert direct_page.tobytes() == odt_page.tobytes()
+
+
+def test_qt_pdf_table_keeps_print_colors_in_dark_theme(tmp_path):
+    app = _native_font_application()
+    original = app.palette()
+    dark = QPalette(original)
+    dark.setColor(QPalette.ColorRole.Text, QColor("#f0f2f5"))
+    source = tmp_path / "table.docx"
+    doc = Document()
+    table = doc.add_table(rows=1, cols=1)
+    table.style = "Table Grid"
+    table.cell(0, 0).text = "Readable text مرحبا"
+    doc.save(source)
+
+    images = []
+    try:
+        for name, palette in (("light", original), ("dark", dark)):
+            app.setPalette(palette)
+            destination = tmp_path / f"{name}.pdf"
+            run_office(source, destination, "PDF", lambda: False)
+            with pdfium.PdfDocument(destination) as rendered:
+                images.append(rendered[0].render(scale=2).to_pil().convert("RGB"))
+    finally:
+        app.setPalette(original)
+    assert images[0].tobytes() == images[1].tobytes()
+    # The table border makes a substantially longer horizontal line than its text.
+    pixels = images[1].load()
+    dark_pixels = [sum(max(pixels[x, y]) < 70 for x in range(images[1].width)) for y in range(120, 220)]
+    assert max(dark_pixels) > 400
 
 
 def test_docx_pdf_retains_page_size_and_repeated_header_footer(tmp_path):

@@ -1,10 +1,9 @@
 """Размещение абзацев, изображений и таблиц в PDF с возможностью поиска."""
 
-from copy import deepcopy
 from dataclasses import dataclass
 from html import escape
 from pathlib import Path
-from re import fullmatch
+from re import IGNORECASE, fullmatch, match
 from tempfile import TemporaryDirectory
 from urllib.parse import urlsplit
 
@@ -26,7 +25,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from core.document_engine.formatting import font_family, image_size, inline_style, points
+from core.document_engine.formatting import font_family, image_size, inline_style, paragraph_parts, points
 from core.document_engine.pdf_fonts import pdf_font_family
 from core.document_engine.rtf_export import image_data
 from core.document_engine.table_layout import table_layout
@@ -77,18 +76,18 @@ def _docx_sections(source, should_cancel):
     from docx import Document
     from docx.enum.section import WD_SECTION_START
 
-    from core.document_engine.docx_html import _body_html, _typography
+    from core.document_engine.docx_html import _body_html, _section_blocks, _typography
 
     _check_cancel(should_cancel)
     document = Document(source)
     typography = _typography(document)
     result = []
     layout = _PageLayout(frame_padding=0)
-    for section in document.sections:
+    for section, blocks in zip(document.sections, _section_blocks(document, should_cancel), strict=True):
         previous = layout
         layout = _docx_layout(section, previous)
         body = html.fragment_fromstring(
-            _body_html(section, should_cancel, typography, skip_section_mark=True), create_parent="body"
+            _body_html(document, should_cancel, typography, section_blocks=blocks), create_parent="body"
         )
         for span in body.iter("span"):
             _check_cancel(should_cancel)
@@ -153,6 +152,8 @@ def _inline(node, should_cancel):
     if size is not None:
         attributes.append(f'size="{size:g}"')
     for property_name, attribute in (("color", "color"), ("background-color", "backColor")):
+        if property_name == "background-color" and tag in {"p", "h1", "h2", "h3", "h4", "h5", "h6", "pre", "li"}:
+            continue
         value = css.get(property_name, "")
         if fullmatch(r"#[0-9a-fA-F]{6}", value):
             attributes.append(f'{attribute}="{value}"')
@@ -187,28 +188,12 @@ def _pictures(node, root, width, height, should_cancel):
         yield image
 
 
-def _paragraph_parts(node):
-    part = etree.Element(node.tag, attrib=node.attrib)
-    part.text = node.text
-    for child in node:
-        if child.tag == "br" and child.get("data-page-break") == "true":
-            if len(part) or part.text:
-                yield part
-            yield None
-            part = etree.Element(node.tag, attrib=node.attrib)
-            part.text = child.tail
-        else:
-            part.append(deepcopy(child))
-    if len(part) or part.text:
-        yield part
-
-
 def _qt_page_breaks(body):
     for node in body.xpath(".//*[br[@data-page-break='true']]"):
         parent = node.getparent()
         index = parent.index(node)
         break_before = False
-        for part in _paragraph_parts(node):
+        for part in paragraph_parts(node):
             if part is None:
                 if break_before:
                     parent.insert(index, etree.Element("p", style="page-break-before:always"))
@@ -232,12 +217,39 @@ def _qt_page_breaks(body):
         parent.remove(node)
 
 
+def _fit_table_words(widths, placements, available, should_cancel):
+    minimums = [0.0] * len(widths)
+    for cell, _, column, across, _ in placements:
+        _check_cancel(should_cancel)
+        if across != 1:
+            continue
+        padding = sum(points(inline_style(cell).get(f"padding-{edge}")) or 0 for edge in ("left", "right"))
+        for line in cell.xpath("./p|./h1|./h2|./h3|./h4|./h5|./h6"):
+            text = _inline(line, should_cancel)
+            if text.strip():
+                paragraph = _paragraph(text, node=line)
+                minimums[column] = max(minimums[column], paragraph.minWidth() + padding + 0.1)
+    if sum(minimums) > available:
+        return widths
+    expanded = [max(width, minimum) for width, minimum in zip(widths, minimums, strict=True)]
+    overflow = sum(expanded) - available
+    if overflow <= 0:
+        return expanded
+    spare = [max(0, width - minimum) for width, minimum in zip(widths, minimums, strict=True)]
+    total_spare = sum(spare)
+    if not total_spare:
+        return widths
+    return [width - overflow * free / total_spare for width, free in zip(expanded, spare, strict=True)]
+
+
 def _table_flowable(node, root, width, height, should_cancel):
     widths, row_count, placements = table_layout(node, width)
     if not widths:
         return None
     grid = [[""] * len(widths) for _ in range(row_count)]
     docx = node.get("data-docx-table") == "true"
+    if docx:
+        widths = _fit_table_words(widths, placements, width, should_cancel)
     commands = [("VALIGN", (0, 0), (-1, -1), "TOP")]
     if not docx:
         commands.append(("GRID", (0, 0), (-1, -1), 0.4, colors.grey))
@@ -261,6 +273,8 @@ def _table_flowable(node, root, width, height, should_cancel):
                 commands.append((side + "PADDING", position, position, padding))
         if alignment := {"middle": "MIDDLE", "bottom": "BOTTOM"}.get(css.get("vertical-align")):
             commands.append(("VALIGN", position, position, alignment))
+        if fullmatch(r"#[0-9a-fA-F]{6}", background := css.get("background-color", "")):
+            commands.append(("BACKGROUND", position, end, colors.HexColor(background)))
         for side, command in (("left", "LINEBEFORE"), ("right", "LINEAFTER"),
                               ("top", "LINEABOVE"), ("bottom", "LINEBELOW")):
             if match := fullmatch(r"([0-9.]+pt) solid (#[0-9a-fA-F]{6})", css.get(f"border-{side}", "")):
@@ -288,6 +302,28 @@ def _table_flowable(node, root, width, height, should_cancel):
     )
 
 
+def _figure_captions(body):
+    for paragraph in body.xpath("./p[.//img]"):
+        if "".join(paragraph.itertext()).strip():
+            continue
+        caption = paragraph.getnext()
+        blanks = []
+        if paragraph.get("data-floating-picture") == "true":
+            while (caption is not None and caption.tag == "p" and not len(caption)
+                   and not (caption.text or "").strip()
+                   and inline_style(caption).get("page-break-before") != "always"):
+                blanks.append(caption)
+                caption = caption.getnext()
+        if caption is None or caption.tag != "p" or inline_style(caption).get("page-break-before") == "always":
+            continue
+        if caption.get("data-caption") == "true" or match(
+            r"(?:Рисунок|Рис\.|Figure|Fig\.)\s*\d", "".join(caption.itertext()).lstrip(), flags=IGNORECASE,
+        ):
+            paragraph.set("data-keep-picture-with-next", "true")
+            for blank in blanks:
+                body.remove(blank)
+
+
 def _flowables(container, root, width, height, should_cancel, *, in_cell=False):
     if container.text and container.text.strip():
         yield _paragraph(escape(container.text))
@@ -312,11 +348,16 @@ def _flowables(container, root, width, height, should_cancel, *, in_cell=False):
             if tag == "img":
                 yield from _pictures(node, root, width, height, should_cancel)
             else:
-                if not in_cell and inline_style(node).get("page-break-before") == "always":
+                if tag == "li" and len(node) == 1 and node[0].tag == "p" and not (node.text or "").strip():
+                    item = node[0]
+                else:
+                    item = node
+                if not in_cell and inline_style(item).get("page-break-before") == "always":
                     yield PageBreak()
-                if not len(node) and not node.text:
-                    yield _paragraph("&#160;", node=node)
-                for part in _paragraph_parts(node):
+                if not len(item) and not item.text:
+                    yield _paragraph(marker or "&#160;", node=item)
+                parts = list(paragraph_parts(item, split_pictures=True))
+                for index, part in enumerate(parts):
                     if part is None:
                         if not in_cell:
                             yield PageBreak()
@@ -327,7 +368,12 @@ def _flowables(container, root, width, height, should_cancel, *, in_cell=False):
                         content = f"<b>{content}</b>" if heading else content
                         yield _paragraph(marker + content, size=15 if heading else 11, node=part)
                     marker = ""
-                    yield from _pictures(part, root, width, height, should_cancel)
+                    pictures = list(_pictures(part, root, width, height, should_cancel))
+                    following = parts[index + 1] if index + 1 < len(parts) else None
+                    if pictures and (part.get("data-keep-picture-with-next") == "true"
+                                     or (following is not None and "".join(following.itertext()).strip())):
+                        pictures[-1].keepWithNext = True
+                    yield from pictures
         if node.tail and node.tail.strip():
             yield _paragraph(escape(node.tail))
 
@@ -350,6 +396,7 @@ def _paragraph(content, *, size=11, node=None):
     elif exact := points(line_height):
         leading = exact
         auto_leading = "max" if css.get("--docx-line-height-at-least") else "off"
+    background = css.get("background-color", "")
     return Paragraph(content or " ", ParagraphStyle(
         "Multifora", fontName=_FONT_NAME, fontSize=size, leading=leading, autoLeading=auto_leading,
         alignment=_ALIGNMENT.get(css.get("text-align"), TA_LEFT),
@@ -358,6 +405,7 @@ def _paragraph(content, *, size=11, node=None):
         spaceBefore=_signed_points(css.get("margin-top", "")),
         spaceAfter=_signed_points(css.get("margin-bottom", "5pt")),
         keepWithNext=bool(css.get("--docx-keep-with-next")),
+        backColor=colors.HexColor(background) if fullmatch(r"#[0-9a-fA-F]{6}", background) else None,
     ))
 
 
@@ -365,7 +413,9 @@ def _write_body(body, layout, source, destination, should_cancel, *, capture=Non
     text = "".join((*body.itertext(), *layout.header, *layout.footer)).replace("\u00a0", " ")
     if _text_font(text + "•") is None:
         if capture is not None:
-            raise ValueError("Для этих шрифтов редактируемое объединение страниц DOCX недоступно. Сохраните страницы в PDF.")
+            raise ValueError(
+                "Для этих шрифтов редактируемое объединение страниц DOCX недоступно. Сохраните страницы в PDF."
+            )
         from core.document_engine.qt_pdf import write_pdf
 
         _qt_page_breaks(body)
@@ -377,6 +427,7 @@ def _write_body(body, layout, source, destination, should_cancel, *, capture=Non
     padding = layout.frame_padding
     if width <= 2 * padding or height <= 2 * padding:
         raise ValueError("Некорректные размеры страницы документа")
+    _figure_captions(body)
     story = list(_flowables(body, root, width - 2 * padding, height - 2 * padding, should_cancel))
     if not story:
         story.append(Spacer(1, 12))
@@ -409,7 +460,15 @@ def _write_body(body, layout, source, destination, should_cancel, *, capture=Non
 def export_pdf(source, destination, source_format, should_cancel, *, capture=None):
     if source_format != "DOCX":
         body = _read_body(source, source_format, should_cancel)
-        return _write_body(body, _PageLayout(), source, destination, should_cancel)
+        layout = _PageLayout()
+        if source_format == "ODT":
+            size = tuple(points(body.get(f"data-page-{side}")) or default
+                         for side, default in zip(("width", "height"), layout.size, strict=True))
+            margins = tuple(0 if (value := body.get(f"data-margin-{side}")) == "0pt" else points(value) or default
+                            for side, default in zip(("left", "right", "top", "bottom"), layout.margins, strict=True))
+            has_page_layout = any(key.startswith("data-page-") for key in body.attrib)
+            layout = _PageLayout(size, margins, frame_padding=0 if has_page_layout else layout.frame_padding)
+        return _write_body(body, layout, source, destination, should_cancel)
     sections = _docx_sections(source, should_cancel)
     if len(sections) == 1:
         body, layout, parity = sections[0]
@@ -429,7 +488,9 @@ def export_pdf(source, destination, source_format, should_cancel, *, capture=Non
                     capture(len(writer.pages) - 1, previous_layout, None)
             part = Path(folder, f"section-{index}.pdf")
             offset = len(writer.pages)
-            hook = None if capture is None else lambda page, flowable: capture(offset + page, layout, flowable)
+            hook = None if capture is None else lambda page, flowable, offset=offset, layout=layout: (
+                capture(offset + page, layout, flowable)
+            )
             _write_body(body, layout, source, part, should_cancel, capture=hook)
             writer.append(part)
             previous_layout = layout
