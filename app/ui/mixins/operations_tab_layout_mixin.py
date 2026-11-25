@@ -219,8 +219,7 @@ class OperationsTabLayoutMixin:
         self.btn_select_conversion_output_folder = panel.btn_select_conversion_output_folder
         self.conversion_output_path_section = panel.conversion_output_path_section
 
-        panel.category_changed.connect(self.update_converter_from_format)
-        panel.category_changed.connect(self.update_convert_button_state)
+        panel.category_changed.connect(self.on_conversion_category_changed)
         panel.source_changed.connect(self.on_conversion_source_changed)
         panel.target_changed.connect(self.update_convert_button_state)
         panel.output_mode_changed.connect(self.on_conversion_output_mode_changed)
@@ -493,8 +492,7 @@ class OperationsTabLayoutMixin:
         stack_index = index
         if 0 <= stack_index < self.operations_stack.count():
             self.operations_stack.setCurrentIndex(stack_index)
-            # Для объединения очередь показывает только PDF и DOCX; при
-            # возврате на другую вкладку скрытые строки снова становятся видны.
+            # Допустимые форматы очереди зависят от текущей вкладки.
             if callable(getattr(self, "update_file_list", None)):
                 self.update_file_list()
             if callable(getattr(self, "refresh_active_file_preview", None)):

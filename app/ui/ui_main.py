@@ -28,7 +28,6 @@ from app.core.app_identity import APP_WINDOW_TITLE
 from app.core.app_ipc import _drain_queued_files
 from app.core.app_utils import _debug_log, _log_ignored_error, signals_blocked
 from app.core.conversion_formats import (
-    CONVERSION_CATEGORIES,
     build_file_dialog_filter,
     category_for_file_type,
     format_for_path,
@@ -37,7 +36,7 @@ from app.core.conversion_formats import (
 )
 from app.core.ipc_server import LocalFileServer
 from app.core.message_boxes import install_warning_suppression_hook
-from app.ui.file_table import FileListWidget
+from app.ui.file_table import FileListWidget, operation_file_items
 from app.ui.mixins import (
     AppearanceMixin,
     ConversionActionsMixin,
@@ -745,7 +744,7 @@ class MultiforaMainWindow(
         self.list_files.filesDropped.connect(self.add_files)
         self.list_files.itemDoubleClicked.connect(self.open_file)
         self.list_files.itemSelectionChanged.connect(
-            self.on_file_selection_changed
+            self._on_file_checks_changed
         )
         self.list_files.orderChanged.connect(self.on_list_order_changed)
         self.list_files.deleteRequested.connect(
@@ -1304,6 +1303,7 @@ class MultiforaMainWindow(
         if not empty_view:
             return
         empty_queue = not self.files
+        operation = self._active_operation_id()
         unsupported = not empty_queue and not self._files_visible_for_active_operation(self.files)
         self.drop_document.setVisible(empty_queue and card.height() >= 125)
         self.btn_add_files.setVisible(empty_queue)
@@ -1311,13 +1311,11 @@ class MultiforaMainWindow(
         self.btn_reset_queue_filters.setVisible(not empty_queue and not unsupported)
         self.btn_show_all_queue_files.setVisible(unsupported)
         if empty_queue:
-            # На вкладке объединения явно подсказываем допустимые форматы.
-            if self._active_operation_id() == "merge":
-                message = "Перетащите PDF или DOCX сюда"
-            else:
-                message = "Перетащите файлы или папки сюда"
-        elif unsupported:
+            message = "Перетащите PDF или DOCX сюда" if operation == "merge" else "Перетащите файлы или папки сюда"
+        elif unsupported and operation == "merge":
             message = "Нет документов PDF или DOCX для объединения"
+        elif unsupported and operation == "convert":
+            message = "Нет файлов для выбранного исходного формата"
         else:
             message = "Ничего не найдено"
         self.drop_zone_hint_label.setText(message)
@@ -1410,65 +1408,35 @@ class MultiforaMainWindow(
             self._schedule_settings_save()
 
     def update_converter_from_format(self):
-        """Обновляет конвертер и автоматически включает смешанный режим."""
-        selected_files = self._get_selected_or_all_file_items()
+        """Определяет исходный формат до применения фильтра конвертации."""
         category_combo = getattr(self, "convert_file_type_combo", None)
+        if category_combo is None:
+            return
 
-        category_label = ""
-        if category_combo is not None:
-            try:
-                category_label = str(
-                    category_combo.currentText() or ""
-                ).strip()
-            except Exception:
-                category_label = ""
-
-        categories = set()
+        selected_files = operation_file_items(
+            self.files,
+            files_only=True,
+            visible_files=self._get_filtered_files(apply_operation_filter=False),
+            is_checked=self.list_files.model().is_checked,
+        )
+        formats_by_category = {}
         for file_item in selected_files:
             file_category = category_for_file_type(file_item.file_type)
-            if file_category:
-                categories.add(file_category)
+            file_format = format_for_path(file_item.path)
+            if file_category and file_format:
+                formats_by_category.setdefault(file_category, set()).add(file_format)
 
-        if category_label not in CONVERSION_CATEGORIES:
-            category_label = ""
-        if not category_label and len(categories) == 1:
-            category_label = next(iter(categories))
-            if category_combo is not None:
-                index = category_combo.findText(category_label)
-                if index >= 0:
-                    with signals_blocked(category_combo):
-                        category_combo.setCurrentIndex(index)
-
-        if not category_label:
-            with signals_blocked(self.from_convert_combo):
-                self.from_convert_combo.clear()
-                self.from_convert_combo.addItem("Выберите формат")
-            with signals_blocked(self.to_convert_combo):
-                self.to_convert_combo.clear()
-                self.to_convert_combo.addItem("Выберите формат")
-                self.to_convert_combo.setEnabled(False)
-            self.btn_convert.setEnabled(False)
-            return
+        category_label = getattr(self, "_conversion_category_override", None)
+        if category_label is None and len(formats_by_category) == 1:
+            category_label = next(iter(formats_by_category))
+        with signals_blocked(category_combo):
+            index = category_combo.findText(category_label) if category_label else 0
+            category_combo.setCurrentIndex(max(0, index))
+        category_label = category_combo.currentText()
 
         available_formats = source_formats_for_category(category_label)
         mixed_label = mixed_source_label_for_category(category_label)
-        category_source_formats = {
-            format_for_path(file_item.path)
-            for file_item in selected_files
-            if category_for_file_type(file_item.file_type) == category_label
-            and format_for_path(file_item.path)
-        }
-
-        previous_source = str(
-            self.from_convert_combo.currentText() or ""
-        ).strip()
-        with signals_blocked(self.from_convert_combo):
-            self.from_convert_combo.clear()
-            self.from_convert_combo.addItem("Выберите формат")
-            if mixed_label:
-                self.from_convert_combo.addItem(mixed_label)
-            for fmt in available_formats:
-                self.from_convert_combo.addItem(fmt)
+        category_source_formats = formats_by_category.get(category_label, set()).intersection(available_formats)
 
         override = getattr(self, "_conversion_source_override", None)
         selected_source = ""
@@ -1478,31 +1446,35 @@ class MultiforaMainWindow(
             selected_source = mixed_label
         elif len(category_source_formats) == 1:
             selected_source = next(iter(category_source_formats))
-        elif (
-            previous_source == mixed_label
-            or previous_source in available_formats
-        ):
-            selected_source = previous_source
 
-        if selected_source:
-            index = self.from_convert_combo.findText(selected_source)
-            if index >= 0:
-                with signals_blocked(self.from_convert_combo):
-                    self.from_convert_combo.setCurrentIndex(index)
-        else:
-            with signals_blocked(self.from_convert_combo):
-                self.from_convert_combo.setCurrentIndex(0)
+        source_combo = self.from_convert_combo
+        with signals_blocked(source_combo):
+            source_combo.clear()
+            source_combo.addItem("Выберите формат")
+            if mixed_label:
+                source_combo.addItem(mixed_label)
+            source_combo.addItems(available_formats)
+            source_combo.setCurrentIndex(max(0, source_combo.findText(selected_source)))
 
         self.update_to_combo_based_on_from()
-        if callable(getattr(self, "update_convert_button_state", None)):
-            self.update_convert_button_state()
+
+    def _on_file_checks_changed(self):
+        category = getattr(self, "_conversion_category_override", None)
+        source = getattr(self, "_conversion_source_override", None)
+        for item in self.list_files.selected_file_items(files_only=True):
+            if (category and category_for_file_type(item.file_type) != category) or (
+                source and not self._check_file_compatibility_dual(item, source[1])
+            ):
+                self._conversion_category_override = None
+                self._conversion_source_override = None
+                break
+        self.update_file_list()
 
     def on_file_selection_changed(self):
         """Обработчик изменения выбора файлов"""
         if hasattr(self, "label_count"):
             self.update_file_info()
         self._update_merge_button_state()
-        self.update_converter_from_format()
         if callable(getattr(self, "_auto_select_compress_type", None)):
             self._auto_select_compress_type()
         if callable(getattr(self, "_update_compress_button", None)):

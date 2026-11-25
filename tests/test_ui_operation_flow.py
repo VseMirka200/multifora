@@ -238,6 +238,49 @@ def test_cancelled_result_keeps_queue_and_published_file(window, tmp_path):
     assert window.operation_result_panel.result.outcome == "cancelled"
 
 
+def test_conversion_syncs_source_format_and_visible_files(window, tmp_path):
+    pdf, docx, image = (tmp_path / name for name in ("source.pdf", "source.docx", "source.png"))
+    for path in (pdf, docx, image):
+        path.touch()
+    window.add_files([str(pdf), str(docx), str(image)])
+    tabs = window.operations_tab_bar
+    convert = window.operations_stack.indexOf(window.operations_stack.findChild(QWidget, "convert_page"))
+    tabs.setCurrentIndex(convert)
+    window.convert_file_type_combo.setCurrentText("Документы")
+    table = window.list_files
+
+    window.to_convert_combo.setCurrentText("ODT")
+    pdf_row = next(row for row, item in enumerate(table.model().files()) if item.path == str(pdf))
+    checkbox = table.model().index(pdf_row, table.model().COLUMN_CHECK)
+    QTest.mouseClick(table.viewport(), Qt.MouseButton.LeftButton, pos=table.visualRect(checkbox).center())
+    assert window.from_convert_combo.currentText() == "PDF"
+    assert window.to_convert_combo.currentText() == "ODT"
+    assert [item.path for item in table.model().files()] == [str(pdf)]
+
+    table.clearSelection()
+    assert {item.path for item in table.model().files()} == {str(pdf), str(docx)}
+    window.from_convert_combo.setCurrentText("PDF")
+    window.to_convert_combo.setCurrentText("DOCX")
+    assert [item.path for item in table.model().files()] == [str(pdf)]
+
+    tabs.setCurrentIndex(0)
+    assert {item.path for item in table.model().files()} == {str(pdf), str(docx), str(image)}
+    table.select_paths([str(docx)])
+    tabs.setCurrentIndex(convert)
+
+    assert window.convert_file_type_combo.currentText() == "Документы"
+    assert window.from_convert_combo.currentText() == "DOCX"
+    assert window.to_convert_combo.currentIndex() == 0
+    assert window.to_convert_combo.findText("PDF") > 0
+    assert [item.path for item in table.model().files()] == [str(docx)]
+
+    table.clearSelection()
+    table.select_paths([str(image)])
+    assert window.convert_file_type_combo.currentText() == "Изображения"
+    assert window.from_convert_combo.currentText() == "PNG"
+    assert [item.path for item in table.model().files()] == [str(image)]
+
+
 def test_conversion_uses_checked_docx_and_keeps_queue(window, tmp_path):
     sources = [tmp_path / f"{name}.docx" for name in ("first", "second")]
     for source in sources:

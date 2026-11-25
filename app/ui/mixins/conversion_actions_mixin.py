@@ -249,12 +249,18 @@ class ConversionActionsMixin:
         finally:
             self.update_convert_button_state()
 
+    def on_conversion_category_changed(self):
+        self._conversion_category_override = self._selected_convert_category()
+        self._conversion_source_override = None
+        self.update_file_list()
+
     def on_conversion_source_changed(self):
-        source = self.from_convert_combo
+        category = self._selected_convert_category()
+        self._conversion_category_override = category
         self._conversion_source_override = (
-            (self._selected_convert_category(), source.currentText()) if source.currentIndex() > 0 else None
+            category, self.from_convert_combo.currentText()
         )
-        self.update_to_combo_based_on_from()
+        self.update_file_list()
 
     def update_convert_button_state(self) -> None:
         """Синхронизирует доступность кнопки с текущим выбором пользователя."""

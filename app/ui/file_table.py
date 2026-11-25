@@ -558,7 +558,11 @@ class FileListWidget(QTableView):
 
     def _on_checks_changed(self, _first, _last, roles):
         if Qt.ItemDataRole.CheckStateRole in roles:
-            self.itemSelectionChanged.emit()
+            if self._check_drag_value is not None and self.model().conversion_formats_visible:
+                # Фильтр по формату применяется после завершения отметки диапазона.
+                self._sync_header_checkbox()
+            else:
+                self.itemSelectionChanged.emit()
 
     def clear(self):
         self.set_files([])
@@ -622,7 +626,7 @@ class FileListWidget(QTableView):
                 self._move_check_drag(event.position().toPoint())
                 event.accept()
                 return
-            self._finish_check_drag()
+            self._finish_check_drag(notify=True)
         start = getattr(self, "_drag_start", None)
         if (
             self.dragEnabled()
@@ -644,7 +648,7 @@ class FileListWidget(QTableView):
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton and self._check_drag_value is not None:
-            self._finish_check_drag()
+            self._finish_check_drag(notify=True)
             event.accept()
             return
         index = self.indexAt(event.position().toPoint())
@@ -686,15 +690,18 @@ class FileListWidget(QTableView):
 
     def _continue_check_drag(self):
         if not QApplication.mouseButtons() & Qt.MouseButton.LeftButton:
-            self._finish_check_drag()
+            self._finish_check_drag(notify=True)
             return
         self._move_check_drag(self.viewport().mapFromGlobal(QCursor.pos()))
 
-    def _finish_check_drag(self):
+    def _finish_check_drag(self, *, notify=False):
+        was_dragging = self._check_drag_value is not None
         self._check_drag_timer.stop()
         self._check_drag_value = None
         self._check_drag_last_row = None
         self._drag_start = None
+        if was_dragging and notify and self.model().conversion_formats_visible:
+            self.itemSelectionChanged.emit()
 
     def set_files(self, files: list):
         self._finish_check_drag()

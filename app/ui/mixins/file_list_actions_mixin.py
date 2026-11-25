@@ -4,6 +4,12 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
 from app.core.app_utils import _log_ignored_error
+from app.core.conversion_formats import (
+    CONVERSION_CATEGORIES,
+    format_for_path,
+    is_mixed_source_label,
+    source_formats_for_category,
+)
 from app.core.message_boxes import show_app_choice
 from core.file_models import (
     FileItem,
@@ -31,6 +37,22 @@ class FileListActionsMixin:
     def _files_visible_for_active_operation(self, files: list) -> list:
         """Оставляет в списке только форматы текущей специализированной операции."""
         active_operation = getattr(self, "_active_operation_id", lambda: "")()
+        if active_operation == "convert":
+            category = self._selected_convert_category()
+            if category not in CONVERSION_CATEGORIES:
+                return list(files)
+            source = self.from_convert_combo.currentText()
+            exact_source = self.from_convert_combo.currentIndex() > 0 and not is_mixed_source_label(category, source)
+            supported = set(source_formats_for_category(category))
+            return [
+                item for item in files
+                if item.is_file
+                and self._file_matches_convert_category(item, category)
+                and (
+                    self._check_file_compatibility_dual(item, source) if exact_source
+                    else format_for_path(item.path) in supported
+                )
+            ]
         if active_operation != "merge":
             return list(files)
         return [
@@ -90,20 +112,20 @@ class FileListActionsMixin:
         all_ext = set(self._ext_filter_actions.keys())
         return self._selected_extension_filter() != all_ext
 
-    def _get_filtered_files(self):
+    def _get_filtered_files(self, *, apply_operation_filter=True):
         type_filter = self._selected_type_filter()
         ext_filter = self._selected_extension_filter()
         query = self._current_search_query()
-        operation_files = self._files_visible_for_active_operation(self.files)
+        candidates = self._files_visible_for_active_operation(self.files) if apply_operation_filter else self.files
         if (
             not query
             and not self._is_type_filter_active()
             and not self._is_extension_filter_active()
         ):
-            return operation_files
+            return list(candidates)
 
         result = []
-        for file_item in operation_files:
+        for file_item in candidates:
             ftype = str(getattr(file_item, "file_type", "other")).lower()
             if ftype not in type_filter:
                 continue

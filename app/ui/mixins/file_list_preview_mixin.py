@@ -470,6 +470,9 @@ class FileListPreviewMixin:
 
     def update_file_list(self):
         """Обновление отображения списка"""
+        update_formats = getattr(self, "update_converter_from_format", None)
+        if callable(update_formats):
+            update_formats()
         if not self.files:
             self.list_files.clear()
             if callable(getattr(self, "on_file_selection_changed", None)):
@@ -488,7 +491,8 @@ class FileListPreviewMixin:
             if hasattr(self, "_get_filtered_files")
             else self.files
         )
-        self.list_files.set_files(filtered_files)
+        if self.list_files.model().files() != filtered_files:
+            self.list_files.set_files(filtered_files)
         if callable(getattr(self, "on_file_selection_changed", None)):
             self.on_file_selection_changed()
             return
