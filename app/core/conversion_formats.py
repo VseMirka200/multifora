@@ -1,8 +1,4 @@
-"""Реестр форматов, фактически поддерживаемых CLI-движками ArtCraft.
-
-Входы и выходы описаны отдельно: PhotoCraft умеет читать больше форматов,
-чем записывать; PDFCraft и DeckCraft имеют собственные маршруты экспорта.
-"""
+"""Реестр форматов, реально поддерживаемых CLI-движками ArtCraft."""
 from __future__ import annotations
 
 import os
@@ -16,33 +12,33 @@ CATEGORY_FILE_TYPES = {
     DOCUMENT_CATEGORY: "document",
     IMAGE_CATEGORY: "image",
 }
-_FILE_TYPE_CATEGORIES = {
-    file_type: category for category, file_type in CATEGORY_FILE_TYPES.items()
-}
+_FILE_TYPE_CATEGORIES = {value: key for key, value in CATEGORY_FILE_TYPES.items()}
 MIXED_SOURCE_LABELS = {
     DOCUMENT_CATEGORY: "Любой поддерживаемый документ",
     IMAGE_CATEGORY: "Любое поддерживаемое изображение",
 }
 
-# PdfCraft CLI: PDF and plain text input; DeckCraft CLI: PPTX and .deckcraft.
+# PdfCraft CLI accepts PDF, TXT/TEXT and the documented image extensions.
+# DeckCraft CLI accepts .pptx and .deckcraft as inputs.
+# PhotoCraft input list mirrors its published format documentation; formats
+# marked read-only are sources, never output choices.
 CATEGORY_SOURCE_FORMATS: dict[str, tuple[str, ...]] = {
     DOCUMENT_CATEGORY: ("PDF", "TXT", "PPTX", "DECKCRAFT"),
     IMAGE_CATEGORY: (
         "JPG", "JPEG", "PNG", "WEBP", "BMP", "TIFF", "GIF", "ICO",
         "TGA", "QOI", "PPM", "PGM", "PBM", "PFM", "EXR", "HDR",
-        "FITS", "PCX", "SVG", "SVGZ", "PSD", "PSB", "PCRAFT", "ORA",
-        "XCF", "KRA", "PDN", "HEIC", "HEIF", "DNG", "CR2", "CR3",
-        "NEF", "NRW", "ARW", "PEF", "ORF", "RW2", "RAF", "DDS",
-        "DPX", "CIN", "DCM", "IFF", "LBM", "XPM",
+        "FITS", "PSD", "PSB", "PCRAFT", "ORA", "XCF", "KRA", "PDN",
+        "SVG", "HEIC", "AFFINITY", "JP2", "J2K", "JPX", "PCX",
     ),
 }
 
-# Writable formats only. Read-only import formats remain available as sources,
-# but are never offered as output targets.
+# PdfCraft output: PDF from text and supported image files.
+# PhotoCraft output: flat/layered image formats documented as writable.
+# DeckCraft output: deckcraft, PowerPoint, PDF, raster and text formats.
 CATEGORY_TARGET_FORMATS: dict[str, tuple[str, ...]] = {
     DOCUMENT_CATEGORY: (
-        "PDF", "DOCX", "PPTX", "DECKCRAFT", "TXT", "HTML", "RTF", "MD",
-        "PNG", "JPG", "JPEG", "TIFF", "GIF",
+        "PDF", "DOCX", "PPTX", "POTX", "PPSX", "DECKCRAFT",
+        "TXT", "HTML", "RTF", "MD", "PNG", "JPG", "JPEG", "TIFF", "GIF",
     ),
     IMAGE_CATEGORY: (
         "PNG", "JPG", "JPEG", "TIFF", "WEBP", "GIF", "BMP", "TGA",
@@ -55,6 +51,8 @@ FORMAT_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "PDF": (".pdf",),
     "DOCX": (".docx",),
     "PPTX": (".pptx",),
+    "POTX": (".potx",),
+    "PPSX": (".ppsx",),
     "DECKCRAFT": (".deckcraft",),
     "TXT": (".txt", ".text"),
     "HTML": (".html", ".htm"),
@@ -77,39 +75,26 @@ FORMAT_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "EXR": (".exr",),
     "HDR": (".hdr",),
     "FITS": (".fits", ".fit", ".fts"),
-    "PCX": (".pcx",),
-    "SVG": (".svg",),
-    "SVGZ": (".svgz",),
     "PSD": (".psd", ".psdt"),
     "PSB": (".psb",),
     "PCRAFT": (".pcraft",),
     "ORA": (".ora",),
-    "XCF": (".xcf", ".xcfgz"),
+    "XCF": (".xcf",),
     "KRA": (".kra", ".krz"),
     "PDN": (".pdn",),
+    "SVG": (".svg",),
     "HEIC": (".heic",),
-    "HEIF": (".heif", ".hif"),
-    "DNG": (".dng",),
-    "CR2": (".cr2",),
-    "CR3": (".cr3",),
-    "NEF": (".nef",),
-    "NRW": (".nrw",),
-    "ARW": (".arw",),
-    "PEF": (".pef",),
-    "ORF": (".orf",),
-    "RW2": (".rw2",),
-    "RAF": (".raf",),
-    "DDS": (".dds",),
-    "DPX": (".dpx",),
-    "CIN": (".cin",),
-    "DCM": (".dcm", ".dicom", ".dc3"),
-    "IFF": (".iff",),
-    "LBM": (".lbm", ".ilbm"),
-    "XPM": (".xpm",),
+    "AFFINITY": (".af", ".afdesign", ".afphoto", ".afpub"),
+    "JP2": (".jp2",),
+    "J2K": (".j2k",),
+    "JPX": (".jpx",),
+    "PCX": (".pcx",),
 }
 
-# PDFCraft's renderer exports all PDF pages as PNG, JPEG or TIFF.
 PDF_IMAGE_TARGETS = ("PNG", "JPG", "JPEG", "TIFF")
+PDFCRAFT_IMAGE_INPUTS = frozenset({"PNG", "JPG", "JPEG", "TIFF", "GIF", "BMP", "JP2", "J2K", "JPX", "PCX"})
+PHOTOCRAFT_SOURCE_FORMATS = frozenset(CATEGORY_SOURCE_FORMATS[IMAGE_CATEGORY]) - PDFCRAFT_IMAGE_INPUTS
+IMAGE_WRITABLE_FORMATS = frozenset(CATEGORY_TARGET_FORMATS[IMAGE_CATEGORY]) - {"PDF"}
 
 _CANONICAL_SUFFIXES = {
     "JPG": ".jpg",
@@ -117,9 +102,6 @@ _CANONICAL_SUFFIXES = {
     "TIFF": ".tiff",
     "HTML": ".html",
     "MD": ".md",
-    "SVGZ": ".svgz",
-    "HEIC": ".heic",
-    "HEIF": ".heif",
     "PCRAFT": ".pcraft",
     "DECKCRAFT": ".deckcraft",
 }
@@ -128,11 +110,6 @@ _EXTENSION_FORMATS = {
     for label, extensions in FORMAT_EXTENSIONS.items()
     for extension in extensions
 }
-
-# Flat PhotoCraft codecs with documented read/write support plus layered/native
-# formats that its I/O layer writes. HEIC/HEIF, SVG, RAW and legacy project
-# formats are read-only and intentionally absent from this list.
-IMAGE_WRITABLE_FORMATS = frozenset(CATEGORY_TARGET_FORMATS[IMAGE_CATEGORY])
 
 
 def _normalize_label(value: object) -> str:
@@ -179,17 +156,16 @@ def compatible_targets_for_source(category: str, source_label: str) -> list[str]
         return ["PDF"] if category == DOCUMENT_CATEGORY else targets
     if category == DOCUMENT_CATEGORY:
         if source == "PDF":
-            return [target for target in targets if target not in {"DECKCRAFT"}]
+            return [target for target in targets if target not in {"DECKCRAFT", "POTX", "PPSX", "PDF"}]
         if source == "TXT":
             return ["PDF"]
         if source in {"PPTX", "DECKCRAFT"}:
-            return [target for target in targets if target not in PDF_IMAGE_TARGETS or target in {"PNG", "JPG", "JPEG", "TIFF", "GIF"}]
+            return [target for target in targets if target != source]
         return []
     if category == IMAGE_CATEGORY:
-        return [
-            target for target in targets
-            if target != source
-        ]
+        if source in {"JP2", "J2K", "JPX", "PCX"}:
+            return ["PDF"]
+        return [target for target in targets if target != source]
     return []
 
 
