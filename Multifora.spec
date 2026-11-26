@@ -1,8 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-
-from PyInstaller.utils.hooks import collect_data_files
-
 excluded_qt_runtime_binaries = {
     'qpdf.dll',
     'qtvirtualkeyboardplugin.dll',
@@ -19,14 +16,12 @@ a = Analysis(
     ['multifora_start.py'],
     pathex=[],
     binaries=[],
-    datas=[('assets', 'assets')]
-    + collect_data_files('docxcompose')
-    + collect_data_files('pymupdf', excludes=['mupdf-devel/**']),
-    hiddenimports=['docxcompose.composer'],
+    datas=[('assets', 'assets')],
+    hiddenimports=[],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['PyQt6', 'PyQt5', 'PySide2', 'pdf2docx.gui', 'tkinter', '_tkinter'],
+    excludes=['PyQt6', 'PyQt5', 'PySide2', 'tkinter', '_tkinter'],
     noarchive=False,
     optimize=0,
 )
