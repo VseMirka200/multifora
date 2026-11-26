@@ -16,29 +16,30 @@ try {
     if (Test-Path -LiteralPath $report) { Get-Content -LiteralPath $report -Raw | Write-Host }
     if ($app.ExitCode -ne 0) { throw "Frozen EXE failed: $($app.ExitCode)" }
     $result = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
-    if ($result.status -ne 'ok' -or -not $result.window_visible -or -not $result.lazy_backends -or -not $result.image_roundtrip -or -not $result.odf_roundtrip -or -not $result.pdf_roundtrip -or -not $result.pdf_to_docx -or -not $result.docx_merge) {
+    if ($result.status -ne 'ok' -or -not $result.window_visible -or -not $result.pdf_engine -or -not $result.photo_engine -or -not $result.deck_engine -or -not $result.pdf_roundtrip -or -not $result.pdf_merge -or -not $result.pdf_to_docx -or -not $result.image_roundtrip) {
         throw "Frozen EXE checks failed: $(ConvertTo-Json -InputObject $result -Depth 5)"
     }
-    & (Join-Path $bundlePath 'bin\gswin64\gswin64c.exe') --version
-    if ($LASTEXITCODE -ne 0) { throw 'Bundled Ghostscript did not start' }
-    & (Join-Path $bundlePath 'bin\pandoc\pandoc.exe') --version
-    if ($LASTEXITCODE -ne 0) { throw 'Bundled Pandoc did not start' }
-    & (Join-Path $bundlePath 'bin\tectonic\tectonic.exe') --version
-    if ($LASTEXITCODE -ne 0) { throw 'Bundled Tectonic did not start' }
+    foreach ($engine in @('pdfcraft-cli.exe', 'photocraft-cli.exe', 'deckcraft-cli.exe')) {
+        & (Join-Path $bundlePath "bin\native\$engine") --version
+        if ($LASTEXITCODE -ne 0) { throw "$engine did not start" }
+    }
     $metricsPath = Join-Path (Split-Path $bundlePath -Parent) 'runtime-metrics.json'
     [ordered]@{
         frozen_smoke_seconds = [math]::Round($stopwatch.Elapsed.TotalSeconds, 3)
         window_create_seconds = $result.window_create_seconds
+        engines = [ordered]@{
+            pdfcraft = $result.pdf_engine
+            photocraft = $result.photo_engine
+            deckcraft = $result.deck_engine
+        }
         checks = [ordered]@{
-            lazy_backends = $result.lazy_backends
-            image_roundtrip = $result.image_roundtrip
-            odf_roundtrip = $result.odf_roundtrip
             pdf_roundtrip = $result.pdf_roundtrip
+            pdf_merge = $result.pdf_merge
             pdf_to_docx = $result.pdf_to_docx
-            docx_merge = $result.docx_merge
+            image_roundtrip = $result.image_roundtrip
         }
     } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $metricsPath -Encoding utf8
-    Write-Host 'Frozen EXE, PDF, DOCX merge, Ghostscript, Pandoc and Tectonic verified.'
+    Write-Host 'Frozen EXE and all three ArtCraft native engines verified.'
 } finally {
     $env:MULTIFORA_SMOKE_REPORT = $previousReport
     $env:QT_QPA_PLATFORM = $previousPlatform
