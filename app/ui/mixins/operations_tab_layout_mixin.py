@@ -637,7 +637,7 @@ class OperationsTabLayoutMixin:
         merge_layout.setContentsMargins(*OPERATIONS_PAGE_MARGINS)
 
         self.merge_format_hint_label = self._create_operation_hint_label(
-            "Можно объединять только файлы одного формата: PDF с PDF или DOCX с DOCX."
+            "PdfCraft объединяет PDF-файлы. Выберите минимум два PDF."
         )
         self.merge_format_hint_label.setWordWrap(True)
         merge_layout.addWidget(self.merge_format_hint_label)
@@ -891,7 +891,7 @@ class OperationsTabLayoutMixin:
         stack_index = index
         if 0 <= stack_index < self.operations_stack.count():
             self.operations_stack.setCurrentIndex(stack_index)
-            # Для объединения очередь показывает только PDF и DOCX; при
+            # Для объединения очередь показывает только PDF; при
             # возврате на другую вкладку скрытые строки снова становятся видны.
             if callable(getattr(self, "update_file_list", None)):
                 self.update_file_list()
