@@ -32,10 +32,12 @@ $env:CARGO_INCREMENTAL = '0'
 
 foreach ($engine in $Engines) {
     $binaryPath = Join-Path $NativeDir $engine.Binary
-    if ((Test-Path -LiteralPath $binaryPath) -and -not $Force) {
+    $licenseDir = Join-Path $NativeDir 'licenses' $engine.Name
+    $licenseComplete = (Test-Path -LiteralPath (Join-Path $licenseDir 'LICENSE-MIT')) -and (Test-Path -LiteralPath (Join-Path $licenseDir 'LICENSE-APACHE'))
+    if ((Test-Path -LiteralPath $binaryPath) -and $licenseComplete -and -not $Force) {
         & $binaryPath --version *> $null
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "$($engine.Name): existing executable responds to --version."
+            Write-Host "$($engine.Name): executable and license bundle already verified."
             continue
         }
     }
@@ -55,13 +57,12 @@ foreach ($engine in $Engines) {
         & cargo @cargoArgs
         if ($LASTEXITCODE -ne 0) { throw "Cargo build failed for $($engine.Name)." }
 
-        $builtBinary = Join-Path $TargetRoot 'release' $engine.Binary
+        $builtBinary = Join-Path (Join-Path $TargetRoot 'release') $engine.Binary
         if (-not (Test-Path -LiteralPath $builtBinary)) {
             throw "Cargo did not produce $($engine.Binary)."
         }
         Copy-Item -LiteralPath $builtBinary -Destination $binaryPath -Force
 
-        $licenseDir = Join-Path $NativeDir 'licenses' $engine.Name
         if (Test-Path -LiteralPath $licenseDir) {
             Remove-Item -LiteralPath $licenseDir -Recurse -Force
         }
