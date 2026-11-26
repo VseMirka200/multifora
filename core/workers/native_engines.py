@@ -145,18 +145,19 @@ def _pdf_page_count(path: str, owner) -> int:
 
 
 def _pdf_export_office(source: str, target: str, output: str, owner) -> str:
-    steps = [
-        {"tool": "doc_open", "args": {"path": source}},
-        {"tool": "doc_export_office", "args": {"doc": 1, "path": output}},
-    ]
-    with tempfile.TemporaryDirectory(prefix="multifora-pdfcraft-") as directory:
-        script = Path(directory, "export.json")
-        script.write_text(json.dumps(steps, ensure_ascii=False), encoding="utf-8")
-        run_engine(
-            "pdf", ["run", "--script", str(script), "--report"],
-            cancel_check=owner._should_cancel, cancel_owner=owner,
-        )
-    _assert_output(output)
+    with atomic_output_path(output) as temporary:
+        steps = [
+            {"tool": "doc_open", "args": {"path": source}},
+            {"tool": "doc_export_office", "args": {"doc": 1, "path": temporary}},
+        ]
+        with tempfile.TemporaryDirectory(prefix="multifora-pdfcraft-") as directory:
+            script = Path(directory, "export.json")
+            script.write_text(json.dumps(steps, ensure_ascii=False), encoding="utf-8")
+            run_engine(
+                "pdf", ["run", "--script", str(script), "--report"],
+                cancel_check=owner._should_cancel, cancel_owner=owner,
+            )
+        _assert_output(temporary)
     return output
 
 
