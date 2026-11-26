@@ -34,12 +34,13 @@ class ConversionMixin:
         target_ext: str,
         *,
         reference_file: FileItem | None = None,
+        output_stem: str | None = None,
     ) -> str:
         target_ext = str(target_ext or "").strip()
         if target_ext and not target_ext.startswith("."):
             target_ext = f".{target_ext}"
         reference = reference_file or file
-        stem = os.path.splitext(os.path.basename(reference.path))[0]
+        stem = output_stem or os.path.splitext(os.path.basename(reference.path))[0]
         base_path = os.path.join(self._conversion_output_directory(reference), f"{stem}{target_ext}")
         with _CONVERSION_OUTPUT_PATH_LOCK:
             reserved = getattr(self, "_conversion_reserved_paths", None)
