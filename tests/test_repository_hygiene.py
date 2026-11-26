@@ -56,8 +56,8 @@ class RepositoryHygieneTests(unittest.TestCase):
     def test_batch_launcher_requires_supported_python_without_word_modules(self):
         launcher = Path("start_multifora.bat").read_text(encoding="ascii")
 
-        self.assertIn("sys.version_info[:2] == (3, 11)", launcher)
-        self.assertIn("py.exe -3.11", launcher)
+        self.assertIn("sys.version_info[:2] == (3, 15)", launcher)
+        self.assertIn("py.exe -3.15", launcher)
         self.assertNotIn("pythoncom", launcher)
         self.assertNotIn("win32com", launcher)
 
