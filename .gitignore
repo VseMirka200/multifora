@@ -40,8 +40,9 @@ dist/
 site/
 *.egg-info/
 
-# Downloaded third-party runtime (restored by scripts/install_pandoc.ps1)
-bin/pandoc/
+# Generated ArtCraft CLI binaries, license copies and Rust build cache
+bin/native/
+.cargo-native-target/
 
 # PyInstaller
 *.spec
