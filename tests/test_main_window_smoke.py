@@ -936,16 +936,16 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window.list_files.select_paths([source_pdf])
                 selected_conversion_files, _ = (
                     window._collect_compatible_conversion_files(
-                        "Документы", "DOCX", "PDF"
+                        "Документы", "PDF", "DOCX"
                     )
                 )
                 self.assertEqual(
                     [item.path for item in selected_conversion_files],
-                    [source_docx],
+                    [source_pdf],
                 )
                 window.convert_file_type_combo.setCurrentText("Документы")
-                window.from_convert_combo.setCurrentText("DOCX")
-                window.to_convert_combo.setCurrentText("PDF")
+                window.from_convert_combo.setCurrentText("PDF")
+                window.to_convert_combo.setCurrentText("DOCX")
                 self.assertEqual(
                     window.combo_conversion_output_mode.currentData(), "ask"
                 )
