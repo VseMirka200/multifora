@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import os
 
-from app.core.artcraft import run_artcraft_cli
-from app.core import deps
 from app.core.app_utils import _debug_log
+from app.core.artcraft import run_artcraft_cli
 from app.core.conversion_formats import (
     IMAGE_CATEGORY,
     PDF_IMAGE_TARGETS,
