@@ -46,7 +46,7 @@ jobs:
     name: Собрать версию для Windows
     needs: prepare-release
     runs-on: windows-2022
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       QT_QPA_PLATFORM: offscreen
       RELEASE_TAG: ${{ needs.prepare-release.outputs.tag }}
@@ -57,6 +57,11 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ needs.prepare-release.outputs.commit }}
+
+      - name: Настроить Rust для ArtCraft
+        uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc
+        with:
+          toolchain: 1.95.0
 
       - name: Настроить Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
@@ -71,6 +76,10 @@ jobs:
           python -m pip check
           python scripts/verify_build_environment.py
 
+      - name: Собрать нативные движки ArtCraft
+        shell: pwsh
+        run: .\scripts\build_native_engines.ps1
+
       - name: Проверить стиль кода
         run: python -m ruff check .
 
@@ -81,7 +90,7 @@ jobs:
         shell: cmd
         run: scripts\build_app.bat --no-pause
 
-      - name: Проверить собранный EXE и Ghostscript
+      - name: Проверить EXE и движки ArtCraft
         shell: pwsh
         run: .\scripts\verify_windows_runtime.ps1
 
