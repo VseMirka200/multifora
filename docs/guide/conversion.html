@@ -48,7 +48,7 @@
         </div>
         <article>
           <h1 id="конвертация-и-форматы">Конвертация и форматы</h1>
-          <p>Конвертация преобразует документы и изображения в другой формат. Сначала добавьте подходящие файлы, затем на вкладке <strong>КОНВЕРТАЦИЯ</strong> выберите тип, исходный и целевой формат.</p>
+          <p>Конвертация выполняется нативными движками PdfCraft, PhotoCraft и DeckCraft. Сначала добавьте поддерживаемые файлы, затем на вкладке <strong>КОНВЕРТАЦИЯ</strong> выберите тип, исходный и целевой формат. Список назначения зависит от исходного формата.</p>
           <p><img alt="Панель конвертации с выбором формата и способа сохранения" src="../assets/animations/conversion.gif" loading="lazy"></p>
           <h2 id="порядок-действий">Порядок действий</h2>
           <ol>
@@ -92,17 +92,19 @@
             </tr>
             <tr>
               <td>Документы</td>
-              <td>DOC, DOCX, PDF, ODT, RTF, TXT, HTML, MD, EPUB, FB2, XPS, MOBI</td>
-              <td>DOC, DOCX, PDF, ODT, RTF, TXT, HTML, MD; для PDF также JPG, JPEG, PNG, WEBP, TIFF, BMP</td>
+              <td>PDF, TXT, PPTX, DeckCraft (.deckcraft); изображения: PNG, JPEG, TIFF, WebP, GIF, BMP, PSD/PSB, ORA, SVG, HEIC, XCF, KRA, PDN, Affinity; для PdfCraft также JP2, J2K, JPX, PCX</td>
+              <td>PDF, DOCX, PPTX/POTX/PPSX, DeckCraft, TXT, HTML, RTF, MD; изображения: PNG, JPG/JPEG, TIFF, WebP, GIF, BMP, TGA, ICO, QOI, PNM, OpenEXR, HDR, FITS, PSD/PSB, ORA, .pcraft</td>
             </tr>
             <tr>
               <td>Изображения</td>
-              <td>JPG, PNG, WEBP, BMP, TIFF, GIF, ICO, AVIF, HEIC, HEIF, QOI, SVG, PSD</td>
-              <td>JPG, PNG, WEBP, BMP, TIFF, GIF, ICO, AVIF, HEIC, HEIF, QOI, PDF, SVG</td>
+              <td>JPG, PNG, WEBP, BMP, TIFF, GIF, ICO, TGA, QOI, PNM, EXR, HDR, FITS, PSD/PSB, ORA, SVG, HEIC, XCF, KRA, PDN, Affinity; JP2/J2K/JPX/PCX</td>
+              <td>PNG, JPG/JPEG, TIFF, WebP, GIF, BMP, TGA, ICO, QOI, PNM, EXR, HDR, FITS, PSD/PSB, ORA, .pcraft, PDF</td>
             </tr>
           </table>
-          <p>Список в программе показывает только совместимые варианты для выбранного исходного формата. Конвертация в тот же формат не предлагается.</p>
-          <p>Чтобы сохранить страницы PDF как изображения, выберите тип <strong>«Документы»</strong>, исходный формат <strong>PDF</strong> и один из доступных форматов изображения. У многостраничного PDF каждая страница сохраняется отдельно, с номером страницы в имени.</p>
+          <p>Список в программе показывает только совместимые варианты для выбранного исходного формата. Конвертация в тот же формат не предлагается. DOCX, HTML, RTF и Markdown доступны как выходные форматы PdfCraft; входные DOC/DOCX/ODT/EPUB/FB2/XPS/MOBI не поддерживаются и удалены из выбора.</p>
+          <p>Чтобы сохранить страницы PDF как изображения, выберите тип <strong>«Документы»</strong>, исходный формат <strong>PDF</strong> и PNG, JPG/JPEG или TIFF. PdfCraft сохраняет каждую страницу отдельным файлом с номером страницы в имени.</p>
+          <p>PhotoCraft поддерживает часть форматов только для чтения: SVG, HEIC, Affinity, XCF, KRA и PDN. Они доступны как источники, но не предлагаются как выходные форматы. PDF из изображения создаётся через PdfCraft; PhotoCraft предварительно преобразует в PNG те форматы изображений, которые PdfCraft не открывает напрямую.</p>
+          <p>PDF → DOCX/PPTX выполняется PdfCraft. PDF → PPTX создаёт по одному слайду на страницу PDF; точное воспроизведение сложных шрифтов, таблиц и векторной графики не гарантируется. DeckCraft и PhotoCraft upstream находятся в активной разработке; проверяйте результат на копиях файлов.</p>
           <aside class="admonition note">
             <strong>Проверяйте сложные документы</strong>
             Таблицы, нестандартные шрифты и сложная разметка могут выглядеть иначе после преобразования. Откройте несколько результатов до удаления исходников. Для части офисных преобразований необходим Microsoft Word.
