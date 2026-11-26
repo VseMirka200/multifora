@@ -28,7 +28,8 @@ CATEGORY_SOURCE_FORMATS: dict[str, tuple[str, ...]] = {
         "JPG", "JPEG", "PNG", "WEBP", "BMP", "TIFF", "GIF", "ICO",
         "TGA", "QOI", "PPM", "PGM", "PBM", "PFM", "EXR", "HDR",
         "FITS", "PSD", "PSB", "PCRAFT", "ORA", "XCF", "KRA", "PDN",
-        "SVG", "HEIC", "AFFINITY", "JP2", "J2K", "JPX", "PCX",
+        "SVG", "HEIC", "AFFINITY", "DNG", "CR2", "NEF", "ARW", "RAF",
+        "JP2", "J2K", "JPX", "PCX",
     ),
 }
 
@@ -85,6 +86,11 @@ FORMAT_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "SVG": (".svg",),
     "HEIC": (".heic",),
     "AFFINITY": (".af", ".afdesign", ".afphoto", ".afpub"),
+    "DNG": (".dng",),
+    "CR2": (".cr2",),
+    "NEF": (".nef",),
+    "ARW": (".arw",),
+    "RAF": (".raf",),
     "JP2": (".jp2",),
     "J2K": (".j2k",),
     "JPX": (".jpx",),
