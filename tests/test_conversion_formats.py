@@ -1,7 +1,6 @@
 import unittest
 
 from app.core.conversion_formats import (
-    CONVERSION_CATEGORIES,
     DOCUMENT_CATEGORY,
     IMAGE_CATEGORY,
     IMAGE_WRITABLE_FORMATS,
@@ -31,6 +30,7 @@ class ConversionFormatsTests(unittest.TestCase):
             self.assertIn(supported, targets)
         self.assertNotIn("EPUB", targets)
         self.assertNotIn("ODT", targets)
+        self.assertNotIn("TIFF", targets)
 
     def test_image_read_only_formats_are_not_offered_as_targets(self):
         sources = source_formats_for_category(IMAGE_CATEGORY)
@@ -69,8 +69,7 @@ class ConversionFormatsTests(unittest.TestCase):
         images = compatible_targets_for_source(
             IMAGE_CATEGORY, mixed_source_label_for_category(IMAGE_CATEGORY)
         )
-        self.assertIn("PNG", images)
-        self.assertIn("PDF", images)
+        self.assertEqual(images, ["PDF"])
 
     def test_file_types_resolve_to_categories(self):
         self.assertEqual(category_for_file_type("document"), DOCUMENT_CATEGORY)
