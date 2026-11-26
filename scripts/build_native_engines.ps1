@@ -73,6 +73,17 @@ foreach ($engine in $Engines) {
                 Copy-Item -LiteralPath $candidate -Destination $licenseDir -Force
             }
         }
+        # Preserve every upstream copyright, license, attribution and notice file
+        # at its original relative path (including bundled font/codec notices).
+        Get-ChildItem -LiteralPath $sourcePath -Recurse -File |
+            Where-Object { $_.Name -match '^(LICENSE|NOTICE|ATTRIBUTION|COPYING|OFL)' } |
+            ForEach-Object {
+                $relative = $_.FullName.Substring($sourcePath.Length).TrimStart('\\', '/')
+                $destination = Join-Path $licenseDir $relative
+                $destinationFolder = Split-Path -Parent $destination
+                New-Item -ItemType Directory -Force -Path $destinationFolder | Out-Null
+                Copy-Item -LiteralPath $_.FullName -Destination $destination -Force
+            }
         $upstreamLicenses = Join-Path $sourcePath 'licenses'
         if (Test-Path -LiteralPath $upstreamLicenses) {
             Copy-Item -LiteralPath $upstreamLicenses -Destination $licenseDir -Recurse -Force
