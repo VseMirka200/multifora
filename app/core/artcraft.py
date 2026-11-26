@@ -12,7 +12,6 @@ import subprocess
 import sys
 from collections.abc import Sequence
 
-
 _TOOL_ENV = {
     "pdfcraft": "MULTIFORA_PDFCRAFT_CLI",
     "wordcraft": "MULTIFORA_WORDCRAFT_CLI",
