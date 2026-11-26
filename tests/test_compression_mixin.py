@@ -1,130 +1,133 @@
-import sys
+import os
 import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import patch
 
 from app.core.models import FileItem
 from core.workers.compression.compression_mixin import CompressionMixin
 
 
-class _DummyCompressionWorker(CompressionMixin):
-    def __init__(self, method="auto", files=None):
-        self.pdf_method = method
-        self.files = files or []
-        self._last_pdf_error = ""
-        self.cancelled = False
+class _Signal:
+    def __init__(self):
+        self.values = []
+
+    def emit(self, value):
+        self.values.append(value)
+
+
+class _Worker(CompressionMixin):
+    def __init__(self, files, kind="pdf"):
+        self.files = files
+        self.compression_level = 75
+        self.compression_type = kind
+        self.pdf_method = "auto"
+        self.replace_pdf = False
+        self.image_output_mode = "alongside"
+        self.image_output_dir = ""
+        self.status = _Signal()
+        self.progress = _Signal()
+        self.error = _Signal()
+        self.finished = _Signal()
+        self.errors = []
 
     def _should_cancel(self):
-        return self.cancelled
+        return False
 
-    @staticmethod
-    def _get_unique_path(path):
-        return path
+    def _emit_finished(self, new_files=None, updated_files=None):
+        self.finished.emit((new_files or [], updated_files or []))
+
+    def _record_error(self, file_item, message):
+        self.errors.append((file_item, message))
+
+    def _get_unique_path(self, path):
+        if not os.path.exists(path):
+            return path
+        base, ext = os.path.splitext(path)
+        index = 1
+        while os.path.exists(f"{base}_{index}{ext}"):
+            index += 1
+        return f"{base}_{index}{ext}"
 
 
 class CompressionMixinTests(unittest.TestCase):
-    def test_image_output_path_uses_selected_destination(self):
-        worker = _DummyCompressionWorker()
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            source_dir = Path(tmp_dir, "source")
-            output_dir = Path(tmp_dir, "output")
-            source_dir.mkdir()
-            source = source_dir / "photo.jpg"
-            source.write_bytes(b"image")
-            file_item = FileItem(str(source))
+    def test_pdf_compression_delegates_to_pdfcraft(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = os.path.join(directory, "source.pdf")
+            with open(source, "wb") as stream:
+                stream.write(b"x" * 1000)
+            worker = _Worker([FileItem(source)], "pdf")
 
-            worker.image_output_mode = "alongside"
-            alongside = worker._image_compression_target_path(
-                file_item, ".jpg"
-            )
-            self.assertEqual(
-                alongside, str(source_dir / "photo_compressed.jpg")
-            )
+            def compress(_owner, _source, output, ppi, quality):
+                self.assertEqual((ppi, quality), (300, 85))
+                with open(output, "wb") as stream:
+                    stream.write(b"small pdf")
+                return output
 
-            worker.image_output_mode = "custom"
-            worker.image_output_dir = str(output_dir)
-            custom = worker._image_compression_target_path(file_item, ".jpg")
-            self.assertEqual(custom, str(output_dir / "photo_compressed.jpg"))
-            self.assertTrue(output_dir.is_dir())
+            with patch("core.workers.compression.compression_mixin.native_engines.compress_pdf", side_effect=compress) as engine:
+                worker._compress_pdf_files()
+            engine.assert_called_once()
+            results, updated = worker.finished.values[-1]
+            self.assertEqual(len(results), 1)
+            self.assertEqual(updated, [])
+            self.assertTrue(results[0].path.endswith("_compressed.pdf"))
 
-    def test_ghostscript_profiles_preserve_existing_settings(self):
-        expected = {
-            "max": ("/screen", 72, 40, "Максимальное сжатие"),
-            "quality": ("/prepress", 300, 92, "Сохранить качество"),
-            "optimize": ("/printer", 300, 90, "Только оптимизация"),
-        }
+    def test_image_compression_delegates_to_photocraft(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = os.path.join(directory, "source.png")
+            with open(source, "wb") as stream:
+                stream.write(b"x" * 1000)
+            worker = _Worker([FileItem(source)], "image")
 
-        for method, (
-            pdf_settings,
-            resolution,
-            quality,
-            name,
-        ) in expected.items():
-            with self.subTest(method=method):
-                settings = _DummyCompressionWorker(
-                    method
-                )._get_ghostscript_settings()
-                self.assertEqual(settings["pdf_settings"], pdf_settings)
-                self.assertEqual(settings["color_resolution"], resolution)
-                self.assertEqual(settings["jpeg_quality"], quality)
-                self.assertEqual(settings["method_name"], name)
-                self.assertTrue(settings["optimize"])
-                self.assertEqual(settings["embed_fonts"], "true")
-                self.assertEqual(settings["subset_fonts"], "true")
+            def compress(_owner, _source, output, quality):
+                self.assertEqual(quality, 75)
+                with open(output, "wb") as stream:
+                    stream.write(b"small")
+                return output
 
-    def test_auto_profile_depends_on_original_file_size(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            standard_path = Path(tmp_dir, "standard.pdf")
-            standard_path.write_bytes(b"pdf")
-            large_path = Path(tmp_dir, "large.pdf")
-            with large_path.open("wb") as stream:
-                stream.truncate(11 * 1024 * 1024)
+            with patch("core.workers.compression.compression_mixin.native_engines.compress_image", side_effect=compress) as engine:
+                worker._compress_image_files()
+            engine.assert_called_once()
+            results, updated = worker.finished.values[-1]
+            self.assertEqual(len(results), 1)
+            self.assertEqual(updated, [])
+            self.assertTrue(results[0].path.endswith("_compressed.png"))
 
-            standard = _DummyCompressionWorker(
-                "auto", [FileItem(str(standard_path))]
-            )._get_ghostscript_settings()
-            large = _DummyCompressionWorker(
-                "auto", [FileItem(str(large_path))]
-            )._get_ghostscript_settings()
+    def test_read_only_photo_formats_are_rejected_for_in_place_compression(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = os.path.join(directory, "vector.svg")
+            with open(source, "wb") as stream:
+                stream.write(b"<svg/>")
+            worker = _Worker([FileItem(source)], "image")
+            with patch("core.workers.compression.compression_mixin.native_engines.compress_image") as engine:
+                worker._compress_image_files()
+            engine.assert_not_called()
+            self.assertTrue(worker.errors)
+            self.assertIn("не может сохранить", worker.errors[0][1])
 
-        self.assertEqual(standard["method_name"], "Авто (стандарт)")
-        self.assertEqual(standard["color_resolution"], 300)
-        self.assertEqual(large["method_name"], "Авто (для больших файлов)")
-        self.assertEqual(large["color_resolution"], 150)
+    def test_pdf_replace_mode_updates_original_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = os.path.join(directory, "source.pdf")
+            with open(source, "wb") as stream:
+                stream.write(b"x" * 1000)
+            worker = _Worker([FileItem(source)], "pdf")
+            worker.replace_pdf = True
 
-    def test_pymupdf_document_closes_when_save_fails(self):
-        class _Document:
-            def __init__(self):
-                self.closed = False
+            def compress(_owner, _source, output, _ppi, _quality):
+                with open(output, "wb") as stream:
+                    stream.write(b"small")
+                return output
 
-            def save(self, *_args, **_kwargs):
-                raise OSError("save failed")
+            with patch("core.workers.compression.compression_mixin.native_engines.compress_pdf", side_effect=compress):
+                worker._compress_pdf_files()
+            results, updated = worker.finished.values[-1]
+            self.assertEqual(results, [])
+            self.assertEqual(updated[0][1], source)
+            self.assertEqual(os.path.getsize(source), 5)
 
-            def close(self):
-                self.closed = True
-
-        document = _Document()
-
-        class _Fitz:
-            @staticmethod
-            def open(_path):
-                return document
-
-        worker = _DummyCompressionWorker("max")
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            source = Path(tmp_dir, "source.pdf")
-            source.write_bytes(b"original")
-            output = Path(tmp_dir, "output.pdf")
-            with patch.dict(sys.modules, {"pymupdf": _Fitz}):
-                result = worker._compress_pdf_with_pymupdf(
-                    str(source),
-                    str(output),
-                )
-
-        self.assertEqual(result, (False, "", 0.0))
-        self.assertTrue(document.closed)
-        self.assertEqual(worker._last_pdf_error, "PyMuPDF: save failed")
+    def test_pdf_profiles_map_to_pdfcraft_options(self):
+        self.assertEqual(_Worker._pdf_profile("unused", "max"), (72, 40))
+        self.assertEqual(_Worker._pdf_profile("unused", "quality"), (300, 92))
+        self.assertEqual(_Worker._pdf_profile("unused", "optimize"), (300, 90))
 
 
 if __name__ == "__main__":
