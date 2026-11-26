@@ -10,6 +10,7 @@ from collections.abc import Callable
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from app.core.app_utils import _debug_log
+from app.core.artcraft import run_artcraft_cli
 from app.core.conversion_formats import (
     DOCUMENT_CATEGORY,
     PDF_IMAGE_TARGETS,
@@ -54,6 +55,11 @@ _PANDOC_SOURCE_FORMATS = frozenset(
 _PANDOC_TARGET_FORMATS = frozenset(
     {"DOCX", "ODT", "RTF", "TXT", "HTML", "MD", "EPUB", "PDF"}
 )
+
+# WordCraft CLI is the primary document conversion engine. EPUB remains on the
+# legacy path until ArtCraft publishes a documented EPUB importer/exporter.
+_WORDCRAFT_SOURCE_FORMATS = frozenset({"DOCX", "ODT", "RTF", "TXT", "HTML", "MD"})
+_WORDCRAFT_TARGET_FORMATS = frozenset({"DOCX", "ODT", "RTF", "TXT", "HTML", "MD", "PDF"})
 
 
 def _bundled_pdf_engine() -> str | None:
@@ -198,6 +204,28 @@ class ConversionMixin(ImageEncodingMixin, ImageConversionMixin):
             raise Exception(
                 f"Pandoc не поддерживает выходной формат {normalized_target}"
             )
+
+        if (
+            source_format in _WORDCRAFT_SOURCE_FORMATS
+            and normalized_target in _WORDCRAFT_TARGET_FORMATS
+        ):
+            output_path = self._conversion_output_path(
+                file,
+                suffix_for_format(normalized_target),
+                reference_file=output_reference,
+            )
+            try:
+                run_artcraft_cli(
+                    "wordcraft",
+                    ["convert", file.path, output_path],
+                    worker=self,
+                )
+                if not os.path.isfile(output_path):
+                    raise RuntimeError("WordCraft не создал выходной файл")
+                return output_path
+            except Exception:
+                self._discard_conversion_output(output_path)
+                raise
 
         available, pandoc_path = ensure_pandoc_detected()
         if not available or not pandoc_path:
