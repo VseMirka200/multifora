@@ -166,7 +166,12 @@ def compatible_targets_for_source(category: str, source_label: str) -> list[str]
         if source == "TXT":
             return ["PDF"]
         if source in {"PPTX", "DECKCRAFT"}:
-            return [target for target in targets if target != source]
+            # DeckCraft writes PDF, PowerPoint, DeckCraft, text/outline and raster
+            # slide exports. TIFF is available only through PdfCraft PDF rendering.
+            return [
+                target for target in targets
+                if target != source and target != "TIFF"
+            ]
         return []
     if category == IMAGE_CATEGORY:
         if source in {"JP2", "J2K", "JPX", "PCX"}:
