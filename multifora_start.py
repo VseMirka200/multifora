@@ -19,12 +19,8 @@ from app.ui.ui_main import MultiforaMainWindow
 
 
 def _run_build_smoke_test() -> int:
-    """Check the *frozen* bundle without performing file operations.
-
-    The report is written to MULTIFORA_SMOKE_REPORT, because a windowed
-    PyInstaller executable does not have a console on Windows.
-    """
-    import importlib
+    """Smoke-test the bundled ArtCraft CLI engines and frozen Qt application."""
+    import base64
     import json
     import os
     import time
@@ -33,152 +29,95 @@ def _run_build_smoke_test() -> int:
     from tempfile import TemporaryDirectory
     from unittest.mock import patch
 
-    from app.core.pdf_compat import import_pymupdf_with_legacy_alias
+    from core.workers.native_engines import engine_path, run_engine
 
     report_path = os.environ.get("MULTIFORA_SMOKE_REPORT")
-    report = {"status": "failed", "imports": [], "window_visible": False}
+    report = {"status": "failed", "window_visible": False}
     application = None
     window = None
     try:
-        for module in (
-            "PySide6.QtCore",
-            "PySide6.QtGui",
-            "PySide6.QtWidgets",
-            "PySide6.QtNetwork",
-            "pymupdf",
-            "docx",
-            "docxcompose.composer",
-        ):
-            if module == "pymupdf":
-                import_pymupdf_with_legacy_alias()
+        for engine in ("pdf", "photo", "deck"):
+            executable = engine_path(engine)
+            run_engine(engine, ["--version"])
+            report[f"{engine}_engine"] = str(Path(executable).name)
+
+        with TemporaryDirectory(prefix="multifora-artcraft-smoke-") as directory:
+            root = Path(directory)
+            first_text = root / "first.txt"
+            second_text = root / "second.txt"
+            first_text.write_text("Multifora PdfCraft first page", encoding="utf-8")
+            second_text.write_text("Multifora PdfCraft second page", encoding="utf-8")
+            pdf_dir = root / "pdfs"
+            pdf_dir.mkdir()
+            for source in (first_text, second_text):
+                run_engine("pdf", ["batch", str(source), "--steps", "convert", "--out-dir", str(pdf_dir)])
+            first_pdf = pdf_dir / "first.pdf"
+            second_pdf = pdf_dir / "second.pdf"
+            if not first_pdf.is_file() or not second_pdf.is_file():
+                raise RuntimeError("PdfCraft text-to-PDF conversion failed")
+
+            info = json.loads(run_engine("pdf", ["info", str(first_pdf)]))
+            pages = info.get("pages")
+            if isinstance(pages, list):
+                page_count = len(pages)
             else:
-                importlib.import_module(module)
-            report["imports"].append(module)
+                page_count = pages or info.get("page_count") or info.get("pageCount")
+            if not isinstance(page_count, int) or page_count < 1:
+                raise RuntimeError("PdfCraft info did not return page count")
+            rendered = root / "page.png"
+            run_engine("pdf", ["render", str(first_pdf), "--page", "1", "--dpi", "96", "--out", str(rendered)])
+            if not rendered.is_file() or rendered.stat().st_size == 0:
+                raise RuntimeError("PdfCraft PDF rendering failed")
+            report["pdf_roundtrip"] = True
 
-        # Exercise native PDF code and DOCX package data, not only imports.
-        from io import BytesIO
+            merged = root / "merged.pdf"
+            run_engine("pdf", ["combine", str(first_pdf), str(second_pdf), "--out", str(merged)])
+            merged_info = json.loads(run_engine("pdf", ["info", str(merged)]))
+            merged_pages = merged_info.get("pages")
+            merged_count = len(merged_pages) if isinstance(merged_pages, list) else merged_pages
+            if not isinstance(merged_count, int) or merged_count < 2:
+                raise RuntimeError("PdfCraft PDF merge failed")
+            report["pdf_merge"] = True
 
-        import pymupdf
-        from docx import Document
-        from docxcompose.composer import Composer
+            script = root / "export.json"
+            output_docx = root / "result.docx"
+            script.write_text(json.dumps([
+                {"tool": "doc_open", "args": {"path": str(first_pdf)}},
+                {"tool": "doc_export_office", "args": {"doc": 1, "path": str(output_docx)}},
+            ]), encoding="utf-8")
+            run_engine("pdf", ["run", "--script", str(script), "--report"])
+            if not output_docx.is_file() or output_docx.stat().st_size == 0:
+                raise RuntimeError("PdfCraft PDF-to-DOCX export failed")
+            report["pdf_to_docx"] = True
 
-        from app.core import deps
+            # A tiny known PNG exercises PhotoCraft's real decoder and encoder.
+            png = root / "tiny.png"
+            png.write_bytes(base64.b64decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p7sAAAAASUVORK5CYII="
+            ))
+            webp = root / "tiny.webp"
+            png_again = root / "tiny-again.png"
+            run_engine("photo", ["convert", str(png), str(webp), "--quality", "90"])
+            run_engine("photo", ["convert", str(webp), str(png_again)])
+            if not webp.is_file() or not png_again.is_file() or png_again.stat().st_size == 0:
+                raise RuntimeError("PhotoCraft image roundtrip failed")
+            report["image_roundtrip"] = True
 
-        report["lazy_backends"] = all(
-            module not in sys.modules
-            for module in ("pdf2docx", "PIL.Image", "pillow_heif", "odf")
-        )
-        if not report["lazy_backends"]:
-            raise RuntimeError("Optional backends were imported before use")
-
-        image_buffer = BytesIO()
-        with deps.Image.new("RGB", (2, 2), "white") as image:
-            image.save(image_buffer, "PNG")
-        image_buffer.seek(0)
-        with deps.Image.open(image_buffer) as image:
-            image.load()
-            if image.size != (2, 2):
-                raise RuntimeError("Pillow image roundtrip failed")
-        if deps.HAS_HEIF and ".heic" not in deps.Image.registered_extensions():
-            raise RuntimeError("HEIF image opener was not registered")
-        report["image_roundtrip"] = True
-        report["imports"].extend(("PIL.Image", "pillow_heif"))
-
-        with TemporaryDirectory(prefix="multifora-odf-") as directory:
-            odf_path = Path(directory, "roundtrip.odt")
-            odf_document = deps.OpenDocumentText()
-            odf_document.text.addElement(deps.text.P(text="Multifora ODF check"))
-            odf_document.save(str(odf_path))
-            loaded_odf = deps.load(str(odf_path))
-            loaded_text = "\n".join(
-                deps.teletype.extractText(element)
-                for element in loaded_odf.getElementsByType(deps.text.P)
-            )
-            if "Multifora ODF check" not in loaded_text:
-                raise RuntimeError("ODF roundtrip failed")
-        report["odf_roundtrip"] = True
-        report["imports"].append("odf.opendocument")
-
-        with pymupdf.open() as document:
-            document.new_page().insert_text((72, 72), "Multifora PDF check")
-            pdf_bytes = document.tobytes()
-        with pymupdf.open(stream=pdf_bytes, filetype="pdf") as document:
-            if "Multifora PDF check" not in document[0].get_text():
-                raise RuntimeError("PDF roundtrip failed")
-            document[0].get_pixmap()
-        report["pdf_roundtrip"] = True
-
-        # Exercise the real pdf2docx backend inside the frozen process.  A
-        # successful import alone does not prove that its native dependencies
-        # and package hooks are complete.
-        with TemporaryDirectory(prefix="multifora-pdf2docx-") as directory:
-            source_pdf = Path(directory, "source.pdf")
-            output_docx = Path(directory, "result.docx")
-            source_pdf.write_bytes(pdf_bytes)
-            converter = deps.pdf2docx.Converter(str(source_pdf))
-            try:
-                converter.convert(str(output_docx))
-            finally:
-                converter.close()
-            converted_text = "\n".join(
-                paragraph.text for paragraph in Document(output_docx).paragraphs
-            )
-            if "Multifora PDF check" not in converted_text:
-                raise RuntimeError("PDF to DOCX conversion failed")
-        report["pdf_to_docx"] = True
-        report["imports"].append("pdf2docx")
-
-        first = Document()
-        first.add_paragraph("First document")
-        second = Document()
-        second.add_paragraph("Second document")
-        composer = Composer(first)
-        composer.append(second)
-        merged = BytesIO()
-        composer.save(merged)
-        merged.seek(0)
-        if [p.text for p in Document(merged).paragraphs] != [
-            "First document", "Second document"
-        ]:
-            raise RuntimeError("DOCX merge failed")
-        report["docx_merge"] = True
-
+        report["deck_engine"] = engine_path("deck")
         application = QApplication([sys.argv[0]])
         application.setApplicationName(APP_DISPLAY_NAME)
         application.setApplicationDisplayName(APP_DISPLAY_NAME)
         application.setStyle("Fusion")
-        from app.ui.ui_main import MultiforaMainWindow
-
-        # Smoke-проверка не должна менять ярлыки, реестр, IPC-файлы и настройки
-        # рабочей установки или обращаться к сети.
         with (
-            patch.object(
-                MultiforaMainWindow,
-                "apply_shortcut_settings",
-                return_value=None,
-            ),
-            patch.object(
-                MultiforaMainWindow,
-                "ensure_context_menu_registration",
-                return_value=None,
-            ),
-            patch.object(
-                MultiforaMainWindow, "create_ipc_server", return_value=None
-            ),
-            patch.object(
-                MultiforaMainWindow, "process_startup_queue", return_value=None
-            ),
-            patch.object(
-                MultiforaMainWindow,
-                "check_updates_on_startup",
-                return_value=None,
-            ),
+            patch.object(MultiforaMainWindow, "apply_shortcut_settings", return_value=None),
+            patch.object(MultiforaMainWindow, "ensure_context_menu_registration", return_value=None),
+            patch.object(MultiforaMainWindow, "create_ipc_server", return_value=None),
+            patch.object(MultiforaMainWindow, "process_startup_queue", return_value=None),
+            patch.object(MultiforaMainWindow, "check_updates_on_startup", return_value=None),
         ):
-            window_started = time.perf_counter()
+            started = time.perf_counter()
             window = MultiforaMainWindow()
-            report["window_create_seconds"] = round(
-                time.perf_counter() - window_started, 6
-            )
+            report["window_create_seconds"] = round(time.perf_counter() - started, 6)
         window.show()
         application.processEvents()
         report["window_visible"] = window.isVisible()
@@ -192,8 +131,6 @@ def _run_build_smoke_test() -> int:
     finally:
         if window is not None:
             try:
-                # closeEvent сохраняет настройки и удаляет IPC-токен, поэтому
-                # здесь достаточно уничтожить тестовое окно через цикл Qt.
                 window.hide()
                 window.deleteLater()
             except Exception:
@@ -208,14 +145,10 @@ def _run_build_smoke_test() -> int:
             try:
                 destination = Path(report_path)
                 destination.parent.mkdir(parents=True, exist_ok=True)
-                destination.write_text(
-                    json.dumps(report, ensure_ascii=False, indent=2),
-                    encoding="utf-8",
-                )
+                destination.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
             except OSError:
                 pass
     return return_code
-
 
 def main():
     install_runtime_logging()
