@@ -30,10 +30,10 @@ try {
     if (Test-Path $report) { Get-Content $report -Raw | Write-Host }
     if ($app.ExitCode -ne 0) { throw "Installed application smoke test failed: $($app.ExitCode)" }
     $result = Get-Content $report -Raw | ConvertFrom-Json
-    if ($result.status -ne 'ok' -or -not $result.window_visible -or -not $result.lazy_backends -or -not $result.image_roundtrip -or -not $result.odf_roundtrip -or -not $result.pdf_roundtrip -or -not $result.pdf_to_docx -or -not $result.docx_merge) {
+    if ($result.status -ne 'ok' -or -not $result.window_visible -or -not $result.pdf_engine -or -not $result.photo_engine -or -not $result.deck_engine -or -not $result.pdf_roundtrip -or -not $result.pdf_merge -or -not $result.pdf_to_docx -or -not $result.image_roundtrip) {
         throw 'Installed application smoke test did not complete all backend and window checks'
     }
-    Write-Host 'Silent installer smoke test passed.'
+    Write-Host 'Silent installer and ArtCraft engine smoke tests passed.'
 }
 finally {
     $uninstall = Join-Path $installDir 'unins000.exe'
