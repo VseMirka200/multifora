@@ -153,10 +153,10 @@ def compatible_targets_for_source(category: str, source_label: str) -> list[str]
     source = _normalize_label(source_label)
     targets = target_formats_for_category(category)
     if is_mixed_source_label(category, source_label):
-        return ["PDF"] if category == DOCUMENT_CATEGORY else targets
+        return ["PDF"]
     if category == DOCUMENT_CATEGORY:
         if source == "PDF":
-            return [target for target in targets if target not in {"DECKCRAFT", "POTX", "PPSX", "PDF"}]
+            return [target for target in targets if target not in {"DECKCRAFT", "POTX", "PPSX", "PDF", "GIF"}]
         if source == "TXT":
             return ["PDF"]
         if source in {"PPTX", "DECKCRAFT"}:
