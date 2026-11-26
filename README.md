@@ -65,12 +65,12 @@
 
 ## Разработка
 
-Для разработки используйте Windows и Python 3.11 x64: эта версия Python настроена в CI. Создайте окружение, установите зависимости и запустите приложение:
+Для разработки используйте Windows и Python 3.15 x64: эта версия Python настроена в CI. Создайте окружение, установите зависимости и запустите приложение:
 
 ```powershell
 git clone https://github.com/VseMirka200/multifora.git
 cd multifora
-py -3.11 -m venv .venv
+py -3.15 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe multifora_start.py
