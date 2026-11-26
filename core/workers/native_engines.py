@@ -171,18 +171,14 @@ def _pdf_to_images(file, source: str, output_path: str, owner) -> list[str]:
     page_count = _pdf_page_count(source, owner)
     base = Path(output_path)
     outputs: list[str] = []
+    owner._release_conversion_output_path(output_path)
     try:
         for page in range(1, page_count + 1):
             if owner._should_cancel():
                 raise InterruptedError("Операция отменена пользователем")
-            if page == 1:
-                destination = output_path
-            else:
-                reference_path = str(base.with_name(f"{base.stem}_page_{page}{base.suffix}"))
-                reference = type(file)(reference_path)
-                destination = owner._conversion_output_path(
-                    file, extension, reference_file=reference
-                )
+            destination = owner._conversion_output_path(
+                file, extension, output_stem=f"{base.stem}_page_{page}"
+            )
             with atomic_output_path(destination) as temporary:
                 run_engine(
                     "pdf",
@@ -199,6 +195,7 @@ def _pdf_to_images(file, source: str, output_path: str, owner) -> list[str]:
                 os.remove(path)
             except OSError:
                 pass
+            owner._release_conversion_output_path(path)
         raise
 
 
