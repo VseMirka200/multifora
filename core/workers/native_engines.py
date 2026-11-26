@@ -201,6 +201,30 @@ def _pdf_to_images(file, source: str, output_path: str, owner) -> list[str]:
         raise
 
 
+def _image_to_pdf(source: str, output_path: str, owner) -> str:
+    source_ext = Path(source).suffix.lower()
+    pdfcraft_inputs = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".gif", ".bmp", ".jp2", ".j2k", ".jpx", ".pcx"}
+    with tempfile.TemporaryDirectory(prefix="multifora-image-pdf-") as directory:
+        input_for_pdf = source
+        if source_ext not in pdfcraft_inputs:
+            raster = str(Path(directory, "source.png"))
+            run_engine(
+                "photo", ["convert", source, raster],
+                cancel_check=owner._should_cancel, cancel_owner=owner,
+            )
+            _assert_output(raster)
+            input_for_pdf = raster
+        run_engine(
+            "pdf", ["batch", input_for_pdf, "--steps", "convert", "--out-dir", directory],
+            cancel_check=owner._should_cancel, cancel_owner=owner,
+        )
+        generated = Path(directory, Path(input_for_pdf).stem + ".pdf")
+        _assert_output(str(generated))
+        with atomic_output_path(output_path) as temporary:
+            shutil.copyfile(generated, temporary)
+    return output_path
+
+
 def convert_file(owner, file, target_format: str, output_path: str):
     source = str(file.path)
     source_ext = Path(source).suffix.lower()
@@ -211,14 +235,14 @@ def convert_file(owner, file, target_format: str, output_path: str):
 
     # DeckCraft owns PowerPoint/native deck conversion and presentation exports.
     if source_ext in {".pptx", ".deckcraft"}:
-        if target_ext in {".pptx", ".deckcraft", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".txt", ".md"}:
+        if target_ext in {".pptx", ".potx", ".ppsx", ".deckcraft", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".txt", ".md", ".rtf"}:
             with atomic_output_path(output_path) as temporary:
                 run_engine(
                     "deck", ["convert", source, temporary],
                     cancel_check=owner._should_cancel, cancel_owner=owner,
                 )
             return output_path
-        if target_ext in {".docx", ".html", ".rtf"}:
+        if target_ext in {".docx", ".html"}:
             with tempfile.TemporaryDirectory(prefix="multifora-deckcraft-") as directory:
                 intermediate = str(Path(directory, "presentation.pdf"))
                 run_engine(
@@ -257,7 +281,12 @@ def convert_file(owner, file, target_format: str, output_path: str):
                 shutil.copyfile(generated, temporary)
         return output_path
 
-    # PhotoCraft is the image/raster engine. It also writes single-page PDFs.
+    # Image-to-PDF uses PdfCraft's native PDF creator. PhotoCraft rasterizes
+    # layered/read-only image sources first when PdfCraft has no direct importer.
+    if target_ext == ".pdf":
+        return _image_to_pdf(source, output_path, owner)
+
+    # All other raster and layered image conversions are handled by PhotoCraft.
     quality_args = ["--quality", str(max(1, min(100, int(getattr(owner, "compression_level", 90)))))]
     with atomic_output_path(output_path) as temporary:
         args = ["convert", source, temporary]
