@@ -147,7 +147,6 @@ class MultiforaMainWindow(
         self.start_menu_shortcut_enabled = False
         self.disable_warning_dialogs = False
         self.theme_mode = "system"
-        self.ghostscript_path_override = None
         self.ipc_server = None
         self._ipc_buffers = {}
         self._pending_ipc_file_paths = []
@@ -820,19 +819,20 @@ class MultiforaMainWindow(
         )
 
         options = (
-            ("DOCX", ".docx"),
             ("PDF", ".pdf"),
             ("TXT", ".txt"),
-            ("RTF", ".rtf"),
-            ("ODT", ".odt"),
-            ("JPG/JPEG", ".jpg"),
+            ("PPTX", ".pptx"),
+            ("DeckCraft", ".deckcraft"),
             ("PNG", ".png"),
+            ("JPG/JPEG", ".jpg"),
             ("GIF", ".gif"),
             ("BMP", ".bmp"),
             ("TIFF", ".tiff"),
             ("WEBP", ".webp"),
+            ("PSD", ".psd"),
+            ("PSB", ".psb"),
             ("SVG", ".svg"),
-            ("ICO", ".ico"),
+            ("HEIC/HEIF", ".heic"),
             ("ZIP", ".zip"),
             ("RAR", ".rar"),
             ("7Z", ".7z"),
