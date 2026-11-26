@@ -39,9 +39,7 @@ if errorlevel 1 goto :error
 %BUILD_PYTHON% "scripts\verify_build_environment.py" --requirements "requirements-runtime.txt" --requirements "requirements-build.txt"
 if errorlevel 1 goto :error
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "scripts\install_pandoc.ps1"
-if errorlevel 1 goto :error
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "scripts\install_tectonic.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "scripts\build_native_engines.ps1"
 if errorlevel 1 goto :error
 
 if exist "build" rmdir /s /q "build"
