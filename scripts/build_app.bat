@@ -12,6 +12,15 @@ if errorlevel 1 set "BUILD_PYTHON=py.exe -3.15"
 %BUILD_PYTHON% "scripts\verify_build_environment.py" --python-only
 if errorlevel 1 goto :error
 
+if exist ".venv-build\Scripts\python.exe" (
+    ".venv-build\Scripts\python.exe" -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 15) else 1)" >nul 2>nul
+    if errorlevel 1 (
+        echo Removing an incompatible build virtual environment...
+        rmdir /s /q ".venv-build"
+        if errorlevel 1 goto :error
+    )
+)
+
 if not exist ".venv-build\Scripts\python.exe" (
     %BUILD_PYTHON% -m venv ".venv-build"
     if errorlevel 1 goto :error
