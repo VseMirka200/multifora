@@ -417,7 +417,7 @@ class SettingsPanelMixin:
 
         capabilities = QLabel(
             "Переименование по шаблонам · Конвертация · "
-            "Объединение PDF/DOCX · Сжатие изображений и PDF"
+            "Объединение PDF (PdfCraft) · Сжатие изображений (PhotoCraft) и PDF (PdfCraft)"
         )
         capabilities.setWordWrap(True)
         capabilities.setAlignment(Qt.AlignmentFlag.AlignCenter)
