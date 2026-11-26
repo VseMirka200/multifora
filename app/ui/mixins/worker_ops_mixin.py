@@ -39,19 +39,13 @@ class WorkerOpsMixin:
         }
         if extensions == {".pdf"}:
             return "pdf"
-        if extensions == {".docx"}:
-            return "docx"
         return None
 
     def _select_merge_output_path_for_format(
         self, output_format: str, files: list[FileItem]
     ) -> str:
-        extension = "docx" if output_format == "docx" else "pdf"
-        filter_text = (
-            "Word Document (*.docx)"
-            if extension == "docx"
-            else "PDF Document (*.pdf)"
-        )
+        extension = "pdf"
+        filter_text = "PDF Document (*.pdf)"
         start_folder = os.path.dirname(files[0].path) if files else ""
         default_path = os.path.join(
             start_folder, f"Объединенный_документ.{extension}"
@@ -266,28 +260,18 @@ class WorkerOpsMixin:
             QMessageBox.warning(
                 self,
                 "Ошибка",
-                "Можно объединять только файлы одного формата: PDF с PDF или DOCX с DOCX.",
+                "PdfCraft объединяет PDF-файлы. Выберите минимум два PDF.",
             )
             return
 
-        if output_format == "docx":
-            if not all(file.path.lower().endswith(".docx") for file in files):
-                QMessageBox.warning(
-                    self,
-                    "Ошибка",
-                    "Для результата DOCX выберите только файлы DOCX.",
-                )
-                return
-            format_label = "DOCX"
-        else:
-            if not all(file.path.lower().endswith(".pdf") for file in files):
-                QMessageBox.warning(
-                    self,
-                    "Ошибка",
-                    "Для результа PDF выберите только файлы PDF.",
-                )
-                return
-            format_label = "PDF"
+        if not all(file.path.lower().endswith(".pdf") for file in files):
+            QMessageBox.warning(
+                self,
+                "Ошибка",
+                "PdfCraft объединяет только PDF-файлы.",
+            )
+            return
+        format_label = "PDF"
 
         output_path = self._select_merge_output_path_for_format(
             output_format, files
