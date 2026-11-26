@@ -64,7 +64,7 @@ class MergeMixinTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Объединение DOCX удалено"):
                 worker._merge_files_to_target()
             worker.files = [FileItem(paths[0]), FileItem(paths[1])]
-            with self.assertRaisesRegex(ValueError, "Объединяет PDF с PDF"):
+            with self.assertRaisesRegex(ValueError, "объединяет PDF с PDF"):
                 worker._merge_files_to_target()
 
     def test_missing_source_is_reported_before_engine_invocation(self):
