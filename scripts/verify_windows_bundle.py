@@ -16,10 +16,16 @@ def check_bundle(bundle: Path) -> list[str]:
         "bin/native/THIRD_PARTY_NOTICES.txt",
         "bin/native/licenses/pdfcraft/LICENSE-MIT",
         "bin/native/licenses/pdfcraft/LICENSE-APACHE",
+        "bin/native/licenses/pdfcraft/NOTICE",
+        "bin/native/licenses/pdfcraft/ATTRIBUTION.md",
         "bin/native/licenses/photocraft/LICENSE-MIT",
         "bin/native/licenses/photocraft/LICENSE-APACHE",
+        "bin/native/licenses/photocraft/NOTICE",
+        "bin/native/licenses/photocraft/ATTRIBUTION.md",
         "bin/native/licenses/deckcraft/LICENSE-MIT",
         "bin/native/licenses/deckcraft/LICENSE-APACHE",
+        "bin/native/licenses/deckcraft/NOTICE",
+        "bin/native/licenses/deckcraft/ATTRIBUTION.md",
     )
     for relative in required:
         path = bundle / relative
