@@ -63,7 +63,7 @@ if errorlevel 1 goto error
 set "PYTHONNOUSERSITE=1"
 
 echo Checking required packages...
-"%VENV_PY%" -c "import PySide6, pymupdf, PIL, docx, pdf2docx, odf" >nul 2>nul
+"%VENV_PY%" -c "import PySide6, PIL" >nul 2>nul
 if errorlevel 1 goto install_packages
 
 "%VENV_PY%" -m pip check >nul 2>nul
@@ -78,6 +78,15 @@ if errorlevel 1 goto error
 if errorlevel 1 goto error
 
 :run_program
+if not exist "bin\native\pdfcraft-cli.exe" (
+    echo.
+    echo ERROR: ArtCraft native engines are missing.
+    echo Run scripts\build_native_engines.ps1 with Rust 1.95.0 installed.
+    goto error
+)
+if not exist "bin\native\photocraft-cli.exe" goto error
+if not exist "bin\native\deckcraft-cli.exe" goto error
+
 echo Starting Multifora...
 if exist "%VENV_DIR%\Scripts\pythonw.exe" (
     start "" /b "%VENV_DIR%\Scripts\pythonw.exe" "%~dp0%APP_ENTRY%" %*
