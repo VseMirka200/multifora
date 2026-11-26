@@ -142,7 +142,7 @@ def test_build_environment_accepts_supported_python():
 
 def test_build_environment_rejects_32_bit_python():
     with (
-        patch("scripts.verify_build_environment.sys.version_info", (3, 11)),
+        patch("scripts.verify_build_environment.sys.version_info", (3, 15)),
         patch("scripts.verify_build_environment.sys.platform", "win32"),
         patch("scripts.verify_build_environment.struct.calcsize", return_value=4),
     ):
