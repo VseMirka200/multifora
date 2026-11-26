@@ -92,7 +92,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                 self.assertFalse(hasattr(window, "combo_merge_format"))
                 self.assertEqual(
                     window.merge_format_hint_label.text(),
-                    "Можно объединять только файлы одного формата: PDF с PDF или DOCX с DOCX.",
+                    "PdfCraft объединяет PDF-файлы. Выберите минимум два PDF.",
                 )
                 self.assertFalse(hasattr(window, "checkbox_replace_image"))
                 self.assertTrue(hasattr(window, "btn_ext_filter"))
@@ -584,7 +584,7 @@ class MainWindowSmokeTests(unittest.TestCase):
 
             try:
                 window._show_progress_dialog(
-                    "PDF сжат и заменен (Ghostscript (Авто (стандарт))): ВСР 15.pdf (-38.7%)"
+                    "PDF сжат и заменен (PdfCraft (Авто)): ВСР 15.pdf (-38.7%)"
                 )
                 self.app.processEvents()
 
@@ -883,9 +883,9 @@ class MainWindowSmokeTests(unittest.TestCase):
 
     def test_conversion_button_enables_after_target_format_selection(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
-            source_docx = os.path.join(tmp_dir, "source.docx")
-            second_docx = os.path.join(tmp_dir, "second.docx")
-            for path in (source_docx, second_docx):
+            source_pdf = os.path.join(tmp_dir, "source.pdf")
+            second_pdf = os.path.join(tmp_dir, "second.pdf")
+            for path in (source_pdf, second_pdf):
                 with open(path, "wb") as f:
                     f.write(b"x")
 
@@ -912,28 +912,28 @@ class MainWindowSmokeTests(unittest.TestCase):
                 window = MultiforaMainWindow()
 
             try:
-                window.files = [FileItem(source_docx), FileItem(second_docx)]
+                window.files = [FileItem(source_pdf), FileItem(second_pdf)]
                 window.update_file_list()
                 self.assertFalse(
                     window.list_files.selectionModel().hasSelection()
                 )
 
                 window.convert_file_type_combo.setCurrentText("Документы")
-                window.from_convert_combo.setCurrentText("DOCX")
-                window.to_convert_combo.setCurrentText("PDF")
+                window.from_convert_combo.setCurrentText("PDF")
+                window.to_convert_combo.setCurrentText("DOCX")
 
                 self.assertTrue(window.btn_convert.isEnabled())
                 conversion_files, skipped = (
                     window._collect_compatible_conversion_files(
-                        "Документы", "DOCX", "PDF"
+                        "Документы", "PDF", "DOCX"
                     )
                 )
                 self.assertEqual(
                     [item.path for item in conversion_files],
-                    [source_docx, second_docx],
+                    [source_pdf, second_pdf],
                 )
                 self.assertEqual(skipped, 0)
-                window.list_files.select_paths([source_docx])
+                window.list_files.select_paths([source_pdf])
                 selected_conversion_files, _ = (
                     window._collect_compatible_conversion_files(
                         "Документы", "DOCX", "PDF"
@@ -1029,7 +1029,7 @@ class MainWindowSmokeTests(unittest.TestCase):
                         stream.write(b"docx")
                 window.files = [FileItem(path) for path in docx_paths]
                 window.update_file_list()
-                self.assertTrue(window.btn_merge.isEnabled())
+                self.assertFalse(window.btn_merge.isEnabled())
             finally:
                 if hasattr(window, "queue_timer"):
                     window.queue_timer.stop()
