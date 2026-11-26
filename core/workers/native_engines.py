@@ -160,7 +160,7 @@ def _pdf_export_office(source: str, target: str, output: str, owner) -> str:
     return output
 
 
-def _pdf_to_images(source: str, output_path: str, owner) -> list[str]:
+def _pdf_to_images(file, source: str, output_path: str, owner) -> list[str]:
     extension = Path(output_path).suffix.lower()
     if extension not in {".png", ".jpg", ".jpeg", ".tif", ".tiff"}:
         raise NativeEngineError(
@@ -178,9 +178,9 @@ def _pdf_to_images(source: str, output_path: str, owner) -> list[str]:
                 destination = output_path
             else:
                 reference_path = str(base.with_name(f"{base.stem}_page_{page}{base.suffix}"))
-                reference = type(owner.files[0])(reference_path)
+                reference = type(file)(reference_path)
                 destination = owner._conversion_output_path(
-                    owner.files[0], extension, reference_file=reference
+                    file, extension, reference_file=reference
                 )
             with atomic_output_path(destination) as temporary:
                 run_engine(
@@ -231,7 +231,7 @@ def convert_file(owner, file, target_format: str, output_path: str):
     # PdfCraft exports editable office/text formats from PDF, and renders every PDF page.
     if source_ext == ".pdf":
         if target_ext in {".png", ".jpg", ".jpeg", ".tif", ".tiff"}:
-            return _pdf_to_images(source, output_path, owner)
+            return _pdf_to_images(file, source, output_path, owner)
         if target_ext == ".txt":
             text = run_engine(
                 "pdf", ["text", source],
