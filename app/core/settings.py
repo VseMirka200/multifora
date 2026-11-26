@@ -452,11 +452,6 @@ def _apply_settings_data(window, data: dict) -> None:
     _restore_image_compression_output_settings(window, data)
     _restore_theme(window, data)
 
-    if "ghostscript_path" in data:
-        # На старте только восстанавливаем настройку. Проверка Ghostscript
-        # выполняется лениво непосредственно перед PDF-операцией.
-        window.ghostscript_path_override = data.get("ghostscript_path") or None
-
 
 def load_settings(window) -> None:
     """Загрузка настроек из файла БЕЗ уведомлений."""
@@ -572,7 +567,6 @@ def _collect_settings_data(window) -> dict:
             for operation, attribute_name in _AUTO_CLEAR_CHECKBOXES.items()
         },
         "windows_context_menu": window.windows_context_menu_enabled,
-        "ghostscript_path": window.ghostscript_path_override,
         "desktop_shortcut": window.desktop_shortcut_enabled,
         "start_menu_shortcut": window.start_menu_shortcut_enabled,
         "disable_warning_dialogs": getattr(
