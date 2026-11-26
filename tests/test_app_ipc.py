@@ -8,7 +8,7 @@ from app.core import app_ipc
 
 
 class _SocketStub:
-    instances: ClassVar[list["_SocketStub"]] = []
+    instances: ClassVar[list[_SocketStub]] = []
 
     def __init__(self):
         self.server_name = None
