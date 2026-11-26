@@ -13,8 +13,8 @@ def check_python() -> list[str]:
     errors = []
     if sys.platform != "win32":
         errors.append("Windows is required for the Windows build.")
-    if sys.version_info[:2] != (3, 11):
-        errors.append(f"Python 3.11 is required; running {sys.version.split()[0]}.")
+    if sys.version_info[:2] != (3, 15):
+        errors.append(f"Python 3.15 is required; running {sys.version.split()[0]}.")
     if struct.calcsize("P") != 8:
         errors.append("64-bit Python is required.")
     return errors
@@ -72,7 +72,7 @@ def main() -> int:
         print("Build environment is not supported:", file=sys.stderr)
         print("\n".join(f"  - {error}" for error in errors), file=sys.stderr)
         return 1
-    print("Build environment verified: Windows x64 / Python 3.11")
+    print("Build environment verified: Windows x64 / Python 3.15")
     return 0
 
 
