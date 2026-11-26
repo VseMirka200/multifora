@@ -8,7 +8,7 @@ from collections.abc import Callable
 from app.core.app_utils import _debug_log
 from app.core.conversion_formats import suffix_for_format
 from app.core.models import FileItem
-from app.core import native_engines
+from core.workers import native_engines
 from core.workers.common import record_file_error
 
 _CONVERSION_OUTPUT_PATH_LOCK = threading.Lock()
