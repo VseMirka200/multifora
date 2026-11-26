@@ -27,6 +27,13 @@ if ($LASTEXITCODE -ne 0 -or $rustVersion -notmatch '1\.95\.') {
 }
 
 New-Item -ItemType Directory -Force -Path $NativeDir, $SourceRoot, $TargetRoot | Out-Null
+# Purge legacy conversion runtimes from developer builds and release staging.
+foreach ($legacyDirectory in @('pandoc', 'tectonic', 'gswin64')) {
+    $legacyPath = Join-Path (Join-Path $ProjectRoot 'bin') $legacyDirectory
+    if (Test-Path -LiteralPath $legacyPath) {
+        Remove-Item -LiteralPath $legacyPath -Recurse -Force
+    }
+}
 $env:CARGO_TARGET_DIR = $TargetRoot
 $env:CARGO_INCREMENTAL = '0'
 
