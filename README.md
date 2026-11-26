@@ -22,7 +22,7 @@
 
 - Пакетное переименование: шаблоны, нумерация, дата, замена текста и предварительный просмотр результата.
 - Конвертация документов и изображений в поддерживаемые форматы.
-- Объединение PDF и DOCX в один файл с заданным порядком.
+- Объединение нескольких PDF в один файл с заданным порядком (PdfCraft).
 - Сжатие PDF и изображений с выбором параметров качества.
 - Добавление файлов перетаскиванием, через окно выбора и из контекстного меню Проводника Windows.
 - Журнал операций и сохранение настроек интерфейса.
@@ -60,7 +60,7 @@
 | --- | --- |
 | Переименовать множество файлов по правилу | [Переименование](https://vsemirka200.github.io/multifora/guide/rename.html) |
 | Изменить формат документа или изображения | [Конвертация](https://vsemirka200.github.io/multifora/guide/conversion.html) |
-| Собрать несколько PDF или DOCX | [Объединение](https://vsemirka200.github.io/multifora/guide/optimize.html#объединение-документов) |
+| Собрать несколько PDF | [Объединение](https://vsemirka200.github.io/multifora/guide/optimize.html#объединение-документов) |
 | Уменьшить размер PDF или изображения | [Сжатие](https://vsemirka200.github.io/multifora/guide/optimize.html#сжатие-файлов) |
 
 ## Разработка
@@ -76,12 +76,15 @@ py -3.15 -m venv .venv
 .\.venv\Scripts\python.exe multifora_start.py
 ```
 
-Для конвертации документов установите [Pandoc](https://pandoc.org/installing.html).
-Мультифора ищет `pandoc.exe` в `bin\pandoc`, в `PATH` или по пути из
-переменной `MULTIFORA_PANDOC_PATH`. Для экспорта в PDF Pandoc также нужен
-TeX-движок. Сборка включает переносимый Tectonic в `bin\tectonic`; другой
-движок можно явно указать через `MULTIFORA_PANDOC_PDF_ENGINE`. Старый бинарный формат DOC не поддерживается;
-используйте DOCX.
+Конвертация выполняется нативными CLI-движками PdfCraft, PhotoCraft и DeckCraft. Для запуска приложения из исходников соберите их один раз:
+
+```powershell
+rustup toolchain install 1.95.0 --profile minimal
+.\scripts\build_native_engines.ps1
+.\.venv\Scripts\python.exe multifora_start.py
+```
+
+Скрипт загружает закреплённые upstream-теги, собирает Windows x64 CLI и копирует их лицензии в `bin\native\licenses`. Pandoc, Tectonic, Ghostscript, PyMuPDF и pdf2docx для конвертации не используются.
 
 Проверки проекта запускаются командой:
 
@@ -104,6 +107,7 @@ $env:QT_QPA_PLATFORM = "offscreen"
 | [Выпуск версии](CONTRIBUTING.md#выпуск-версии) | Как собрать и опубликовать новый Windows-релиз по тегу. |
 | [Журнал изменений](CHANGELOG.md) | Где отслеживать изменения версий. |
 | [Лицензия MIT](LICENSE) | Условия использования и вкладов. |
+| [Сторонние движки](THIRD_PARTY_NOTICES.md) | ArtCraft/PdfCraft, PhotoCraft, DeckCraft и лицензии. |
 
 Новые выпуски создаются по отдельным тегам `v<версия>` после проверок. Обычные изменения в `main`, включая слияния Pull Requests, не публикуют релиз автоматически.
 
