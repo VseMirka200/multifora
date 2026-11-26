@@ -32,7 +32,7 @@
 Рекомендуемая и используемая в CI среда:
 
 - **Операционная система:** Windows x64.
-- **Python:** 3.11 x64.
+- **Python:** 3.15 x64.
 - **Интерфейс:** PySide6 (Qt).
 - **Управление зависимостями:** файлы `requirements.txt`, `requirements-runtime.txt`, `requirements-dev.txt`, `requirements-build.txt` с зафиксированными версиями.
 - **Проверки:** `pytest`, `ruff`, GitHub Actions.
@@ -44,7 +44,7 @@
 ```powershell
 git clone https://github.com/VseMirka200/multifora.git
 cd multifora
-py -3.11 -m venv .venv
+py -3.15 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe multifora_start.py
@@ -71,7 +71,7 @@ py -3.11 -m venv .venv
 
 ## Правила изменений
 
-- Следуйте существующему стилю кода и настройкам `pyproject.toml`: Python 3.11, правила Ruff, предельная длина строки — **120 символов**.
+- Следуйте существующему стилю кода и настройкам `pyproject.toml`: Python 3.15, правила Ruff, предельная длина строки — **120 символов**.
 - Сохраняйте текстовые файлы в **UTF-8 без BOM** с окончанием строк **LF** согласно `.editorconfig` и проверкам репозитория.
 - Пишите понятные комментарии и сообщения об ошибках. Не изменяйте пользовательские тексты без необходимости.
 - Для исправления ошибки по возможности добавляйте регрессионный тест. Для новой функции — тесты ожидаемого и ошибочного поведения.
