@@ -21,14 +21,8 @@ from app.ui.ui_components import operation_file_items
 _CATEGORY_PLACEHOLDER = "Выберите тип файла:"
 _TARGET_PLACEHOLDER = "Выберите целевой формат:"
 
-_OPTIMIZED_DOCUMENT_ROUTES: dict[tuple[str, str], str] = {
-    ("DOCX", "PDF"): "pandoc_to_pdf",
-    ("PDF", "DOCX"): "pdf_to_docx",
-    ("DOCX", "ODT"): "docx_to_odt",
-    ("ODT", "DOCX"): "odt_to_docx",
-    ("ODT", "PDF"): "odt_to_pdf",
-    ("PDF", "ODT"): "pdf_to_odt",
-}
+# All document conversions now pass through the native PdfCraft/DeckCraft router.
+_OPTIMIZED_DOCUMENT_ROUTES: dict[tuple[str, str], str] = {}
 
 
 class ConversionActionsMixin:
@@ -379,12 +373,7 @@ class ConversionActionsMixin:
     ) -> str:
         if category_label != DOCUMENT_CATEGORY:
             return "auto_image"
-        if is_mixed_source_label(category_label, source_label):
-            return "auto_document"
-        return _OPTIMIZED_DOCUMENT_ROUTES.get(
-            (source_label, target_label),
-            "auto_document",
-        )
+        return "auto_document"
 
     def convert_files_dual_combo(self) -> None:
         """Конвертирует один или несколько исходных форматов в общий целевой."""
