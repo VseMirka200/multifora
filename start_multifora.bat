@@ -17,7 +17,7 @@ if not exist "%APP_ENTRY%" (
 )
 
 if exist "%VENV_PY%" (
-    "%VENV_PY%" -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 11) else 1)" >nul 2>nul
+    "%VENV_PY%" -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 15) else 1)" >nul 2>nul
     if not errorlevel 1 goto venv_ready
 
     echo Removing an incompatible virtual environment...
@@ -26,22 +26,22 @@ if exist "%VENV_PY%" (
 
 where py.exe >nul 2>nul
 if not errorlevel 1 (
-    py.exe -3.11 -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 11) else 1)" >nul 2>nul
+    py.exe -3.15 -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 15) else 1)" >nul 2>nul
     if not errorlevel 1 (
         set "PYTHON_EXE=py.exe"
-        set "PYTHON_ARGS=-3.11"
+        set "PYTHON_ARGS=-3.15"
         goto python_found
     )
 )
 
-if exist "%LocalAppData%\Programs\Python\Python311\python.exe" (
-    set "PYTHON_EXE=%LocalAppData%\Programs\Python\Python311\python.exe"
+if exist "%LocalAppData%\Programs\Python\Python315\python.exe" (
+    set "PYTHON_EXE=%LocalAppData%\Programs\Python\Python315\python.exe"
     goto python_found
 )
 
 where python.exe >nul 2>nul
 if not errorlevel 1 (
-    python.exe -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 11) else 1)" >nul 2>nul
+    python.exe -c "import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 15) else 1)" >nul 2>nul
     if not errorlevel 1 (
         set "PYTHON_EXE=python.exe"
         goto python_found
@@ -49,8 +49,8 @@ if not errorlevel 1 (
 )
 
 echo.
-echo ERROR: Python 3.11 x64 was not found.
-echo Install Python 3.11 x64 from: https://www.python.org/downloads/windows/
+echo ERROR: Python 3.15 x64 was not found.
+echo Install Python 3.15 x64 from: https://www.python.org/downloads/windows/
 echo Then run start_multifora.bat again.
 goto error
 
