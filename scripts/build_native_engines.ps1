@@ -78,7 +78,7 @@ foreach ($engine in $Engines) {
         Get-ChildItem -LiteralPath $sourcePath -Recurse -File |
             Where-Object { $_.Name -match '^(LICENSE|NOTICE|ATTRIBUTION|COPYING|OFL)' } |
             ForEach-Object {
-                $relative = $_.FullName.Substring($sourcePath.Length).TrimStart('\\', '/')
+                $relative = $_.FullName.Substring($sourcePath.Length).TrimStart([char[]]@(92, 47))
                 $destination = Join-Path $licenseDir $relative
                 $destinationFolder = Split-Path -Parent $destination
                 New-Item -ItemType Directory -Force -Path $destinationFolder | Out-Null
