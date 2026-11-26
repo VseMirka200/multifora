@@ -1,8 +1,4 @@
-"""Validate the layout of a frozen/installed Windows build.
-
-Runs without third-party modules; this lets CI check the packaging itself.
-"""
-
+"""Validate the frozen app and bundled ArtCraft engine/license layout."""
 from __future__ import annotations
 
 import argparse
@@ -11,17 +7,21 @@ from pathlib import Path
 
 
 def check_bundle(bundle: Path) -> list[str]:
-    # PyMuPDF data is collected by Multifora.spec. Its optional layout resources
-    # vary across releases, so no version-specific model filename is required.
     missing = []
-    for relative in (
+    required = (
         "Multifora.exe",
-        "bin/gswin64/gswin64c.exe",
-        "bin/gswin64/gsdll64.dll",
-        "bin/pandoc/pandoc.exe",
-        "bin/tectonic/tectonic.exe",
-        "_internal/docxcompose/templates/custom.xml",
-    ):
+        "bin/native/pdfcraft-cli.exe",
+        "bin/native/photocraft-cli.exe",
+        "bin/native/deckcraft-cli.exe",
+        "bin/native/THIRD_PARTY_NOTICES.txt",
+        "bin/native/licenses/pdfcraft/LICENSE-MIT",
+        "bin/native/licenses/pdfcraft/LICENSE-APACHE",
+        "bin/native/licenses/photocraft/LICENSE-MIT",
+        "bin/native/licenses/photocraft/LICENSE-APACHE",
+        "bin/native/licenses/deckcraft/LICENSE-MIT",
+        "bin/native/licenses/deckcraft/LICENSE-APACHE",
+    )
+    for relative in required:
         path = bundle / relative
         if not path.is_file() or path.stat().st_size == 0:
             missing.append(relative)
@@ -30,27 +30,31 @@ def check_bundle(bundle: Path) -> list[str]:
     if not internal.is_dir():
         missing.append("_internal/")
     else:
-        missing.extend(
-            f"_internal/**/{name}"
-            for name in ("icon.ico",)
-            if not any(internal.rglob(name))
-        )
-        missing.extend(
-            f"_internal/**/{name}"
-            for name in ("qwindows.dll", "qoffscreen.dll")
-            if not any(internal.rglob(name))
-        )
-        excluded_qt_binaries = {
-            "qpdf.dll",
-            "qtvirtualkeyboardplugin.dll",
-            "qt6pdf.dll",
-            "qt6virtualkeyboard.dll",
-            "qt6quick.dll",
-            "qt6qml.dll",
-            "qt6qmlmeta.dll",
-            "qt6qmlmodels.dll",
-            "qt6qmlworkerscript.dll",
-        }
+        for name in ("icon.ico",):
+            if not any(internal.rglob(name)):
+                missing.append(f"_internal/**/{name}")
+        for name in ("qwindows.dll", "qoffscreen.dll"):
+            if not any(internal.rglob(name)):
+                missing.append(f"_internal/**/{name}")
+
+    for obsolete in (
+        "bin/gswin64/gswin64c.exe",
+        "bin/pandoc/pandoc.exe",
+        "bin/tectonic/tectonic.exe",
+        "_internal/docxcompose",
+        "_internal/pdf2docx",
+        "_internal/pymupdf",
+        "_internal/odf",
+    ):
+        if (bundle / obsolete).exists():
+            missing.append(f"obsolete legacy backend still bundled: {obsolete}")
+
+    excluded_qt_binaries = {
+        "qpdf.dll", "qtvirtualkeyboardplugin.dll", "qt6pdf.dll",
+        "qt6virtualkeyboard.dll", "qt6quick.dll", "qt6qml.dll",
+        "qt6qmlmeta.dll", "qt6qmlmodels.dll", "qt6qmlworkerscript.dll",
+    }
+    if internal.is_dir():
         missing.extend(
             f"unexpected Qt runtime binary: {path.relative_to(bundle)}"
             for path in internal.rglob("*")
@@ -69,7 +73,7 @@ def main(argv: list[str] | None = None) -> int:
         for item in missing:
             print(f"  - {item}", file=sys.stderr)
         return 1
-    print(f"Bundle contents verified: {args.bundle}")
+    print(f"ArtCraft engine bundle and license files verified: {args.bundle}")
     return 0
 
 
