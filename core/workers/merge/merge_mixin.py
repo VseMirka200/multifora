@@ -1,6 +1,7 @@
 import os
 from copy import deepcopy
 
+from app.core.artcraft import run_artcraft_cli
 from app.core.models import FileItem
 from core.workers.atomic_output import atomic_output_path
 
@@ -142,31 +143,24 @@ class MergeMixin:
         if not all(file.path.lower().endswith(".pdf") for file in files):
             raise Exception("Объединение в PDF поддерживает только файлы PDF.")
 
-        try:
-            # Импортируем только в рабочем потоке. Полный реестр необязательных
-            # backend'ов не должен задерживать простое объединение PDF.
-            import pymupdf as fitz
-        except ImportError as error:
-            raise Exception(
-                "Установите PyMuPDF для объединения PDF-файлов."
-            ) from error
-
         output_path = self._get_merge_output_path(files, "pdf")
-        merged_pdf = fitz.open()
         try:
-            for index, file in enumerate(files):
-                if self._should_cancel():
-                    raise InterruptedError("Операция отменена пользователем")
-                self.status.emit(f"Объединение PDF: {file.name}")
-                with fitz.open(file.path) as source_pdf:
-                    merged_pdf.insert_pdf(source_pdf)
-                self.progress.emit(int((index + 1) / len(files) * 100))
-
-            with atomic_output_path(output_path) as temporary:
-                merged_pdf.save(temporary)
+            run_artcraft_cli(
+                "pdfcraft",
+                ["combine", *[file.path for file in files], "--out", output_path],
+                worker=self,
+            )
+            if not os.path.isfile(output_path):
+                raise RuntimeError("PdfCraft не создал объединённый PDF")
             return output_path
-        finally:
-            merged_pdf.close()
+        except Exception:
+            try:
+                if os.path.exists(output_path):
+                    os.remove(output_path)
+            except OSError:
+                pass
+            raise
+
 
 
 def _requires_docx_composer(document) -> bool:
