@@ -21,7 +21,7 @@ class FileListActionsMixin:
     _FILTERABLE_FILE_TYPES = frozenset(
         ("document", "image", "archive", "folder", "other")
     )
-    _MERGE_EXTENSIONS = frozenset((".pdf", ".docx"))
+    _MERGE_EXTENSIONS = frozenset((".pdf",))
 
     @staticmethod
     def _is_supported_queue_path(path: str) -> bool:
