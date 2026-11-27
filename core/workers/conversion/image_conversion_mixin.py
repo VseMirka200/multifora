@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import os
 
+from app.core import deps
 from app.core.app_utils import _debug_log
-from app.core.artcraft import run_artcraft_cli
+from app.core.artcraft import resolve_artcraft_cli, run_artcraft_cli
 from app.core.conversion_formats import (
     IMAGE_CATEGORY,
     PDF_IMAGE_TARGETS,
@@ -24,11 +25,15 @@ class ImageConversionMixin:
     def _convert_image_to_image(
         self, file: FileItem, target_format: str
     ) -> str:
+        if not HAS_PIL:
+            raise Exception("Установите Pillow для конвертации изображений")
+
         source_format = format_for_path(file.path)
         if source_format not in source_formats_for_category(IMAGE_CATEGORY):
             extension = os.path.splitext(file.path)[1]
-            raise Exception(f"Неподдерживаемый формат изображения: {extension}")
-
+            raise Exception(
+                f"Неподдерживаемый формат изображения: {extension}"
+            )
         target_format = str(target_format or "").upper()
         target_ext = suffix_for_format(target_format)
         if not target_ext:
@@ -39,20 +44,51 @@ class ImageConversionMixin:
             return self._convert_image_to_pdf(file)
 
         output_path = self._conversion_output_path(file, target_ext)
+        if (
+            source_format in {"JPG", "JPEG", "PNG", "WEBP", "BMP", "TIFF", "TGA", "ICO", "QOI", "PSD"}
+            and target_format in {"JPG", "JPEG", "PNG", "WEBP", "BMP", "TIFF", "TGA", "ICO", "QOI"}
+            and resolve_artcraft_cli("photocraft")
+        ):
+            try:
+                with atomic_output_path(output_path) as temporary:
+                    run_artcraft_cli("photocraft", ["convert", file.path, temporary], worker=self)
+                return output_path
+            except Exception:
+                self._release_conversion_output_path(output_path)
+                raise
+        image = None
         try:
-            run_artcraft_cli(
-                "photocraft",
-                ["convert", file.path, output_path],
-                worker=self,
+            if source_format == "EPS":
+                available, ghostscript_path = deps.ensure_ghostscript_detected()
+                if not available or not ghostscript_path:
+                    raise Exception(
+                        "Ghostscript не найден; он требуется для чтения EPS"
+                    )
+                from PIL import EpsImagePlugin
+
+                EpsImagePlugin.gs_binary = ghostscript_path
+                EpsImagePlugin.gs_windows_binary = ghostscript_path
+            image = (
+                self._load_svg_as_pillow_image(file.path)
+                if source_format == "SVG"
+                else Image.open(file.path)
             )
-            if not os.path.isfile(output_path):
-                raise RuntimeError("PhotoCraft не создал выходное изображение")
+            with atomic_output_path(output_path) as temporary:
+                self._save_pillow_image(image, temporary, target_format)
             return output_path
         except Exception as error:
-            self._discard_conversion_output(output_path)
+            self._release_conversion_output_path(output_path)
             raise Exception(
                 f"Ошибка конвертации изображения {source_format} → {target_format}: {error}"
             ) from error
+        finally:
+            if image is not None:
+                try:
+                    image.close()
+                except Exception as close_error:
+                    _debug_log(
+                        f"Не удалось закрыть изображение {file.path}: {close_error}"
+                    )
 
     def _convert_image_auto(self, file: FileItem, target_format: str) -> str:
         source_format = format_for_path(file.path)
