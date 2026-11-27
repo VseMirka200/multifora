@@ -35,7 +35,7 @@ try {
         if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Tail 25 }
         throw "Installer failed: $($setup.ExitCode)"
     }
-    foreach ($relative in @('Multifora.exe', '_internal\pypdfium2_raw\pdfium.dll')) {
+    foreach ($relative in @('Multifora.exe')) {
         if (-not (Test-Path -LiteralPath (Join-Path $installDirectory $relative))) {
             throw "Installer did not copy $relative"
         }

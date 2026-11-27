@@ -1,7 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, copy_metadata
+engine_root = Path('engines')
+engine_binaries = []
+engine_notices = []  # Portable trees are copied verbatim after freezing.
 
 excluded_qt_runtime_binaries = {
     'qpdf.dll',
@@ -18,18 +21,9 @@ excluded_qt_runtime_binaries = {
 a = Analysis(
     ['multifora_start.py'],
     pathex=[],
-    binaries=collect_dynamic_libs('pypdfium2_raw'),
-    datas=[('assets', 'assets')]
-    + collect_data_files('docxcompose')
-    + collect_data_files('pypdfium2_raw')
-    + copy_metadata('pypdf')
-    + copy_metadata('pypdfium2')
-    + copy_metadata('reportlab')
-    + copy_metadata('charset-normalizer')
-    + copy_metadata('striprtf'),
-    # With the smaller Essentials distribution, the PySide6 metapackage is
-    # absent and PyInstaller cannot detect this compatibility module by version.
-    hiddenimports=['docxcompose.composer', 'PySide6.support.deprecated'],
+    binaries=engine_binaries,
+    datas=([('assets', 'assets')] if __import__('os').path.isdir('assets') else []) + engine_notices,
+    hiddenimports=['PySide6.support.deprecated'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -54,19 +48,19 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
-    icon=['assets/icon.ico'],
+    icon=['assets/icon.ico'] if __import__('os').path.isfile('assets/icon.ico') else None,
 )
 coll = COLLECT(
     exe,
     a.binaries,
     a.datas,
     strip=False,
-    upx=True,
-    upx_exclude=[],
+    upx=False,
+    upx_exclude=["multifora_*.dll"],
     name='Multifora',
 )

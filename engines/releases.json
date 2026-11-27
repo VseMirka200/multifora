@@ -1,0 +1,32 @@
+{
+  "pdfcraft": {
+    "url": "https://github.com/storytold/pdfcraft/releases/download/v0.22.0/pdfcraft-0.22.0-windows-x64-portable.zip",
+    "size": 133565158,
+    "sha256": "193394d15b923510e917912c0142b38119a8d4369b30693d97ef086444e9e314"
+  },
+  "wordcraft": {
+    "url": "https://github.com/storytold/wordcraft/releases/download/v0.19.1/wordcraft-0.19.1-windows-x64-portable.zip",
+    "size": 129929601,
+    "sha256": "15156fb90ad8d1fee5ba154ff87a76e9c85ebe0d013ffadb6e5ff776ec1ae8f2"
+  },
+  "deckcraft": {
+    "url": "https://github.com/storytold/deckcraft/releases/download/v0.19.1/deckcraft-0.19.1-windows-x64-portable.zip",
+    "size": 106499796,
+    "sha256": "f2b46bf227b389c3e5443080b5c5380d70351706cc5137c1be7014e71152d52d"
+  },
+  "gridcraft": {
+    "url": "https://github.com/storytold/gridcraft/releases/download/v0.19.1/gridcraft-0.19.1-windows-x64-portable.zip",
+    "size": 52149109,
+    "sha256": "0b4bf8535f4904fac654326a360ff6d74ea6f4d184a8257c106388fafe74c9ac"
+  },
+  "photocraft": {
+    "url": "https://github.com/storytold/photocraft/releases/download/v0.23.1/photocraft-0.23.1-windows-x64-portable.zip",
+    "size": 143135209,
+    "sha256": "6317e764ecfa804227c38079311bea489283ab383ef040c81ef2fd6d86bd60b1"
+  },
+  "vectorcraft": {
+    "url": "https://github.com/storytold/vectorcraft/releases/download/v0.24.1/vectorcraft-0.24.1-windows-x64-portable.zip",
+    "size": 162939900,
+    "sha256": "589d1c9c7090a05a033462af04042ee0a9dd3a188d7440a9f965799d2d66161d"
+  }
+}

@@ -81,6 +81,12 @@ FORMAT_EXTENSIONS: dict[str, tuple[str, ...]] = {
     "PSD": (".psd",),
 }
 
+# Additional formats used by the native Craft adapters.
+FORMAT_EXTENSIONS.update({label: ("." + label.lower(),) for label in (
+    "MD", "TEX", "POT", "PPS", "DECKCRAFT", "XLS", "XLSX", "XLSB", "ODS", "CSV", "TSV", "JSON",
+    "PNM", "PSB", "ORA", "XCF", "KRA", "PCRAFT", "SVGZ", "AI", "VECTORCRAFT",
+)})
+
 PDF_IMAGE_TARGETS = ("JPG", "JPEG", "PNG", "WEBP", "TIFF", "BMP")
 
 

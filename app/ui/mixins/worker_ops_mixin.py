@@ -244,7 +244,6 @@ class WorkerOpsMixin:
         self.status_bar.showMessage(f"Сжатие {len(files)} файлов...")
 
     def merge_files(self):
-        """Объединение документов одинакового формата в один файл."""
         if not self._ensure_operation_can_start():
             return
         files = self._get_selected_or_all_file_items()
@@ -254,109 +253,28 @@ class WorkerOpsMixin:
             if not panel.ready:
                 return
             files = list(panel.files)
-        if len(files) < 2 and (panel is None or panel.pages.count() < 2):
-            QMessageBox.warning(
-                self,
-                "Ошибка",
-                "Добавьте или выберите минимум два документа для объединения!",
-            )
-            return
-
-        missing_paths = [
-            file.path for file in files if not os.path.isfile(file.path)
-        ]
-        if missing_paths:
-            for file in files:
-                if file.path in missing_paths:
-                    file.update_info()
-            self.update_file_list()
-            QMessageBox.warning(
-                self,
-                "Исходный файл недоступен",
-                "Эти документы больше не существуют по указанному пути "
-                "или недоступны:\n\n"
-                + "\n".join(f"• {path}" for path in missing_paths)
-                + "\n\nУдалите их из списка или добавьте снова.",
-            )
-            return
-
-        output_format = self._detect_merge_output_format(files)
-        if output_format is None:
-            QMessageBox.warning(
-                self,
-                "Ошибка",
-                "Можно объединять только файлы одного формата: PDF с PDF или DOCX с DOCX.",
-            )
-            return
-
-        if output_format == "docx":
-            if not all(file.path.lower().endswith(".docx") for file in files):
-                QMessageBox.warning(
-                    self,
-                    "Ошибка",
-                    "Для результата DOCX выберите только файлы DOCX.",
-                )
-                return
-            format_label = "DOCX"
+            order = panel.page_order()
         else:
-            if not all(file.path.lower().endswith(".pdf") for file in files):
-                QMessageBox.warning(
-                    self,
-                    "Ошибка",
-                    "Для результа PDF выберите только файлы PDF.",
-                )
-                return
-            format_label = "PDF"
-
-        page_order = panel.page_order() if panel is not None else choose_merge_pages(self, files, output_format)
-        if page_order is None:
+            order = ()
+        kind = self._detect_merge_output_format(files)
+        if len(files) < 2 or kind is None:
+            QMessageBox.warning(self, "Объединение", "Выберите минимум два PDF или два DOCX.")
             return
-        if page_order:
-            document_order = list(dict.fromkeys(source for source, _ in page_order))
-            rank = {source: index for index, source in enumerate(document_order)}
-            if (
-                len(files) >= 2
-                and (panel is None or len(page_order) == panel.pages.count())
-                and len(document_order) == len(files)
-                and list(page_order) == sorted(page_order, key=lambda entry: (rank[entry[0]], entry[1]))
-            ):
-                files = [files[index] for index in document_order]
-                page_order = ()
-
-        allow_pdf = output_format == "docx" and bool(page_order)
-        if allow_pdf:
-            output_path = self._select_merge_output_path_for_format(output_format, files, allow_pdf=True)
-        else:
-            output_path = self._select_merge_output_path_for_format(output_format, files)
-        if not output_path:
+        # Editable DOCX can be joined only as complete documents, in document order.
+        full_order = not order or (panel is not None and len(order) == panel.pages.count() and list(order) == sorted(order))
+        output_kind = kind if full_order else "pdf"
+        output = self._select_merge_output_path_for_format(output_kind, files, allow_pdf=(kind == "docx" and full_order))
+        if not output:
             return
-        if allow_pdf and output_path.lower().endswith(".pdf"):
-            output_format = "pdf"
-            format_label = "PDF"
-
-        contents = f"{len(page_order)} стр." if page_order else f"{len(files)} документов"
-        reply = self.show_russian_message_box(
-            "Подтверждение",
-            f"Объединить {contents} в один {format_label}?\n\nСохранить:\n{output_path}",
-            QMessageBox.Icon.Question,
-            True,
-        )
-        if not reply:
+        if os.path.exists(output):
+            QMessageBox.warning(self, "Объединение", "Выберите новое имя: существующие файлы не перезаписываются.")
             return
-
-        show_starting = getattr(self, "_show_operation_starting", None)
-        if callable(show_starting):
-            show_starting(f"Подготовка объединения {len(files)} документов...")
-        if not self._start_operation(MergeRequest(output_format, output_path, page_order), files):
+        output_kind = "docx" if output.lower().endswith(".docx") else "pdf"
+        warning = "\nПроверьте разделы, колонтитулы и разметку после объединения." if output_kind == "docx" else ""
+        if not self.show_russian_message_box("Подтверждение", f"Объединить документы в {output_kind.upper()}?\n{output}{warning}", QMessageBox.Icon.Question, True):
             return
-        self.log_event(
-            f"Объединение: {len(files)} документов в {format_label}"
-        )
-        if callable(getattr(self, "_show_progress_dialog", None)):
-            self._show_progress_dialog(
-                f"Объединение {len(files)} документов..."
-            )
-        self.status_bar.showMessage(f"Объединение {len(files)} документов...")
+        if self._start_operation(MergeRequest(output_kind, output, () if output_kind == "docx" else order), files):
+            self._show_progress_dialog("Объединение документов…")
 
     def on_operation_finished(self, result):
         """Завершение операции."""

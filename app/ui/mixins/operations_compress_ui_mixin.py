@@ -4,7 +4,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QFileDialog
 
 from app.core.app_utils import _log_ignored_error, signals_blocked
-from core.image_optimizer import QUALITY_EXTENSIONS
+QUALITY_EXTENSIONS = frozenset({".jpg", ".jpe", ".jpeg", ".jfif", ".webp"})
 
 
 class OperationsCompressUiMixin:

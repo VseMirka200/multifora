@@ -24,7 +24,7 @@ class FileListActionsMixin:
     # Добавляет и удаляет файлы, сохраняя согласованность списка и предпросмотра.
     _ASYNC_METADATA_THRESHOLD = 500
     _FILTERABLE_FILE_TYPES = frozenset(
-        ("document", "presentation", "image", "archive", "folder", "other")
+        ("document", "presentation", "spreadsheet", "image", "archive", "folder", "other")
     )
     _MERGE_EXTENSIONS = frozenset((".pdf", ".docx"))
 

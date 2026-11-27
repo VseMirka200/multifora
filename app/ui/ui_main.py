@@ -190,27 +190,8 @@ class MultiforaMainWindow(
         QTimer.singleShot(0, self._preload_file_worker_async)
 
     def _preload_file_worker_async(self) -> None:
-        """Загружает необязательные библиотеки без задержки нажатия кнопки."""
-        if getattr(self, "_file_worker_preload_thread", None) is not None:
-            return
-
-        def preload() -> None:
-            try:
-                from app.workers.compression_worker import (  # noqa: F401
-                    CompressionWorker,
-                )
-                from app.workers.conversion_worker import (  # noqa: F401
-                    ConversionWorker,
-                )
-            except Exception as error:
-                _debug_log(f"Не удалось предварительно загрузить обработчик: {error}")
-
-        self._file_worker_preload_thread = threading.Thread(
-            target=preload,
-            name="multifora-worker-preload",
-            daemon=True,
-        )
-        self._file_worker_preload_thread.start()
+        """CLI-движки запускаются по требованию."""
+        return
 
     def create_ipc_server(self):
         self._ipc_file_server = LocalFileServer(self.log_event, self)
@@ -648,6 +629,7 @@ class MultiforaMainWindow(
         options = (
             ("Документы", "document"),
             ("Презентации", "presentation"),
+            ("Таблицы", "spreadsheet"),
             ("Изображения", "image"),
             ("Архивы", "archive"),
             ("Папки", "folder"),

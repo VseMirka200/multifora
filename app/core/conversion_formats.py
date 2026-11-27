@@ -23,82 +23,23 @@ from core.file_types import DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, PRESENTATION_
 from core.file_types import FILE_TYPE_EXTENSIONS as FILE_TYPE_EXTENSIONS
 from core.file_types import KNOWN_FILE_EXTENSIONS as KNOWN_FILE_EXTENSIONS
 
+from core.craft_routes import (
+    WORD_INPUTS, WORD_OUTPUTS, DECK_INPUTS, DECK_OUTPUTS, GRID_INPUTS, GRID_OUTPUTS,
+    PHOTO_INPUTS, PHOTO_OUTPUTS, VECTOR_INPUTS, VECTOR_OUTPUTS, PDF_OUTPUTS, route,
+)
 DOCUMENT_CATEGORY = "Документы"
 IMAGE_CATEGORY = "Изображения"
 PRESENTATION_CATEGORY = "Презентации"
-CONVERSION_CATEGORIES = (DOCUMENT_CATEGORY, IMAGE_CATEGORY, PRESENTATION_CATEGORY)
-
-CATEGORY_FILE_TYPES: dict[str, str] = {
-    PRESENTATION_CATEGORY: "presentation",
-    DOCUMENT_CATEGORY: "document",
-    IMAGE_CATEGORY: "image",
-}
-_FILE_TYPE_CATEGORIES = {file_type: category for category, file_type in CATEGORY_FILE_TYPES.items()}
-
-MIXED_SOURCE_LABELS: dict[str, str] = {
-    PRESENTATION_CATEGORY: "Любая поддерживаемая презентация",
-    DOCUMENT_CATEGORY: "Любой поддерживаемый документ",
-    IMAGE_CATEGORY: "Любое поддерживаемое изображение",
-}
-
-_OPTIMIZED_DOCUMENT_ROUTES: dict[tuple[str, str], str] = {
-    ("DOCX", "PDF"): "docx_to_pdf",
-    ("PDF", "DOCX"): "pdf_to_docx",
-    ("ODT", "PDF"): "odt_to_pdf",
-    ("PDF", "ODT"): "pdf_to_odt",
-}
-
+SPREADSHEET_CATEGORY = "Таблицы"
+CONVERSION_CATEGORIES = (DOCUMENT_CATEGORY, IMAGE_CATEGORY, PRESENTATION_CATEGORY, SPREADSHEET_CATEGORY)
+CATEGORY_FILE_TYPES = {DOCUMENT_CATEGORY: "document", IMAGE_CATEGORY: "image", PRESENTATION_CATEGORY: "presentation", SPREADSHEET_CATEGORY: "spreadsheet"}
+_FILE_TYPE_CATEGORIES = {v: k for k, v in CATEGORY_FILE_TYPES.items()}
+MIXED_SOURCE_LABELS = {DOCUMENT_CATEGORY: "Любой поддерживаемый документ", IMAGE_CATEGORY: "Любое поддерживаемое изображение", PRESENTATION_CATEGORY: "Любая поддерживаемая презентация", SPREADSHEET_CATEGORY: "Любая поддерживаемая таблица"}
+CATEGORY_SOURCE_FORMATS = {DOCUMENT_CATEGORY: (*WORD_INPUTS, "PDF"), IMAGE_CATEGORY: (*PHOTO_INPUTS, *VECTOR_INPUTS), PRESENTATION_CATEGORY: DECK_INPUTS, SPREADSHEET_CATEGORY: GRID_INPUTS}
+CATEGORY_TARGET_FORMATS = {DOCUMENT_CATEGORY: tuple(dict.fromkeys((*WORD_OUTPUTS, *PDF_OUTPUTS))), IMAGE_CATEGORY: tuple(dict.fromkeys((*PHOTO_OUTPUTS,*VECTOR_OUTPUTS))), PRESENTATION_CATEGORY: DECK_OUTPUTS, SPREADSHEET_CATEGORY: GRID_OUTPUTS}
 
 def conversion_type_for_formats(category: str, source: str, target: str) -> str:
-    if category == PRESENTATION_CATEGORY:
-        return "presentation"
-    if category != DOCUMENT_CATEGORY:
-        return "auto_image"
-    return _OPTIMIZED_DOCUMENT_ROUTES.get((source, target), "auto_document")
-
-
-CATEGORY_SOURCE_FORMATS: dict[str, tuple[str, ...]] = {
-    DOCUMENT_CATEGORY: DOCUMENT_FORMATS,
-    PRESENTATION_CATEGORY: PRESENTATION_FORMATS,
-    IMAGE_CATEGORY: IMAGE_SOURCE_FORMATS,
-}
-
-
-# PDF доступен как цель для изображений, потому что каждое изображение можно
-# сохранить в отдельный PDF, в том числе при обработке смешанного набора.
-CATEGORY_TARGET_FORMATS: dict[str, tuple[str, ...]] = {
-    DOCUMENT_CATEGORY: DOCUMENT_FORMATS,
-    PRESENTATION_CATEGORY: ("PDF", *PRESENTATION_FORMATS),
-    IMAGE_CATEGORY: (
-        "JPG",
-        "JPEG",
-        "PNG",
-        "WEBP",
-        "BMP",
-        "TIFF",
-        "GIF",
-        "ICO",
-        "TGA",
-        "PCX",
-        "JP2",
-        "QOI",
-        "DDS",
-        "EPS",
-        "ICNS",
-        "XBM",
-        "SGI",
-        "PPM",
-        "PGM",
-        "PBM",
-        "AVIF",
-        "HEIC",
-        "HEIF",
-        "PDF",
-        "SVG",
-    ),
-}
-
-CATEGORY_TARGET_FORMATS[DOCUMENT_CATEGORY] += PDF_IMAGE_TARGETS
+    return {IMAGE_CATEGORY: "auto_image", PRESENTATION_CATEGORY: "presentation", SPREADSHEET_CATEGORY: "spreadsheet"}.get(category, "auto_document")
 
 
 def _normalize_label(value: object) -> str:
@@ -132,16 +73,10 @@ def is_mixed_source_label(category: str, label: str) -> bool:
 
 def compatible_targets_for_source(category: str, source_label: str) -> list[str]:
     """Возвращает доступные цели для одного источника или смешанного режима."""
-    normalized_category = _normalize_label(category)
-    normalized_source = _normalize_label(source_label)
-    targets = target_formats_for_category(normalized_category)
-    if normalized_category == DOCUMENT_CATEGORY and normalized_source in OFFICE_ROUTES:
-        return [target for target in targets if target in OFFICE_ROUTES[normalized_source]]
-    if normalized_category == DOCUMENT_CATEGORY and normalized_source != "PDF":
-        targets = [target for target in targets if target not in PDF_IMAGE_TARGETS]
-    if is_mixed_source_label(normalized_category, normalized_source):
-        return targets
-    return [target for target in targets if target != normalized_source]
+    category = _normalize_label(category)
+    source_label = _normalize_label(source_label)
+    sources = source_formats_for_category(category) if is_mixed_source_label(category, source_label) else [source_label]
+    return [target for target in target_formats_for_category(category) if any(route(source, target) for source in sources)]
 
 
 def category_for_file_type(file_type: str) -> str | None:

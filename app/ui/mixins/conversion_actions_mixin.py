@@ -286,11 +286,9 @@ class ConversionActionsMixin:
         if panel is not None:
             hint = ""
             if category_selected == PRESENTATION_CATEGORY:
-                hint = "Для конвертации презентаций требуется LibreOffice Impress."
-            elif formats_ready and target_combo.currentText() == "DOCX" and (
-                source_combo.currentText() == "PDF" or any(matches_format(file.path, "PDF") for file in files)
-            ):
-                hint = "PDF → DOCX: страницы без текстового слоя вставляются как изображения."
+                hint = "DeckCraft: нативная конвертация. Для PNG создаётся файл на каждый слайд."
+            elif category_selected == "Таблицы" and target_combo.currentText() == "PDF":
+                hint = "GridCraft: PDF содержит активный лист, а не всю книгу."
             panel.format_hint.setText(hint)
             panel.format_hint.setVisible(bool(hint))
         output_ready = not (
@@ -368,7 +366,9 @@ class ConversionActionsMixin:
             if mixed_mode and matches_format(file_item.path, target_label):
                 skipped_same_target += 1
                 continue
-            files.append(file_item)
+            from core.craft_routes import route_for_path
+            if route_for_path(file_item.path, target_label) is not None:
+                files.append(file_item)
 
         return files, skipped_same_target
 
@@ -431,6 +431,21 @@ class ConversionActionsMixin:
                 target_label=target_label,
                 skipped_same_target=skipped_same_target,
             )
+            return
+        from core.craft_bridge import bridge, CraftError
+        from core.craft_routes import route_for_path
+        required = set()
+        for item in files:
+            selected = route_for_path(item.path, target_label)
+            if selected:
+                required.add(selected.engine)
+                if selected.engine == "pdfcraft" and target_label.upper() in ("WEBP", "BMP"):
+                    required.add("photocraft")
+        try:
+            for engine in sorted(required):
+                bridge.require(engine)
+        except CraftError as exc:
+            QMessageBox.warning(self, "Движок не готов", str(exc))
             return
         accepted, output_mode, output_dir = (
             self._resolve_conversion_output_destination(

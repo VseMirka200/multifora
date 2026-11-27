@@ -5,10 +5,6 @@ from pathlib import Path
 
 REQUIRED = (
     "Multifora.exe",
-    "_internal/pypdfium2_raw/pdfium.dll",
-    "_internal/pypdfium2_raw/version.json",
-    "_internal/assets/icon.ico",
-    "_internal/docxcompose/templates/custom.xml",
     "_internal/PySide6/plugins/platforms/qwindows.dll",
     "_internal/PySide6/plugins/platforms/qoffscreen.dll",
 )
@@ -30,6 +26,9 @@ def check_bundle(bundle):
     errors = [name for name in REQUIRED if not (bundle / name).is_file() or (bundle / name).stat().st_size == 0]
     if not (bundle / "_internal").is_dir():
         errors.append("_internal/")
+    for engine in ('pdfcraft','wordcraft','deckcraft','gridcraft','photocraft','vectorcraft'):
+        if len(list((bundle / '_internal' / 'engines' / engine).rglob(f'{engine}-cli.exe'))) != 1:
+            errors.append(f'missing or ambiguous Craft CLI: {engine}')
     errors.extend(
         f"unexpected legacy engine: {engine}"
         for engine in ("pdfcraft", "wordcraft")

@@ -31,7 +31,7 @@ try {
     }
     $report = Get-Content -LiteralPath $env:MULTIFORA_SMOKE_REPORT -Raw | ConvertFrom-Json
     if ($report.status -ne 'ok') { throw "Application smoke test failed: $($report | ConvertTo-Json -Compress -Depth 10)" }
-    @{ started = $true; observation_ms = $timer.ElapsedMilliseconds; office_backend = 'Python' } |
+    @{ started = $true; observation_ms = $timer.ElapsedMilliseconds; office_backend = 'Removed' } |
         ConvertTo-Json | Set-Content -LiteralPath $MetricsPath -Encoding UTF8
 } finally {
     $env:USERPROFILE = $savedProfile

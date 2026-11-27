@@ -1,7 +1,7 @@
 """Типы файлов, общие для списка файлов и операций."""
 
 DOCUMENT_EXTENSIONS = (
-    ".docx",
+    ".docx", ".doc", ".md", ".tex",
     ".pdf",
     ".odt",
     ".rtf",
@@ -10,7 +10,8 @@ DOCUMENT_EXTENSIONS = (
     ".htm",
 )
 
-PRESENTATION_EXTENSIONS = (".ppt", ".pptx", ".odp")
+PRESENTATION_EXTENSIONS = (".ppt", ".pptx", ".odp", ".pot", ".pps", ".deckcraft")
+SPREADSHEET_EXTENSIONS = (".xls", ".xlsx", ".xlsb", ".ods", ".csv", ".tsv", ".json")
 
 IMAGE_EXTENSIONS = (
     ".jpg",
@@ -49,12 +50,13 @@ IMAGE_EXTENSIONS = (
     ".heif",
     ".hif",
     ".svg",
-    ".psd",
+    ".psd", ".psb", ".ora", ".xcf", ".kra", ".pcraft", ".pnm", ".svgz", ".ai", ".eps", ".vectorcraft",
 )
 
 FILE_TYPE_EXTENSIONS = {
     "document": frozenset(DOCUMENT_EXTENSIONS),
     "presentation": frozenset(PRESENTATION_EXTENSIONS),
+    "spreadsheet": frozenset(SPREADSHEET_EXTENSIONS),
     "image": frozenset(IMAGE_EXTENSIONS),
     "archive": frozenset((".zip", ".rar", ".7z", ".tar", ".gz")),
 }

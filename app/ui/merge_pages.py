@@ -1,8 +1,6 @@
 """Миниатюры страниц перед объединением документов."""
 
 from pathlib import Path
-from tempfile import TemporaryDirectory
-import zipfile
 
 from PySide6.QtCore import QByteArray, QEasingCurve, QItemSelectionModel, QMimeData, QSize, Qt, QThread, Signal, QVariantAnimation
 from PySide6.QtGui import QDrag, QIcon, QImage, QPixmap
@@ -11,7 +9,6 @@ from PySide6.QtWidgets import (
 )
 
 from app.ui.ui_components import setup_standard_dialog, setup_standard_primary_button, setup_standard_secondary_button
-from core.merge_documents import paged_source
 
 
 class ThumbnailLoader(QThread):
@@ -23,32 +20,31 @@ class ThumbnailLoader(QThread):
         self.paths = paths
 
     def run(self):
+        import tempfile
+        from core.craft_bridge import bridge
         try:
-            from core.pdf_engine.render import page_thumbnails
-
-            with TemporaryDirectory() as staging:
-                for index, path in enumerate(self.paths):
+            with tempfile.TemporaryDirectory(prefix="multifora-preview-") as temp:
+                for source, path in enumerate(self.paths):
                     if self.isInterruptionRequested():
                         return
-                    source = Path(path)
-                    if source.suffix.lower() == ".docx" and not zipfile.is_zipfile(source):
-                        raise ValueError(
-                            f"{source.name}: файл с расширением DOCX повреждён или имеет неверное расширение. "
-                            "Ожидается настоящий документ DOCX."
-                        )
-                    try:
-                        pdf = paged_source(path, staging, index, self.isInterruptionRequested)
-                        for number, (width, height, pixels) in enumerate(page_thumbnails(pdf, self.isInterruptionRequested)):
-                            image = QImage(pixels, width, height, width * 3, QImage.Format.Format_RGB888)
-                            self.thumbnail.emit(index, number, image.copy())
-                    except InterruptedError:
-                        raise
-                    except Exception as error:
-                        raise RuntimeError(f"Не удалось обработать «{source.name}»: {error}") from error
-        except InterruptedError:
-            pass
-        except Exception as error:
-            self.failed.emit(str(error))
+                    if Path(path).suffix.lower() == ".docx":
+                        pdf = str(Path(temp) / f"source-{source}.pdf")
+                        bridge.call("wordcraft", "convert", input=path, output=pdf)
+                    else:
+                        pdf = path
+                    count = bridge.call("pdfcraft", "page_count", input=pdf)["pages"]
+                    for page in range(count):
+                        if self.isInterruptionRequested():
+                            return
+                        png = str(Path(temp) / f"preview-{source}-{page}.png")
+                        bridge.call("pdfcraft", "render", input=pdf, output=png, page=page, dpi=36)
+                        image = QImage(png)
+                        if image.isNull():
+                            raise RuntimeError("Невозможно прочитать миниатюру")
+                        self.thumbnail.emit(source, page, image.scaled(140, 140, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+                        Path(png).unlink()
+        except Exception as exc:
+            self.failed.emit(str(exc))
 
 
 class PageList(QListWidget):
