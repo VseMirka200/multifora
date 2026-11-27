@@ -68,6 +68,7 @@ class ArtCraftCliTests(unittest.TestCase):
 
             process.communicate.side_effect = finish
             with (
+                patch("core.workers.conversion.conversion_mixin.resolve_artcraft_cli", return_value="wordcraft-cli"),
                 patch("app.core.artcraft.resolve_artcraft_cli", return_value="wordcraft-cli"),
                 patch("app.core.artcraft.subprocess.Popen", return_value=process) as popen,
                 patch("core.workers.conversion.conversion_mixin.ensure_pandoc_detected") as pandoc,
@@ -94,6 +95,7 @@ class ArtCraftCliTests(unittest.TestCase):
 
             process.communicate.side_effect = finish
             with (
+                patch("core.workers.conversion.image_conversion_mixin.resolve_artcraft_cli", return_value="photocraft-cli"),
                 patch("app.core.artcraft.resolve_artcraft_cli", return_value="photocraft-cli"),
                 patch("app.core.artcraft.subprocess.Popen", return_value=process) as popen,
             ):
